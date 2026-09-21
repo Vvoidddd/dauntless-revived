@@ -85,7 +85,7 @@ describe("IsRealProgressionAccount", () => {
         assert.equal(IsRealProgressionAccount("UID-a"), true);
         assert.equal(IsProgressionModeStub(), false);
         assert.equal(Warn.mock.callCount(), 1);
-        assert.equal(Warn.mock.calls[0].arguments[0], `PROGRESSION_MODE=yes is not "real" or "stub"; using real (the default)`);
+        assert.equal(Warn.mock.calls[0].arguments[0], `PROGRESSION_MODE=yes is not "real" or "stub"; using real (the default). Set PROGRESSION_MODE=stub for upstream's fake max ranks`);
 
         // Read again with the same value: warned once, not on every request
         IsRealProgressionAccount("UID-b");
@@ -115,6 +115,20 @@ describe("DescribeProgressionMode (the startup line)", () => {
         SetEnv("real", undefined);
 
         assert.equal(DescribeProgressionMode(), "real for every account");
+    });
+
+    it("names an unrecognised value instead of calling it the default (off used to mean stub)", () => {
+        mock.method(logger, "warn", () => {});
+
+        SetEnv("off", undefined);
+        assert.equal(DescribeProgressionMode(), "real for every account (PROGRESSION_MODE=off is not recognised)");
+
+        SetEnv("0", "UID-a");
+        assert.equal(DescribeProgressionMode(), "real for every account (PROGRESSION_MODE=0 is not recognised); PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode");
+
+        // Blank is the same as unset
+        SetEnv("  ", undefined);
+        assert.equal(DescribeProgressionMode(), "real for every account (the default)");
     });
 
     it("says that PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode", () => {

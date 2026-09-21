@@ -5,7 +5,8 @@ import { logger } from "../logger";
 // PROGRESSION_MODE=stub keeps upstream's stubs (fake max ranks, nothing stored) for
 // everyone except the accounts listed in PROGRESSION_REAL_ACCOUNTS (comma-separated
 // account ids, e.g. UID-...); that list only matters in stub mode. Any other value
-// is logged and treated as real. Real mode covers progression and objectives, Hunt
+// (off, 0, false...) is logged and treated as real; before real became the default,
+// such values meant stub. Real mode covers progression and objectives, Hunt
 // Pass, entitlements, loadout slots, cooldowns and bounties together; mixing a fake
 // GET with a real grant makes ranks jump backwards. Both variables are read from the
 // environment, so a change needs a restart.
@@ -15,6 +16,7 @@ type ModeSettings = {
     AccountsRaw: string | undefined,
     Global: boolean,
     Default: boolean,
+    Unrecognised: boolean,
     Accounts: Set<string>
 };
 
@@ -32,14 +34,15 @@ function GetSettings(){
     const Known = Mode === "" || Mode === "stub" || Mode === "real";
 
     if(!Known){
-        logger.warn(`PROGRESSION_MODE=${ModeRaw} is not "real" or "stub"; using real (the default)`);
+        logger.warn(`PROGRESSION_MODE=${ModeRaw} is not "real" or "stub"; using real (the default). Set PROGRESSION_MODE=stub for upstream's fake max ranks`);
     }
 
     Settings = {
         ModeRaw: ModeRaw,
         AccountsRaw: AccountsRaw,
         Global: Mode !== "stub",
-        Default: Mode !== "real" && Mode !== "stub",
+        Default: Mode === "",
+        Unrecognised: !Known,
         Accounts: new Set((AccountsRaw ?? "").split(",").map((Id) => Id.trim()).filter((Id) => Id.length > 0))
     };
 
@@ -67,7 +70,9 @@ export function DescribeProgressionMode(){
 
     const Ignored = Current.Accounts.size > 0 ? "; PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode" : "";
 
-    return `real for every account${Current.Default ? " (the default)" : ""}${Ignored}`;
+    const Why = Current.Default ? " (the default)" : Current.Unrecognised ? ` (PROGRESSION_MODE=${Current.ModeRaw} is not recognised)` : "";
+
+    return `real for every account${Why}${Ignored}`;
 }
 
 export function IsProgressionModeStub(){
