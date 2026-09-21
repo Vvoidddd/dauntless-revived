@@ -10,7 +10,7 @@ export async function HandleMatchmakingRequest(GameMode: string, GameArgs: strin
     else if(GameMode === "SHARED"){
         if (HuntId != undefined && HuntId.trim().length > 0){
             if(HuntId == "ShatteredIsles_TrainingDojo"){
-                return GetTrainingDojoConnectionDetails();
+                return await GetTrainingDojoConnectionDetails();
             }
         }
     }

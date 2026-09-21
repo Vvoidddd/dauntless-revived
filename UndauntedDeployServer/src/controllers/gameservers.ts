@@ -145,7 +145,22 @@ export function GetRamsgateConnectionDetails(){
     };
 }
 
-export function GetTrainingDojoConnectionDetails(){
+// The Dojo is started on demand the first time someone is matchmade into it,
+// rather than at boot. It is a full game process that most sessions never
+// visit, and on a single home PC that memory matters. Concurrent first
+// requests share one launch instead of racing to start two.
+let TrainingDojoStarting: Promise<Gameserver> | undefined;
+
+export async function GetTrainingDojoConnectionDetails(){
+    if (TrainingDojoServer == undefined) {
+        if (TrainingDojoStarting == undefined) {
+            logger.info("Starting the Training Dojo on demand");
+            TrainingDojoStarting = StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true)
+                .finally(() => { TrainingDojoStarting = undefined; });
+        }
+        TrainingDojoServer = await TrainingDojoStarting;
+    }
+
     return {
         host: MY_IP,
         port: TrainingDojoServer.port
@@ -253,5 +268,9 @@ export async function Startup(){
 
     RamsgateServer = await StartServer(RAMSGATE_MAP_PATH, undefined, undefined, undefined, true, false);
 
-    TrainingDojoServer = await StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true);
+    // Upstream always started the Dojo here. Opt back in with ENABLE_DOJO=1 on
+    // a machine with RAM to spare; otherwise it starts on first use.
+    if (process.env.ENABLE_DOJO === "1") {
+        TrainingDojoServer = await StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true);
+    }
 }
