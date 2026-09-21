@@ -3,7 +3,7 @@ import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import progressionconfig from "../vendor/progression_config.json";
 import { UpdatePlayerActivity } from "../controllers/undauntedapi";
-import { GetServerIdentity } from "../controllers/serverstatus";
+import { GetServerIdentity, GetServerName, StatusWelcome } from "../controllers/serverstatus";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
 import { GrantEntitlementInTx, ListEntitlements, RevokeEntitlementInTx } from "../controllers/entitlements";
 import { GetSelectedHuntPass, SetSelectedHuntPass } from "../controllers/realprogression";
@@ -39,7 +39,8 @@ function MiscRoutesOn(req: any, res: any, next: any){
 // runs (roadmap 1.13, the AGPL source link). Nothing about players: this route answers anyone
 // (also through the gateway), and who is online, even just how many, is for registered players
 // only (GET /undaunted/api/ServerStatus with an account key).
-// STATUS_EXTRA=0 answers the nine fields alone, as before.
+// STATUS_EXTRA=0 answers the nine fields alone, as before. The eight texts are the in-game
+// banner: a welcome to the server by its name (SERVER_NAME), one translation per language.
 systemRouter.get("/dauntless-status", (req, res) => {
     logger.info("Status");
 
@@ -47,14 +48,7 @@ systemRouter.get("/dauntless-status", (req, res) => {
 
     res.json({
 	    "show-status": true,
-	    "en": "Welcome to Undaunted v0.0.5!",
-	    "fr": "Welcome to Undaunted v0.0.5!",
-	    "it": "Welcome to Undaunted v0.0.5!",
-	    "es": "Welcome to Undaunted v0.0.5!",
-	    "de": "Welcome to Undaunted v0.0.5!",
-	    "pt": "Welcome to Undaunted v0.0.5!",
-	    "ru": "Welcome to Undaunted v0.0.5!",
-	    "ja": "Welcome to Undaunted v0.0.5!",
+	    ...StatusWelcome(GetServerName()),
 	    ...Extra
     });
 });

@@ -269,7 +269,7 @@ export class FakeMetagame {
 
   handle(req: http.IncomingMessage, res: http.ServerResponse): void {
     const url = new URL(req.url ?? "/", "http://x");
-    if (url.pathname === "/dauntless-status") return this.json(res, 200, { "show-status": true, en: "Welcome to Undaunted v0.0.5!" });
+    if (url.pathname === "/dauntless-status") return this.json(res, 200, { "show-status": true, en: "Welcome to Dauntless Revived!" });
     if (url.pathname === "/undaunted/api/ServerStatus") {
       if (this.opts.statusMissing) return this.json(res, 404, {});
       // Like the metagame: the player list only for a known account key, never a 401.

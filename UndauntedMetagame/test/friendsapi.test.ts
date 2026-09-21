@@ -325,10 +325,105 @@ describe("GET /dauntless-status", () => {
         process.env.STATUS_EXTRA = "0";
 
         try{
-            assert.deepEqual(Object.keys((await Call("GET", "/dauntless-status")).json), ["show-status", "en", "fr", "it", "es", "de", "pt", "ru", "ja"]);
+            const Reply = await Call("GET", "/dauntless-status");
+            assert.deepEqual(Object.keys(Reply.json), ["show-status", "en", "fr", "it", "es", "de", "pt", "ru", "ja"]);
+            assert.equal(Reply.json.en, "Welcome to Dauntless Revived!");
         }
         finally{
             delete process.env.STATUS_EXTRA;
+        }
+    });
+
+    // The banner the game draws: a welcome to the server by its name, translated for each
+    // language the client asks for, with no version (upstream sent "Welcome to Undaunted v0.0.5!"
+    // in English under every key)
+    it("welcomes the player to the server by name, in each of the client's languages", async () => {
+        const Saved = process.env.SERVER_NAME;
+
+        try{
+            delete process.env.SERVER_NAME;
+            const Default = (await Call("GET", "/dauntless-status")).json;
+
+            assert.deepEqual(StatusTexts(Default), {
+                en: "Welcome to Dauntless Revived!",
+                fr: "Bienvenue sur Dauntless Revived !",
+                it: "Ti diamo il benvenuto su Dauntless Revived!",
+                es: "¡Te damos la bienvenida a Dauntless Revived!",
+                de: "Willkommen bei Dauntless Revived!",
+                pt: "Boas-vindas ao Dauntless Revived!",
+                ru: "Добро пожаловать в Dauntless Revived!",
+                ja: "Dauntless Revivedへようこそ！"
+            });
+            assert.equal(Default.name, "Dauntless Revived");
+
+            // Every language has its own text, none of them carries a version number
+            const Texts = Object.values(StatusTexts(Default));
+            assert.equal(new Set(Texts).size, Texts.length);
+            for(const Text of Texts){
+                assert.doesNotMatch(Text, /undaunted|\d+\.\d+/i);
+            }
+
+            process.env.SERVER_NAME = "Friday Hunts";
+            const Named = (await Call("GET", "/dauntless-status")).json;
+
+            assert.equal(Named.en, "Welcome to Friday Hunts!");
+            assert.equal(Named.de, "Willkommen bei Friday Hunts!");
+            assert.equal(Named.ja, "Friday Huntsへようこそ！");
+            assert.equal(Named.name, "Friday Hunts");
+            for(const Text of Object.values(StatusTexts(Named))){
+                assert.ok(Text.includes("Friday Hunts") && !Text.includes("Dauntless Revived"), Text);
+            }
+
+            // Only printable ASCII of SERVER_NAME is used, as for the ServerStatus name
+            process.env.SERVER_NAME = "  \u0007Night\u200bShift  ";
+            assert.equal((await Call("GET", "/dauntless-status")).json.en, "Welcome to NightShift!");
+        }
+        finally{
+            if(Saved === undefined){ delete process.env.SERVER_NAME; } else { process.env.SERVER_NAME = Saved; }
+        }
+    });
+});
+
+function StatusTexts(Reply: any){
+    const Texts: Record<string, string> = {};
+
+    for(const Language of ["en", "fr", "it", "es", "de", "pt", "ru", "ja"]){
+        assert.equal(typeof Reply[Language], "string", Language);
+        Texts[Language] = Reply[Language];
+    }
+
+    return Texts;
+}
+
+describe("GET /product/skus/public", () => {
+    it("tells the player the store is not available, in plain English", async () => {
+        const Reply = await Call("GET", "/product/skus/public", { token: Friend.token });
+
+        assert.equal(Reply.status, 400);
+        assert.deepEqual(Reply.json, { code: "400", message: "The store is not available on Dauntless Revived yet." });
+    });
+});
+
+// Nothing a player or the launcher is shown names upstream's product. Routes and headers
+// (/undaunted/api/..., x-undaunted-...) are wire identifiers, not text anyone reads.
+describe("player-visible replies", () => {
+    it("never say Undaunted", async () => {
+        const Calls: [string, { key?: string, token?: string }][] = [
+            ["/dauntless-status", {}],
+            ["/dauntless-status", { token: Friend.token }],
+            ["/product/skus/public", { token: Friend.token }],
+            ["/undaunted/api/ServerStatus", {}],
+            ["/undaunted/api/ServerStatus", { key: Friend.key }],
+            ["/undaunted/api/GetUserInfo", { key: Friend.key }],
+            ["/undaunted/api/UsernameAvailable?Username=Someone_New", {}],
+            ["/accountinfo", { token: Friend.token }],
+            ["/character", { token: Friend.token }]
+        ];
+
+        for(const [Path, Options] of Calls){
+            const Reply = await Call("GET", Path, Options);
+            assert.ok(Reply.status < 500, `${Path}: ${Reply.status}`);
+            assert.doesNotMatch(Reply.text.replace(/\/undaunted\/api\//gi, "/"), /undaunted/i, Path);
         }
     });
 });

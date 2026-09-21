@@ -105,6 +105,6 @@ storeRouter.get("/product/skus/public", HasUndauntedMetagameAuth, async (req: an
     res.status(400);
     res.json({
         code: "400",
-        message: "Undaunted does not support the store (yet)"
+        message: "The store is not available on Dauntless Revived yet."
     });
 });

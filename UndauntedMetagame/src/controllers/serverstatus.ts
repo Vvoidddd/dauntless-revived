@@ -140,11 +140,35 @@ function CleanCommit(Value: unknown){
     return Text != undefined && /^[0-9A-Za-z._+-]+$/.test(Text) ? Text : undefined;
 }
 
+// SERVER_NAME (printable ASCII, at most 64 characters), or "Dauntless Revived"
+export function GetServerName(){
+    return CleanText(process.env.SERVER_NAME, 64) ?? DEFAULT_SERVER_NAME;
+}
+
+// The in-game status banner (GET /dauntless-status): the client shows the text for its own
+// language, so each one is a real translation, not the English copied. The server's name is
+// ASCII (see CleanText) and goes in as it is; French takes a plain space before "!" rather
+// than a no-break space, which the game's fonts might not have.
+export type StatusLanguage = "en" | "fr" | "it" | "es" | "de" | "pt" | "ru" | "ja";
+
+export function StatusWelcome(Name: string): Record<StatusLanguage, string> {
+    return {
+        en: `Welcome to ${Name}!`,
+        fr: `Bienvenue sur ${Name} !`,
+        it: `Ti diamo il benvenuto su ${Name}!`,
+        es: `¡Te damos la bienvenida a ${Name}!`,
+        de: `Willkommen bei ${Name}!`,
+        pt: `Boas-vindas ao ${Name}!`,
+        ru: `Добро пожаловать в ${Name}!`,
+        ja: `${Name}へようこそ！`
+    };
+}
+
 export function GetServerIdentity(){
     const Build = ReadBuildInfo();
 
     return {
-        name: CleanText(process.env.SERVER_NAME, 64) ?? DEFAULT_SERVER_NAME,
+        name: GetServerName(),
         version: CleanText(process.env.SERVER_VERSION, 32) ?? CleanText(Build.version, 32) ?? ReadPackageVersion() ?? "unknown",
         commit: CleanCommit(process.env.GIT_COMMIT) ?? CleanCommit(Build.commit) ?? "unknown",
         sourceUrl: CleanText(process.env.SOURCE_URL, 256) ?? DEFAULT_SOURCE_URL
