@@ -5,6 +5,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("api", {
     MigrateLegacyUndauntedInstall: () => ipcRenderer.invoke("MigrateLegacyUndauntedInstall"),
+    SelectExistingUndauntedInstall: () => ipcRenderer.invoke("SelectExistingUndauntedInstall"),
     PatchUndauntedInstall: () => ipcRenderer.invoke("PatchUndauntedInstall"),
     DownloadAndInstallUndaunted: (ApiKey: string) => ipcRenderer.send("DownloadAndInstallUndaunted"),
     OnDownloadUpdate: (callback: any) => {

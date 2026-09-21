@@ -10,9 +10,11 @@ import { kill } from 'node:process';
 
 const DAUNTLESS_144_EXE_HASH = "d3d41e614908d2befd518b27046d9822d6130ef12ba3504babbdb786bef9cff4";
 const DAUNTLESS_144_BASEGAME_ZIP_HASH = "556b9a648a5e5e7e11b6f8dd3d80ff8e88fceb0d3448297aaf47ce7bf756bc6d";
+const DXGI_DLL_HASH = "9a431d7b6fd20c43fa92bebd91c3bc023ec7a3fcbc52871c41f4df293d4b0d1f";
+const INTERNAL_SERVER_DLL_HASH = "520ec588a0554e374b2b0d084cd7f7f08d59a9cb80362679845719d64a0d0933";
 const BYTES_REQUIRED_TO_INSTALL = 25 * 1024 * 1024 * 1024; // 25 GB
 const BASE_GAME_CDN_LINK = "https://undauntedcdn.nyc3.cdn.digitaloceanspaces.com/BaseGame144.zip"; // TODO: Swap to cdn.stayundaunted.com
-const CONST_LAUNCH_ARGS = ["-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode", "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol", "-epicuserid=useridlol", "-epiclocale=en-US", "-epicsandboxid=sandboxidlol", "-epicdeploymentid=deploymentidlol"];
+const CONST_LAUNCH_ARGS = ["-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode", "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol", "-epicuserid=useridlol", "-epiclocale=en-US", "-culture=en", "-epicsandboxid=sandboxidlol", "-epicdeploymentid=deploymentidlol"];
 // Let self-hosters point the launcher at their own metagame. The local fork
 // uses 61000; the old launcher hard-coded either upstream or development port
 // 60000, so merely starting it could never reach this installation.
@@ -313,9 +315,52 @@ function PatchUndauntedInstall(){
   const DxgiDest = path.join(DauntlessWin64Path, "dxgi.dll");
   const UndauntedInternalServerDest = path.join(DauntlessWin64Path, "UndauntedInternalServer.dll");
 
+  if(HashFile(DxgiInResources) !== DXGI_DLL_HASH || HashFile(UndauntedInternalServerInResource) !== INTERNAL_SERVER_DLL_HASH){
+    return false;
+  }
+
   copyFileSync(DxgiInResources, DxgiDest);
   copyFileSync(UndauntedInternalServerInResource, UndauntedInternalServerDest);
 
+  return true;
+}
+
+function FindWin64Folder(SelectedDirectory: string): string | undefined {
+  const Candidates = [
+    SelectedDirectory,
+    path.join(SelectedDirectory, "Archon", "Binaries", "Win64"),
+    path.join(SelectedDirectory, "Dauntless", "Archon", "Binaries", "Win64"),
+  ];
+
+  return Candidates.find((Candidate) => existsSync(path.join(Candidate, "Dauntless-Win64-Shipping.exe")));
+}
+
+async function SelectExistingUndauntedInstall(){
+  const DialogResult = dialog.showOpenDialogSync({
+    properties: ["openDirectory"],
+    title: "Select your Dauntless 1.4.4 folder (BaseGame144, Dauntless, or Win64)",
+  });
+
+  if(DialogResult?.length !== 1){
+    return false;
+  }
+
+  const Win64Folder = FindWin64Folder(DialogResult[0]);
+  if(Win64Folder == undefined || !(await ValidateWin64Path(Win64Folder))){
+    dialog.showErrorBox(
+      "Unsupported Dauntless installation",
+      "The selected folder does not contain the verified Dauntless 1.4.4 client. Select BaseGame144, Dauntless, or Archon\\Binaries\\Win64."
+    );
+    return false;
+  }
+
+  DauntlessWin64Path = Win64Folder;
+  if(!PatchUndauntedInstall()){
+    dialog.showErrorBox("Launcher files failed verification", "The required launcher DLLs could not be verified or copied.");
+    return false;
+  }
+
+  WriteDataFile();
   return true;
 }
 
@@ -468,7 +513,11 @@ async function DownloadAndInstallUndaunted(){
 }
 
 function RunUndaunted(){
-  const DauntlessProcess = spawn(path.join(DauntlessWin64Path!, "Dauntless-Win64-Shipping.exe"), [METAGAME_BASE_URL, `-AUTH_PASSWORD=${UndauntedUserAPIKey!}`, ...CONST_LAUNCH_ARGS]);
+  const DauntlessProcess = spawn(
+    path.join(DauntlessWin64Path!, "Dauntless-Win64-Shipping.exe"),
+    [METAGAME_BASE_URL, `-AUTH_PASSWORD=${UndauntedUserAPIKey!}`, ...CONST_LAUNCH_ARGS],
+    {cwd: DauntlessWin64Path!}
+  );
 
   DauntlessPID = DauntlessProcess.pid!;
 }
@@ -566,6 +615,10 @@ ipcMain.handle("MigrateLegacyUndauntedInstall", async () => {
   else{
     console.log("Failed");
   }
+});
+
+ipcMain.handle("SelectExistingUndauntedInstall", async () => {
+  return await SelectExistingUndauntedInstall();
 });
 
 ipcMain.handle("PatchUndauntedInstall", async () => {

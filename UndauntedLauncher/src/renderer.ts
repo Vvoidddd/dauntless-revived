@@ -314,6 +314,14 @@ async function UpdateState(SetState: string | undefined){
 }
 
 const SelectInstallLocationButton = document.getElementById("selectinstallfolderbutton");
+const UseExistingInstallButton = document.getElementById("useexistinginstallbutton");
+
+UseExistingInstallButton?.addEventListener("click", async () => {
+  const Selected = await window.api.SelectExistingUndauntedInstall();
+  if(Selected){
+    await UpdateState(undefined);
+  }
+});
 
 SelectInstallLocationButton?.addEventListener("click", async () => {
   window.api.DownloadAndInstallUndaunted();
