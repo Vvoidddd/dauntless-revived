@@ -16,8 +16,9 @@ const config: ForgeConfig = {
     appBundleId: "io.github.mixutin.dauntlessrevived",
     appCopyright: "Dauntless Revived contributors. Free software under the GNU AGPL-3.0.",
     icon: "assets/icon",
-    // The two pinned DLLs the game needs, and the window icon. Nothing else ships outside the asar.
-    extraResource: ["assets/dxgi.dll", "assets/UndauntedInternalServer.dll", "assets/icon.png"],
+    // The two pinned DLLs the game needs, the window icon, and the license texts of the third-party
+    // software the launcher and the DLLs include. Nothing else ships outside the asar.
+    extraResource: ["assets/dxgi.dll", "assets/UndauntedInternalServer.dll", "assets/icon.png", "THIRD-PARTY-NOTICES.txt"],
     win32metadata: {
       CompanyName: "Dauntless Revived",
       FileDescription: "Dauntless Revived Launcher",

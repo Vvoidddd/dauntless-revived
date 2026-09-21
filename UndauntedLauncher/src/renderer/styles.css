@@ -404,6 +404,74 @@ button:disabled {
   color: var(--text);
 }
 
+/* Credits and the GitHub button, under the language switch. */
+.rail-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rail-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.rail-link[aria-current="page"] {
+  background: rgba(255, 122, 47, 0.14);
+  color: var(--text);
+}
+
+.rail-link .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.rail-link[aria-current="page"] .icon {
+  color: var(--ember-hi);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.icon-btn .mark {
+  width: 18px;
+  height: 18px;
+}
+
 /* ------------------------------------------------------------------ world: hero + stage + panel */
 
 .world {
@@ -1860,6 +1928,93 @@ button:disabled {
   font-size: 12px;
   color: var(--text-mute);
   margin: 0;
+}
+
+/* Credits page */
+.credit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.credit {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.credit-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  background: var(--ink-700);
+  color: var(--text);
+}
+
+.credit-avatar.role-maintainer,
+.credit-avatar.role-creator {
+  color: var(--ember-ink);
+  background: linear-gradient(160deg, var(--gold), var(--ember));
+}
+
+.credit-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.credit-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.credit-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.credit-handle {
+  color: var(--text-mute);
+  font-size: 12.5px;
+}
+
+.credit-role.role-maintainer,
+.credit-role.role-creator {
+  color: var(--gold);
+  border-color: rgba(255, 207, 122, 0.4);
+}
+
+.credit-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.software {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.software:first-child {
+  border-top: 0;
+}
+
+.software-license {
+  color: var(--aether);
+  border-color: rgba(62, 230, 211, 0.4);
 }
 
 /* Register page: whether the invite code goes with the registration, set apart from the hint above. */

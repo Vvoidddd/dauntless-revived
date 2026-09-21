@@ -2,8 +2,9 @@
 // small set of calls in preload.ts. It has no network access of its own: news, art and status
 // all come through the main process.
 
-import { $, emblem, forceRender, h, icon, renderRegion, s, type IconName } from "./dom";
+import { $, emblem, forceRender, githubMark, h, icon, renderRegion, s, type IconName } from "./dom";
 import { isStringKey, translate, type StringKey } from "../shared/i18n";
+import { localized, PROJECT_PEOPLE, SOFTWARE, UPSTREAM_PEOPLE, type CreditPerson, type CreditRole } from "../shared/credits";
 import { parseInvite } from "../shared/invite";
 import { checkUsername, extractAccountKey } from "../shared/username";
 import { graphicsKey, primaryButton, shortFile, stepIndex, taskView, updateReason, whereKey } from "../shared/ui-model";
@@ -11,7 +12,8 @@ import { formatBytes, formatDate, formatDuration, formatRunningTime } from "../s
 import { sortInstances, type InstanceKind, type ServerStatus, type StatusInstance } from "../shared/status";
 import { GRAPHICS_PRESETS, type Branding, type ExternalTarget, type GraphicsPreset, type LauncherError, type NewsItem, type Snapshot, type TaskProgress } from "../shared/types";
 
-type View = "play" | "news" | "server" | "settings";
+type View = "play" | "news" | "server" | "settings" | "credits";
+const VIEWS: readonly View[] = ["play", "news", "server", "settings", "credits"];
 type Modal =
   | { kind: "invite"; link: string; name: string; host: string; mode: "public" | "private"; fp: string | null }
   // A public invite whose certificate is not the one this PC's key for that server belongs to.
@@ -1042,7 +1044,7 @@ function renderSettings(): void {
         linkButton(t("about_source"), () => open("project_source"), { icon: "external", fk: "about-src" }),
         linkButton(t("about_license_link"), () => open("project_license"), { icon: "external", fk: "about-lic" }),
       ),
-      h("p", { class: "small-print" }, t("about_credits")),
+      h("div", { class: "card-row" }, h("span", { class: "small-print" }, t("about_credits")), linkButton(t("nav_credits"), () => setView("credits"), { fk: "about-credits" })),
       h("p", { class: "small-print" }, t("about_disclaimer")),
       h("p", { class: "small-print" }, snap.app.packaged ? t("about_auto_updates") : t("about_dev_build")),
       snap.app.updateReady ? h("div", { class: "card-row" }, button(t("update_restart"), () => void api.installUpdate(), { cls: "btn-ember", fk: "about-update", disabled: snap.game.running })) : null,
@@ -1050,6 +1052,105 @@ function renderSettings(): void {
 
     return [h("div", { class: "page" }, h("h1", { class: "page-title", id: "settings-title" }, t("set_title")), game, graphics, language, account, about)];
   });
+}
+
+// ------------------------------------------------------------------ credits page
+
+const ROLE_KEY: Record<CreditRole, StringKey> = {
+  maintainer: "credits_role_maintainer",
+  creator: "credits_role_creator",
+  contributor: "credits_role_contributor",
+};
+
+function creditPeople(people: readonly CreditPerson[]): HTMLElement {
+  return h(
+    "ul",
+    { class: "credit-list" },
+    ...people.map((p) =>
+      h(
+        "li",
+        { class: "credit" },
+        h("span", { class: `credit-avatar role-${p.role}`, "aria-hidden": "true" }, Array.from(p.name)[0]?.toUpperCase() ?? "?"),
+        h(
+          "div",
+          { class: "credit-text" },
+          h(
+            "div",
+            { class: "credit-head" },
+            h("span", { class: "credit-name" }, p.name),
+            h("span", { class: `badge credit-role role-${p.role}` }, t(ROLE_KEY[p.role])),
+            p.github !== p.name ? h("span", { class: "credit-handle" }, t("credits_github_handle", { handle: p.github })) : null,
+          ),
+          h("p", { class: "credit-note" }, localized(p.note, state.lang)),
+        ),
+      ),
+    ),
+  );
+}
+
+function creditSoftware(): HTMLElement {
+  return h(
+    "ul",
+    { class: "credit-list software-list" },
+    ...SOFTWARE.map((sw) =>
+      h(
+        "li",
+        { class: "software" },
+        h(
+          "div",
+          { class: "credit-head" },
+          h("span", { class: "credit-name" }, sw.name),
+          h("span", { class: "credit-handle" }, localized(sw.author, state.lang)),
+          h("span", { class: "badge software-license" }, sw.license ?? t("credits_no_license")),
+        ),
+        h("p", { class: "credit-note" }, localized(sw.note, state.lang)),
+      ),
+    ),
+  );
+}
+
+function renderCredits(): void {
+  const container = $("#view-credits");
+  renderRegion(container, JSON.stringify([state.lang]), () => [
+    h(
+      "div",
+      { class: "page" },
+      h("h1", { class: "page-title", id: "credits-title" }, t("credits_title")),
+      h("p", { class: "page-sub" }, t("credits_intro")),
+      card(
+        "settings-section",
+        h("h2", { class: "card-title" }, "Dauntless Revived"),
+        h("p", { class: "card-text" }, t("credits_project_text")),
+        creditPeople(PROJECT_PEOPLE),
+        h("div", { class: "card-row" }, linkButton(t("credits_all_contributors"), () => open("project_contributors"), { icon: "external", fk: "cr-contributors" })),
+      ),
+      card(
+        "settings-section",
+        h("h2", { class: "card-title" }, "Undaunted"),
+        h("p", { class: "card-text" }, t("credits_upstream_text")),
+        creditPeople(UPSTREAM_PEOPLE),
+        h(
+          "div",
+          { class: "card-row" },
+          linkButton(t("credits_upstream_source"), () => open("upstream_source"), { icon: "external", fk: "cr-upstream" }),
+          linkButton(t("credits_upstream_contributors"), () => open("upstream_contributors"), { icon: "external", fk: "cr-upstream-contributors" }),
+        ),
+      ),
+      card("settings-section", h("h2", { class: "card-title" }, t("credits_software")), h("p", { class: "card-text" }, t("credits_software_text")), creditSoftware()),
+      card(
+        "settings-section",
+        h("h2", { class: "card-title" }, t("credits_license_title")),
+        h("p", { class: "card-text" }, t("credits_license_text")),
+        h(
+          "div",
+          { class: "card-row" },
+          linkButton(t("github_link"), () => open("project_source"), { icon: "external", fk: "cr-source" }),
+          linkButton(t("about_license_link"), () => open("project_license"), { icon: "external", fk: "cr-license" }),
+        ),
+        h("p", { class: "small-print" }, t("credits_phoenix")),
+      ),
+    ),
+  ]);
 }
 
 // ------------------------------------------------------------------ banners
@@ -1142,15 +1243,19 @@ function renderRail(): void {
   for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>("#lang-switch .lang-btn"))) {
     b.setAttribute("aria-pressed", b.dataset.lang === state.lang ? "true" : "false");
   }
+  const credits = $("#credits-btn");
+  if (state.view === "credits") credits.setAttribute("aria-current", "page");
+  else credits.removeAttribute("aria-current");
 }
 
 function setView(v: View): void {
   state.view = v;
   if (v === "news") state.newsSeen = true;
-  for (const n of NAV) $(`#view-${n.view}`).hidden = n.view !== v;
+  for (const view of VIEWS) $(`#view-${view}`).hidden = view !== v;
   $("#actionbar").hidden = false;
-  // The Server page shows everything the side panel shows, in full: no need for both.
-  $(".world").classList.toggle("no-panel", v === "server");
+  // The Server page shows everything the side panel shows, in full: no need for both. The Credits
+  // page is long lists of names and gets the room too.
+  $(".world").classList.toggle("no-panel", v === "server" || v === "credits");
   renderAll();
   const heading = document.querySelector<HTMLElement>(`#view-${v} h1`);
   heading?.setAttribute("tabindex", "-1");
@@ -1166,6 +1271,7 @@ function applyStaticI18n(): void {
   usernameInput.placeholder = t("reg_placeholder");
   keyInput.placeholder = t("reg_key_placeholder");
   $("#win-max").setAttribute("aria-label", t(state.maximized ? "window_restore" : "window_maximize"));
+  $("#github-btn").title = t("github_link");
 }
 
 function renderAll(): void {
@@ -1178,6 +1284,7 @@ function renderAll(): void {
   if (state.view === "news") renderNews();
   if (state.view === "server") renderServer();
   if (state.view === "settings") renderSettings();
+  if (state.view === "credits") renderCredits();
   renderActionBar();
   renderPanel();
 }
@@ -1481,6 +1588,13 @@ function initChrome(): void {
   for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>("#lang-switch .lang-btn"))) {
     b.addEventListener("click", () => void api.setSettings({ language: b.dataset.lang === "fi" ? "fi" : "en" }));
   }
+  // Credits and the GitHub button: in the rail, so they are there on every page, invite or not.
+  const credits = $("#credits-btn");
+  credits.prepend(icon("heart"));
+  credits.addEventListener("click", () => setView("credits"));
+  const github = $("#github-btn");
+  github.appendChild(githubMark());
+  github.addEventListener("click", () => open("project_source"));
   document.addEventListener("visibilitychange", () => void api.setStatusPolling(!document.hidden));
   window.setInterval(() => {
     renderPanel();

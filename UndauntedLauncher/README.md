@@ -24,6 +24,10 @@ launcher (`UndauntedContent/data/dauntless-1.4.4.json`). A server that offers an
 4. Press **INSTALL** (about 11 GB). You can pause, close the launcher and continue later.
 5. Press **PLAY**.
 
+At the bottom of the left-hand rail, on every page (also before you join a server), the GitHub
+button opens this repository in your browser, and **Credits** lists the people who made the launcher
+and the server, the open-source software they use, and the license.
+
 ## Two kinds of server
 
 | | Private (invite v1) | Public (invite v2) |
@@ -57,7 +61,9 @@ that come from a web page.
   process through a small typed API (`src/preload.ts`), and every argument is checked again.
 - Strict Content-Security-Policy. Images come only from the app itself or from the host's art pack,
   fetched by the main process over the pinned connection and served through an internal scheme.
-- Navigation and new windows are blocked. Links open in the browser only from a fixed allow-list.
+- Navigation and new windows are blocked. Links open in the browser only from a fixed allow-list:
+  the page names a link (such as `project_source`), never a URL, and the main process opens that
+  link's fixed URL (`src/main/links.ts`).
 - The account key is stored only with Windows DPAPI (`safeStorage`). It is never shown, never written
   to a plain file except the backup you choose to save, and masked in the log.
 - The key goes only to the invite's host (in public mode only over the pinned connection): with the
@@ -85,7 +91,8 @@ npm run make        # installer and zip in out/make/
 `npm test -- relay` runs only the test files whose name contains "relay". The tests cover invite
 parsing, the relay (pinned certificate, wrong certificate, headers, bodies, streaming, keep-alive,
 WebSocket), downloads (resume, verify, repair) over plain HTTP and pinned TLS, Engine.ini, launch
-arguments and the whole public-mode flow through the controller. They make throwaway self-signed
+arguments, the links the launcher may open, the Credits page's data and the whole public-mode flow
+through the controller. They make throwaway self-signed
 certificates in a temp folder.
 
 `DAUNTLESS_REVIVED_RELAY_PORT` moves the relay off 61000 for rehearsals on a PC where 61000 is
@@ -119,3 +126,7 @@ only brings `launcher-updates` up to it. Keep GitHub's immutable releases settin
 
 AGPL-3.0-only. Based on the Undaunted launcher by gwog (Gregory Morford) and contributors. An
 unofficial fan project, not affiliated with or endorsed by Phoenix Labs or Epic Games.
+
+The license texts of the third-party software in the launcher and its two DLLs (among them MinHook,
+Electron and the GitHub Octicons mark) ship with it in `THIRD-PARTY-NOTICES.txt`. The Credits page
+reads its list from `src/shared/credits.ts`.

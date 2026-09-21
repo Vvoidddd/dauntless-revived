@@ -27,6 +27,10 @@ Palvelin, joka tarjoaa jotain muuta, hylätään.
 4. Paina **ASENNA** (noin 11 Gt). Voit pitää tauon, sulkea käynnistimen ja jatkaa myöhemmin.
 5. Paina **PELAA**.
 
+Vasemman reunan palkin alaosassa, joka sivulla (myös ennen kuin liityt palvelimelle), GitHub-painike
+avaa tämän repositorion selaimeen, ja **Tekijät** kertoo, ketkä tekivät käynnistimen ja palvelimen,
+mitä avoimen lähdekoodin ohjelmistoja ne käyttävät ja millä lisenssillä.
+
 ## Kaksi palvelintyyppiä
 
 | | Yksityinen (kutsu v1) | Julkinen (kutsu v2) |
@@ -61,7 +65,8 @@ käynnissä. Välitin kuuntelee vain osoitteessa 127.0.0.1 ja hylkää verkkosiv
 - Tiukka Content-Security-Policy. Kuvat tulevat vain sovelluksesta itsestään tai ylläpitäjän
   kuvapaketista, jonka pääprosessi hakee lukitulla yhteydellä.
 - Siirtymät ja uudet ikkunat on estetty. Linkit avautuvat selaimeen vain kiinteältä sallittujen
-  listalta.
+  listalta: sivu nimeää linkin (esimerkiksi `project_source`), ei koskaan anna osoitetta, ja
+  pääprosessi avaa linkin kiinteän osoitteen (`src/main/links.ts`).
 - Tiliavain tallennetaan vain Windowsin DPAPI:lla (`safeStorage`). Sitä ei näytetä, sitä ei kirjoiteta
   tavalliseen tiedostoon (paitsi itse tallentamaasi varmuuskopioon), ja se peitetään lokissa.
 - Avain lähetetään vain kutsun palvelimelle (julkisessa tilassa vain lukitun yhteyden kautta): tilin
@@ -118,3 +123,7 @@ päivitetään paikallaan.
 
 AGPL-3.0-only. Perustuu gwogin (Gregory Morford) ja muiden tekijöiden Undaunted-käynnistimeen.
 Epävirallinen faniprojekti, jolla ei ole yhteyttä Phoenix Labsiin tai Epic Gamesiin.
+
+Käynnistimen ja sen kahden DLL:n sisältämien kolmansien osapuolten ohjelmistojen (muun muassa
+MinHook, Electron ja GitHub Octicons -logo) lisenssitekstit tulevat sen mukana tiedostossa
+`THIRD-PARTY-NOTICES.txt`. Tekijät-sivu lukee luettelonsa tiedostosta `src/shared/credits.ts`.
