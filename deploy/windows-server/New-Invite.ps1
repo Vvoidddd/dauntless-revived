@@ -168,9 +168,11 @@ try {
         Write-Host '  port forwarding. Send it privately (it lets one person create an account).'
         Write-Host ''
         Write-Host "  Launcher: $($DRRepo.Url)/releases/latest  (DauntlessRevivedLauncher-Setup.exe)"
-        Write-Host '  Windows may warn that the app is unrecognised: More info > Run anyway. Keep the launcher open'
-        Write-Host '  while playing. A friend who already has an account chooses "I already have an account key" and'
-        Write-Host '  pastes their account.key instead of registering.'
+        Write-Host '  Windows may warn that the app is unrecognised: More info > Run anyway. If it only offers'
+        Write-Host '  "Don''t run": check the file''s SHA-256 (Get-FileHash) against SHA256SUMS.txt from the same'
+        Write-Host '  release, then right-click the file > Properties > Unblock, or run Unblock-File on it.'
+        Write-Host '  Keep the launcher open while playing. A friend who already has an account chooses'
+        Write-Host '  "I already have an account key" and pastes their account.key instead of registering.'
     } elseif ($ShareUrl) {
         Write-Host '  The invite includes your Tailscale share link. The friend accepts it with their own Tailscale account.'
     } else {

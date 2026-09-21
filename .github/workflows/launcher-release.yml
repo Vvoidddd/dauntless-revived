@@ -318,7 +318,11 @@ jobs:
             \`gh attestation verify <file> --repo ${GH_REPO}\`.
 
           The launcher is not code-signed yet, so Windows SmartScreen may ask you to confirm
-          (More info, then Run anyway). Installed launchers update themselves.
+          (More info, then Run anyway). If Windows only offers "Don't run", check the file's SHA-256
+          against \`SHA256SUMS.txt\` from this release (\`Get-FileHash <file>\` in PowerShell; letter
+          case does not matter; if they differ, delete the file), then unblock it: right-click the
+          file > Properties > Unblock, or \`Unblock-File <file>\` in PowerShell. Installed launchers
+          update themselves.
 
           Free software under the GNU AGPL-3.0. No game files are included: the launcher downloads
           them from your host's server and checks every file against the list built into it.
