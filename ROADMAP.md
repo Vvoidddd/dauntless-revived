@@ -272,7 +272,11 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Why:** friends use the modified server over the network, so they are owed its source. This is not legal advice.
   - **Done when:** `/dauntless-status` shows the source URL and the running commit.
 
-- [ ] **1.14 Friend package v1** (M)
+- [ ] **1.14 Friend package v1** (M) — *Built 2026-09-21 in `friend-kit/`, packaged by `tools/make-friend-kit.ps1`:*
+  - *`Setup.cmd` checks the zip, the exe and the DLL hashes and the VC++ runtime, installs the DLLs, checks that the host answers, registers once and stores the key without printing it.*
+  - *`Play Dauntless.cmd` re-checks the hashes, points the game's chat (XMPP) at the host instead of Epic, and launches.*
+  - *The zip carries `LICENSE`, `SOURCE.txt` (repository and exact commit), the MinHook notice and `SHA256SUMS`.*
+  - *Tested against a mock server with 9 cases, including DLL replacement and "no key printed". It hasn't been tried by a real friend yet (needs 1.3–1.6).*
   - **What the zip contains:** `Play.cmd` and `Play.ps1`, the two DLLs, `SHA256SUMS`, `LICENSE`, the MinHook notice, `NOTICE` and a README. No game files.
   - **What `Play.ps1` does:**
     1. Asks for the friend's own 1.4.4 folder and checks the exe hash (`d3d41e61…cff4`).
