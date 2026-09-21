@@ -374,9 +374,9 @@ undauntedApiRouter.get("/Progression", HasUndauntedAdminApiKey, async (req, res)
 
 // Roadmap 2.13, per account: {UserId, Mode: "grandfather" | "fresh"}. grandfather puts
 // every track at its max rank, fully confirmed (looks like the stub, grants nothing);
-// fresh puts every track at 0 and clears the objectives. The account only reads
-// these rows once it is in real mode (PROGRESSION_REAL_ACCOUNTS or PROGRESSION_MODE=real).
-// Do it while the player is offline.
+// fresh puts every track at 0 and clears the objectives. The account reads these rows
+// in real mode, which is the default (with PROGRESSION_MODE=stub, only the accounts in
+// PROGRESSION_REAL_ACCOUNTS do). Do it while the player is offline.
 undauntedApiRouter.post("/SeedProgression", HasUndauntedAdminApiKey, async (req: any, res) => {
     const UserId = req.body?.UserId;
     const Mode = req.body?.Mode;

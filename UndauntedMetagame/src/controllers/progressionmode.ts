@@ -1,18 +1,20 @@
 import { logger } from "../logger";
 
-// Which accounts get real progression. PROGRESSION_MODE=stub (the default) keeps
-// the upstream stubs for everyone: fake max ranks, nothing stored. An account is in
-// real mode when PROGRESSION_MODE=real, or when it is listed in
-// PROGRESSION_REAL_ACCOUNTS (comma-separated account ids, e.g. UID-...). Real mode
-// covers progression and objectives, Hunt Pass, entitlements, loadout slots,
-// cooldowns and bounties together; mixing a fake GET with a real grant makes ranks
-// jump backwards. Both variables are read from the environment, so a change needs
-// a restart.
+// Which accounts get real progression. Real is the default: with PROGRESSION_MODE
+// unset, empty or "real", every account stores and reads its own progression.
+// PROGRESSION_MODE=stub keeps upstream's stubs (fake max ranks, nothing stored) for
+// everyone except the accounts listed in PROGRESSION_REAL_ACCOUNTS (comma-separated
+// account ids, e.g. UID-...); that list only matters in stub mode. Any other value
+// is logged and treated as real. Real mode covers progression and objectives, Hunt
+// Pass, entitlements, loadout slots, cooldowns and bounties together; mixing a fake
+// GET with a real grant makes ranks jump backwards. Both variables are read from the
+// environment, so a change needs a restart.
 
 type ModeSettings = {
     ModeRaw: string | undefined,
     AccountsRaw: string | undefined,
     Global: boolean,
+    Default: boolean,
     Accounts: Set<string>
 };
 
@@ -27,15 +29,17 @@ function GetSettings(){
     }
 
     const Mode = (ModeRaw ?? "").trim().toLowerCase();
+    const Known = Mode === "" || Mode === "stub" || Mode === "real";
 
-    if(Mode !== "" && Mode !== "stub" && Mode !== "real"){
-        logger.warn(`PROGRESSION_MODE=${ModeRaw} is not "stub" or "real"; using stub`);
+    if(!Known){
+        logger.warn(`PROGRESSION_MODE=${ModeRaw} is not "real" or "stub"; using real (the default)`);
     }
 
     Settings = {
         ModeRaw: ModeRaw,
         AccountsRaw: AccountsRaw,
-        Global: Mode === "real",
+        Global: Mode !== "stub",
+        Default: Mode !== "real" && Mode !== "stub",
         Accounts: new Set((AccountsRaw ?? "").split(",").map((Id) => Id.trim()).filter((Id) => Id.length > 0))
     };
 
@@ -52,8 +56,19 @@ export function IsRealProgressionAccount(AccountId: unknown){
     return Current.Global || Current.Accounts.has(AccountId);
 }
 
+// For the startup log line "Progression mode: ..."
 export function DescribeProgressionMode(){
     const Current = GetSettings();
 
-    return Current.Global ? "real for every account" : `stub, real for ${Current.Accounts.size} listed account(s)`;
+    if(!Current.Global){
+        return `stub (upstream's fake max ranks, nothing stored), real for ${Current.Accounts.size} listed account(s)`;
+    }
+
+    const Ignored = Current.Accounts.size > 0 ? "; PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode" : "";
+
+    return `real for every account${Current.Default ? " (the default)" : ""}${Ignored}`;
+}
+
+export function IsProgressionModeStub(){
+    return !GetSettings().Global;
 }

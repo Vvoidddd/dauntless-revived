@@ -132,9 +132,9 @@ export const loadouthistory = sqliteTable("loadouthistory", {
     index("loadouthistory_character").on(table.characterId, table.id)
 ]);
 
-// Real progression. Only accounts in real mode (PROGRESSION_MODE /
-// PROGRESSION_REAL_ACCOUNTS) read or write the tables below; everyone else
-// keeps the upstream stubs.
+// Real progression. Only accounts in real mode read or write the tables below:
+// every account by default, or with PROGRESSION_MODE=stub only the accounts in
+// PROGRESSION_REAL_ACCOUNTS (everyone else keeps the upstream stubs).
 
 // One row per account and track. progress is the total XP; the earned ranks are
 // worked out from vendor/progression_config.json exactly like the client does.

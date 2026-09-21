@@ -1,8 +1,9 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, exists, notExists, sql } from "drizzle-orm";
 import { GetDb } from "../db";
-import { huntpassselection, objectives, progresstracks } from "../db/schema";
+import { characters, huntpassselection, objectives, progressionevents, progresstracks, users } from "../db/schema";
 import { logger } from "../logger";
 import { HasActiveEntitlement } from "./entitlements";
+import { IsProgressionModeStub } from "./progressionmode";
 import { Caller, DoesAccountExist, IsPlainObject, ParsePathInteger, ReadField, ReadInteger, RealReply, RecordProgressionEvent } from "./progressionevents";
 import { ComputeEarnedRanks, GetProgressionPath, GetProgressionPaths, INT32_MAX, MaxRankId, PremiumGatingEntitlement, ProgressionPath, TotalXpToMaxRank } from "./progressionrank";
 import { Tx } from "./savehistory";
@@ -550,7 +551,8 @@ function SeedTrack(Path: ProgressionPath, Current: TrackRow | undefined, Mode: S
 // Admin seed (roadmap 2.13), per account. grandfather: every configured track at its
 // max rank and confirmed there, which looks like the stub and grants nothing.
 // fresh: every configured track at 0 and the stored objectives cleared. Does not
-// switch the account to real mode (that is PROGRESSION_REAL_ACCOUNTS).
+// change the account's mode: real is the default, and with PROGRESSION_MODE=stub only
+// the accounts in PROGRESSION_REAL_ACCOUNTS read these rows.
 export function SeedProgression(AccountId: string, Mode: SeedMode, Admin: string): RealReply{
     const Route = "admin SeedProgression";
 
@@ -586,4 +588,36 @@ export function SeedProgression(AccountId: string, Mode: SeedMode, Admin: string
 
         return {Status: 200, Body: Tracks};
     });
+}
+
+// Accounts that have played (they own a character) but have never been served by real
+// progression: no stored track and no progression event. On a server that ran in stub
+// mode before real progression became the default, these are the players who drop from
+// upstream's fake max ranks to Slayer level 1. Seeding an account stores its tracks, so
+// it is no longer counted.
+export function CountPlayersWithoutRealProgression(): number{
+    const Db = GetDb();
+    const Row = Db.select({Count: sql<number>`count(*)`}).from(users).where(and(
+        exists(Db.select({One: sql`1`}).from(characters).where(eq(characters.userId, users.userId))),
+        notExists(Db.select({One: sql`1`}).from(progresstracks).where(eq(progresstracks.accountId, users.userId))),
+        notExists(Db.select({One: sql`1`}).from(progressionevents).where(eq(progressionevents.accountId, users.userId)))
+    )).get();
+
+    return Number(Row?.Count ?? 0);
+}
+
+// Startup warning for the upgrade from stub mode (roadmap 2.13). Nothing is migrated
+// here: the admin decides per account (SeedProgression), or keeps PROGRESSION_MODE=stub.
+export function ProgressionUpgradeNotice(): string | undefined{
+    if(IsProgressionModeStub()){
+        return undefined;
+    }
+
+    const Count = CountPlayersWithoutRealProgression();
+
+    if(Count === 0){
+        return undefined;
+    }
+
+    return `${Count} player account(s) have no stored progression yet: they start at Slayer level 1 with an empty Hunt Pass, not upstream's fake max ranks. Nothing was migrated. To keep max ranks for a player, seed them before they play (admin POST /undaunted/api/SeedProgression with Mode "grandfather"); PROGRESSION_MODE=stub brings the fake ranks back for everyone. See the upgrade notes (docs/setup/upgrading.md).`;
 }

@@ -4,6 +4,7 @@ import { DrainAndRegisterUserAPIKeys } from "./controllers/auth";
 import { GetDb } from "./db";
 import { logger } from "./logger";
 import { DescribeProgressionMode } from "./controllers/progressionmode";
+import { ProgressionUpgradeNotice } from "./controllers/realprogression";
 import { CheckGatewayConfig } from "./middleware/RequestOrigin";
 
 const PORT = Number(process.env.PORT);
@@ -46,6 +47,14 @@ DrainAndRegisterAPIKeys().then(async () => {
     }
     logger.info(`Undaunted Metagame on ${BIND_HOST}:${PORT}`);
     logger.info(`Progression mode: ${DescribeProgressionMode()}`);
+    try {
+      const UpgradeNotice = ProgressionUpgradeNotice();
+      if (UpgradeNotice !== undefined) {
+        logger.warn(UpgradeNotice);
+      }
+    } catch (error) {
+      logger.warn(error, "Could not count the accounts without stored progression");
+    }
     if (Gateway.Enabled) {
       logger.info(`Public mode: behind the gateway (player addresses from loopback callers that carry the gateway secret)`);
     }
