@@ -43,4 +43,5 @@ THE DLLs
 
 SOURCE CODE (AGPL-3.0)
   The server you connect to runs modified Undaunted code. You have the right to its source:
-  see SOURCE.txt in this kit for the repository and the exact version.
+  see SOURCE.txt in this kit for the repository and the exact version. THIRD-PARTY-NOTICES.txt
+  holds the licence notices for code inside the DLLs; SHA256SUMS.txt lists every file's hash.

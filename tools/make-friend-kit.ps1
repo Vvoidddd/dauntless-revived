@@ -19,7 +19,7 @@ $Stage = Join-Path $Out "DauntlessRevived-FriendKit"
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
 New-Item -ItemType Directory -Force (Join-Path $Stage "dll") | Out-Null
 
-foreach ($f in "setup.ps1", "play.ps1", "Setup.cmd", "Play Dauntless.cmd", "README.txt") {
+foreach ($f in "setup.ps1", "play.ps1", "Setup.cmd", "Play Dauntless.cmd", "README.txt", "THIRD-PARTY-NOTICES.txt") {
   Copy-Item -LiteralPath (Join-Path $Repo "friend-kit\$f") -Destination $Stage
 }
 foreach ($name in $Pinned.Keys) {
@@ -37,6 +37,10 @@ Copy-Item -LiteralPath (Join-Path $Repo "LICENSE.txt") -Destination $Stage
   "",
   "Based on Undaunted (https://github.com/SyST3MDeV/Undaunted), AGPL-3.0."
 ) | Set-Content -LiteralPath (Join-Path $Stage "SOURCE.txt") -Encoding ASCII
+
+Get-ChildItem -LiteralPath $Stage -Recurse -File | Sort-Object FullName | ForEach-Object {
+  "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.FullName.Substring($Stage.Length + 1).Replace('\', '/'))"
+} | Set-Content -LiteralPath (Join-Path $Stage "SHA256SUMS.txt") -Encoding ASCII
 
 $zip = Join-Path $Out "DauntlessRevived-FriendKit-$($commit.Substring(0, 7)).zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }

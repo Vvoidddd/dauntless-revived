@@ -71,6 +71,12 @@ foreach ($name in "dxgi.dll", "UndauntedInternalServer.dll") {
   Ok "$name installed and checked"
 }
 
+$missing = @("MSVCP140.dll", "VCRUNTIME140_1.dll") | Where-Object { -not (Test-Path (Join-Path $env:WINDIR "System32\$_")) }
+if ($missing) {
+  Write-Host "   !!  Missing $($missing -join ', '): install the Microsoft Visual C++ 2015-2022 Redistributable (x64)" -ForegroundColor Yellow
+  Write-Host "       from https://aka.ms/vs/17/release/vc_redist.x64.exe  - the game's server DLL needs it." -ForegroundColor Yellow
+} else { Ok "Visual C++ runtime present" }
+
 # 3. Can we reach the host?
 Step "Contacting the host at $Backend"
 $port = [int]($Backend -split ":")[-1]
