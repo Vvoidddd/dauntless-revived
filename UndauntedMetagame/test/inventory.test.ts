@@ -39,6 +39,25 @@ describe("ApplyStackedChanges", () => {
         assert.deepEqual(Stacks, [Stack("ORB", 3)]);
     });
 
+    it("reports a pure spend (an upgrade) so the game server's cached counts go down", () => {
+        const Stacks = [Stack("NOTES", 1060), Stack("ORB", 7)];
+        const Result = ApplyStackedChanges(Stacks, [Stack("NOTES", 40), Stack("ORB", 7)], [], false);
+
+        assert.deepEqual(Stacks, [Stack("NOTES", 1020)]);
+        assert.deepEqual(Result.Touched, [Stack("NOTES", 1020), Stack("ORB", 0)]);
+    });
+
+    it("with INVENTORY_REPORT_REMOVALS=0 reports only additions, as upstream did", () => {
+        process.env.INVENTORY_REPORT_REMOVALS = "0";
+        try{
+            const Result = ApplyStackedChanges([Stack("NOTES", 1060), Stack("ORB", 7)], [Stack("NOTES", 40), Stack("ORB", 7)], [Stack("NEW", 1)], false);
+            assert.deepEqual(Result.Touched, [Stack("NEW", 1)]);
+        }
+        finally{
+            delete process.env.INVENTORY_REPORT_REMOVALS;
+        }
+    });
+
     it("lets a transaction spend what it grants: 0 held, add 5, remove 2 leaves 3", () => {
         const Stacks: any[] = [];
         const Result = ApplyStackedChanges(Stacks, [Stack("ORB", 2)], [Stack("ORB", 5)], true);
@@ -82,12 +101,12 @@ describe("ApplyStackedChanges", () => {
         assert.throws(() => ApplyStackedChanges([], [Stack("ORB", 1)], [], true), /only 0 held/);
     });
 
-    it("removes the stack at exactly 0, merges additions, reports only additions", () => {
+    it("removes the stack at exactly 0, merges additions, reports every touched stack with its final count", () => {
         const Stacks = [Stack("ORB", 3), Stack("NOTES", 10)];
         const Result = ApplyStackedChanges(Stacks, [Stack("ORB", 3), Stack("NOTES", 4)], [Stack("NOTES", 1), Stack("NEW", 2)], true);
 
         assert.deepEqual(Stacks, [Stack("NOTES", 7), Stack("NEW", 2)]);
-        assert.deepEqual(Result.Touched, [Stack("NOTES", 7), Stack("NEW", 2)]);
+        assert.deepEqual(Result.Touched, [Stack("NOTES", 7), Stack("NEW", 2), Stack("ORB", 0)]);
         assert.deepEqual(Result.Log.map((Entry) => [Entry.operation, Entry.catalogId, Entry.quantityChange, Entry.quantityAfter]), [
             ["remove", "ORB", -3, 0],
             ["remove", "NOTES", -4, 6],
@@ -243,7 +262,7 @@ describe("RunInventoryTransaction", () => {
 
         assert.ok(Result.success);
         assert.deepEqual(ReadStacks(CharacterId), [Stack("REWARD", 3)]);
-        assert.deepEqual(JSON.parse(JSON.stringify(Result.data!.response.updatedStackedItems)), [Stack("REWARD", 3)]);
+        assert.deepEqual(JSON.parse(JSON.stringify(Result.data!.response.updatedStackedItems)), [Stack("REWARD", 3), Stack("ORB", 0), Stack("NEVER_HELD", 0)]);
     });
 
     it("keeps the reply shape: echoed lists stay as sent, missing ones stay missing", async () => {

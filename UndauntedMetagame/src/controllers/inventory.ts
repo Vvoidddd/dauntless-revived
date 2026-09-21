@@ -123,8 +123,8 @@ export function IsOverspendRefused(){
 // Applies removals then additions to StackedItems in place, in the order the
 // transaction lists them (the order the old code used). A removal may spend what
 // the same transaction adds: the part the stack can't cover is taken after the
-// additions. Returns the stacks the client should be told about (additions only,
-// as before), the log entries and the overspends. An overspend is a removal of
+// additions. Returns the stacks the client should be told about (every touched stack
+// with its final count; see the end of the function), the log entries and the overspends. An overspend is a removal of
 // more than held plus added; with RefuseOverspend it throws InventoryInsufficientError
 // before anything is changed, otherwise it is clamped at 0 as before.
 export function ApplyStackedChanges(StackedItems: any[], StackedItemsToRemove: any[], StackedItemsToAdd: any[], RefuseOverspend: boolean){
@@ -213,6 +213,20 @@ export function ApplyStackedChanges(StackedItems: any[], StackedItemsToRemove: a
         }
 
         Log.push({operation: "remove", catalogId: CatalogId, quantityChange: -Taken, quantityAfter: Math.max(After, 0)});
+    }
+
+    // Upstream only reported added stacks, so the game server never learned that a
+    // removal had happened: its cached count stayed at the old value (Rams shown
+    // unchanged after an upgrade) and it allowed further upgrades with materials the
+    // player no longer had. Report every touched stack with its final count instead,
+    // quantity 0 for a stack that was used up. INVENTORY_REPORT_REMOVALS=0 restores
+    // the old additions-only reply.
+    if(process.env.INVENTORY_REPORT_REMOVALS !== "0"){
+        const Final: any[] = [];
+        for(const CatalogId of new Set([...Added.keys(), ...Wanted.keys()])){
+            Final.push(StackedItems.find((Item) => Item.catalogId === CatalogId) ?? {catalogId: CatalogId, quantity: 0});
+        }
+        return {Touched: Final, Log, Overspent};
     }
 
     return {Touched, Log, Overspent};
