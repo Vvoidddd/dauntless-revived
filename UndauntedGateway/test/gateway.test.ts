@@ -347,6 +347,40 @@ describe("gateway over TLS", () => {
         }
     });
 
+    it("passes the account key on ServerStatus to the metagame unchanged (registered players get the player list) and never logs it", async () => {
+        const Start = Log.lines.length;
+        // A key that does not look like one (no UUK_ prefix, short enough to escape the long-token
+        // pattern): it stays out of the log only because headers are never logged at all.
+        const OddKey = "k3y-" + crypto.randomBytes(8).toString("hex");
+        const Cases: [string, string, string][] = [["GET", "/undaunted/api/ServerStatus", FAKE_KEY], ["GET", "/undaunted/api/serverstatus", OddKey], ["HEAD", "/undaunted/api/ServerStatus", FAKE_KEY]];
+        for(const [Method, Path, Key] of Cases){
+            const Before = Meta.seen.length;
+            const Reply = await HttpsRequest(P.gateway, Path, { method: Method, headers: { "X-Undaunted-User-Api-Key": Key } });
+            assert.equal(Reply.status, 200, `${Method} ${Path}`);
+            assert.equal(Meta.seen.length, Before + 1, `${Method} ${Path} reached the metagame`);
+            const Seen = Meta.seen[Meta.seen.length - 1];
+            assert.deepEqual([Seen.method, Seen.url], [Method, Path]);
+            assert.equal(Seen.headers["x-undaunted-user-api-key"], Key, "forwarded byte for byte");
+            assert.equal(Seen.headers["x-dauntless-gateway"], Config.secret);
+            assert.equal(Seen.headers["x-forwarded-for"], "127.0.0.1");
+        }
+        // Without a key the metagame gets no key header (it answers the limited status)
+        const Anonymous = await HttpsRequest(P.gateway, "/undaunted/api/ServerStatus");
+        assert.equal(Anonymous.status, 200);
+        assert.equal(Meta.seen[Meta.seen.length - 1].headers["x-undaunted-user-api-key"], undefined);
+
+        const Lines = Log.lines.slice(Start);
+        assert.equal(Lines.filter((Line) => Line.entry.msg === "request").length, Cases.length + 1);
+        const Text = Lines.map((Line) => Line.raw).join("\n");
+        for(const Secret of [FAKE_KEY, OddKey, Config.secret]){
+            assert.ok(!Text.includes(Secret), `the log contains ${Secret.slice(0, 6)}...`);
+        }
+        assert.doesNotMatch(Text, /x-undaunted-user-api-key/i, "no header names or values in the access log");
+        for(const Line of Lines.filter((Line) => Line.entry.msg === "request")){
+            assert.deepEqual(Object.keys(Line.entry).filter((Key) => !["t", "level", "msg", "ip", "method", "target", "route", "status", "bytesIn", "bytesOut", "ms", "ua"].includes(Key)), [], "an access-log line grew a field");
+        }
+    });
+
     it("proxies WebSocket upgrades to the websocket upstream byte for byte", async () => {
         const Result = await Upgrade(P.gateway, "/xmpp?room=ramsgate", { "Sec-WebSocket-Protocol": "xmpp" });
         assert.equal(Result.status, 101);

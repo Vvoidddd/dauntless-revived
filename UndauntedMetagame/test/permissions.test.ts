@@ -239,7 +239,7 @@ const EXPECTED_ROUTES = [
     "GET /undaunted/api/UsernameAvailable []",
     "POST /undaunted/api/CreateInvite [HasUndauntedAdminApiKey]",
     "POST /undaunted/api/RenameUser [HasUndauntedAdminApiKey]",
-    "GET /undaunted/api/ServerStatus []",
+    "GET /undaunted/api/ServerStatus [SoftAccountAuth]",
     "GET /undaunted/api/GetUserInfo [HasUndauntedUserApiKey]",
     "GET /undaunted/api/PrivateOnlineStats [HasUndauntedAdminApiKey]",
     "GET /undaunted/api/PublicOnlineStats [HasUndauntedUserApiKey]",
@@ -486,7 +486,17 @@ describe("game-server key and the gateway", () => {
         assert.equal(Login.status, 200);
         assert.equal(typeof Login.json.access_token, "string");
 
-        assert.equal((await Call("GET", "/undaunted/api/ServerStatus", { headers: VIA_GATEWAY })).status, 200);
+        // ServerStatus: the player list only for a registered player's key (an admin's too: it is
+        // not an admin route); without one, or with a wrong one, the limited answer, never a 401
+        for(const Headers of [VIA_GATEWAY, { ...VIA_GATEWAY, "x-undaunted-user-api-key": "UUK_not_a_real_key_00000000" }]){
+            const Anonymous = await Call("GET", "/undaunted/api/ServerStatus", { headers: Headers });
+            assert.deepEqual([Anonymous.status, Anonymous.json?.limited, Anonymous.json?.playersOnline, Anonymous.json?.players], [200, true, 0, []]);
+        }
+        for(const Key of [Players[A].Key, Registered.json.UUK, Players[ADMIN].Key]){
+            const Full = await Call("GET", "/undaunted/api/ServerStatus", { key: Key, headers: VIA_GATEWAY });
+            assert.deepEqual([Full.status, Full.json?.limited], [200, false]);
+            assert.ok(Full.json.players.some((Player: any) => Player.name === "UID_real_a"), "A's heartbeat is listed");
+        }
         assert.equal((await Call("GET", "/QoS", { headers: VIA_GATEWAY })).status, 200);
         assert.equal((await Call("GET", "/candidate/regions", { as: A, headers: VIA_GATEWAY })).json.payload.regionUrls[0], "http://127.0.0.1:61000/QoS");
     });

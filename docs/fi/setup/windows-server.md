@@ -299,7 +299,7 @@ Nämä ajetaan palvelimella (SSH:n kautta: `ssh -i <avain> Administrator@<palvel
 |:--------|:--------------|
 | `C:\DauntlessRevived\bin\Stack.ps1 status` | Jokainen osa prosesseineen ja portteineen, yhdyskäytävän TLS-tarkistus, sallittujen lista, pelipalvelimet, ajastetut tehtävät ja viimeisin varmuuskopio. |
 | `Stack.ps1 stop` / `start` / `restart` | Pysäyttää tai käynnistää kaiken ajastettujen tehtävien kautta. Pysäytys sulkee myös peliportit. `restart -Only gateway` käynnistää yhden osan uudelleen. |
-| `Get-ServerStatus.ps1` | Ketkä ovat paikalla ja mitkä maailmat ja metsästykset ovat käynnissä, kysyttynä yhdyskäytävän kautta kuten kaveri kysyisi. Omalta koneelta: `Get-ServerStatus.ps1 -Invite '<kutsurivi>'`. |
+| `Get-ServerStatus.ps1` | Ketkä ovat paikalla ja mitkä maailmat ja metsästykset ovat käynnissä, kysyttynä yhdyskäytävän kautta kuten kaveri kysyisi. Palvelin näyttää listan vain rekisteröityneille pelaajille, joten skripti kysyy omistajan avaimella (aja se järjestelmänvalvojana). Omalta koneelta: `Get-ServerStatus.ps1 -Invite '<kutsurivi>' -KeyFile <oma account.key>`. Ilman avainta se kertoo, että lista on piilotettu. |
 | `Backup-DauntlessServer.ps1` | Varmuuskopio heti (tehdään myös tunnin välein sekä jokaisen käynnistyksen ja pysäytyksen yhteydessä). |
 | `Update-DauntlessServer.ps1 -Ref <tagi>` | Uusi palvelinkoodi, katso alta. |
 
@@ -313,6 +313,14 @@ vaihtaa uuteen ja tarkistaa, että metagame vastaa ja yhdyskäytävä vastaa kut
 tarkistus ei onnistu kolmessa minuutissa, se palaa itse edelliseen versioon.
 `Update-DauntlessServer.ps1 -Rollback` tekee saman käsin. Asetuksiin, avaimiin, varmenteeseen ja
 pelitiedostoihin ei kosketa; niitä varten aja asennus uudelleen.
+
+**Pelaajalista on vain rekisteröityneille pelaajille: käynnistin ensin.** Palvelin näyttää paikalla
+olijat vain kysyjälle, jolla on tiliavain, ja käynnistin lähettää pelaajan avaimen nähdäkseen listan.
+Ennen tätä muutosta julkaistut käynnistimet eivät lähetä avainta. Muutoksen sisältävää palvelinta
+vasten ne näyttävät "0 pelaajaa paikalla" ja "Yhtään maailmaa ei ole nyt käynnissä.", kunnes ne
+päivittävät itsensä. Kun päivität palvelimen vanhemmasta versiosta, tee se vasta, kun muutoksen
+sisältävä käynnistin on julkaistu, tai kerro kavereille, että luku on väärin, kunnes heidän
+käynnistimensä on päivittynyt.
 
 ### Varmuuskopiot
 

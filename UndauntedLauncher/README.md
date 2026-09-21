@@ -54,6 +54,12 @@ that come from a web page.
 - Navigation and new windows are blocked. Links open in the browser only from a fixed allow-list.
 - The account key is stored only with Windows DPAPI (`safeStorage`). It is never shown, never written
   to a plain file except the backup you choose to save, and masked in the log.
+- The key goes only to the invite's host (in public mode only over the pinned connection): with the
+  account check, the downloads and the server status. The server shows who is online to registered
+  players only, so before you register the server panel says to sign in instead of listing anyone.
+  Launchers released before that change send no key and do not know that answer: against a server
+  that has it they show 0 players online and no worlds until they update themselves. Update a server
+  from an older version only after the launcher release with the change is out.
 - Electron fuses: no `ELECTRON_RUN_AS_NODE`, no `NODE_OPTIONS`, no inspector flags, app code only
   from the integrity-checked asar.
 - The two DLLs the game needs ship with the launcher and are checked against pinned hashes before

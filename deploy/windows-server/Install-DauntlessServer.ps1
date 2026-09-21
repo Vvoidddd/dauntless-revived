@@ -1533,11 +1533,11 @@ try {
     Write-Host '  Next:'
     if ($Public) {
         Write-Host "    1. Make an invite:    $($P.Bin)\New-Invite.ps1 -For <name>"
-        Write-Host "    2. See who is online: $($P.Bin)\Get-ServerStatus.ps1"
+        Write-Host "    2. See who is online: $($P.Bin)\Get-ServerStatus.ps1  (as administrator: it asks with the owner key)"
     } else {
         Write-Host "    1. Share this machine with each friend in Tailscale (admin console > Machines > $TailscaleHostname > Share)."
         Write-Host "    2. Make an invite:    $($P.Bin)\New-Invite.ps1 -For <name> [-ShareUrl <share link> -SaveShareUrl]"
-        Write-Host "    3. See who is online: $($P.Bin)\Get-ServerStatus.ps1"
+        Write-Host "    3. See who is online: $($P.Bin)\Get-ServerStatus.ps1  (as administrator: it asks with the owner key)"
     }
     Write-Host "    Status / restart:     $($P.Bin)\Stack.ps1 status | restart"
     if (-not $Sandbox -and -not $InteractiveSession) {

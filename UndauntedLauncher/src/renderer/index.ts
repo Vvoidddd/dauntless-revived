@@ -832,6 +832,15 @@ function renderPanel(): void {
     if (!status) {
       return [head, h("p", { class: "sp-empty" }, reachable && snap.statusUnsupported ? t("sp_unsupported") : t("sp_waiting")), panelFoot(null)];
     }
+    // The server shows who is online to registered players only: say so instead of an empty list
+    // (and no "0 players", no "no worlds running", which would not be true).
+    if (status.limited) {
+      return [
+        head,
+        h("div", { class: "sp-section" }, h("div", { class: "sp-section-title" }, t("server_players"), icon("people")), h("p", { class: "sp-empty" }, t("sp_signin"))),
+        panelFoot(status),
+      ];
+    }
     const instances = sortInstances(status.instances);
     return [
       head,
@@ -933,7 +942,9 @@ function renderServer(): void {
       h("p", { class: "page-sub" }, t("server_auto")),
       card("", kv, h("div", { class: "card-row", style: undefined }, button(t("sp_refresh"), () => void api.refreshStatus(), { icon: "refresh", fk: "srv-refresh" }), status?.sourceUrl ? linkButton(t("sp_source"), () => open("server_source"), { icon: "external", fk: "srv-source" }) : null)),
     ];
-    if (status) {
+    if (status?.limited) {
+      parts.push(card("", h("h2", { class: "card-title" }, t("server_players")), h("p", { class: "card-text" }, t("sp_signin"))));
+    } else if (status) {
       const instances = sortInstances(status.instances);
       parts.push(
         h(

@@ -9,8 +9,18 @@ import { GetOnlinePlayerActivity, IsRegistrationMode, REGISTRATION_MODE } from "
 import { GetLastMatchmakingResult } from "./matchmaking";
 
 // GET /undaunted/api/ServerStatus: who is online and which game servers run, for the
-// friend launcher. No auth, so nothing in it may identify an account beyond its
-// username: no account ids, keys, tokens or addresses.
+// friend launcher. Nothing in it may identify an account beyond its username: no
+// account ids, keys, tokens or addresses.
+//
+// Two variants, same JSON shape (the owner's decision: the live player list is for
+// registered players only):
+// - "full" for a registered player (a valid account key or player token, see
+//   middleware/SoftAccountAuth.ts): players, per-server counts and game servers,
+//   "limited": false.
+// - "limited" for everyone else: the server's name, version, source, registration
+//   mode, content port and uptime, with playersOnline 0, players [], instances [] and
+//   "limited": true. It never asks the deploy server or reads player activity.
+// Each variant has its own 5 s cache.
 //
 // Accuracy (best effort):
 // - "Online" is a client heartbeat in the last 90 s, so a player who quits stays
@@ -67,8 +77,11 @@ export type ServerStatus = {
     players: StatusPlayer[],
     instances: StatusInstance[],
     contentPort: number | null,
-    uptimeSeconds: number
+    uptimeSeconds: number,
+    limited: boolean
 };
+
+export type StatusVariant = "full" | "limited";
 
 const DEFAULT_SERVER_NAME = "Dauntless Revived";
 const DEFAULT_SOURCE_URL = "https://github.com/mixutin/dauntless-revived";
@@ -370,6 +383,15 @@ export async function BuildServerStatus(): Promise<ServerStatus> {
         };
     });
 
+    return StatusWith(Players, Instances, false);
+}
+
+// For callers that are not registered players: the same shape with no one listed
+export function BuildLimitedServerStatus(): ServerStatus {
+    return StatusWith([], [], true);
+}
+
+function StatusWith(Players: StatusPlayer[], Instances: StatusInstance[], Limited: boolean): ServerStatus {
     const Identity = GetServerIdentity();
 
     return {
@@ -383,33 +405,42 @@ export async function BuildServerStatus(): Promise<ServerStatus> {
         players: Players,
         instances: Instances,
         contentPort: ContentPort(),
-        uptimeSeconds: Math.floor(process.uptime())
+        uptimeSeconds: Math.floor(process.uptime()),
+        limited: Limited
     };
 }
 
-// Answers from a 5 s cache; callers polling at once share one build
-let Cached: { At: number, Status: ServerStatus } | undefined;
-let Building: Promise<ServerStatus> | undefined;
+// Each variant answers from its own 5 s cache; callers polling at once share one build.
+// Nothing about the caller (least of all a key) goes into the cache, only the variant.
+const Cached: Partial<Record<StatusVariant, { At: number, Status: ServerStatus }>> = {};
+const Building: Partial<Record<StatusVariant, Promise<ServerStatus>>> = {};
 
-export async function GetServerStatus(): Promise<ServerStatus> {
-    if(Cached != undefined && Date.now() - Cached.At < CACHE_MS){
-        return Cached.Status;
+export async function GetServerStatus(Variant: StatusVariant): Promise<ServerStatus> {
+    const Hit = Cached[Variant];
+
+    if(Hit != undefined && Date.now() - Hit.At < CACHE_MS){
+        return Hit.Status;
     }
 
-    if(Building == undefined){
-        Building = BuildServerStatus()
+    let Pending = Building[Variant];
+
+    if(Pending == undefined){
+        Pending = (Variant === "full" ? BuildServerStatus() : Promise.resolve(BuildLimitedServerStatus()))
             .then((Status) => {
-                Cached = { At: Date.now(), Status: Status };
+                Cached[Variant] = { At: Date.now(), Status: Status };
                 return Status;
             })
             .finally(() => {
-                Building = undefined;
+                delete Building[Variant];
             });
+
+        Building[Variant] = Pending;
     }
 
-    return Building;
+    return Pending;
 }
 
 export function ClearServerStatusCache(){
-    Cached = undefined;
+    delete Cached.full;
+    delete Cached.limited;
 }

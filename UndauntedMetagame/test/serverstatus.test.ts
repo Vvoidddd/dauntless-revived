@@ -4,11 +4,15 @@ import "./authenv";
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { GetDb } from "../src/db";
-import { users } from "../src/db/schema";
-import { BehemothName, BuildServerStatus, ClassifyPlace, ClearServerStatusCache, GetServerIdentity, GetServerStatus, InstanceTitle } from "../src/controllers/serverstatus";
+import { userapikeys, users } from "../src/db/schema";
+import { BehemothName, BuildLimitedServerStatus, BuildServerStatus, ClassifyPlace, ClearServerStatusCache, GetServerIdentity, GetServerStatus, InstanceTitle } from "../src/controllers/serverstatus";
 import { GetOnlinePlayerActivity, UpdatePlayerActivity } from "../src/controllers/undauntedapi";
 import { HandlePlayerMatchmaking } from "../src/controllers/matchmaking";
+import { HashUserAPIKey, SignMetagameJWTForUid } from "../src/controllers/auth";
+import { IsRegisteredCaller, IsSoftRegisteredCaller, SoftAccountAuth } from "../src/middleware/SoftAccountAuth";
 import { FakeDeployServer, StartFakeDeployServer, ThreeServers, TUTORIAL_GAME_ARGS } from "./fakedeploy";
+
+const STATUS_KEYS = ["name", "online", "version", "commit", "sourceUrl", "registration", "playersOnline", "players", "instances", "contentPort", "uptimeSeconds", "limited"];
 
 let Fake: FakeDeployServer | undefined;
 
@@ -126,8 +130,9 @@ describe("ServerStatus", () => {
     it("lists who is where and the three servers, with titles and per-server counts", async () => {
         const Status = await BuildServerStatus();
 
-        assert.deepEqual(Object.keys(Status), ["name", "online", "version", "commit", "sourceUrl", "registration", "playersOnline", "players", "instances", "contentPort", "uptimeSeconds"]);
+        assert.deepEqual(Object.keys(Status), STATUS_KEYS);
         assert.equal(Status.online, true);
+        assert.equal(Status.limited, false);
         assert.equal(Status.playersOnline, 5);
         assert.deepEqual(Status.players, [
             { name: "Alpha", where: "city", instance: "5c0a9e36-8a51-4c1b-9d7e-1f2a3b4c5d01" },
@@ -148,19 +153,67 @@ describe("ServerStatus", () => {
 
     it("answers from a 5 s cache", async () => {
         ClearServerStatusCache();
-        const First = await GetServerStatus();
+        const First = await GetServerStatus("full");
         const Requests = Fake!.Requests.length;
 
         await UpdatePlayerActivity("UID-status-alpha", "/Game/Maps/Map_LoginMenu");
-        const [Second, Third] = await Promise.all([GetServerStatus(), GetServerStatus()]);
+        const [Second, Third] = await Promise.all([GetServerStatus("full"), GetServerStatus("full")]);
 
         assert.equal(Second, First);
         assert.equal(Third, First);
         assert.equal(Fake!.Requests.length, Requests, "no deploy-server call while cached");
 
         ClearServerStatusCache();
-        const Fresh = await GetServerStatus();
+        const Fresh = await GetServerStatus("full");
         assert.equal(Fresh.players.find((Player) => Player.name === "Alpha")?.where, "menu");
+    });
+
+    it("limited: the same shape with no players and no servers, and it never asks the deploy server", async () => {
+        ClearServerStatusCache();
+        const Requests = Fake!.Requests.length;
+        const Full = await BuildServerStatus();
+        const Limited = BuildLimitedServerStatus();
+
+        assert.equal(Fake!.Requests.length, Requests + 1, "only the full status asked the deploy server");
+        assert.deepEqual(Object.keys(Limited), STATUS_KEYS);
+        assert.deepEqual([Limited.playersOnline, Limited.players, Limited.instances, Limited.limited], [0, [], [], true]);
+        assert.ok(Full.playersOnline > 0 && Full.instances.length > 0 && Full.limited === false);
+
+        // Everything else is the same as the full answer
+        for(const Key of ["name", "online", "version", "commit", "sourceUrl", "registration", "contentPort"] as const){
+            assert.deepEqual(Limited[Key], Full[Key], Key);
+        }
+        assert.ok(Math.abs(Limited.uptimeSeconds - Full.uptimeSeconds) <= 1);
+        assert.doesNotMatch(JSON.stringify(Limited), /Alpha|bravo|Charlie|Delta|Echo|5c0a9e36|UID-/);
+    });
+
+    it("caches each variant separately: a limited answer never serves the full one's data, and the other way round", async () => {
+        ClearServerStatusCache();
+        const Requests = Fake!.Requests.length;
+
+        const [Limited, Full] = await Promise.all([GetServerStatus("limited"), GetServerStatus("full")]);
+        assert.equal(Limited.limited, true);
+        assert.equal(Limited.players.length, 0);
+        assert.equal(Full.limited, false);
+        assert.ok(Full.players.length > 0);
+
+        const [LimitedAgain, FullAgain] = await Promise.all([GetServerStatus("limited"), GetServerStatus("full"), GetServerStatus("limited")]);
+        assert.equal(LimitedAgain, Limited, "limited served from its cache");
+        assert.equal(FullAgain, Full, "full served from its cache");
+        assert.equal(Fake!.Requests.length, Requests + 1, "one deploy-server call for the full variant only");
+
+        // A fresh limited build (its cache expired) still does not touch the full one
+        const RealNow = Date.now;
+        try{
+            Date.now = () => RealNow() + 6 * 1000;
+            const Later = await GetServerStatus("limited");
+            assert.notEqual(Later, Limited);
+            assert.equal(Later.limited, true);
+            assert.equal(Fake!.Requests.length, Requests + 1);
+        }
+        finally{
+            Date.now = RealNow;
+        }
     });
 
     it("drops a heartbeat older than 90 s", async () => {
@@ -182,10 +235,76 @@ describe("ServerStatus", () => {
         Fake = undefined;
         ClearServerStatusCache();
 
-        const Status = await GetServerStatus();
+        const Status = await GetServerStatus("full");
 
         assert.deepEqual(Status.instances, []);
         assert.equal(Status.playersOnline, 5);
         assert.ok(Status.players.every((Player) => Player.instance === null));
+    });
+});
+
+// ---- Who counts as a registered player (middleware/SoftAccountAuth.ts) ----
+
+describe("SoftAccountAuth", () => {
+    const PLAYER_KEY = `UUK_${"0123456789abcdef".repeat(3)}`;
+    const ADMIN_KEY = `UUK_${"fedcba9876543210".repeat(3)}`;
+    const GONE_KEY = `UUK_${"00112233445566778899aabb".repeat(2)}`;
+
+    before(() => {
+        Account("UID-soft-player", "SoftPlayer");
+        GetDb().insert(users).values({ userId: "UID-soft-admin", name: "SoftAdmin", notes: 0, isAdmin: true }).run();
+        GetDb().insert(userapikeys).values({ userId: "UID-soft-player", keyHash: HashUserAPIKey(PLAYER_KEY) }).run();
+        GetDb().insert(userapikeys).values({ userId: "UID-soft-admin", keyHash: HashUserAPIKey(ADMIN_KEY) }).run();
+        // A key whose account no longer exists
+        GetDb().insert(userapikeys).values({ userId: "UID-soft-gone", keyHash: HashUserAPIKey(GONE_KEY) }).run();
+    });
+
+    function Request(Headers: Record<string, unknown>): any {
+        return { headers: Headers, method: "GET", path: "/undaunted/api/ServerStatus", socket: { remoteAddress: "127.0.0.1" } };
+    }
+
+    async function Run(Headers: Record<string, unknown>){
+        const Req = Request(Headers);
+        const Res: any = { status: () => { throw new Error("SoftAccountAuth must never answer"); }, send: () => { throw new Error("SoftAccountAuth must never answer"); } };
+        let Nexts = 0;
+
+        await SoftAccountAuth(Req, Res, (Error?: unknown) => {
+            assert.equal(Error, undefined);
+            Nexts++;
+        });
+
+        assert.equal(Nexts, 1);
+        return IsSoftRegisteredCaller(Req);
+    }
+
+    it("no key: anonymous", async () => {
+        assert.equal(await Run({}), false);
+        assert.equal(await IsRegisteredCaller(Request({})), false);
+    });
+
+    it("a bad key: anonymous, never a 401", async () => {
+        for(const Key of ["UUK_not_a_real_key", "", " ", PLAYER_KEY + "x", PLAYER_KEY.toUpperCase(), "UID-soft-player", GONE_KEY, "x".repeat(5000)]){
+            assert.equal(await Run({ "x-undaunted-user-api-key": Key }), false, `key of length ${Key.length}`);
+        }
+        assert.equal(await Run({ "x-undaunted-user-api-key": [PLAYER_KEY, PLAYER_KEY] }), false, "a repeated header is not a key");
+    });
+
+    it("a player's key: registered", async () => {
+        assert.equal(await Run({ "x-undaunted-user-api-key": PLAYER_KEY }), true);
+    });
+
+    it("an admin's key: registered, like any account", async () => {
+        assert.equal(await Run({ "x-undaunted-user-api-key": ADMIN_KEY }), true);
+    });
+
+    it("a player's bearer token counts; a bad token, a token for a deleted account or a bad key next to a good token do not change that", async () => {
+        const Token = SignMetagameJWTForUid("UID-soft-player");
+
+        assert.equal(await Run({ authorization: `bearer ${Token}` }), true);
+        assert.equal(await Run({ authorization: `Bearer ${Token}` }), true);
+        assert.equal(await Run({ authorization: `bearer ${Token}`, "x-undaunted-user-api-key": "UUK_wrong" }), true);
+        assert.equal(await Run({ authorization: `bearer ${Token.slice(0, -4)}AAAA` }), false, "a forged signature");
+        assert.equal(await Run({ authorization: Token }), false, "no bearer scheme");
+        assert.equal(await Run({ authorization: `bearer ${SignMetagameJWTForUid("UID-soft-deleted")}` }), false, "the account does not exist");
     });
 });

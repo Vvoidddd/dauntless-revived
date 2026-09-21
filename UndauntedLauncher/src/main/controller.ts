@@ -13,7 +13,7 @@ import { promises as fsp, existsSync } from "node:fs";
 import path from "node:path";
 import { parseInvite, isLoopbackHost, type Invite } from "../shared/invite";
 import { checkUsername, extractAccountKey } from "../shared/username";
-import type { ServerStatus } from "../shared/status";
+import { limitedView, type ServerStatus } from "../shared/status";
 import type {
   ActionResult,
   Branding,
@@ -43,6 +43,7 @@ import {
   fetchUserInfo,
   probeContent,
   registerAccount,
+  type StatusResult,
 } from "./hostapi";
 import { compareManifests, resolveInside, type GameManifest, type ManifestFile } from "./manifest";
 import { DownloadError, DownloadJob } from "./downloader";
@@ -128,6 +129,9 @@ export class Controller {
   private contentProbe: boolean | null = null;
   private hasKey = false;
   private keyRejected = false;
+  // Bumped when a ServerStatus answer already on its way may no longer be shown: logout, a new key,
+  // a forgotten or different server. See fetchStatus().
+  private statusGen = 0;
   private busy = false;
   private install: InstallInfo = { present: 0, missing: [], partFiles: 0, dllsOk: false };
   private freeSpace: number | null = null;
@@ -389,6 +393,7 @@ export class Controller {
     this.branding = null;
     this.keyRejected = false;
     this.failedPolls = 0;
+    this.statusGen++;
   }
 
   async forgetServer(): Promise<ActionResult> {
@@ -411,15 +416,17 @@ export class Controller {
     this.publish();
     try {
       this.tailscaleInstalled = sv.mode === "private" ? this.p.findTailscale() !== null : false;
-      const res = await fetchServerStatus(ep);
+      const { res, stale } = await this.fetchStatus(ep);
       this.lastCheckedAt = new Date().toISOString();
       if (res.kind === "ok" || res.kind === "unsupported") {
         this.reachable = true;
         this.connectProblem = null;
         this.failedPolls = 0;
-        this.status = res.kind === "ok" ? res.status : null;
+        // Overtaken (logout, new key, other server): the server still answers, but never show a
+        // list that was asked for with a key the launcher no longer has.
+        this.status = res.kind === "ok" ? (stale ? limitedView(res.status) : res.status) : null;
         this.statusUnsupported = res.kind === "unsupported";
-        if (res.kind === "ok") await this.rememberServerName(res.status.name);
+        if (res.kind === "ok" && !stale) await this.rememberServerName(res.status.name);
         if (sv.mode === "public") this.contentProbe = await probeContent(ep);
         await this.checkAccount();
         await this.inspectInstall();
@@ -452,6 +459,25 @@ export class Controller {
   private async refreshKeyFlag(): Promise<void> {
     const slot = this.slot();
     this.hasKey = slot ? await this.keys.has(slot) : false;
+  }
+
+  // The key sent with ServerStatus, so the server lists who is online (it shows the list to
+  // registered players only). Only this server's own key, which in public mode is bound to the
+  // invite's certificate and only ever goes over the connection pinned to it; none while the
+  // server refuses the key. Read from the key store for each request, never kept in memory.
+  private async statusKey(): Promise<string | null> {
+    const slot = this.slot();
+    if (!slot || !this.hasKey || this.keyRejected) return null;
+    return this.keys.load(slot).catch(() => null);
+  }
+
+  // ServerStatus with statusKey(). "stale" when statusGen moved while it was on its way (the user
+  // logged out, a new key was stored, the server was forgotten or changed): the answer was asked
+  // for under the old state, so a full list in it must not be shown any more.
+  private async fetchStatus(ep: Endpoint): Promise<{ res: StatusResult; stale: boolean }> {
+    const gen = this.statusGen;
+    const res = await fetchServerStatus(ep, { key: await this.statusKey() });
+    return { res, stale: gen !== this.statusGen };
   }
 
   // Confirms the stored key with GetUserInfo and refreshes the username.
@@ -504,7 +530,9 @@ export class Controller {
       if (this.connectProblem !== "cert_mismatch") await this.connect();
       return;
     }
-    const res = await fetchServerStatus(ep);
+    const { res, stale } = await this.fetchStatus(ep);
+    // Overtaken: drop it; the next poll asks again under the new state.
+    if (stale) return;
     if (res.kind === "ok") {
       this.status = res.status;
       this.statusUnsupported = false;
@@ -606,9 +634,12 @@ export class Controller {
       });
       this.hasKey = true;
       this.keyRejected = false;
+      this.statusGen++;
       log.info(`registered as ${username as string}`);
       await this.checkAccount();
       await this.inspectInstall();
+      // Now a registered player: ask again, with the key, so the player list shows at once.
+      await this.pollStatus();
       return { ok: true as const, username: username as string };
     });
   }
@@ -660,8 +691,10 @@ export class Controller {
     });
     this.hasKey = true;
     this.keyRejected = false;
+    this.statusGen++;
     log.info(`using an existing key for ${info.info.username}`);
     await this.inspectInstall();
+    await this.pollStatus();
     return OK;
   }
 
@@ -715,6 +748,10 @@ export class Controller {
     });
     this.hasKey = false;
     this.keyRejected = false;
+    // Without a key the server no longer lists who is online; stop showing the old list now, and
+    // drop any status request still on its way with the old key (it would bring the list back).
+    this.statusGen++;
+    if (this.status) this.status = limitedView(this.status);
     log.info("logged out; key removed");
     this.publish();
     return OK;

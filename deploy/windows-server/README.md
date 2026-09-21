@@ -9,7 +9,7 @@ Full guide: `docs/setup/windows-server.md` (on the site: Setup > Windows server 
 | `Install-DauntlessServer.ps1` | the server | `-Mode Public` (TLS gateway, pinned certificate, UDP allowlist) or `-Mode Private` (Tailscale). Idempotent; `-WhatIf` shows every change. |
 | `Stack.ps1` | the server | `status`, `start`, `stop`, `restart [-Only <component>]`; `supervise` runs inside the scheduled tasks. |
 | `New-Invite.ps1` | the server | Creates an invite code and prints the v2 (public) or v1 (private) invite line. |
-| `Get-ServerStatus.ps1` | anywhere | Players and running worlds, through the gateway with the pinned certificate (`-Invite '<line>'` from any PC). |
+| `Get-ServerStatus.ps1` | anywhere | Players and running worlds, through the gateway with the pinned certificate (`-Invite '<line>'` from any PC). The server lists them to registered players only: on the server the script asks with the owner key (run it as administrator), elsewhere pass `-KeyFile <account.key>`; without a key it says the list is hidden. |
 | `Update-DauntlessServer.ps1` | the server | New code, built beside the running server, switched in with a health check and automatic rollback. |
 | `Backup-DauntlessServer.ps1`, `backup-hidden.vbs` | the server | Hourly backup: database (online backup, checked), settings, keys, gateway certificate. |
 | `Receive-Upload.ps1` | the server | The server side of the chunked upload. |

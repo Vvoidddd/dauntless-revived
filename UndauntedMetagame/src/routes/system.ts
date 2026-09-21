@@ -2,7 +2,7 @@ import { Router } from "express";
 import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import progressionconfig from "../vendor/progression_config.json";
-import { GetOnlinePlayerActivity, UpdatePlayerActivity } from "../controllers/undauntedapi";
+import { UpdatePlayerActivity } from "../controllers/undauntedapi";
 import { GetServerIdentity } from "../controllers/serverstatus";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
 import { GrantEntitlementInTx, ListEntitlements, RevokeEntitlementInTx } from "../controllers/entitlements";
@@ -35,16 +35,15 @@ function MiscRoutesOn(req: any, res: any, next: any){
 }
 
 // The client reads exactly the first nine fields by name (docs/findings/backend-contract.md),
-// so the fields after them are for people and scripts: the server's name, the source it
-// runs (roadmap 1.13, the AGPL source link) and how many players are online.
+// so the fields after them are for people and scripts: the server's name and the source it
+// runs (roadmap 1.13, the AGPL source link). Nothing about players: this route answers anyone
+// (also through the gateway), and who is online, even just how many, is for registered players
+// only (GET /undaunted/api/ServerStatus with an account key).
 // STATUS_EXTRA=0 answers the nine fields alone, as before.
 systemRouter.get("/dauntless-status", (req, res) => {
     logger.info("Status");
 
-    const Extra = process.env.STATUS_EXTRA === "0" ? {} : {
-	    ...GetServerIdentity(),
-	    "playersOnline": GetOnlinePlayerActivity().length
-    };
+    const Extra = process.env.STATUS_EXTRA === "0" ? {} : GetServerIdentity();
 
     res.json({
 	    "show-status": true,

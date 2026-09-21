@@ -219,13 +219,28 @@ export interface MetagameOptions {
   validCodes?: Set<string>;
   existingUsers?: Map<string, string>; // lower-case username -> key
   statusMissing?: boolean; // behave like an older metagame without ServerStatus
+  statusForEveryone?: boolean; // behave like a metagame that lists everyone to anyone (no "limited" field)
 }
 
 export class FakeMetagame {
   readonly registrations: { username: string; code: string }[] = [];
+  // Every ServerStatus request: did it carry a key header, and was it a known account's key?
+  readonly statusCalls: { withKey: boolean; registered: boolean }[] = [];
   readonly users = new Map<string, { username: string; id: string }>(); // key -> user
   private server: http.Server | null = null;
   private counter = 0;
+  private held: { arrived: () => void; gate: Promise<void> } | null = null;
+
+  // The next ServerStatus request is answered (as of its arrival: key checked, list chosen) only
+  // after release(): for a launcher action that overtakes a status request on its way.
+  holdNextStatus(): { arrived: Promise<void>; release: () => void } {
+    let arrived!: () => void;
+    let release!: () => void;
+    const arrivedP = new Promise<void>((r) => (arrived = r));
+    const gate = new Promise<void>((r) => (release = r));
+    this.held = { arrived, gate };
+    return { arrived: arrivedP, release };
+  }
 
   constructor(public opts: MetagameOptions) {
     for (const [lower, key] of opts.existingUsers ?? []) this.users.set(key, { username: lower, id: `UID-${lower}` });
@@ -257,25 +272,41 @@ export class FakeMetagame {
     if (url.pathname === "/dauntless-status") return this.json(res, 200, { "show-status": true, en: "Welcome to Undaunted v0.0.5!" });
     if (url.pathname === "/undaunted/api/ServerStatus") {
       if (this.opts.statusMissing) return this.json(res, 404, {});
-      return this.json(res, 200, {
+      // Like the metagame: the player list only for a known account key, never a 401.
+      const key = req.headers["x-undaunted-user-api-key"];
+      const registered = typeof key === "string" && this.users.has(key);
+      this.statusCalls.push({ withKey: key !== undefined, registered });
+      const full = registered || this.opts.statusForEveryone === true;
+      const held = this.held;
+      this.held = null;
+      const answer = () => this.json(res, 200, {
         name: this.opts.name ?? "Test Server",
         online: true,
         version: "1.0.0",
         commit: "abc1234",
         sourceUrl: "https://github.com/mixutin/dauntless-revived",
         registration: this.opts.registration ?? "INVITECODE",
-        playersOnline: 2,
-        players: [
-          { name: "Aurora", where: "city", instance: "ramsgate" },
-          { name: "Borealis", where: "hunt", instance: "hunt-1" },
-        ],
-        instances: [
-          { id: "ramsgate", kind: "city", title: "Ramsgate", map: "Hub", behemoth: null, players: 1, maxPlayers: 60, startedAt: new Date(Date.now() - 3600_000).toISOString() },
-          { id: "hunt-1", kind: "hunt", title: "Hunt: Shrike", map: "Island", behemoth: "Shrike", players: 1, maxPlayers: 4, startedAt: new Date().toISOString() },
-        ],
+        playersOnline: full ? 2 : 0,
+        players: full
+          ? [
+              { name: "Aurora", where: "city", instance: "ramsgate" },
+              { name: "Borealis", where: "hunt", instance: "hunt-1" },
+            ]
+          : [],
+        instances: full
+          ? [
+              { id: "ramsgate", kind: "city", title: "Ramsgate", map: "Hub", behemoth: null, players: 1, maxPlayers: 60, startedAt: new Date(Date.now() - 3600_000).toISOString() },
+              { id: "hunt-1", kind: "hunt", title: "Hunt: Shrike", map: "Island", behemoth: "Shrike", players: 1, maxPlayers: 4, startedAt: new Date().toISOString() },
+            ]
+          : [],
         contentPort: this.opts.contentPort === undefined ? CONTENT_PORT : this.opts.contentPort,
         uptimeSeconds: 7200,
+        ...(this.opts.statusForEveryone === true ? {} : { limited: !full }),
       });
+      if (!held) return answer();
+      held.arrived();
+      void held.gate.then(answer);
+      return;
     }
     if (url.pathname === "/undaunted/api/GetUserInfo") {
       const key = req.headers["x-undaunted-user-api-key"];

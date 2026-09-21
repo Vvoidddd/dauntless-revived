@@ -140,11 +140,17 @@ try {
     Check 'the owner key is not in the output' (-not ($inv.Text.Contains(([IO.File]::ReadAllText((Join-Path $Root 'data\keys\owner.key'))).Trim())))
     $st = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Invite', $invite)
     Check 'Get-ServerStatus -Invite answers through the gateway' ($st.Code -eq 0 -and $st.Text -match 'ONLINE\s+Sandbox Ramsgate' -and $st.Text -match 'TLS pinned') (($st.Out | Select-Object -First 3) -join ' | ')
+    Check 'without a key the player list is hidden (no "0 players")' ($st.Text -match 'Player list hidden' -and $st.Text -match 'pass -KeyFile' -and $st.Text -notmatch 'Players online') (($st.Out | Select-Object -Last 3) -join ' | ')
     $st2 = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Root', $Root)
     Check 'Get-ServerStatus on the server goes through the gateway' ($st2.Code -eq 0 -and $st2.Text -match '127\.0\.0\.1:62443, TLS pinned')
+    Check 'Get-ServerStatus on the server lists players with the owner key' ($st2.Text -match 'Players online: \d+' -and $st2.Text -match 'Worlds and hunts running: \d+' -and $st2.Text -notmatch 'hidden') (($st2.Out | Select-Object -Last 4) -join ' | ')
+    $st2d = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Root', $Root, '-Direct')
+    Check 'Get-ServerStatus -Direct lists players with the owner key' ($st2d.Code -eq 0 -and $st2d.Text -match '127\.0\.0\.1:62000' -and $st2d.Text -match 'Players online: \d+' -and $st2d.Text -notmatch 'hidden') (($st2d.Out | Select-Object -Last 4) -join ' | ')
+    $ownerKeyText = ([IO.File]::ReadAllText((Join-Path $Root 'data\keys\owner.key'))).Trim()
+    Check 'Get-ServerStatus prints no owner key' (-not $st2.Text.Contains($ownerKeyText) -and -not $st2d.Text.Contains($ownerKeyText))
     $stj = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Invite', $invite, '-Json')
     $sj = $null; try { $sj = ($stj.Out -join '') | ConvertFrom-Json } catch {}
-    Check 'ServerStatus JSON over the gateway' ($sj -and $sj.name -eq 'Sandbox Ramsgate' -and $sj.registration)
+    Check 'ServerStatus JSON over the gateway (limited without a key)' ($sj -and $sj.name -eq 'Sandbox Ramsgate' -and $sj.registration -and $sj.limited -eq $true)
 
     # ------------------------------------------------------------------------------------------
     Step 'Gateway policy, as a friend would meet it'
@@ -166,6 +172,12 @@ try {
     Check 'the one-use invite is spent' ($again.Status -eq 401) "$($again.Status)"
     $me = Invoke-DRHttp -Url "$g/undaunted/api/GetUserInfo" -Fingerprint $fp -Headers @{ 'x-undaunted-user-api-key' = $friendKey }
     Check 'GetUserInfo with the new key' ($me.Status -eq 200 -and $me.Json.Username -eq 'SandboxFriend' -and -not $me.Json.IsAdmin) "$($me.Status)"
+    # A friend's own key, from their PC: -Invite with -KeyFile shows the list.
+    $friendKeyFile = Join-Path $SandboxDir 'friend-account.key'
+    [IO.File]::WriteAllText($friendKeyFile, $friendKey)
+    $stf = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Invite', $invite, '-KeyFile', $friendKeyFile)
+    Remove-Item -LiteralPath $friendKeyFile -Force
+    Check 'Get-ServerStatus -Invite -KeyFile lists players with a friend''s key' ($stf.Code -eq 0 -and $stf.Text -match 'Players online: \d+' -and $stf.Text -notmatch 'hidden' -and -not $stf.Text.Contains($friendKey)) (($stf.Out | Select-Object -Last 4) -join ' | ')
     $tok = Invoke-DRHttp -Method POST -Url "$g/account/api/oauth/token" -Fingerprint $fp -Body @{ grant_type = 'exchange_code'; exchange_code = $friendKey }
     Check 'login (oauth/token) through the gateway' ($tok.Status -eq 200 -and $tok.Json.access_token) "$($tok.Status)"
     $man = Invoke-DRHttp -Url "$g/content/v1/manifest" -Fingerprint $fp
@@ -207,7 +219,18 @@ try {
     Step 'Stack status, backup, stop'
     $ss = Run-Kit (Join-Path $bin 'Stack.ps1') @('status', '-Root', $Root)
     Check 'Stack status shows the gateway check' ($ss.Code -eq 0 -and $ss.Text -match 'gateway check\s+: TLS ok' -and $ss.Text -match 'allowlist helper : \d+ player address') (($ss.Out | Where-Object { $_ -match 'gateway|allowlist' }) -join ' | ')
-    Check 'Stack status prints no secret' (-not $ss.Text.Contains($alEnv['ALLOWLIST_SECRET']) -and -not $ss.Text.Contains($meta['GATEWAY_SECRET']))
+    Check 'Stack status prints no secret' (-not $ss.Text.Contains($alEnv['ALLOWLIST_SECRET']) -and -not $ss.Text.Contains($meta['GATEWAY_SECRET']) -and -not $ss.Text.Contains($ownerKeyText))
+    Check 'Stack status counts players with the owner key' ($ss.Text -match 'players online\s+: \d+\s+game servers listed: \d+' -and $ss.Text -notmatch 'players online\s+: hidden') (($ss.Out | Where-Object { $_ -match 'players online' }) -join ' | ')
+    $ownerKeyText = $null
+    # Without a readable owner key (a PowerShell that is not elevated): hidden, not 0.
+    $okPath = Join-Path $Root 'data\keys\owner.key'
+    Move-Item -LiteralPath $okPath -Destination "$okPath.away"
+    try {
+        $ssNoKey = Run-Kit (Join-Path $bin 'Stack.ps1') @('status', '-Root', $Root)
+        $stNoKey = Run-Kit (Join-Path $bin 'Get-ServerStatus.ps1') @('-Root', $Root)
+    } finally { Move-Item -LiteralPath "$okPath.away" -Destination $okPath }
+    Check 'Stack status without the owner key: hidden, not 0' ($ssNoKey.Text -match 'players online\s+: hidden \(registered players only; run this elevated') (($ssNoKey.Out | Where-Object { $_ -match 'players online' }) -join ' | ')
+    Check 'Get-ServerStatus without the owner key: hidden, and how to see it' ($stNoKey.Code -eq 0 -and $stNoKey.Text -match 'Player list hidden' -and $stNoKey.Text -match 'elevated PowerShell' -and $stNoKey.Text -notmatch 'Players online') (($stNoKey.Out | Select-Object -Last 3) -join ' | ')
     $bk = Run-Kit (Join-Path $bin 'Backup-DauntlessServer.ps1') @('-Root', $Root)
     $newest = Get-DRBackupFolders (Join-Path $Root 'backups') | Select-Object -First 1
     Check 'backup with database, secrets and certificate' ($bk.Code -eq 0 -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'undaunted.db')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\tls\gateway-key.pem')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\gateway.env')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\owner.key')))

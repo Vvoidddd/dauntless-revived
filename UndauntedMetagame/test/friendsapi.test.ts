@@ -9,6 +9,7 @@ import { GetDb } from "../src/db";
 import { userapikeys, users } from "../src/db/schema";
 import { HashUserAPIKey } from "../src/controllers/auth";
 import { ClearServerStatusCache } from "../src/controllers/serverstatus";
+import { GetOnlinePlayerActivity } from "../src/controllers/undauntedapi";
 import { FakeDeployServer, StartFakeDeployServer, ThreeServers } from "./fakedeploy";
 import { FRIENDS_API_PORT, FRIENDS_DEPLOYSERVER_PORT } from "./friendsenv";
 
@@ -21,7 +22,7 @@ const ADMIN_KEY = "UUK_test_admin_key_for_this_process_only";
 let Listening: Server | undefined;
 let Fake: FakeDeployServer | undefined;
 
-type Reply = { status: number, json: any, text: string, type: string | null };
+type Reply = { status: number, json: any, text: string, type: string | null, headers: Headers };
 
 async function Call(Method: string, Path: string, Options: { body?: unknown, raw?: string, key?: string, token?: string } = {}): Promise<Reply> {
     const Headers: Record<string, string> = {};
@@ -36,7 +37,7 @@ async function Call(Method: string, Path: string, Options: { body?: unknown, raw
 
     try{ Json = Text.length > 0 ? JSON.parse(Text) : undefined; } catch { Json = undefined; }
 
-    return { status: Response.status, json: Json, text: Text, type: Response.headers.get("content-type") };
+    return { status: Response.status, json: Json, text: Text, type: Response.headers.get("content-type"), headers: Response.headers };
 }
 
 async function Login(Key: string){
@@ -197,8 +198,10 @@ describe("POST /undaunted/api/RenameUser", () => {
     });
 });
 
+const STATUS_KEYS = ["name", "online", "version", "commit", "sourceUrl", "registration", "playersOnline", "players", "instances", "contentPort", "uptimeSeconds", "limited"];
+
 describe("GET /undaunted/api/ServerStatus", () => {
-    it("shows who is online where and the deploy server's three servers, with no ids, keys or addresses", async () => {
+    it("shows a registered player who is online where and the deploy server's three servers, with no ids, keys or addresses", async () => {
         Fake = await StartFakeDeployServer(FRIENDS_DEPLOYSERVER_PORT, ThreeServers(Friend.userId));
         ClearServerStatusCache();
 
@@ -207,12 +210,13 @@ describe("GET /undaunted/api/ServerStatus", () => {
         const AdminToken = await Login(ADMIN_KEY);
         assert.equal((await Call("POST", "/heartbeat", { token: AdminToken, body: { map: "/Game/Maps/ramsgate/ramsgate_01_persistent", state: "city" } })).status, 200);
 
-        const Reply = await Call("GET", "/undaunted/api/ServerStatus");
+        const Reply = await Call("GET", "/undaunted/api/ServerStatus", { key: Friend.key });
         assert.equal(Reply.status, 200);
         assert.match(Reply.type ?? "", /application\/json/);
 
         const Status = Reply.json;
-        assert.deepEqual(Object.keys(Status), ["name", "online", "version", "commit", "sourceUrl", "registration", "playersOnline", "players", "instances", "contentPort", "uptimeSeconds"]);
+        assert.deepEqual(Object.keys(Status), STATUS_KEYS);
+        assert.equal(Status.limited, false);
         assert.equal(Status.name, "Dauntless Revived");
         assert.equal(Status.online, true);
         assert.equal(typeof Status.version, "string");
@@ -240,28 +244,81 @@ describe("GET /undaunted/api/ServerStatus", () => {
         assert.equal(Reply.text.includes(Friend.userId), false);
         assert.equal(Reply.text.includes("UID-admin"), false);
         assert.doesNotMatch(Reply.text, /UID-|UUK_|eyJ|127\.0\.0\.1/);
+        assert.equal(Reply.headers.get("cache-control"), "no-store");
+        assert.match(Reply.headers.get("vary") ?? "", /x-undaunted-user-api-key/i);
     });
 
-    it("needs no key and answers from a 5 s cache", async () => {
+    it("no key: 200, the same shape with no players and no servers, limited", async () => {
+        const Full = (await Call("GET", "/undaunted/api/ServerStatus", { key: Friend.key })).json;
         const Requests = Fake!.Requests.length;
-        const [A, B] = await Promise.all([Call("GET", "/undaunted/api/ServerStatus"), Call("GET", "/undaunted/api/ServerStatus")]);
+        ClearServerStatusCache();
+        const Reply = await Call("GET", "/undaunted/api/ServerStatus");
+
+        assert.equal(Reply.status, 200);
+        assert.deepEqual(Object.keys(Reply.json), STATUS_KEYS);
+        assert.deepEqual([Reply.json.playersOnline, Reply.json.players, Reply.json.instances, Reply.json.limited], [0, [], [], true]);
+        for(const Key of ["name", "online", "version", "commit", "sourceUrl", "registration", "contentPort"]){
+            assert.deepEqual(Reply.json[Key], Full[Key], Key);
+        }
+        assert.doesNotMatch(Reply.text, /Renamed_1|Slayer|5c0a9e36|UID-|UUK_|eyJ/);
+        assert.equal(Fake!.Requests.length, Requests, "a limited answer never asks the deploy server");
+    });
+
+    it("a bad key or a bad token: 200 limited, never a 401", async () => {
+        for(const Options of [{ key: "UUK_not_a_real_key_000000000000000000" }, { key: Friend.key + "0" }, { key: "UID-admin" }, { token: "not.a.token" }, { token: Friend.token.slice(0, -6) + "AAAAAA" }]){
+            const Reply = await Call("GET", "/undaunted/api/ServerStatus", Options);
+            assert.equal(Reply.status, 200, JSON.stringify(Object.keys(Options)));
+            assert.deepEqual([Reply.json.limited, Reply.json.playersOnline, Reply.json.players.length, Reply.json.instances.length], [true, 0, 0, 0]);
+        }
+    });
+
+    it("a player's key, an admin's key or a player's token: the full answer", async () => {
+        for(const Options of [{ key: Friend.key }, { key: ADMIN_KEY }, { token: Friend.token }, { key: "UUK_wrong", token: Friend.token }]){
+            const Reply = await Call("GET", "/undaunted/api/ServerStatus", Options);
+            assert.equal(Reply.status, 200);
+            assert.equal(Reply.json.limited, false, JSON.stringify(Object.keys(Options)));
+            assert.equal(Reply.json.playersOnline, 2);
+            assert.deepEqual(Reply.json.players.map((Player: any) => Player.name), ["Renamed_1", "Slayer"]);
+            assert.equal(Reply.json.instances.length, 3);
+        }
+    });
+
+    it("answers each variant from its own 5 s cache", async () => {
+        ClearServerStatusCache();
+        await Call("GET", "/undaunted/api/ServerStatus");
+        await Call("GET", "/undaunted/api/ServerStatus", { token: Friend.token });
+        const Requests = Fake!.Requests.length;
+        const [A, B, C, D] = await Promise.all([
+            Call("GET", "/undaunted/api/ServerStatus"),
+            Call("GET", "/undaunted/api/ServerStatus"),
+            Call("GET", "/undaunted/api/ServerStatus", { key: Friend.key }),
+            Call("GET", "/undaunted/api/ServerStatus", { key: ADMIN_KEY })
+        ]);
 
         assert.equal(A.status, 200);
         assert.equal(A.text, B.text);
+        assert.equal(C.text, D.text);
+        assert.notEqual(A.text, C.text);
         assert.equal(Fake!.Requests.length, Requests);
     });
 });
 
 describe("GET /dauntless-status", () => {
-    it("keeps the nine fields the client reads and adds the source link", async () => {
+    it("keeps the nine fields the client reads and adds the source link, and says nothing about players", async () => {
         const Reply = await Call("GET", "/dauntless-status");
         const Keys = Object.keys(Reply.json);
 
         assert.deepEqual(Keys.slice(0, 9), ["show-status", "en", "fr", "it", "es", "de", "pt", "ru", "ja"]);
         assert.equal(Reply.json["show-status"], true);
-        assert.deepEqual(Keys.slice(9), ["name", "version", "commit", "sourceUrl", "playersOnline"]);
+        assert.deepEqual(Keys.slice(9), ["name", "version", "commit", "sourceUrl"]);
         assert.equal(Reply.json.sourceUrl, "https://github.com/mixutin/dauntless-revived");
-        assert.equal(Reply.json.playersOnline, 2);
+
+        // Two players are online (the ServerStatus test's heartbeats), yet anyone may call this
+        // route: not even the count is in it, with or without a key
+        assert.equal(GetOnlinePlayerActivity().length, 2);
+        for(const Options of [{}, { key: Friend.key }, { token: Friend.token }]){
+            assert.deepEqual(Object.keys((await Call("GET", "/dauntless-status", Options)).json), Keys);
+        }
     });
 
     it("STATUS_EXTRA=0 answers the nine fields alone", async () => {

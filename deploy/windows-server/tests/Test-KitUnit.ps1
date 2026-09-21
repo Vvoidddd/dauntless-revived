@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Unit checks for the Windows Server kit: script parsing, invite strings (v1 and v2), certificate
-    fingerprints, TLS pinning and the chunked-upload helper. Touches nothing outside -WorkDir and one
-    loopback port (-Port, default 62450).
+    fingerprints, TLS pinning, Get-ServerStatus with and without an account key, account key files
+    and the chunked-upload helper. Touches nothing outside -WorkDir and one loopback port (-Port,
+    default 62450).
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1 -WorkDir $env:TEMP\dr-kit-unit
@@ -115,16 +116,31 @@ if (-not (Test-Path -LiteralPath (Join-Path $gw 'node_modules\node-forge'))) {
     Check 'certificate valid about 10 years' ($ci.NotAfter -gt (Get-Date).AddYears(9)) "$($ci.NotAfter)"
     Check 'certificate names' ($ci.San -match '127\.0\.0\.1' -and $ci.San -match 'test\.invalid') $ci.San
 
+    # A stand-in ServerStatus like the metagame's: the player list only for the one account key it
+    # knows (a made-up test key), else the limited answer.
+    $testKey = 'UUK_' + ('5e7a' * 12)
     $js = Join-Path $WorkDir 'tls-server.js'
     Set-Content -LiteralPath $js -Encoding ASCII -Value @"
 const https = require('https'); const fs = require('fs');
+const known = process.argv[5];
 const s = https.createServer({ cert: fs.readFileSync(process.argv[2]), key: fs.readFileSync(process.argv[3]) }, (req, res) => {
-  res.writeHead(req.url === '/undaunted/api/ServerStatus' ? 200 : 404, { 'content-type': 'application/json' });
-  res.end(JSON.stringify({ name: 'pin test', path: req.url }));
+  if (req.url !== '/undaunted/api/ServerStatus') {
+    res.writeHead(404, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ name: 'pin test', path: req.url }));
+  }
+  const full = req.headers['x-undaunted-user-api-key'] === known;
+  const at = new Date(Date.now() - 600000).toISOString();
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ name: 'pin test', online: true, version: '1.0.0', commit: 'abc1234', sourceUrl: 'https://github.com/mixutin/dauntless-revived', registration: 'INVITECODE',
+    playersOnline: full ? 2 : 0,
+    players: full ? [{ name: 'Aurora', where: 'city', instance: 'c1' }, { name: 'Borealis', where: 'hunt', instance: 'h1' }] : [],
+    instances: full ? [{ id: 'c1', kind: 'city', title: 'Ramsgate', map: 'ramsgate_01', behemoth: null, players: 1, maxPlayers: 32, startedAt: at },
+                       { id: 'h1', kind: 'hunt', title: 'Hunt: Shrike', map: 'island', behemoth: 'Shrike', players: 1, maxPlayers: 4, startedAt: at }] : [],
+    contentPort: null, uptimeSeconds: 60, limited: !full }));
 });
 s.listen(Number(process.argv[4]), '127.0.0.1', () => console.log('listening'));
 "@
-    $psi = New-Object Diagnostics.ProcessStartInfo($node, ('"{0}" "{1}" "{2}" {3}' -f $js, $cert, $key, $Port))
+    $psi = New-Object Diagnostics.ProcessStartInfo($node, ('"{0}" "{1}" "{2}" {3} {4}' -f $js, $cert, $key, $Port, $testKey))
     $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $true
     $server = [Diagnostics.Process]::Start($psi)
     try {
@@ -138,8 +154,45 @@ s.listen(Number(process.argv[4]), '127.0.0.1', () => console.log('listening'));
         Check 'https without a fingerprint is refused before connecting' ($none.Status -eq 0 -and $none.Error -match 'fingerprint')
         $gs = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Kit 'Get-ServerStatus.ps1') -Server "127.0.0.1:$Port" -Fingerprint $wrong 2>&1 | Out-String
         Check 'Get-ServerStatus warns about a different certificate' ($LASTEXITCODE -eq 1 -and $gs -match 'DIFFERENT certificate') $gs
+
+        # The player list is for registered players only: with the key it shows, without it the
+        # script says it is hidden (never "0 players"), and the key is never printed.
+        function GetStatus([string[]]$More) {
+            $o = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Kit 'Get-ServerStatus.ps1') -Server "127.0.0.1:$Port" -Fingerprint $mine @More 2>&1 | Out-String
+            return [pscustomobject]@{ Code = $LASTEXITCODE; Text = $o }
+        }
+        $keyFile = Join-Path $WorkDir 'account.key'
+        [IO.File]::WriteAllText($keyFile, "$testKey`r`n")
+        $backupFile = Join-Path $WorkDir 'key-backup.txt'
+        [IO.File]::WriteAllText($backupFile, "Dauntless Revived account key`r`n`r`nServer: pin test (127.0.0.1:$Port)`r`nUsername: Aurora`r`nKey: $testKey`r`n`r`nKeep this file private.`r`n")
+        $wrongFile = Join-Path $WorkDir 'wrong.key'
+        [IO.File]::WriteAllText($wrongFile, 'UUK_' + ('0' * 48))
+        $none = GetStatus @()
+        Check 'no key: the list is hidden, not "0 players"' ($none.Code -eq 0 -and $none.Text -match 'Player list hidden: this server shows who is online' -and $none.Text -match 'pass -KeyFile' -and $none.Text -notmatch 'Players online' -and $none.Text -notmatch 'Worlds and hunts running') $none.Text
+        $with = GetStatus @('-KeyFile', $keyFile)
+        Check 'with -KeyFile: players and worlds listed' ($with.Code -eq 0 -and $with.Text -match 'Players online: 2' -and $with.Text -match 'Aurora\s+in the city - Ramsgate' -and $with.Text -match 'Worlds and hunts running: 2' -and $with.Text -notmatch 'hidden') $with.Text
+        Check 'with -KeyFile: the key is not printed' (-not $with.Text.Contains($testKey) -and -not $none.Text.Contains($testKey))
+        $bk = GetStatus @('-KeyFile', $backupFile)
+        Check '-KeyFile takes the launcher''s key backup file' ($bk.Code -eq 0 -and $bk.Text -match 'Players online: 2') $bk.Text
+        $wr = GetStatus @('-KeyFile', $wrongFile)
+        Check 'a key the server does not accept: hidden, and says so' ($wr.Code -eq 0 -and $wr.Text -match 'Player list hidden' -and $wr.Text -match 'did not accept the key in') $wr.Text
+        $js0 = GetStatus @('-Json')
+        $j = $null; try { $j = $js0.Text | ConvertFrom-Json } catch {}
+        Check '-Json passes the limited answer through unchanged' ($j -and $j.limited -eq $true -and $j.playersOnline -eq 0 -and $j.name -eq 'pin test') $js0.Text
+        $plain = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Kit 'Get-ServerStatus.ps1') -Server '203.0.113.7' -KeyFile $keyFile -TimeoutSec 1 2>&1 | Out-String
+        Check 'no key over plain HTTP to a public address' ($LASTEXITCODE -eq 1 -and $plain -match 'goes only over TLS pinned') $plain
     } finally { if ($server -and -not $server.HasExited) { $server.Kill(); $server.WaitForExit(5000) | Out-Null } }
 }
+
+Write-Host '== account keys'
+$kd = Join-Path $WorkDir 'keys'
+New-Item -ItemType Directory -Force -Path $kd | Out-Null
+[IO.File]::WriteAllText((Join-Path $kd 'plain.key'), "  UUK_abcdef0123456789  `r`n")
+[IO.File]::WriteAllText((Join-Path $kd 'junk.txt'), "not a key at all`r`nsecond line")
+Check 'key file: the key alone, trimmed' ((Read-DRAccountKey (Join-Path $kd 'plain.key')) -ceq 'UUK_abcdef0123456789')
+Check 'key file: no key in it -> $null' ($null -eq (Read-DRAccountKey (Join-Path $kd 'junk.txt')))
+foreach ($h in '127.0.0.1', 'localhost', '100.64.0.1', '100.127.255.254', 'box.tail1234.ts.net') { Check "key over plain HTTP allowed: $h" (Test-DRPlainKeyHost $h) }
+foreach ($h in '203.0.113.7', '100.128.0.1', '10.0.0.5', 'ts.net', 'example.org', 'evil.ts.net.example.org') { Check "key over plain HTTP refused: $h" (-not (Test-DRPlainKeyHost $h)) }
 
 Write-Host '== chunked upload helper (Receive-Upload.ps1)'
 $up = Join-Path $WorkDir 'upload'

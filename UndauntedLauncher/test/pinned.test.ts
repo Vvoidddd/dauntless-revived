@@ -1,9 +1,11 @@
 // Public mode without the relay: ServerStatus, Register, GetUserInfo, the content probe and the
 // downloads all go straight to the gateway over TLS pinned to the invite's fingerprint.
-// Ports: 62420 fake metagame (TLS), 62421 fake content server (TLS).
+// Ports: 62420 fake metagame (TLS), 62421 fake content server (TLS), 62422 an older metagame
+// (plain HTTP on loopback).
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -17,6 +19,7 @@ import { makeTestCert, type TestCert } from "./certs";
 
 const META_PORT = 62420;
 const CONTENT_TLS_PORT = 62421;
+const LEGACY_PORT = 62422;
 const KEY = "UUK_" + "e".repeat(48);
 
 let cert: TestCert;
@@ -76,8 +79,71 @@ test("ServerStatus: ok over the pin, cert_mismatch with another fingerprint", as
   if (ok.kind === "ok") assert.equal(ok.status.name, "Test Server");
   const bad = await fetchServerStatus({ ...metaEp(), pin: other.fingerprint });
   assert.equal(bad.kind, "cert_mismatch");
-  const down = await fetchServerStatus({ host: "127.0.0.1", port: 62429, pin: cert.fingerprint }, 2000);
+  const down = await fetchServerStatus({ host: "127.0.0.1", port: 62429, pin: cert.fingerprint }, { timeoutMs: 2000 });
   assert.equal(down.kind, "unreachable");
+});
+
+test("ServerStatus: the account key goes along over the pin (full list), never to a mismatching server, never in a malformed shape", async () => {
+  const start = meta.statusCalls.length;
+  const anonymous = await fetchServerStatus(metaEp());
+  assert.ok(anonymous.kind === "ok" && anonymous.status.limited === true && anonymous.status.players.length === 0);
+
+  const full = await fetchServerStatus(metaEp(), { key: KEY });
+  assert.ok(full.kind === "ok");
+  if (full.kind === "ok") {
+    assert.equal(full.status.limited, false);
+    assert.deepEqual(full.status.players.map((p) => p.name), ["Aurora", "Borealis"]);
+    assert.equal(full.status.instances.length, 2);
+  }
+
+  // A key the server does not know: the limited status, not an error.
+  const unknown = await fetchServerStatus(metaEp(), { key: "UUK_" + "1".repeat(48) });
+  assert.ok(unknown.kind === "ok" && unknown.status.limited === true);
+
+  // Not a plausible key: not sent at all.
+  const junk = await fetchServerStatus(metaEp(), { key: "has space\r\nx-evil: 1" });
+  assert.ok(junk.kind === "ok" && junk.status.limited === true);
+
+  assert.deepEqual(meta.statusCalls.slice(start), [
+    { withKey: false, registered: false },
+    { withKey: true, registered: true },
+    { withKey: true, registered: false },
+    { withKey: false, registered: false },
+  ]);
+
+  // Another certificate: refused before any request, so the key never left.
+  const before = meta.statusCalls.length;
+  assert.deepEqual(await fetchServerStatus({ ...metaEp(), pin: other.fingerprint }, { key: KEY }), { kind: "cert_mismatch" });
+  assert.equal(meta.statusCalls.length, before);
+
+  // Plain HTTP to a public address is refused before connecting (a public server is only ever pinned TLS).
+  assert.deepEqual(await fetchServerStatus({ host: "203.0.113.10", port: META_PORT, pin: null }, { key: KEY, timeoutMs: 2000 }), { kind: "unreachable" });
+});
+
+test("ServerStatus: an older server (404) is recognised through /dauntless-status, which never gets the key", async () => {
+  const seen: { url: string; key: unknown }[] = [];
+  const legacy = http.createServer((req, res) => {
+    seen.push({ url: req.url ?? "", key: req.headers["x-undaunted-user-api-key"] });
+    if (req.url === "/dauntless-status") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ "show-status": true }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  await new Promise<void>((resolve) => legacy.listen(LEGACY_PORT, "127.0.0.1", resolve));
+  try {
+    const r = await fetchServerStatus({ host: "127.0.0.1", port: LEGACY_PORT, pin: null }, { key: KEY });
+    assert.deepEqual(r, { kind: "unsupported" });
+    assert.deepEqual(seen, [
+      { url: "/undaunted/api/ServerStatus", key: KEY },
+      { url: "/dauntless-status", key: undefined },
+    ]);
+  } finally {
+    legacy.closeAllConnections();
+    await new Promise<void>((resolve) => legacy.close(() => resolve()));
+  }
 });
 
 test("Register and GetUserInfo over the pin; nothing is sent to a mismatching server", async () => {

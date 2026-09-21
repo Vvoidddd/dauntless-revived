@@ -1,6 +1,7 @@
 // Calls to the host's metagame (contracts 2 and 3) and content server (contract 4).
 // The account key is sent only in the x-undaunted-user-api-key header, only to the invite's host
-// (in public mode only over the TLS connection pinned to the invite's certificate fingerprint).
+// (in public mode only over the TLS connection pinned to the invite's certificate fingerprint):
+// GetUserInfo, ServerStatus (for the player list) and the content downloads.
 
 import { Endpoint, HttpError, HttpResponse, parseJsonBody, request } from "./http";
 import { parseServerStatus, ServerStatus, cleanText } from "../shared/status";
@@ -8,6 +9,7 @@ import { isPlausibleAccountKey } from "../shared/username";
 import type { ErrorCode, NewsItem } from "../shared/types";
 import { CONNECT_TIMEOUT_MS } from "./constants";
 import { UNSAFE_CHARS_MULTILINE } from "../shared/text";
+import { isPrivateModeHost } from "../shared/invite";
 
 const KEY_HEADER = "x-undaunted-user-api-key";
 
@@ -28,10 +30,27 @@ function isPin(e: unknown): boolean {
   return e instanceof HttpError && e.kind === "pin";
 }
 
-export async function fetchServerStatus(ep: Endpoint, timeoutMs = CONNECT_TIMEOUT_MS): Promise<StatusResult> {
+export interface StatusOptions {
+  // The account key for this server. The server lists who is online only for a registered player;
+  // without a key (or with one it does not accept) it answers the same status with "limited": true.
+  key?: string | null;
+  timeoutMs?: number;
+}
+
+// The key goes only where every other key-carrying request goes: to the invite's host, over the TLS
+// connection pinned to the invite's certificate (public mode) or plain HTTP inside the tailnet or
+// to this PC (private mode, which request() enforces as well). Never to the legacy fallback below.
+function statusHeaders(ep: Endpoint, key: string | null | undefined): Record<string, string> {
+  if (!isPlausibleAccountKey(key)) return {};
+  if (ep.pin === null && !isPrivateModeHost(ep.host)) return {};
+  return { [KEY_HEADER]: key };
+}
+
+export async function fetchServerStatus(ep: Endpoint, opts: StatusOptions = {}): Promise<StatusResult> {
+  const timeoutMs = opts.timeoutMs ?? CONNECT_TIMEOUT_MS;
   let res: HttpResponse;
   try {
-    res = await request(ep, "/undaunted/api/ServerStatus", { timeoutMs, maxBytes: 1024 * 1024 });
+    res = await request(ep, "/undaunted/api/ServerStatus", { headers: statusHeaders(ep, opts.key), timeoutMs, maxBytes: 1024 * 1024 });
   } catch (e) {
     return isPin(e) ? { kind: "cert_mismatch" } : { kind: "unreachable" };
   }

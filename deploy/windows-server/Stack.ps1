@@ -186,8 +186,20 @@ function Show-Status {
     else { 'last backup      : {0} ({1} min ago)' -f (Get-DRBackupFolders $P.Backups | Select-Object -First 1).Name, [math]::Round($age.TotalMinutes) }
     if (Test-Path -LiteralPath $P.StopFlag) { 'stop flag        : set (the supervisors do not restart anything)' }
     if (@(Get-DRComponentProcesses $P 'metagame').Count) {
-        $r = Invoke-DRHttp -Url ("http://{0}:{1}/undaunted/api/ServerStatus" -f $Bind, $Ports.metagame) -TimeoutSec 5
-        if ($r.Status -eq 200 -and $r.Json) {
+        # The metagame lists who is online to registered players only: ask with the owner key (readable
+        # by administrators, SYSTEM and the service account; never printed), straight to the
+        # metagame's own address.
+        $h = $null
+        try { $k = Read-DRAccountKey $P.OwnerKey; if ($k) { $h = @{ 'x-undaunted-user-api-key' = $k } } } catch {}
+        $k = $null
+        $r = Invoke-DRHttp -Url ("http://{0}:{1}/undaunted/api/ServerStatus" -f $Bind, $Ports.metagame) -Headers $h -TimeoutSec 5
+        $sentKey = $null -ne $h
+        $h = $null
+        if ($r.Status -eq 200 -and $r.Json -and $r.Json.limited -eq $true) {
+            # Not the real numbers (0 players, no game servers): the owner key was missing or refused.
+            $why = if ($sentKey) { 'the server did not accept the owner key' } else { 'run this elevated so it can read the owner key' }
+            'players online   : hidden (registered players only; {0})   registration: {1}' -f $why, $r.Json.registration
+        } elseif ($r.Status -eq 200 -and $r.Json) {
             'players online   : {0}   game servers listed: {1}   registration: {2}' -f $r.Json.playersOnline, @($r.Json.instances).Count, $r.Json.registration
         } elseif ($r.Status -eq 404) {
             'players online   : (this metagame version has no ServerStatus)'

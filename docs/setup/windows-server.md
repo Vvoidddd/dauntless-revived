@@ -290,7 +290,7 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 |:--------|:-------------|
 | `C:\DauntlessRevived\bin\Stack.ps1 status` | Every component with its process and ports, the gateway's TLS check, the allowlist, the game servers, the scheduled tasks and the last backup. |
 | `Stack.ps1 stop` / `start` / `restart` | Stops or starts everything through the scheduled tasks. Stopping also closes the game ports. `restart -Only gateway` restarts one part. |
-| `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>'`. |
+| `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. The server shows that list to registered players only, so the script asks with the owner key (run it as administrator). From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>' -KeyFile <your account.key>`. Without a key it says the list is hidden. |
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
 
@@ -304,6 +304,13 @@ takes a backup, switches over, and checks that the metagame answers and the gate
 invite certificate. If that check fails within 3 minutes, it switches back to the previous build by
 itself. `Update-DauntlessServer.ps1 -Rollback` does the same by hand. Settings, keys, the certificate
 and the game files are left alone; run the installer again for those.
+
+**The player list is for registered players only: the launcher comes first.** The server shows who
+is online only to a caller with an account key, and the launcher sends the player's key to see the
+list. Launchers released before that change send no key. Against a server that has it, they show
+"0 players online" and "No worlds are running right now." until they update themselves. When you
+update a server from an older version, do it only after the launcher release with the change is
+out, or tell your friends that the count is wrong until their launcher has updated.
 
 ### Backups
 

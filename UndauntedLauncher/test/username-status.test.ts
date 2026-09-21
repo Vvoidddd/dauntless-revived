@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { checkUsername, extractAccountKey, isPlausibleAccountKey } from "../src/shared/username";
-import { parseServerStatus, sortInstances } from "../src/shared/status";
+import { limitedView, parseServerStatus, sortInstances } from "../src/shared/status";
 import { parseBranding, parseNews, sniffImage } from "../src/main/hostapi";
 import { BELL, RLO } from "../src/shared/text";
 
@@ -67,6 +67,7 @@ test("ServerStatus: parses the full contract", () => {
   assert.equal(s.instances[1].startedAt, "2026-09-21T08:00:00.000Z");
   assert.equal(s.contentPort, 61002);
   assert.equal(s.sourceUrl, "https://github.com/mixutin/dauntless-revived");
+  assert.equal(s.limited, false);
   assert.deepEqual(sortInstances(s.instances).map((i) => i.kind), ["city", "dojo", "hunt"]);
 });
 
@@ -102,6 +103,46 @@ test("ServerStatus: rejects or cleans hostile input", () => {
   assert.equal(parseServerStatus({ name: "x", contentPort: null })?.contentPort, null);
   assert.equal(parseServerStatus({ name: "x", sourceUrl: "http://example.com" })?.sourceUrl, null);
   assert.equal(parseServerStatus({ name: "x", sourceUrl: "https://u:p@example.com" })?.sourceUrl, null);
+});
+
+test("ServerStatus: a full answer is not limited, and neither is an older server's without the field", () => {
+  assert.equal(parseServerStatus({ ...fullStatus, limited: false })?.limited, false);
+  assert.equal(parseServerStatus(fullStatus)?.limited, false);
+  assert.equal(parseServerStatus(fullStatus)?.players.length, 3);
+  for (const odd of ["true", 1, null, {}, [true]]) {
+    const s = parseServerStatus({ ...fullStatus, limited: odd });
+    assert.equal(s?.limited, false, JSON.stringify(odd));
+    assert.equal(s?.players.length, 3, "only an explicit true hides the list");
+  }
+});
+
+test("ServerStatus: a limited answer (no key, or a key the server refused) keeps the server's details and lists nobody", () => {
+  const limited = {
+    ...fullStatus,
+    playersOnline: 0,
+    players: [],
+    instances: [],
+    limited: true,
+  };
+  const s = parseServerStatus(limited);
+  assert.ok(s);
+  assert.equal(s.limited, true);
+  assert.equal(s.online, true, "the server is still online");
+  assert.deepEqual([s.playersOnline, s.players, s.instances], [0, [], []]);
+  assert.deepEqual([s.name, s.version, s.commit, s.registration, s.contentPort, s.uptimeSeconds], ["Alex's Ramsgate", "1.2.0", "a4cb7cf", "INVITECODE", 61002, 12345]);
+  assert.equal(s.sourceUrl, "https://github.com/mixutin/dauntless-revived");
+
+  // A server that says limited but sends a list anyway: nothing of it is shown.
+  const odd = parseServerStatus({ ...fullStatus, limited: true });
+  assert.deepEqual([odd?.limited, odd?.playersOnline, odd?.players, odd?.instances], [true, 0, [], []]);
+});
+
+test("limitedView hides the list of a status the launcher can no longer see", () => {
+  const s = parseServerStatus(fullStatus)!;
+  const v = limitedView(s);
+  assert.deepEqual([v.limited, v.playersOnline, v.players, v.instances], [true, 0, [], []]);
+  assert.deepEqual([v.name, v.online, v.registration, v.contentPort], [s.name, s.online, s.registration, s.contentPort]);
+  assert.equal(s.players.length, 3, "the original is left alone");
 });
 
 test("ServerStatus: caps list sizes", () => {

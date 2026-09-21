@@ -2,7 +2,7 @@
 // metagame routes and /content/*: invite v2 -> pinned ServerStatus -> Register -> install ->
 // Play (relay + Engine.ini + launch args) -> game exit stops the relay.
 // Ports: 62440 fake gateway (TLS), 62441 relay, 62442 relay for the busy-port case, 62443 a
-// gateway whose certificate changes.
+// gateway whose certificate changes, 62444 a private-mode (plain HTTP, loopback) metagame.
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -27,6 +27,7 @@ const GATEWAY_PORT = 62440;
 const RELAY_PORT = 62441;
 const BUSY_RELAY_PORT = 62442;
 const SWAP_PORT = 62443;
+const PRIVATE_PORT = 62444;
 const ASSETS = path.resolve(__dirname, "..", "..", "assets");
 const EXE = "Archon/Binaries/Win64/Fake-Game.exe";
 
@@ -54,7 +55,7 @@ function temp(prefix: string): string {
 before(async () => {
   cert = makeTestCert();
   other = makeTestCert();
-  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE"]) });
+  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE"]) });
   content = new FakeContentServer({ key: "unused", files });
   gateway = https.createServer({ cert: cert.certPem, key: cert.keyPem }, (req, res) => {
     gatewayRequests.push(`${req.method} ${req.url}`);
@@ -89,7 +90,8 @@ interface Harness {
   userData: string;
 }
 
-function harness(relayPort = RELAY_PORT): Harness {
+// userDataDir: reuse another harness's settings and keys (the launcher opened again).
+function harness(relayPort = RELAY_PORT, userDataDir?: string): Harness {
   let snap: Snapshot | null = null;
   const spawns: Harness["spawns"] = [];
   let child: EventEmitter | null = null;
@@ -100,7 +102,7 @@ function harness(relayPort = RELAY_PORT): Harness {
     setImmediate(() => c.emit("spawn"));
     return child;
   }) as unknown as SpawnFn;
-  const userData = temp("dr-ctl-user-");
+  const userData = userDataDir ?? temp("dr-ctl-user-");
   const installDir = temp("dr-ctl-game-");
   const configDir = temp("dr-ctl-cfg-");
   const p: Platform = {
@@ -166,12 +168,16 @@ test("public mode end to end: join, register, install, play through the relay, g
   assert.equal(s.phase, "register");
   assert.equal(s.install.contentAvailable, true, "content found behind the gateway");
   assert.equal(s.status?.name, "Friday Hunts");
+  assert.equal(s.status?.limited, true, "not registered yet: the server hides who is online");
+  assert.deepEqual([s.status?.playersOnline, s.status?.players, s.status?.instances], [0, [], []]);
 
   const reg = await hx.c.register("Slayer_42");
   assert.deepEqual(reg, { ok: true, username: "Slayer_42" });
   s = hx.last();
   assert.equal(s.phase, "install");
   assert.equal(s.account.username, "Slayer_42");
+  assert.equal(s.status?.limited, false, "registered: the status is asked again with the key");
+  assert.deepEqual(s.status?.players.map((p) => p.name), ["Aurora", "Borealis"]);
   assert.equal(meta.registrations.at(-1)?.code, "ABCD-EFGH-JKLM");
 
   const installed = await hx.c.startInstall();
@@ -328,3 +334,166 @@ test("public mode: an invite for the same host:port with a new certificate never
     await new Promise<void>((resolve) => swap.close(() => resolve()));
   }
 });
+
+test("public mode: ServerStatus carries the key on every poll over the pinned connection, so only a registered player sees who is online", async () => {
+  const hx = harness();
+  const start = meta.statusCalls.length;
+  const calls = () => meta.statusCalls.slice(start);
+  try {
+    await hx.c.init();
+    await hx.c.submitInvite(invite(cert.fingerprint, "FIFTH-CODE"));
+    assert.equal(hx.last().status?.limited, true);
+    await hx.c.pollStatus();
+    assert.ok(calls().length >= 2 && calls().every((c) => !c.withKey), "no key before registering");
+    assert.equal(hx.last().status?.limited, true, "the panel says to sign in instead of an empty list");
+    assert.equal(hx.last().status?.online, true, "still online");
+
+    assert.deepEqual(await hx.c.register("Status_Key"), { ok: true, username: "Status_Key" });
+    const afterRegister = calls().length;
+    for (let i = 0; i < 3; i++) await hx.c.pollStatus();
+    const polled = calls().slice(afterRegister - 1);
+    assert.equal(polled.length, 4, "the refresh after registering and three polls");
+    assert.ok(polled.every((c) => c.withKey && c.registered), "the key went with every poll and the server accepted it");
+    let s = hx.last();
+    assert.equal(s.status?.limited, false);
+    assert.equal(s.status?.playersOnline, 2);
+    assert.deepEqual(s.status?.instances.map((i) => i.id), ["ramsgate", "hunt-1"]);
+
+    // The launcher opened again (same settings and key store): its very first status goes with the key.
+    const beforeReopen = meta.statusCalls.length;
+    const reopened = harness(RELAY_PORT, hx.userData);
+    try {
+      await reopened.c.init();
+      await waitUntil(() => reopened.last().status !== null && !reopened.last().connect.checking);
+      assert.equal(reopened.last().status?.limited, false);
+      assert.equal(reopened.last().account.username, "Status_Key");
+      const reopenCalls = meta.statusCalls.slice(beforeReopen);
+      assert.ok(reopenCalls.length >= 1 && reopenCalls.every((c) => c.withKey && c.registered));
+    } finally {
+      await reopened.c.shutdown();
+    }
+
+    // Logging out hides the list at once, and later polls go without a key.
+    assert.deepEqual(await hx.c.logout(), { ok: true });
+    s = hx.last();
+    assert.equal(s.status?.limited, true);
+    assert.deepEqual([s.status?.playersOnline, s.status?.players, s.status?.instances], [0, [], []]);
+    const beforeLogoutPoll = meta.statusCalls.length;
+    await hx.c.pollStatus();
+    assert.deepEqual(meta.statusCalls.slice(beforeLogoutPoll), [{ withKey: false, registered: false }]);
+    assert.equal(hx.last().status?.limited, true);
+  } finally {
+    await hx.c.shutdown();
+  }
+});
+
+test("a status request still on its way when the player logs out (or forgets the server) never brings the list back", async () => {
+  const hx = harness();
+  try {
+    await hx.c.init();
+    await hx.c.submitInvite(invite(cert.fingerprint, "SIXTH-CODE"));
+    assert.deepEqual(await hx.c.register("Overtaken_1"), { ok: true, username: "Overtaken_1" });
+    assert.equal(hx.c.snapshot().status?.limited, false);
+    const key = [...meta.users].find(([, u]) => u.username === "Overtaken_1")![0];
+    const hidden = (what: string) => {
+      const s = hx.c.snapshot();
+      assert.equal(s.status?.limited, true, what);
+      assert.deepEqual([s.status?.playersOnline, s.status?.players, s.status?.instances], [0, [], []], what);
+    };
+
+    // A poll (the 15 s timer or Refresh) leaves with the key; logout() finishes before the answer.
+    let hold = meta.holdNextStatus();
+    const poll = hx.c.pollStatus();
+    await hold.arrived;
+    assert.deepEqual(meta.statusCalls.at(-1), { withKey: true, registered: true }, "the held request carried the key");
+    assert.deepEqual(await hx.c.logout(), { ok: true });
+    hidden("hidden at logout");
+    hold.release();
+    await poll;
+    hidden("the full answer that arrived after logout was dropped");
+    assert.equal(hx.c.snapshot().status?.online, true);
+
+    // The same for connect() (Retry, or the first check when the launcher opens).
+    assert.deepEqual(await hx.c.useExistingKey(key), { ok: true });
+    assert.equal(hx.c.snapshot().status?.limited, false);
+    hold = meta.holdNextStatus();
+    const connecting = hx.c.connect();
+    await hold.arrived;
+    assert.deepEqual(meta.statusCalls.at(-1), { withKey: true, registered: true });
+    assert.deepEqual(await hx.c.logout(), { ok: true });
+    hold.release();
+    assert.deepEqual(await connecting, { ok: true });
+    hidden("connect() shows the overtaken answer as limited");
+    assert.deepEqual([hx.c.snapshot().connect.problem, hx.c.snapshot().status?.online], [null, true], "the server did answer");
+
+    // Forgetting the server: the old server's answer is not shown at all.
+    assert.deepEqual(await hx.c.useExistingKey(key), { ok: true });
+    hold = meta.holdNextStatus();
+    const lastPoll = hx.c.pollStatus();
+    await hold.arrived;
+    assert.deepEqual(await hx.c.forgetServer(), { ok: true });
+    hold.release();
+    await lastPoll;
+    assert.equal(hx.c.snapshot().status, null);
+  } finally {
+    await hx.c.shutdown();
+  }
+});
+
+test("a key the server refuses is not sent with ServerStatus again", async () => {
+  const hx = harness();
+  try {
+    await hx.c.init();
+    // A plausible key that the server does not know, stored for this server by hand.
+    const ks = new KeyStore(path.join(hx.userData, "keys"), {
+      isAvailable: () => true,
+      encrypt: (plain) => Buffer.from("enc:" + Buffer.from(plain).toString("base64")),
+      decrypt: (data) => Buffer.from(data.toString().slice(4), "base64").toString(),
+    });
+    await ks.save({ host: "127.0.0.1", port: GATEWAY_PORT, mode: "public", fp: cert.fingerprint }, "UUK_" + "0".repeat(48));
+    const start = meta.statusCalls.length;
+    await hx.c.submitInvite(invite(cert.fingerprint, "FIFTH-CODE"));
+    const s = hx.last();
+    assert.equal(s.lastError?.code, "key_rejected");
+    assert.equal(s.status?.limited, true);
+    assert.deepEqual(meta.statusCalls.slice(start), [{ withKey: true, registered: false }], "the first status went with the stored key");
+    await hx.c.pollStatus();
+    await hx.c.pollStatus();
+    assert.deepEqual(meta.statusCalls.slice(start + 1), [
+      { withKey: false, registered: false },
+      { withKey: false, registered: false },
+    ]);
+  } finally {
+    await hx.c.shutdown();
+  }
+});
+
+test("private mode: the key goes with ServerStatus over plain HTTP to the invite's own host only", async () => {
+  const priv = new FakeMetagame({ name: "Tailnet Hunts", validCodes: new Set(["PRIV-CODE"]), contentPort: null });
+  await priv.start(PRIVATE_PORT);
+  const hx = harness();
+  try {
+    await hx.c.init();
+    const text = formatInvite({ mode: "private", host: "127.0.0.1", port: PRIVATE_PORT, fp: null, code: "PRIV-CODE", name: "Tailnet Hunts", share: null });
+    assert.deepEqual(await hx.c.submitInvite(text), { ok: true });
+    assert.equal(hx.last().status?.limited, true);
+    assert.deepEqual(await hx.c.register("Tailnet_1"), { ok: true, username: "Tailnet_1" });
+    await hx.c.pollStatus();
+    assert.equal(hx.last().status?.limited, false);
+    assert.deepEqual(hx.last().status?.players.map((p) => p.name), ["Aurora", "Borealis"]);
+    const calls = priv.statusCalls;
+    assert.ok(!calls[0].withKey, "no key before registering");
+    assert.ok(calls.slice(-2).every((c) => c.withKey && c.registered));
+  } finally {
+    await hx.c.shutdown();
+    await priv.stop();
+  }
+});
+
+async function waitUntil(cond: () => boolean, ms = 5000): Promise<void> {
+  const until = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > until) throw new Error("timed out");
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}

@@ -33,7 +33,10 @@ The deploy server (61001) is never reachable through the gateway: no route leads
 | everything else | the metagame (`GATEWAY_METAGAME_URL`) |
 
 The request target goes upstream unchanged: method, path, query and headers (minus the ones below).
-Request and response bodies are streamed.
+Request and response bodies are streamed. That includes the account key header
+`x-undaunted-user-api-key`: the launcher sends it with `GET /undaunted/api/ServerStatus`, and the
+metagame lists who is online only for a valid key (anyone else gets the same answer with no players
+and no servers, `"limited": true`). Like every header, the key is never logged.
 
 ### What it refuses
 

@@ -36,6 +36,9 @@ export interface ServerStatus {
   instances: StatusInstance[];
   contentPort: number | null;
   uptimeSeconds: number;
+  // The server hid who is online (playersOnline 0, no players, no instances): its answer to a
+  // launcher without an account key there, or with one it did not accept.
+  limited: boolean;
 }
 
 const MAX_PLAYERS_LISTED = 500;
@@ -126,7 +129,7 @@ export function parseServerStatus(raw: unknown): ServerStatus | null {
 
   const contentPort = cleanInt(raw.contentPort, 0, 65535);
 
-  return {
+  const status: ServerStatus = {
     name,
     online: raw.online === true,
     version: cleanText(raw.version, 48) ?? "",
@@ -138,7 +141,17 @@ export function parseServerStatus(raw: unknown): ServerStatus | null {
     instances,
     contentPort: contentPort !== null && contentPort >= 1 ? contentPort : null,
     uptimeSeconds: cleanInt(raw.uptimeSeconds, 0, 100 * 365 * 24 * 3600) ?? 0,
+    // Only an explicit true: an older server without the field lists everyone.
+    limited: raw.limited === true,
   };
+  // A limited answer lists nobody, whatever else came with it.
+  return status.limited ? limitedView(status) : status;
+}
+
+// What a limited answer would show: the same server, nobody listed. Used when the launcher knows
+// it can no longer see the list (it just logged out) before the next poll says so.
+export function limitedView(status: ServerStatus): ServerStatus {
+  return { ...status, playersOnline: 0, players: [], instances: [], limited: true };
 }
 
 // Instance cards are listed city first, then dojo, tutorial and hunts, busiest first.

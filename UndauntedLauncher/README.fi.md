@@ -56,6 +56,13 @@ käynnissä. Välitin kuuntelee vain osoitteessa 127.0.0.1 ja hylkää verkkosiv
   listalta.
 - Tiliavain tallennetaan vain Windowsin DPAPI:lla (`safeStorage`). Sitä ei näytetä, sitä ei kirjoiteta
   tavalliseen tiedostoon (paitsi itse tallentamaasi varmuuskopioon), ja se peitetään lokissa.
+- Avain lähetetään vain kutsun palvelimelle (julkisessa tilassa vain lukitun yhteyden kautta): tilin
+  tarkistuksen, latausten ja palvelimen tilan mukana. Palvelin näyttää paikalla olijat vain
+  rekisteröityneille pelaajille, joten ennen rekisteröitymistä palvelinpaneeli pyytää kirjautumaan
+  eikä listaa ketään. Ennen tätä muutosta julkaistut käynnistimet eivät lähetä avainta eivätkä tunne
+  tätä vastausta: muutoksen sisältävää palvelinta vasten ne näyttävät 0 pelaajaa paikalla eikä yhtään
+  maailmaa, kunnes ne päivittävät itsensä. Päivitä vanhempi palvelin vasta, kun muutoksen sisältävä
+  käynnistin on julkaistu.
 - Electron-fuset: ei `ELECTRON_RUN_AS_NODE`-, `NODE_OPTIONS`- eikä debug-lippuja, ja sovelluskoodi
   ladataan vain eheystarkistetusta asar-paketista.
 - Pelin tarvitsemat kaksi DLL:ää tulevat käynnistimen mukana, ja ne tarkistetaan lukittuja tiivisteitä

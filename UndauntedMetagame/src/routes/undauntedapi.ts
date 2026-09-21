@@ -17,6 +17,7 @@ import { FindAccount } from "../controllers/login";
 import { InviteToParty } from "../controllers/party";
 import { SendOrAcceptFriendRequest } from "../controllers/friends";
 import { RefuseAdminKeyThroughProxy } from "../middleware/RequestOrigin";
+import { IsSoftRegisteredCaller, SoftAccountAuth } from "../middleware/SoftAccountAuth";
 
 export const undauntedApiRouter = Router();
 
@@ -213,12 +214,18 @@ undauntedApiRouter.post("/RenameUser", HasUndauntedAdminApiKey, async (req: any,
     });
 });
 
-// Public inside the tailnet, no auth: server name, source, who is online and which
-// game servers run. Usernames only, never account ids, keys or addresses. Cached 5 s.
-undauntedApiRouter.get("/ServerStatus", async (req, res) => {
-    const Status = await GetServerStatus();
+// Server name, source, registration mode and (for registered players only) who is online
+// and which game servers run. Usernames only, never account ids, keys or addresses.
+// Without a valid account key or player token (or with a wrong one) the answer has the
+// same shape with no players and no servers, and "limited": true; never a 401, so the
+// launcher can read it before registering. Each variant is cached 5 s.
+undauntedApiRouter.get("/ServerStatus", SoftAccountAuth, async (req, res) => {
+    const Status = await GetServerStatus(IsSoftRegisteredCaller(req) ? "full" : "limited");
 
     res.status(200);
+    res.set("Cache-Control", "no-store");
+    res.vary("x-undaunted-user-api-key");
+    res.vary("authorization");
     res.json(Status);
 });
 

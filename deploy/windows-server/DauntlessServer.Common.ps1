@@ -639,6 +639,36 @@ function ConvertTo-DRCleanServerName([string]$Raw) {
 
 function Test-DRUsername([string]$Name) { return ($Name -cmatch '^[A-Za-z0-9_]{3,16}$') }
 
+# ---------------------------------------------------------------------------------------------
+# Account keys (never printed)
+# ---------------------------------------------------------------------------------------------
+# The key in a file: owner.key (the key alone) or a launcher key backup (a "Key: ..." line), with the
+# launcher's rule (extractAccountKey in UndauntedLauncher/src/shared/username.ts). $null when the file
+# holds no key; throws when it cannot be read.
+function Read-DRAccountKey([string]$Path) {
+    $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+    if ($item.PSIsContainer -or $item.Length -gt 8192) { return $null }
+    $text = [IO.File]::ReadAllText($item.FullName)
+    $m = [regex]::Match($text, '(?m)^\s*Key:\s*([A-Za-z0-9_-]{8,128})\s*$')
+    if ($m.Success) { return $m.Groups[1].Value }
+    $t = $text.Trim()
+    if ($t -cmatch '^[A-Za-z0-9_-]{8,128}$') { return $t }
+    return $null
+}
+
+# Where an account key may go over plain HTTP (the launcher's isPrivateModeHost): this machine, a
+# Tailscale address (100.64.0.0/10) or a MagicDNS name. Anything else only over TLS pinned to the
+# invite's certificate.
+function Test-DRPlainKeyHost([string]$HostName) {
+    $h = "$HostName".ToLowerInvariant()
+    if ($h -eq 'localhost') { return $true }
+    if (Test-DRIPv4 $h) {
+        $o = $h.Split('.') | ForEach-Object { [int]$_ }
+        return ($o[0] -eq 127 -or ($o[0] -eq 100 -and $o[1] -ge 64 -and $o[1] -le 127))
+    }
+    return ((Test-DRHost $h) -and $h.EndsWith('.ts.net') -and $h.Split('.').Count -ge 3)
+}
+
 function New-DRInviteString {
     param([string]$ServerHost, [int]$Port, [string]$Code, [string]$Name, [string]$ShareUrl, [string]$Fingerprint, [ValidateSet('Private', 'Public')][string]$Mode = 'Private')
     $h = "$ServerHost".ToLowerInvariant()
