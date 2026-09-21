@@ -1,8 +1,8 @@
-# UndauntedContent
+# Dauntless Revived content server
 
-The content server of Dauntless Revived (roadmap item 1.16). It gives the friend launcher the
-verified 1.4.4 game files, file by file, over Tailscale, and only to registered accounts. It also
-serves the host's optional art pack and news for the launcher.
+The content server, in the `UndauntedContent/` folder (roadmap item 1.16). It gives the friend
+launcher the verified 1.4.4 game files, file by file, over Tailscale, and only to registered
+accounts. It also serves the host's optional art pack and news for the launcher.
 
 It is a separate process from the metagame so that 10.9 GB downloads never slow down the game
 backend. It has no database and needs no secrets of its own: it checks each account key by asking

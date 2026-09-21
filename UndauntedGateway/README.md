@@ -1,7 +1,7 @@
-# UndauntedGateway
+# Dauntless Revived gateway
 
-The public front door of a Dauntless Revived server in public mode (roadmap 1.17). Two small
-processes:
+The public front door of a Dauntless Revived server in public mode (roadmap 1.17), in the
+`UndauntedGateway/` folder. Two small processes:
 
 - **The gateway** (`dist/server.js`) is the server's only public TCP listener. It speaks TLS with a
   self-signed certificate, and the friend launcher pins that certificate's fingerprint (the `fp` of a

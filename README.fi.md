@@ -116,7 +116,7 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 | `UndauntedMetagame/` | Taustapalvelin, jonka kanssa peli keskustelee: tilit, hahmot, tavarat, varusteet, eteneminen ja pelien järjestäminen |
 | `UndauntedDeployServer/` | Käynnistää ja valvoo pelipalvelimia (Ramsgate, metsästykset, harjoitussali) |
 | `UndauntedInternalServer/` | DLL-tiedosto, jonka avulla peli toimii pelipalvelimena ja joka ohjaa pelaajat omalle taustapalvelimelle |
-| `UndauntedLauncher/` | Alkuperäisen Undaunted-projektin käynnistysohjelma |
+| `UndauntedLauncher/` | Dauntless Revived Launcher: kutsuttujen kavereiden Windows-sovellus, pohjana alkuperäisen projektin käynnistin |
 | `friend-kit/` | Asennus- ja käynnistysohjelmat kavereiden koneille |
 | `tools/` | `make-friend-kit.ps1` kokoaa kavereiden asennuspaketin; `sync-roadmap.js` kopioi tehtävälistan ohjesivustolle |
 | `docs/` | Ohjesivusto (GitHub Pages) |
