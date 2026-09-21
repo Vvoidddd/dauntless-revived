@@ -4,6 +4,7 @@ import { DrainAndRegisterUserAPIKeys } from "./controllers/auth";
 import { GetDb } from "./db";
 import { logger } from "./logger";
 import { DescribeProgressionMode } from "./controllers/progressionmode";
+import { CheckGatewayConfig } from "./middleware/RequestOrigin";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -11,6 +12,22 @@ const PORT = Number(process.env.PORT);
 // machine create an account. Set BIND_HOST to the VPN address (or 0.0.0.0)
 // only once invite codes are on.
 const BIND_HOST = process.env.BIND_HOST || "127.0.0.1";
+
+// Public mode (GATEWAY_SECRET set): the metagame sits behind UndauntedGateway on loopback.
+// Nothing is checked or logged here when GATEWAY_SECRET is unset.
+const Gateway = CheckGatewayConfig();
+
+for(const Warning of Gateway.Warnings){
+  logger.warn(Warning);
+}
+
+if(Gateway.Errors.length > 0){
+  for(const Error of Gateway.Errors){
+    logger.fatal(Error);
+  }
+
+  process.exit(1);
+}
 
 GetDb(); // This runs migrations TODO make this more explicit
 
@@ -29,6 +46,9 @@ DrainAndRegisterAPIKeys().then(async () => {
     }
     logger.info(`Undaunted Metagame on ${BIND_HOST}:${PORT}`);
     logger.info(`Progression mode: ${DescribeProgressionMode()}`);
+    if (Gateway.Enabled) {
+      logger.info(`Public mode: behind the gateway (player addresses from loopback callers that carry the gateway secret)`);
+    }
     logger.info(`Clear Skies, Slayer.`);
   });
 });

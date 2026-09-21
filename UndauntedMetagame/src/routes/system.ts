@@ -2,7 +2,8 @@ import { Router } from "express";
 import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import progressionconfig from "../vendor/progression_config.json";
-import { UpdatePlayerActivity } from "../controllers/undauntedapi";
+import { GetOnlinePlayerActivity, UpdatePlayerActivity } from "../controllers/undauntedapi";
+import { GetServerIdentity } from "../controllers/serverstatus";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
 import { GrantEntitlementInTx, ListEntitlements, RevokeEntitlementInTx } from "../controllers/entitlements";
 import { GetSelectedHuntPass, SetSelectedHuntPass } from "../controllers/realprogression";
@@ -11,6 +12,7 @@ import { DeleteBounties, GetBountyReply, SetBounties } from "../controllers/boun
 import { CallerOf, DoesAccountExist, ReadField, ReadInteger, RecordProgressionEvent } from "../controllers/progressionevents";
 import { RealProgressionOnly, RefuseForeignPlayer, SendRealReply } from "../middleware/RealProgressionOnly";
 import { GetDb } from "../db";
+import { TouchPlayer } from "../controllers/party";
 
 export const systemRouter = Router();
 
@@ -32,8 +34,17 @@ function MiscRoutesOn(req: any, res: any, next: any){
 	next(process.env.MISC_ROUTES === "0" ? "route" : undefined);
 }
 
+// The client reads exactly the first nine fields by name (docs/findings/backend-contract.md),
+// so the fields after them are for people and scripts: the server's name, the source it
+// runs (roadmap 1.13, the AGPL source link) and how many players are online.
+// STATUS_EXTRA=0 answers the nine fields alone, as before.
 systemRouter.get("/dauntless-status", (req, res) => {
     logger.info("Status");
+
+    const Extra = process.env.STATUS_EXTRA === "0" ? {} : {
+	    ...GetServerIdentity(),
+	    "playersOnline": GetOnlinePlayerActivity().length
+    };
 
     res.json({
 	    "show-status": true,
@@ -44,16 +55,23 @@ systemRouter.get("/dauntless-status", (req, res) => {
 	    "de": "Welcome to Undaunted v0.0.5!",
 	    "pt": "Welcome to Undaunted v0.0.5!",
 	    "ru": "Welcome to Undaunted v0.0.5!",
-	    "ja": "Welcome to Undaunted v0.0.5!"
+	    "ja": "Welcome to Undaunted v0.0.5!",
+	    ...Extra
     });
 });
 
 systemRouter.post("/heartbeat", HasUndauntedMetagameAuth, async (req: any, res) => {
 	const UserId = req.AuthData.userId;
 
-	const UserMap = req.body.map;
+	const UserMap = req.body?.map;
 
-	await UpdatePlayerActivity(UserId, UserMap);
+	// A game server's own heartbeat carries no player token: there is no player to record
+	// (upstream stored it under the key undefined). A player's heartbeat also keeps them in
+	// their party (controllers/party.ts drops members nobody has heard from).
+	if(typeof UserId === "string"){
+		await UpdatePlayerActivity(UserId, UserMap, req.body?.state);
+		TouchPlayer(UserId);
+	}
 
     res.status(200).type("text/plain").send("20000");
 });
@@ -493,17 +511,4 @@ systemRouter.get("/all/", HasUndauntedMetagameAuth, (req: any, res) => {
 systemRouter.get("/motd/trigger", MiscRoutesOn, (req, res) => {
 	res.status(204);
 	res.send();
-});
-
-// Epic's friends code wraps this body as {"friends": <body>}, so it must be a bare array
-systemRouter.get("/friends/api/public/friends/:userId", MiscRoutesOn, (req, res) => {
-	res.status(200);
-	res.json([]);
-});
-
-systemRouter.get("/friends/api/public/blocklist/:userId", MiscRoutesOn, (req, res) => {
-	res.status(200);
-	res.json({
-		blockedUsers: []
-	});
 });

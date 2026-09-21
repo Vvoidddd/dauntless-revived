@@ -261,6 +261,86 @@ export async function StartupGameserverWithHuntIdAndPlayers(HuntId: string, Expe
     }
 }
 
+// ---- GET /gameservers: what runs now, for the metagame's /undaunted/api/ServerStatus ----
+
+export type GameserverKind = "city" | "hunt" | "dojo" | "tutorial";
+
+// The tutorial is started from the client's own game args: the tutorial Gnasher on
+// dia_moss_triforce (regular hunts use dia_moss_triforce_2, hence the exact match)
+const TUTORIAL_MAP = /\/dia_moss_triforce(?:$|[.?])/i;
+const TRAINING_DOJO_MATCHMAKER_HUNT_ID = "CR19_MatchmakerHunt_ShatteredIsles_TrainingDojo";
+
+export function KindOfGameserver(Server: Gameserver): GameserverKind {
+    if(Server.isRamsgate){
+        return "city";
+    }
+
+    if(Server.isTrainingDojo){
+        return "dojo";
+    }
+
+    if(/_tutorial_bp/i.test(Server.behemoth ?? "") || TUTORIAL_MAP.test(Server.map)){
+        return "tutorial";
+    }
+
+    return "hunt";
+}
+
+function MaxPlayersFromTables(MatchmakerHuntId: string){
+    const Row = (MatchmakerHuntTable[0].Rows as any)[MatchmakerHuntId]
+        ?? (TrialsHardHuntTable[0].Rows as any)[MatchmakerHuntId]
+        ?? (TrialsEliteHuntTable[0].Rows as any)[MatchmakerHuntId];
+
+    return Number.isInteger(Row?.MaxPlayers) ? Row.MaxPlayers as number : null;
+}
+
+// null where the tables don't say (Ramsgate): the metagame fills in its default
+function MaxPlayersOf(Server: Gameserver, Kind: GameserverKind): number | null {
+    switch(Kind){
+        case "tutorial":
+            return 1;
+        case "dojo":
+            return MaxPlayersFromTables(TRAINING_DOJO_MATCHMAKER_HUNT_ID);
+        case "hunt":
+            return Server.matchmakerHuntId != undefined ? MaxPlayersFromTables(Server.matchmakerHuntId) : null;
+        default:
+            return null;
+    }
+}
+
+export function IsProcessAlive(ProcessId: number){
+    try{
+        kill(ProcessId, 0);
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Servers whose process has exited are left out at once (the watchdog frees them within a minute)
+export function DescribeGameservers(Servers: Gameserver[] = Gameservers, IsAlive: (ProcessId: number) => boolean = IsProcessAlive){
+    return Servers.filter((Server) => IsAlive(Server.processId)).map((Server) => {
+        const Kind = KindOfGameserver(Server);
+        const [MapPath, ...Options] = Server.map.split("?");
+        const GameMode = Options.find((Option) => Option.startsWith("game="))?.slice("game=".length);
+
+        return {
+            id: Server.id,
+            port: Server.port,
+            kind: Kind,
+            map: MapPath,
+            gameMode: GameMode != undefined && GameMode.length > 0 ? GameMode : null,
+            behemoth: Server.behemoth != undefined && Server.behemoth.length > 0 && Server.behemoth !== "NO_BEHEMOTH" ? Server.behemoth : null,
+            huntId: Server.expectedPlayers?.[0]?.playerHuntId ?? null,
+            matchmakerHuntId: Server.matchmakerHuntId ?? null,
+            expectedPlayers: (Server.expectedPlayers ?? []).map((Player) => Player.playerUid),
+            maxPlayers: MaxPlayersOf(Server, Kind),
+            startedAt: Server.startTime.toISOString()
+        };
+    });
+}
+
 export async function Startup(){
     for(let i = PORT_RANGE_BEGIN; i <= PORT_RANGE_END - 2; i++){
         FreePorts.push(i);

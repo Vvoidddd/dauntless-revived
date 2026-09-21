@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { DeleteInviteCode, GetAllUserIds, GetInviteCodes, GetRecentPlayerData, IsRegistrationMode, RegisterInviteCode, RegisterUser, REGISTRATION_MODE, SetRegistrationMode, ValidateAndConsumeInviteCode } from "../controllers/undauntedapi";
+import { DeleteInviteCode, GetAllUserIds, GetInviteCodes, GetRecentPlayerData, IsRegistrationMode, RegisterInviteCode, REGISTRATION_MODE, SetRegistrationMode } from "../controllers/undauntedapi";
 import { HasUndauntedUserApiKey } from "../middleware/HasUndauntedUserApiKey";
 import { HasUndauntedAdminApiKey } from "../middleware/HasUndauntedAdminApiKey";
 import { SignMetagameJWTForUid } from "../controllers/auth";
@@ -10,6 +10,13 @@ import { ComputeEarnedRanks, GetProgressionPath, PremiumGatingEntitlement } from
 import { GrantEntitlementInTx, ListEntitlements, RevokeEntitlementInTx } from "../controllers/entitlements";
 import { DoesAccountExist, RecordProgressionEvent } from "../controllers/progressionevents";
 import { GetDb } from "../db";
+import { CleanInviteNote, ErrorBody, GenerateInviteCode, IsUsernameTaken, IsValidUsername, LogInviteCreated, MAX_INVITE_USES, RegisterAccount, RenameAccount, TrimUsername } from "../controllers/accounts";
+import { GetServerStatus } from "../controllers/serverstatus";
+import { logger } from "../logger";
+import { FindAccount } from "../controllers/login";
+import { InviteToParty } from "../controllers/party";
+import { SendOrAcceptFriendRequest } from "../controllers/friends";
+import { RefuseAdminKeyThroughProxy } from "../middleware/RequestOrigin";
 
 export const undauntedApiRouter = Router();
 
@@ -98,6 +105,9 @@ undauntedApiRouter.delete("/InviteCode/:inviteCodeToDelete", HasUndauntedAdminAp
     res.send();
 });
 
+// {Username, InviteCode} -> 200 {UUK}. Refusals are JSON: {"error": code, "message": text}
+// with 400 username_invalid | registration_closed | bad_request, 401 invite_invalid or
+// 409 username_taken. Usernames: 3-16 of [A-Za-z0-9_], unique regardless of case.
 undauntedApiRouter.post("/Register", async (req, res) => {
     if(!IsRegistrationMode(REGISTRATION_MODE)){
         res.status(500);
@@ -105,43 +115,111 @@ undauntedApiRouter.post("/Register", async (req, res) => {
         return;
     }
 
-    if(REGISTRATION_MODE === "NONE"){
-        res.status(400);
-        res.send();
+    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
+
+    const Result = RegisterAccount(REGISTRATION_MODE, Body.Username, Body.InviteCode);
+
+    if(!Result.ok){
+        logger.info(`Registration refused: ${Result.Error}`);
+
+        res.status(Result.Status);
+        res.json(ErrorBody(Result.Error));
         return;
     }
 
-    const Username = req.body.Username;
-    if(typeof Username !== "string" || Username.trim().length === 0){
-        res.status(400);
-        res.send();
-        return;
-    }
+    logger.info(`Registered ${Result.UserId} as ${Result.Username}`);
 
-    if(REGISTRATION_MODE === "INVITECODE"){
-        const InviteCode = req.body.InviteCode;
+    res.status(200);
+    res.json({
+        UUK: Result.UUK
+    });
+});
 
-        if(await ValidateAndConsumeInviteCode(InviteCode)){
-            const UUK = await RegisterUser(Username);
+// "Is this name free?" for the launcher's register screen: {available, error?}. It
+// answers for the rules and existing accounts only; registering can still lose a race.
+undauntedApiRouter.get("/UsernameAvailable", (req, res) => {
+    const Username = TrimUsername(req.query.Username);
 
-            res.status(200);
-            res.json({
-                UUK: UUK
-            });
-        }
-        else{
-            res.status(401);
-            res.send();
-        }
-    }
-    else if(REGISTRATION_MODE === "OPEN"){
-        const UUK = await RegisterUser(Username);
-
+    if(!IsValidUsername(Username)){
         res.status(200);
-        res.json({
-            UUK: UUK
-        });
+        res.json({ available: false, ...ErrorBody("username_invalid") });
+        return;
     }
+
+    if(IsUsernameTaken(Username)){
+        res.status(200);
+        res.json({ available: false, ...ErrorBody("username_taken") });
+        return;
+    }
+
+    res.status(200);
+    res.json({ available: true });
+});
+
+// Admin: {uses?: int (default 1), name?: string} -> {"code": "XXXX-XXXX-XXXX"}. The name is
+// a note for the host's log ("for Alex") and is not stored.
+undauntedApiRouter.post("/CreateInvite", HasUndauntedAdminApiKey, async (req: any, res) => {
+    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
+    const Uses = Body.uses ?? 1;
+
+    if(!Number.isSafeInteger(Uses) || Uses < 1 || Uses > MAX_INVITE_USES || (Body.name != undefined && typeof Body.name !== "string")){
+        res.status(400);
+        res.json({ error: "bad_request", message: `uses must be a whole number from 1 to ${MAX_INVITE_USES}, and name a string` });
+        return;
+    }
+
+    // A clash with an existing code is next to impossible (60 random bits); try again if it happens
+    for(let Attempt = 0; Attempt < 5; Attempt++){
+        const Code = GenerateInviteCode();
+
+        try{
+            if(await RegisterInviteCode(Code, Uses, false)){
+                LogInviteCreated(Code, Uses, CleanInviteNote(Body.name), req.UndauntedUserInfo.UserId);
+
+                res.status(200);
+                res.json({ code: Code });
+                return;
+            }
+        }
+        catch(error){
+            logger.warn(`CreateInvite attempt ${Attempt + 1} failed: ${(error as Error).message}`);
+        }
+    }
+
+    res.status(500);
+    res.send();
+});
+
+// Admin: {UserId or Username (the current name), NewUsername} -> {UserId, OldUsername, Username}.
+// Renames the account and its characters together. The player sees it after logging in again.
+undauntedApiRouter.post("/RenameUser", HasUndauntedAdminApiKey, async (req: any, res) => {
+    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
+
+    const Result = RenameAccount({ UserId: Body.UserId, Username: Body.Username }, Body.NewUsername);
+
+    if(!Result.ok){
+        res.status(Result.Status);
+        res.json(ErrorBody(Result.Error));
+        return;
+    }
+
+    logger.info(`Admin ${req.UndauntedUserInfo.UserId} renamed ${Result.UserId} from ${Result.OldUsername} to ${Result.Username} (${Result.Characters} character(s))`);
+
+    res.status(200);
+    res.json({
+        UserId: Result.UserId,
+        OldUsername: Result.OldUsername,
+        Username: Result.Username
+    });
+});
+
+// Public inside the tailnet, no auth: server name, source, who is online and which
+// game servers run. Usernames only, never account ids, keys or addresses. Cached 5 s.
+undauntedApiRouter.get("/ServerStatus", async (req, res) => {
+    const Status = await GetServerStatus();
+
+    res.status(200);
+    res.json(Status);
 });
 
 undauntedApiRouter.get("/GetUserInfo", HasUndauntedUserApiKey, async (req: any, res) => {
@@ -391,4 +469,99 @@ undauntedApiRouter.post("/RevokeEntitlement", HasUndauntedAdminApiKey, async (re
         Revoked: Result,
         Entitlements: ListEntitlements(UserId)
     });
+});
+
+// ---- Parties and friends by name (roadmap 1.9) ----
+// Fallbacks for when the game's own buttons are missing or fail: the key's owner invites a
+// player to their party (the friend still accepts in-game through the invite poll), or sends
+// them a friend request (accepting one they sent). An admin may act for another player with
+// "From" (a name or account id), only directly on the host, never through a proxy. The public
+// gateway does not pass these routes (it only lets Register, GetUserInfo, ServerStatus and
+// RegistrationStatus through), so in public mode they are used on the server itself.
+
+function ActingAccount(req: any, res: any): { UserId: string, Username: string } | undefined {
+    const Caller = req.UndauntedUserInfo as { UserId: string, Username: string, IsAdmin: boolean };
+    const From = req.body?.From;
+
+    if(From === undefined){
+        return { UserId: Caller.UserId, Username: Caller.Username };
+    }
+
+    if(!Caller.IsAdmin){
+        res.status(403);
+        res.json({ error: "forbidden", message: "Only an admin may act for another player." });
+        return undefined;
+    }
+
+    if(RefuseAdminKeyThroughProxy(req, res)){
+        return undefined;
+    }
+
+    const Account = FindAccount(From);
+
+    if(Account === undefined){
+        res.status(404);
+        res.json(ErrorBody("not_found"));
+        return undefined;
+    }
+
+    return Account;
+}
+
+// {Username, From?} -> 200 {From, To}
+undauntedApiRouter.post("/PartyInvite", HasUndauntedUserApiKey, (req: any, res) => {
+    const From = ActingAccount(req, res);
+
+    if(From === undefined){
+        return;
+    }
+
+    const To = FindAccount(req.body?.Username);
+
+    if(To === undefined){
+        res.status(404);
+        res.json(ErrorBody("not_found"));
+        return;
+    }
+
+    const Result = InviteToParty(From.UserId, To.UserId, undefined);
+
+    logger.info(`party: /undaunted/api/PartyInvite by key of ${req.UndauntedUserInfo.UserId}: from=${From.UserId} to=${To.UserId} -> ${Result.Status}`);
+
+    if(Result.Status !== 200){
+        res.status(Result.Status);
+        res.json({ error: "party_invite_refused", message: Result.Reason ?? "The invite was refused." });
+        return;
+    }
+
+    res.status(200);
+    res.json({ From: From.Username, To: To.Username });
+});
+
+// {Username, From?} -> 200 {From, To, Result: requested | accepted | already_friends | already_requested}
+undauntedApiRouter.post("/Friends", HasUndauntedUserApiKey, (req: any, res) => {
+    const From = ActingAccount(req, res);
+
+    if(From === undefined){
+        return;
+    }
+
+    const To = FindAccount(req.body?.Username);
+
+    if(To === undefined){
+        res.status(404);
+        res.json(ErrorBody("not_found"));
+        return;
+    }
+
+    const Result = SendOrAcceptFriendRequest(From.UserId, To.UserId);
+
+    if(!Result.ok){
+        res.status(Result.Status);
+        res.json({ error: Result.Error, message: Result.Error === "blocked" ? "One of the two has blocked the other." : Result.Error === "self" ? "That is the same account." : Result.Error === "limit" ? "Too many friends or requests." : "No such account." });
+        return;
+    }
+
+    res.status(200);
+    res.json({ From: From.Username, To: To.Username, Result: Result.Result });
 });

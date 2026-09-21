@@ -20,6 +20,7 @@ export type UserInfo = {
 
 type PlayerActivity = { // TODO: Track more stuff from the game's native telemetry here
     Map: string;
+    State?: string; // the heartbeat's "state" (menu, city, island...) when it sends one
     LastUpdatedTime: number
 }
 
@@ -141,9 +142,10 @@ export async function ValidateAndConsumeInviteCode(InviteCode: unknown){
     return UsableInviteCode.length === 1;
 }
 
-export async function UpdatePlayerActivity(UserId: string, Map: string){
+export async function UpdatePlayerActivity(UserId: string, Map: string, State?: unknown){
     PlayerActivityMap.set(UserId, {
         Map: Map,
+        State: typeof State === "string" ? State : undefined,
         LastUpdatedTime: Date.now()
     });
 }
@@ -172,6 +174,21 @@ export async function GetRecentPlayerData(){
     });
 
     return PlayerDataToReturn;
+}
+
+// Heartbeats of the last 90 s (the window GetRecentPlayerData uses), for ServerStatus.
+// Only string account ids: a heartbeat that carried no player token has none.
+export function GetOnlinePlayerActivity(){
+    const Now = Date.now();
+    const Online: { UserId: string, Map: unknown, State: string | undefined, LastUpdatedTime: number }[] = [];
+
+    PlayerActivityMap.forEach((Activity, UserId) => {
+        if(typeof UserId === "string" && Now - Activity.LastUpdatedTime <= 90 * 1000){
+            Online.push({ UserId: UserId, Map: Activity.Map, State: Activity.State, LastUpdatedTime: Activity.LastUpdatedTime });
+        }
+    });
+
+    return Online;
 }
 
 export async function GetUserInfoForApiKey(UserApiKey: string): Promise<UserInfo | undefined>{

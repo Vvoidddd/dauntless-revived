@@ -4,7 +4,7 @@ import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth
 import { GetDb } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { GetUsernameForUserId } from "../controllers/login";
+import { FindUsernameForUserId, GetUsernameForUserId } from "../controllers/login";
 
 export const loginRouter = Router();
 
@@ -115,7 +115,8 @@ loginRouter.post("/accountinfo/public", HasUndauntedMetagameAuth, async (req: an
     const AccountIdToLookupFromRequest = req.body.accountId;
     const RequestorAccountId = req.AuthData.userId;
 
-    const Username = await GetUsernameForUserId(AccountIdToLookupFromRequest);
+    // An unknown account id answers an empty name (it used to throw: a 500)
+    const Username = FindUsernameForUserId(AccountIdToLookupFromRequest) ?? "";
 
     // We allow anybody to look up anybody's username from account id
 

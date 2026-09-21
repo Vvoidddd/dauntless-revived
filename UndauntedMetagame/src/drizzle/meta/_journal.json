@@ -85,6 +85,13 @@
       "when": 1789993643640,
       "tag": "0011_real_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790005698166,
+      "tag": "0012_friends_and_blocks",
+      "breakpoints": true
     }
   ]
 }

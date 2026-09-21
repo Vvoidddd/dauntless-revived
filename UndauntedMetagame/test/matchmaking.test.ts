@@ -3,8 +3,10 @@ import "./matchmakingenv";
 import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { CancelMatchmaking, CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } from "../src/controllers/matchmaking";
+import { GetDb } from "../src/db";
 
-after(() => RemoveTestDb(() => {}));
+// Matchmaking looks up the player's party (controllers/party.ts), which loads the database
+after(() => RemoveTestDb(() => GetDb().$client.close()));
 
 describe("CancelMatchmaking (DELETE /candidate)", () => {
     it("takes the player out of the queue, so the status poll can no longer send them to the hunt", async () => {

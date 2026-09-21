@@ -1,0 +1,176 @@
+import { and, eq, or, sql } from "drizzle-orm";
+import { GetDb } from "../db";
+import { blocks, friendships, users } from "../db/schema";
+import { logger } from "../logger";
+import type { Tx } from "./savehistory";
+
+// Friends list and blocklist (roadmap 1.9, parties plan phase 3), stored in SQLite so a
+// request to an offline player survives restarts. The client reads them over the Epic-style
+// friends routes (routes/friends.ts); nobody shows as online without an XMPP presence server.
+//
+// One friendships row per pair, ids sorted: status PENDING (requesterId asked) or ACCEPTED.
+// A block removes any friendship between the two and stops requests and party invites
+// in both directions.
+
+export const MAX_FRIENDSHIPS_PER_ACCOUNT = 200;
+export const MAX_BLOCKS_PER_ACCOUNT = 200;
+
+export type FriendEntry = {
+    accountId: string,
+    status: "ACCEPTED" | "PENDING",
+    direction: "INBOUND" | "OUTBOUND",
+    created: string
+};
+
+function Pair(A: string, B: string): [string, string] {
+    return A < B ? [A, B] : [B, A];
+}
+
+function PairCondition(A: string, B: string){
+    const [Low, High] = Pair(A, B);
+
+    return and(eq(friendships.userLow, Low), eq(friendships.userHigh, High));
+}
+
+function AccountExists(tx: Tx, AccountId: string){
+    return tx.select({ userId: users.userId }).from(users).where(eq(users.userId, AccountId)).get() != undefined;
+}
+
+function IsBlockedEitherWayInTx(tx: Tx, A: string, B: string){
+    return tx.select({ blockerId: blocks.blockerId }).from(blocks).where(or(
+        and(eq(blocks.blockerId, A), eq(blocks.blockedId, B)),
+        and(eq(blocks.blockerId, B), eq(blocks.blockedId, A))
+    )).get() != undefined;
+}
+
+export function IsBlockedEitherWay(A: string, B: string){
+    return GetDb().transaction((tx) => IsBlockedEitherWayInTx(tx, A, B));
+}
+
+function CountFriendships(tx: Tx, AccountId: string){
+    return tx.select({ n: sql<number>`count(*)` }).from(friendships)
+        .where(or(eq(friendships.userLow, AccountId), eq(friendships.userHigh, AccountId))).get()?.n ?? 0;
+}
+
+// GET /friends/api/public/friends/:id[?includePending=true]: the client wraps the reply as
+// {"friends": <reply>}, so this is the bare array it expects
+export function ListFriends(AccountId: string, IncludePending: boolean): FriendEntry[] {
+    const Rows = GetDb().select().from(friendships)
+        .where(or(eq(friendships.userLow, AccountId), eq(friendships.userHigh, AccountId))).all();
+
+    return Rows
+        .filter((Row) => Row.status === "ACCEPTED" || (IncludePending && Row.status === "PENDING"))
+        .sort((A, B) => A.createdAt - B.createdAt)
+        .map((Row) => ({
+            accountId: Row.userLow === AccountId ? Row.userHigh : Row.userLow,
+            status: Row.status === "ACCEPTED" ? "ACCEPTED" : "PENDING",
+            direction: Row.requesterId === AccountId ? "OUTBOUND" : "INBOUND",
+            created: new Date(Row.createdAt).toISOString()
+        }));
+}
+
+export function ListBlocked(AccountId: string): string[] {
+    return GetDb().select({ blockedId: blocks.blockedId }).from(blocks).where(eq(blocks.blockerId, AccountId))
+        .all().sort((A, B) => A.blockedId.localeCompare(B.blockedId)).map((Row) => Row.blockedId);
+}
+
+export type FriendResult =
+    | { ok: true, Result: "requested" | "accepted" | "already_friends" | "already_requested" | "removed" | "not_friends" | "blocked" | "unblocked" | "already_blocked" | "not_blocked" }
+    | { ok: false, Status: 400 | 403 | 404 | 409, Error: "bad_request" | "self" | "not_found" | "blocked" | "limit" };
+
+// POST /friends/api/public/friends/:me/:them. A request the other side already sent is
+// accepted; asking again, or asking an existing friend, changes nothing.
+export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResult {
+    if(Me === Them){
+        return { ok: false, Status: 400, Error: "self" };
+    }
+
+    const Result = GetDb().transaction((tx): FriendResult => {
+        if(!AccountExists(tx, Them)){
+            return { ok: false, Status: 404, Error: "not_found" };
+        }
+
+        if(IsBlockedEitherWayInTx(tx, Me, Them)){
+            return { ok: false, Status: 403, Error: "blocked" };
+        }
+
+        const Existing = tx.select().from(friendships).where(PairCondition(Me, Them)).get();
+        const Now = Date.now();
+
+        if(Existing != undefined){
+            if(Existing.status === "ACCEPTED"){
+                return { ok: true, Result: "already_friends" };
+            }
+
+            if(Existing.requesterId === Me){
+                return { ok: true, Result: "already_requested" };
+            }
+
+            tx.update(friendships).set({ status: "ACCEPTED", updatedAt: Now }).where(PairCondition(Me, Them)).run();
+            return { ok: true, Result: "accepted" };
+        }
+
+        if(CountFriendships(tx, Me) >= MAX_FRIENDSHIPS_PER_ACCOUNT || CountFriendships(tx, Them) >= MAX_FRIENDSHIPS_PER_ACCOUNT){
+            return { ok: false, Status: 409, Error: "limit" };
+        }
+
+        const [Low, High] = Pair(Me, Them);
+
+        tx.insert(friendships).values({ userLow: Low, userHigh: High, requesterId: Me, status: "PENDING", createdAt: Now, updatedAt: Now }).run();
+        return { ok: true, Result: "requested" };
+    });
+
+    logger.info(`friends: request by=${Me} to=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}`);
+
+    return Result;
+}
+
+// DELETE /friends/api/public/friends/:me/:them: unfriend, withdraw a request or decline one
+export function RemoveFriend(Me: string, Them: string): FriendResult {
+    const Removed = GetDb().delete(friendships).where(PairCondition(Me, Them)).returning({ status: friendships.status }).all();
+    const Result: FriendResult = { ok: true, Result: Removed.length > 0 ? "removed" : "not_friends" };
+
+    logger.info(`friends: remove by=${Me} other=${Them} -> ${Result.Result}`);
+
+    return Result;
+}
+
+export function BlockPlayer(Me: string, Them: string): FriendResult {
+    if(Me === Them){
+        return { ok: false, Status: 400, Error: "self" };
+    }
+
+    const Result = GetDb().transaction((tx): FriendResult => {
+        if(!AccountExists(tx, Them)){
+            return { ok: false, Status: 404, Error: "not_found" };
+        }
+
+        if(tx.select({ blockerId: blocks.blockerId }).from(blocks).where(and(eq(blocks.blockerId, Me), eq(blocks.blockedId, Them))).get() != undefined){
+            return { ok: true, Result: "already_blocked" };
+        }
+
+        const Count = tx.select({ n: sql<number>`count(*)` }).from(blocks).where(eq(blocks.blockerId, Me)).get()?.n ?? 0;
+
+        if(Count >= MAX_BLOCKS_PER_ACCOUNT){
+            return { ok: false, Status: 409, Error: "limit" };
+        }
+
+        tx.insert(blocks).values({ blockerId: Me, blockedId: Them, createdAt: Date.now() }).run();
+        tx.delete(friendships).where(PairCondition(Me, Them)).run();
+
+        return { ok: true, Result: "blocked" };
+    });
+
+    logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}`);
+
+    return Result;
+}
+
+export function UnblockPlayer(Me: string, Them: string): FriendResult {
+    const Removed = GetDb().delete(blocks).where(and(eq(blocks.blockerId, Me), eq(blocks.blockedId, Them))).returning({ blockedId: blocks.blockedId }).all();
+    const Result: FriendResult = { ok: true, Result: Removed.length > 0 ? "unblocked" : "not_blocked" };
+
+    logger.info(`friends: unblock by=${Me} target=${Them} -> ${Result.Result}`);
+
+    return Result;
+}

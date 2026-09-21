@@ -234,3 +234,28 @@ export const loadoutslots = sqliteTable("loadoutslots", {
     activeIndex: integer("activeIndex").notNull(),
     updatedDate: text("updatedDate").notNull()
 });
+
+// Friends list (roadmap 1.9, parties plan phase 3). One row per pair of accounts, the two ids
+// sorted (userLow < userHigh) so a pair can only exist once. requesterId sent the request;
+// status is PENDING until the other side accepts, then ACCEPTED. Times are epoch ms.
+export const friendships = sqliteTable("friendships", {
+    userLow: text("userLow").notNull(),
+    userHigh: text("userHigh").notNull(),
+    requesterId: text("requesterId").notNull(),
+    status: text("status").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    updatedAt: integer("updatedAt").notNull()
+}, (table) => [
+    primaryKey({columns: [table.userLow, table.userHigh]}),
+    index("friendships_high").on(table.userHigh)
+]);
+
+// blockerId does not want to hear from blockedId: no friend requests, no party invites
+export const blocks = sqliteTable("blocks", {
+    blockerId: text("blockerId").notNull(),
+    blockedId: text("blockedId").notNull(),
+    createdAt: integer("createdAt").notNull()
+}, (table) => [
+    primaryKey({columns: [table.blockerId, table.blockedId]}),
+    index("blocks_blocked").on(table.blockedId)
+]);

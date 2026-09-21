@@ -2,7 +2,8 @@ import { Router } from "express";
 import { logger } from "../logger";
 import { GetUserIDForAPIKey, SignMetagameJWTForUid } from "../controllers/auth";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
-import { GetUsernameForUserId } from "../controllers/login";
+import { DisplayNameForUserId, FindAccountByUsername, FindUsernameForUserId, FindUsernames } from "../controllers/login";
+import { SoftMetagameAuth, SoftPlayerOf } from "../middleware/PlayerAuth";
 
 export const eosRouter = Router();
 
@@ -83,10 +84,45 @@ eosRouter.get("/account/api/oauth/verify", (req, res) => {
     });
 });
 
-eosRouter.get("/account/api/public/account/:AccId", (req, res) => {
-    logger.info("EOS Account Info (stubbed)");
+// Epic-style account lookups the client makes for other players (party members, Hunt
+// Members, the chat's /invite <name>). With a valid player token they answer
+// {id, displayName, externalAuths}; without one they answer what they always did.
+function PublicAccount(UserId: string, Username: string){
+    return {
+        id: UserId,
+        displayName: Username,
+        externalAuths: {}
+    };
+}
 
-    res.json({});
+eosRouter.get("/account/api/public/account/:AccId", SoftMetagameAuth, (req: any, res) => {
+    const Caller = SoftPlayerOf(req);
+    const Username = Caller !== undefined ? FindUsernameForUserId(req.params.AccId) : undefined;
+
+    if(Caller !== undefined){
+        logger.info(`EOS Account Info for ${String(req.params.AccId).slice(0, 64)} by ${Caller}: ${Username !== undefined ? "found" : "unknown"}`);
+    }
+    else{
+        logger.info("EOS Account Info (stubbed)");
+    }
+
+    res.json(Username !== undefined ? PublicAccount(req.params.AccId, Username) : {});
+});
+
+// Before /:AccId/externalAuths, which a user named "externalAuths" would otherwise hit
+eosRouter.get("/account/api/public/account/displayName/:displayName", SoftMetagameAuth, (req: any, res) => {
+    const Caller = SoftPlayerOf(req);
+    const Account = Caller !== undefined ? FindAccountByUsername(req.params.displayName) : undefined;
+
+    logger.info(`EOS Account by name by ${Caller ?? "<no token>"}: ${Account !== undefined ? Account.UserId : "not found"}`);
+
+    if(Account === undefined){
+        res.status(404);
+        res.send();
+        return;
+    }
+
+    res.json(PublicAccount(Account.UserId, Account.Username));
 });
 
 eosRouter.get("/account/api/public/account/:AccId/externalAuths", (req, res) => {
@@ -111,9 +147,26 @@ eosRouter.delete("/account/api/oauth/sessions/kill/:AuthToken", (req, res) => {
     res.json({});
 })
 
-eosRouter.get("/account/api/public/account", HasUndauntedMetagameAuth, (req: any, res) => {
+// Several accounts at once (?accountId=A&accountId=B): an array of the ones that exist
+const MAX_ACCOUNT_LOOKUP = 100;
+
+eosRouter.get("/account/api/public/account", HasUndauntedMetagameAuth, async (req: any, res) => {
     const UserId = req.AuthData.userId;
-    const Username = GetUsernameForUserId(UserId);
+
+    if(req.query?.accountId !== undefined){
+        const Asked: string[] = (Array.isArray(req.query.accountId) ? req.query.accountId : [req.query.accountId])
+            .filter((Id: unknown): Id is string => typeof Id === "string")
+            .slice(0, MAX_ACCOUNT_LOOKUP);
+        const Names = FindUsernames(Asked);
+        const Found = [...new Set(Asked)].filter((Id) => Names.has(Id)).map((Id) => PublicAccount(Id, Names.get(Id)!));
+
+        logger.info(`Account info for ${Asked.length} account(s) by userId ${UserId}: ${Found.length} found`);
+
+        res.json(Found);
+        return;
+    }
+
+    const Username = await DisplayNameForUserId(UserId);
 
     logger.info(`Account info for userId ${UserId}`);
 
