@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "node:fs";
 import { loginRouter } from "./routes/login.js";
 import { logger } from "./logger.js";
 import { eosRouter } from "./routes/eos.js";
@@ -31,6 +32,33 @@ const redact = (path: string) =>
 if (process.env.LOG_REQUESTS !== "0") {
     app.use((req, _res, next) => {
         logger.info(`${req.method} ${redact(req.path)} gs=${req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0}`);
+        next();
+    });
+}
+
+// Body capture for the save routes that are still stubbed or missing. Their
+// request formats are only inferred from the client binary, and a wrong
+// response shape can crash the client, so we record what the game actually
+// sends before building on it. Off unless LOG_BODIES=1; one JSON object per
+// line in BODY_LOG_FILE (default ./bodies.log), bodies capped at 8 KB, with any
+// token-shaped string removed from both the URL and the body.
+const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|balance|store)/;
+if (process.env.LOG_BODIES === "1") {
+    const bodyLog = process.env.BODY_LOG_FILE || "bodies.log";
+    app.use((req, _res, next) => {
+        if (BODY_ROUTES.test(req.path)) {
+            let body = "";
+            try { body = redact(JSON.stringify(req.body ?? null)); } catch { body = "<unserialisable>"; }
+            if (body.length > 8192) body = body.slice(0, 8192) + "…<truncated>";
+            const line = JSON.stringify({
+                t: new Date().toISOString(),
+                method: req.method,
+                url: redact(req.originalUrl),
+                gs: req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0,
+                body,
+            });
+            fs.appendFile(bodyLog, line + "\n", (err) => { if (err) logger.warn(`body log write failed: ${err.message}`); });
+        }
         next();
     });
 }
