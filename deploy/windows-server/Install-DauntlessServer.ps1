@@ -266,6 +266,26 @@ function Set-DRAutoLogon([Security.SecureString]$Password) {
     }
 }
 
+# Registers a task that runs as the service account with its password stored by Task Scheduler (logon
+# type Password, kept encrypted in LSA). S4U ("do not store password") would need no password, but
+# some Server 2019 images refuse S4U for any account that is not an administrator ("Access is
+# denied", even when SYSTEM registers it), so the installer sets a fresh random password, hands it to
+# Task Scheduler and forgets it.
+function Register-DRServiceTask([string]$TaskName, $Action, $Trigger, $Settings, [string]$Description, [Security.SecureString]$Password) {
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+    try {
+        $a = @{ TaskName = $TaskName; Action = $Action; User = "$env:COMPUTERNAME\$ServiceUser"; RunLevel = 'Limited'; Force = $true }
+        if ($Trigger) { $a.Trigger = $Trigger }
+        if ($Settings) { $a.Settings = $Settings }
+        if ($Description) { $a.Description = $Description }
+        $a.Password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        Register-ScheduledTask @a | Out-Null
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        if ($a) { $a.Password = $null }
+    }
+}
+
 # Windows creates a profile at an account's first logon. Start-Process -Credential does that in an
 # interactive session; over SSH (no window station) it is refused, so a one-off scheduled task that
 # runs as the account does it instead.
@@ -278,8 +298,7 @@ function New-DRServiceProfile([string]$Sid, [Security.SecureString]$Password) {
         Write-DRInfo "no interactive logon possible here ($($_.Exception.Message.Trim())); using a one-off scheduled task"
         $name = 'Dauntless Revived profile setup'
         $action = New-ScheduledTaskAction -Execute (Join-Path $sys32 'cmd.exe') -Argument '/c exit 0' -WorkingDirectory $sys32
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$ServiceUser" -LogonType S4U -RunLevel Limited
-        Register-ScheduledTask -TaskName $name -Action $action -Principal $principal -Force | Out-Null
+        Register-DRServiceTask -TaskName $name -Action $action -Password $Password
         try {
             Start-ScheduledTask -TaskName $name
             for ($i = 0; $i -lt 60; $i++) {
@@ -1368,45 +1387,53 @@ try {
         $psExe = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
         $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
             -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Priority 5
-        if (Test-Do "task '$($DRNames.StackTask)'" "Register (runs as $ServiceUser)") {
-            $stackArgs = ConvertTo-DRArgString @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', (Join-Path $P.Bin 'Stack.ps1'), 'supervise', '-Root', $Root)
-            $run = New-ScheduledTaskAction -Execute $psExe -Argument $stackArgs -WorkingDirectory $P.Bin
-            if ($InteractiveSession) {
-                $actions = @((New-ScheduledTaskAction -Execute (Join-Path $sys32 'rundll32.exe') -Argument 'user32.dll,LockWorkStation'), $run)
-                $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
-                $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited
-            } else {
-                $actions = @($run)
-                $trigger = New-ScheduledTaskTrigger -AtStartup
-                $trigger.Delay = 'PT1M'
-                $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Limited
+        # The service account's tasks store its password (see Register-DRServiceTask): a new random one
+        # on every run, never shown. Its tasks are all registered again below with it.
+        $taskPw = $null
+        if (-not $IsWhatIf) {
+            $taskPw = New-DRPassword
+            Set-LocalUser -Name $ServiceUser -Password $taskPw
+            if ($InteractiveSession) { Set-DRAutoLogon $taskPw }   # auto-logon keeps working with the new password
+        }
+        try {
+            if (Test-Do "task '$($DRNames.StackTask)'" "Register (runs as $ServiceUser)") {
+                $stackArgs = ConvertTo-DRArgString @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', (Join-Path $P.Bin 'Stack.ps1'), 'supervise', '-Root', $Root)
+                $run = New-ScheduledTaskAction -Execute $psExe -Argument $stackArgs -WorkingDirectory $P.Bin
+                $stackDesc = 'Starts the Dauntless Revived server and restarts crashed parts (Stack.ps1 supervise).'
+                if ($InteractiveSession) {
+                    $actions = @((New-ScheduledTaskAction -Execute (Join-Path $sys32 'rundll32.exe') -Argument 'user32.dll,LockWorkStation'), $run)
+                    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+                    $principal = New-ScheduledTaskPrincipal -UserId $userId -LogonType Interactive -RunLevel Limited
+                    Register-ScheduledTask -TaskName $DRNames.StackTask -Action $actions -Trigger $trigger -Principal $principal -Settings $settings -Force -Description $stackDesc | Out-Null
+                } else {
+                    $trigger = New-ScheduledTaskTrigger -AtStartup
+                    $trigger.Delay = 'PT1M'
+                    Register-DRServiceTask -TaskName $DRNames.StackTask -Action $run -Trigger $trigger -Settings $settings -Description $stackDesc -Password $taskPw
+                }
+                Write-DROk "'$($DRNames.StackTask)': $(if ($InteractiveSession) { "at logon of $ServiceUser (session locked right away)" } else { 'at startup, without a logon (session 0)' })"
             }
-            Register-ScheduledTask -TaskName $DRNames.StackTask -Action $actions -Trigger $trigger -Principal $principal -Settings $settings -Force `
-                -Description 'Starts the Dauntless Revived server and restarts crashed parts (Stack.ps1 supervise).' | Out-Null
-            Write-DROk "'$($DRNames.StackTask)': $(if ($InteractiveSession) { "at logon of $ServiceUser (session locked right away)" } else { 'at startup, without a logon (session 0)' })"
-        }
-        if ($Public) {
-            if (Test-Do "task '$($DRNames.AllowlistTask)'" 'Register (runs as SYSTEM with highest privileges; only the allowlist helper)') {
-                $alArgs = ConvertTo-DRArgString @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', (Join-Path $P.Bin 'Stack.ps1'), 'supervise', '-Root', $Root, '-Only', 'allowlist')
-                $alAction = New-ScheduledTaskAction -Execute $psExe -Argument $alArgs -WorkingDirectory $P.Bin
-                $alPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
-                Register-ScheduledTask -TaskName $DRNames.AllowlistTask -Action $alAction -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $alPrincipal -Settings $settings -Force `
-                    -Description 'Dauntless Revived allowlist helper: opens the game UDP ports only for players who logged in (one firewall rule).' | Out-Null
-                Write-DROk "'$($DRNames.AllowlistTask)': at startup, as SYSTEM (elevated; changes only the rule '$($DRNames.AllowlistRule)')"
+            if ($Public) {
+                if (Test-Do "task '$($DRNames.AllowlistTask)'" 'Register (runs as SYSTEM with highest privileges; only the allowlist helper)') {
+                    $alArgs = ConvertTo-DRArgString @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', (Join-Path $P.Bin 'Stack.ps1'), 'supervise', '-Root', $Root, '-Only', 'allowlist')
+                    $alAction = New-ScheduledTaskAction -Execute $psExe -Argument $alArgs -WorkingDirectory $P.Bin
+                    $alPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
+                    Register-ScheduledTask -TaskName $DRNames.AllowlistTask -Action $alAction -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $alPrincipal -Settings $settings -Force `
+                        -Description 'Dauntless Revived allowlist helper: opens the game UDP ports only for players who logged in (one firewall rule).' | Out-Null
+                    Write-DROk "'$($DRNames.AllowlistTask)': at startup, as SYSTEM (elevated; changes only the rule '$($DRNames.AllowlistRule)')"
+                }
+            } elseif (Get-ScheduledTask -TaskName $DRNames.AllowlistTask -ErrorAction SilentlyContinue) {
+                if (Test-Do "task '$($DRNames.AllowlistTask)'" 'Remove (private mode has no allowlist helper)') { Unregister-ScheduledTask -TaskName $DRNames.AllowlistTask -Confirm:$false }
             }
-        } elseif (Get-ScheduledTask -TaskName $DRNames.AllowlistTask -ErrorAction SilentlyContinue) {
-            if (Test-Do "task '$($DRNames.AllowlistTask)'" 'Remove (private mode has no allowlist helper)') { Unregister-ScheduledTask -TaskName $DRNames.AllowlistTask -Confirm:$false }
-        }
-        if (Test-Do "task '$($DRNames.BackupTask)'" "Register (hourly, runs as $ServiceUser)") {
-            $bkAction = New-ScheduledTaskAction -Execute (Join-Path $sys32 'wscript.exe') -Argument (ConvertTo-DRArgString @((Join-Path $P.Bin 'backup-hidden.vbs'), $Root)) -WorkingDirectory $P.Bin
-            $bkTrigger = New-ScheduledTaskTrigger -Daily -At '00:05'
-            $bkTrigger.Repetition = (New-ScheduledTaskTrigger -Once -At '00:05' -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Hours 23 -Minutes 55)).Repetition
-            $bkPrincipal = New-ScheduledTaskPrincipal -UserId $userId -LogonType S4U -RunLevel Limited
-            $bkSettings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-            Register-ScheduledTask -TaskName $DRNames.BackupTask -Action $bkAction -Trigger $bkTrigger -Principal $bkPrincipal -Settings $bkSettings -Force `
-                -Description 'Hourly backup of the Dauntless Revived database and keys (48 hourly + 30 daily kept).' | Out-Null
-            Write-DROk "'$($DRNames.BackupTask)': hourly"
-        }
+            if (Test-Do "task '$($DRNames.BackupTask)'" "Register (hourly, runs as $ServiceUser)") {
+                $bkAction = New-ScheduledTaskAction -Execute (Join-Path $sys32 'wscript.exe') -Argument (ConvertTo-DRArgString @((Join-Path $P.Bin 'backup-hidden.vbs'), $Root)) -WorkingDirectory $P.Bin
+                $bkTrigger = New-ScheduledTaskTrigger -Daily -At '00:05'
+                $bkTrigger.Repetition = (New-ScheduledTaskTrigger -Once -At '00:05' -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Hours 23 -Minutes 55)).Repetition
+                $bkSettings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+                Register-DRServiceTask -TaskName $DRNames.BackupTask -Action $bkAction -Trigger $bkTrigger -Settings $bkSettings -Password $taskPw `
+                    -Description 'Hourly backup of the Dauntless Revived database and keys (48 hourly + 30 daily kept).'
+                Write-DROk "'$($DRNames.BackupTask)': hourly"
+            }
+        } finally { $taskPw = $null }
         if (-not $IsWhatIf) {
             $cfg.ServiceUser = $ServiceUser
             Save-DRConfig $Root ([pscustomobject]$cfg)
