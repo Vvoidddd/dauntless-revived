@@ -30,7 +30,8 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] Saved-data audit of every system (the table below), checked against the live database and the request log
 - [x] Real progression (Slayer level, mastery, the Hunt Pass with Elite for everyone) passed its in-game test on a throwaway account and is the default (2.8–2.12, 2.14, 2.15). Moving existing players over (2.13) is still open.
 - [x] The Windows Server 2019 kit runs on a real rented VPS in public mode (deployed 2026-09-21/22). Checked on the server: the stack starts at boot as the service account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup task runs.
-- [x] Launcher 0.1.0 published on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed.
+- [x] Launcher 0.1.0 published on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed. Launcher 0.1.1 followed on 2026-09-22.
+- [x] First real test on the rented server, one player (2026-09-22): the owner went from the launcher download and an invite through the game download, the tutorial, Ramsgate and the Training Dojo to the first hunt, over the internet in public mode. Details under "Where we are". Two players together is not tested yet (1.15).
 - [x] CI on every push: builds and tests of every package, the server kit's tests, the docs build, and a check that no secrets, keys, databases or game files are committed.
 - [x] Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (part 2 is 4.15).
 
@@ -42,12 +43,19 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 >   - Windows limits a local account's description to 48 characters.
 >   - That image refuses S4U scheduled tasks for accounts that aren't administrators, so the service account's tasks now run with a stored random password.
 >   - The provider's image kept Windows Firewall off through policy values (`EnableFirewall=0` under `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`). The installer now removes them and checks the firewall store that is actually in effect; the change needs a restart.
-> - **Launcher 0.1.0 is published** on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed. It is not code-signed yet (4.16).
-> - **The first real test is in progress.** The owner registered through the launcher on the rented server and downloaded the game through the gateway. A two-player test with a friend (multiplayer and parties) is starting. Until it is done, nothing here claims that Ramsgate with two players, parties or hunts work over the internet.
+> - **Launcher 0.1.0 is published** on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed. It is not code-signed yet (4.16). Launcher 0.1.1 followed the same night (see the first real test below).
+> - **First real test, 2026-09-22: one player, over the internet.** The owner played on the rented server in public mode, with launcher 0.1.0 downloaded from GitHub Releases:
+>   - Windows SmartScreen on the owner's PC blocked the unsigned installer outright ("Don't run" only, no "Run anyway"). Checking its SHA-256 against `SHA256SUMS.txt` and unblocking the file (Properties > Unblock, or `Unblock-File`) worked.
+>   - The whole path worked: the invite, registration with an own username, the game download (about 11 GB) from the server through the gateway, the tutorial island (its game server started on demand), Ramsgate, the Training Dojo (started on demand) and the first hunt (the new-player pursuit).
+>   - Progression: Slayer level 3, weapon mastery, and behemoth mastery seen in game for the first time (rank 2). The game server confirmed the rank rewards.
+>   - Three game servers ran at once. The UDP allowlist opened the game ports for the player and closed them after they left.
+>   - No "Allowing overspend" in the whole session, the hunt end included. Several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept.
+>   - Launcher 0.1.0's `r.EyeAdaptationQuality=0` made Ramsgate and night scenes far too dark. Launcher 0.1.1, published by CI the same night, no longer writes it and removes the old line on the next launch; with 0.1.1 the owner confirmed Ramsgate looks normal. The dark pre-hunt airship is back: a known, short scene, and a proper fix is 4.17.
+>   - **Not yet verified:** a second real player (their invite is issued), two players in Ramsgate, a party, and a hunt together over the internet. Text chat is not built (3.10), and friends' online status needs the chat server.
 > - **Parties and the friends list (1.9): the server side is built** and passes the integration harness with simulated players. It has not been tried with two real game clients yet. Party invites don't require being friends. Showing friends as online needs the chat server (3.10), which isn't built.
 > - The live player list (`/undaunted/api/ServerStatus`) is shown to registered players only, and `/dauntless-status` no longer carries a player count.
 > - Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (4.15).
-> - New items: performance logging and capacity measurement (4.12), more game-server ports (4.13), PostgreSQL before any public release (4.14), rebrand part 2 (4.15) and a code-signed launcher (4.16).
+> - New items: performance logging and capacity measurement (4.12), more game-server ports (4.13), PostgreSQL before any public release (4.14), rebrand part 2 (4.15), a code-signed launcher (4.16) and a proper fix for the dark pre-hunt airship (4.17).
 
 > **Update, 2026-09-21 afternoon:**
 > - The owner played two real hunts (a Lesser Boreus hunt and a pursuit). The loot was saved: `CURRENCY_NOTES` went from 1,260 to 1,460 and `ORB_FROST` ×20 arrived.
@@ -62,7 +70,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 
 The snapshot below is from 2026-09-21, 10:50 UTC. Where the updates above differ, they are newer.
 
-- **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout. *Update 2026-09-22: still the only player who has played; the first two-player test, on the rented server, is starting.*
+- **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout. *Update 2026-09-22: still the only player who has played, now also over the internet on the rented server (the first real test, above). The two-player test is next.*
 - **Friends can't connect yet.** Everything listens on this PC only, and parties and the friends list are fakes. *Update 2026-09-22: the rented server in public mode answers from the internet through its gateway, and parties and the friends list are built on the server side (1.9). No friend has played yet.*
 - **Some of what you earn is saved and some isn't.**
   - Saved: items, Rams, quests and gear.
@@ -87,7 +95,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 |---|---|---|
 | Account, login key, admin flag | Yes | Stored on disk. It survives a full restart: tested (0.3). A lost key can't be recovered (1.7). |
 | Username | Partly | It is saved but can't be changed, and two players can take the same name. Some responses send the name as `{}`. *Update: built (1.6): names are unique regardless of case, the admin can rename a player (account and characters together), and the display name is the stored name. Not yet seen by a second player in game.* |
-| Quests, story, tutorial, flags, appearance (character data) | Yes, solo | There were 14 save conflicts today. After each one the client read the data again and its retry succeeded within about a second, so the last write is in the database. *Checker: not proven lossless if the client and a server change the same value at the same moment. Not tested with two players.* |
+| Quests, story, tutorial, flags, appearance (character data) | Yes, solo | There were 14 save conflicts today. After each one the client read the data again and its retry succeeded within about a second, so the last write is in the database. *Checker: not proven lossless if the client and a server change the same value at the same moment. Not tested with two players.* *Update 2026-09-22: on the rented server, several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept.* |
 | Recent players; daily and weekly rotations (heroic queue, weekly challenges, cell offerings) | Probably | Stored inside the character data (the `RecentPlayers` key exists and is empty). Not checked in play. |
 | Materials, Rams (`CURRENCY_NOTES`), tokens | Yes | 39 stacks, including `CURRENCY_NOTES` ×1,260. A retried request could grant twice, and spending more than you own isn't refused (2.2). |
 | Weapons, armour, parts, cosmetic items | Yes | 36 items. Upgrades are version-checked. |
@@ -96,8 +104,8 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 | Extra loadout slots | No | The route is missing: 43 failed unlock attempts today. *Update: with real progression (now the default) the unlock, slot count and active slot are stored (2.4); the extra slots are still to be tried in the UI.* |
 | "Seen" markers (NPCs, tutorial slates) | Yes | All 12 from today are in the database. |
 | "New" markers (breadcrumbs) | Yes, untested | The client hasn't written one yet. |
-| Slayer level | No, faked at 50 | 7 XP grants were refused (400) today. *Update: yes with real progression, now the default (2.8–2.10, tested in game).* |
-| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* *Update: yes with real progression, now the default (2.9, 2.10). Weapon mastery was tested in game (axe rank 1); behemoth mastery uses the same storage but has not been seen in game yet.* |
+| Slayer level | No, faked at 50 | 7 XP grants were refused (400) today. *Update: yes with real progression, now the default (2.8–2.10, tested in game). On the rented server (2026-09-22) the owner's new account reached Slayer level 3.* |
+| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* *Update: yes with real progression, now the default (2.9, 2.10). Weapon mastery was tested in game (axe rank 1).* *Update 2026-09-22: on the rented server the owner's new account gained weapon mastery and behemoth mastery (rank 2, the first time behemoth mastery was seen in game), and the game server confirmed the rank rewards.* |
 | Mastery objectives, achievements | No | *Update: mastery objectives are stored and echoed with real progression, now the default (2.9, 2.12). Achievements not checked.* |
 | Hunt Pass | No, faked | The rank is sent as 99,999,999 (the real cap is 50). A 100-XP Hunt Pass grant at 10:41 hit a missing route. *Checker: nobody has seen what the Hunt Pass screen actually shows. The Elite track is probably locked.* *Update: yes with real progression, now the default: starts at 0, free and Elite claims stored (2.15, tested in game).* |
 | Bounties | No | The board is empty every time a server loads you. *Checker: claiming a bounty fails even within one session, because the route `/bounty/delete` is missing.* *Update: stored with real progression, now the default, and the delete route exists (2.6); drafting and claiming in the UI are still to try.* |
@@ -115,10 +123,12 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 ### What to tell friends right now
 
 - Items, materials, Rams, crafted gear, quests and story progress are saved.
-- Slayer level, weapon mastery and the Hunt Pass are saved (real progression is the default). Everyone starts at level 1 and owns the Elite Hunt Pass. Bounties are stored, but drafting and claiming them hasn't been tried in the game yet.
+- Slayer level, weapon and behemoth mastery and the Hunt Pass are saved (real progression is the default). Everyone starts at level 1 and owns the Elite Hunt Pass. Bounties are stored, but drafting and claiming them hasn't been tried in the game yet.
 - Don't break cells down into dust yet. Nobody has checked whether the dust is kept.
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
-- Parties are built on the server but are being tried for the first time in the test that is starting. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
+- The launcher isn't code-signed yet. If Windows only offers "Don't run", check the installer against `SHA256SUMS.txt` from the same release and unblock it (Properties > Unblock, or `Unblock-File`).
+- The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17.
+- Parties are built on the server but haven't been tried with two players yet; that is the next test. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
 - There is no text chat yet. Use Discord.
 
 ---
@@ -137,7 +147,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 **Parties (1.9)** are built alongside M2 and tested with a second account in a second game window on this PC. The rest of M1 (Tailscale, invite codes, usernames, the friend package) is prepared in parallel.
 **1.15 First friends night** waits until M2 is done.
 
-**Where the order stands (2026-09-22):** the first friends test runs on a rented Windows server in public mode (1.15, 1.17) and is in progress. Performance logging (4.12) is meant to take its first measurements during the first friends tests. Rebrand part 2 (4.15) comes after the first friends test. PostgreSQL (4.14) is needed before any public release, not for the friends server.
+**Where the order stands (2026-09-22):** the first real test on the rented Windows server in public mode passed with one player on 2026-09-22; the two-player test with a friend (1.15, 1.17) is next. Performance logging (4.12) is meant to take its first measurements during the first friends tests. Rebrand part 2 (4.15) comes after the first friends test. PostgreSQL (4.14) is needed before any public release, not for the friends server.
 
 **Rules for all milestones:**
 - Take the steps in order within a milestone. Steps from different milestones can overlap where their "Needs" allow it.
@@ -259,7 +269,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
   - **You'll notice:** a friend who leaves the game open overnight in Ramsgate keeps what they earn afterwards.
   - **Done when:** on a test account with a 5-minute token, a save after 6 minutes either succeeds or fails with a logged 401. It must never be a silent 500.
 
-- [ ] **1.9 Parties and friends list** (L — contract fully mapped) — *Update 2026-09-22: **the server side is built** and passes the integration harness with simulated players: party invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server, returning to Ramsgate together, account lookup by name, and the friends list and blocklist in SQLite. Party invites don't require being friends (a block in either direction stops them). **Not yet tried with two real game clients:** that is the two-player test starting now on the rented server. Friends' online status still needs the XMPP server (3.10), which isn't built.*
+- [ ] **1.9 Parties and friends list** (L — contract fully mapped) — *Update 2026-09-22: **the server side is built** and passes the integration harness with simulated players: party invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server, returning to Ramsgate together, account lookup by name, and the friends list and blocklist in SQLite. Party invites don't require being friends (a block in either direction stops them). **Not yet tried with two real game clients:** that is the two-player test, next on the rented server. Friends' online status still needs the XMPP server (3.10), which isn't built.*
   - **What:** real parties (today a party is always "you, alone"), a friends list and blocklist (`GET /friends/api/public/{friends,blocklist}` return 404 today), and presence. The contract is mapped from the 1.4.4 client: parties, invites and the friends list are plain HTTP routes (party and invite state in memory, friendships and blocks in SQLite). Showing friends as **online** needs a small XMPP presence server (optional, 3.10). Build order: account-lookup fixes, the party and invite loop, putting the whole party on one hunt server, then friends. Test with a second account and a second client on this PC.
   - **You'll notice:** you can invite a friend and go into a hunt together on purpose.
   - **Stopgap until then:** friends who queue the same hunt within 20 seconds land on the same server, up to 4 players (`controllers/matchmaking.ts:72-108`).
@@ -282,7 +292,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
   - **Needs:** 1.6. Overlaps 1.9.
   - **Done when:** two players in Ramsgate see each other's names and can inspect each other.
 
-- [ ] **1.12 Each friend's saves land on their own account** (S to test, M if it needs a fix) — *Update 2026-09-22: to be checked in the two-player test starting on the rented server.*
+- [ ] **1.12 Each friend's saves land on their own account** (S to test, M if it needs a fix) — *Update 2026-09-22: to be checked in the two-player test on the rented server, which is next.*
   - **What:**
     - Several routes work out which player a save belongs to from the login token the game server passes along. These are `POST /character`, breadcrumbs, encountered content and progression.
     - With two players on one server, each player's own token has to reach the server. If it doesn't, that player's saves fail: `controllers/character.ts:91` crashes when the player is missing.
@@ -319,7 +329,8 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 
 - [ ] **1.15 First friends night** (S) — *Owner decision (2026-09-21): the first friends night runs on a **rented Windows Server with a public IP** (4.10) in **public mode** (1.17), not over Tailscale and not on the owner's PC.*
   - *Order: launcher (1.16) → public mode (1.17) with a permission audit → parties (1.9) → a rehearsal with two clients on the owner's PC through the public-mode path → the owner rents the server and enables key-only SSH (a one-time setup) → remote deployment and data migration → invites → friends night.*
-  - ***In progress, 2026-09-22:*** *the kit is deployed on a rented Windows Server 2019 VPS in public mode, the owner registered through the launcher there and downloaded the game through the gateway, and a two-player test with a friend (multiplayer and parties) is starting. Nothing is claimed about two players in Ramsgate, parties or hunts over the internet until that test is done.*
+  - ***First real test, 2026-09-22 (one player):*** *the kit runs on a rented Windows Server 2019 VPS in public mode. The owner went from the launcher and an invite through the game download to the tutorial, Ramsgate, the Training Dojo and the first hunt, over the internet. Three game servers ran at once, the UDP allowlist opened and closed the game ports for the player, and save-version conflicts were refused as designed, keeping the newest save (details under "Where we are").*
+  - ***Pending:*** *the two-player test with a friend, whose invite is issued: two players in Ramsgate, a party, and a hunt together over the internet. Nothing is claimed about those until that test is done.*
   - **What:**
     - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory. *Replaced by 4.12, which logs more and keeps the files under the server's logs folder.*
     - Afterwards, produce a report of errors, save conflicts, missing routes and killed servers.
@@ -331,7 +342,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
   - **Needs:** 1.1 through 1.14 (1.9 is optional), and 1.16 for the friends test.
   - **Done when:** two or more friends played a hunt together and the report shows no lost saves.
 
-- [ ] **1.16 Friend launcher: a Windows app that installs everything and connects** (L) — *Owner request (2026-09-21): wanted for the friends test. Public source, no game files in it; the game files come from our own server. **Update 2026-09-22:** built (`UndauntedLauncher/`, `UndauntedContent/`) and released: launcher 0.1.0 is on GitHub Releases, published by CI with `SHA256SUMS.txt` and a build provenance attestation, and installed launchers update from the `launcher-updates` feed. On the rented server the owner registered with it and downloaded the game through the gateway. Not yet: a friend going from nothing to Ramsgate with it. It is not code-signed (4.16).*
+- [ ] **1.16 Friend launcher: a Windows app that installs everything and connects** (L) — *Owner request (2026-09-21): wanted for the friends test. Public source, no game files in it; the game files come from our own server. **Update 2026-09-22:** built (`UndauntedLauncher/`, `UndauntedContent/`) and released: launcher 0.1.0 is on GitHub Releases, published by CI with `SHA256SUMS.txt` and a build provenance attestation, and installed launchers update from the `launcher-updates` feed. On the rented server the owner registered with it and downloaded the game through the gateway (about 11 GB), then played the tutorial, Ramsgate, the Training Dojo and the first hunt (2026-09-22). Launcher 0.1.1, published the same night, stopped turning off the game's automatic exposure, which had made Ramsgate far too dark. Not yet: a friend going from nothing to Ramsgate with it. It is not code-signed (4.16).*
   - **Goal:** a friend installs one Windows app and presses **Register**, then **Download**, then **Launch**, and lands in Ramsgate with the graphics fix and everything else set up. The friend kit (1.14) stays as a fallback.
   - **Base:** fork upstream's `UndauntedLauncher/`, an Electron Windows app (AGPL) that already downloads the game, hash-checks it, extracts it and handles invite codes. It is hard-wired to Undaunted's CDN and `api.stayundaunted.com`. Replace those with our server, and add the parts below.
   - **What the launcher does:**
@@ -352,14 +363,14 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
     - It limits downloads per account and logs each one (account, file, bytes).
     - **Game files never go into the repository, GitHub Releases or any public URL.**
   - **Things to know:**
-    - An unsigned Windows app triggers SmartScreen ("Windows protected your PC" → More info → Run anyway). A code-signing certificate costs money; that's optional, for later. *Update: on a PC set to block unrecognised apps, SmartScreen blocks the unsigned installer outright, with no Run anyway. Until the launcher is signed (4.16), check the file against `SHA256SUMS.txt` and unblock it (Properties > Unblock, or `Unblock-File`).*
+    - An unsigned Windows app triggers SmartScreen ("Windows protected your PC" → More info → Run anyway). A code-signing certificate costs money; that's optional, for later. *Update: on a PC set to block unrecognised apps, SmartScreen blocks the unsigned installer outright, with no Run anyway (it did on the owner's PC on 2026-09-22). Until the launcher is signed (4.16), check the file against `SHA256SUMS.txt` and unblock it (Properties > Unblock, or `Unblock-File`); that worked.*
     - Antivirus may flag the DLL proxy, as it can today.
     - Each friend's first download is about 10.9 GB, limited by the host's upload speed (about 30 minutes at 50 Mbit/s).
     - Sharing the files from our server is the same private-sharing choice as decision 9. It only replaces Google Drive.
   - **Needs:** 1.3 and 1.4 (Tailscale), 1.5 (invite codes), 1.6 (usernames for the register screen), 1.13 (source link, which the AGPL needs anyway).
   - **Done when:** a friend with only Tailscale and the launcher installer goes from nothing to Ramsgate through Register, Download and Launch. Also: the key never appears on screen or in a plain file; a deliberately corrupted game file is detected and repaired; and the content server refuses downloads without a valid account and can't be reached from outside Tailscale.
 
-- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode". **Update 2026-09-22:** built (the launcher's relay, `UndauntedGateway/`, the allowlist helper and the kit's `-Mode Public`) and deployed on a rented Windows Server 2019 VPS. Checked there: the gateway answers from the internet with the pinned certificate, and the owner's launcher registered and downloaded the game through it. The deployment found three problems the sandbox couldn't, all fixed in the kit (the 48-character account description, S4U tasks refused for non-administrators, and the firewall kept off by policy values; see "Where we are"). Not yet verified on the rented server: a friend from another network playing a hunt, the packet capture, the refusal of admin and game-server-key requests from outside, and the UDP probe from an address that hasn't logged in.*
+- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode". **Update 2026-09-22:** built (the launcher's relay, `UndauntedGateway/`, the allowlist helper and the kit's `-Mode Public`) and deployed on a rented Windows Server 2019 VPS. Checked there: the gateway answers from the internet with the pinned certificate, and the owner's launcher registered and downloaded the game through it. On 2026-09-22 the owner played through it from another network: the tutorial, Ramsgate, the Training Dojo and the first hunt, with the UDP allowlist opening the game ports for them and closing them after they left. The deployment found three problems the sandbox couldn't, all fixed in the kit (the 48-character account description, S4U tasks refused for non-administrators, and the firewall kept off by policy values; see "Where we are"). Not yet verified on the rented server: a friend from another network playing a hunt, the packet capture, the refusal of admin and game-server-key requests from outside, and the UDP probe from an address that hasn't logged in.*
   - **Problem 1, no encryption:** the 1.4.4 client talks plain HTTP (the DLL builds `http://<address>/…`), so keys and login tokens would cross the internet readable.
     - **Fix:** a **local TLS relay inside the launcher**. The game talks to `http://127.0.0.1:61000` on the friend's own PC. The launcher forwards everything, including the chat WebSocket later, over **HTTPS** to the server.
     - **Certificate:** the server makes a self-signed one at install, and **its SHA-256 fingerprint travels in the invite link**. The relay only accepts that exact certificate, so no domain or CA is needed. With a domain, Let's Encrypt works too.
@@ -378,7 +389,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 
 Before starting M2, 0.1 must be running and 0.4 must be done.
 
-- [ ] **2.1 Harden the saves that already work** (S) — *Built (fa1f71a): transactional character saves, 409/404 answers, guarded ProcessTriggers, lastModifiedDate. The version-race behaviour matches upstream: about 1 conflict per 5 saves, every one followed by a successful retry.*
+- [ ] **2.1 Harden the saves that already work** (S) — *Built (fa1f71a): transactional character saves, 409/404 answers, guarded ProcessTriggers, lastModifiedDate. The version-race behaviour matches upstream: about 1 conflict per 5 saves, every one followed by a successful retry. **Update 2026-09-22:** in the first real test on the rented server, several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept.*
   - **What:**
     - Check that the character update changed a row, and return 409 if it didn't (`controllers/character.ts:100-102` reports success either way).
     - Set `lastModifiedDate`.
@@ -390,7 +401,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **You'll notice:** nothing, unless something goes wrong. Then it fails loudly instead of silently.
   - **Done when:** a forced version race gets a 409, and a wrong character id gets a 404.
 
-- [x] **2.2 Items can't be duplicated or overspent** (S) — ✅ *Built (fa1f71a): idempotent transactionIds and an append-only item log. Refusing overspends is available (`INVENTORY_REFUSE_OVERSPEND=1`) but off until a hunt-end body has been captured. **Also found and fixed in play (9589abb):** upstream never reported removed stacks after a transaction, so Rams and materials didn't drop on screen and a second upgrade went through for free. Verified fixed in the relog test.*
+- [x] **2.2 Items can't be duplicated or overspent** (S) — ✅ *Built (fa1f71a): idempotent transactionIds and an append-only item log. Refusing overspends is available (`INVENTORY_REFUSE_OVERSPEND=1`) but off until a hunt-end body has been captured. **Update 2026-09-22:** the first real test on the rented server logged no "Allowing overspend" in the whole session, the hunt end included. **Also found and fixed in play (9589abb):** upstream never reported removed stacks after a transaction, so Rams and materials didn't drop on screen and a second upgrade went through for free. Verified fixed in the relog test.*
   - **What:**
     - Store each inventory `transactionId` with its result, and return that stored result when the same id arrives again.
     - Refuse to remove more than the player has. Today `controllers/inventory.ts:240-242` subtracts anyway and deletes the stack at 0.
@@ -470,7 +481,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 and 0.4.
   - **Done when:** after one hunt on the throwaway account, the tracks it touched went up and read the same after logging in again.
 
-- [x] **2.10 Confirm rank-ups** (S) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* the game server confirms mastery and Slayer rank-ups automatically (rank 2, 3, 4; axe rank 1); each rank reward was granted once, through /inventory.*
+- [x] **2.10 Confirm rank-ups** (S) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* the game server confirms mastery and Slayer rank-ups automatically (rank 2, 3, 4; axe rank 1); each rank reward was granted once, through /inventory.* *Update 2026-09-22: on the rented server the owner's new account reached Slayer level 3 and gained weapon mastery and behemoth mastery (rank 2, the first time behemoth mastery was seen in game), and the game server confirmed the rank rewards.*
   - **What:** `POST /progression/:uid/:track/:rank/confirm/{public|premium}` has no route today. It should:
     - raise the confirmed rank up to what the progress allows
     - apply premium only to accounts that own the entitlement
@@ -493,7 +504,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account. **Update 2026-09-22:** the owner has registered that new account through the launcher on the rented server.*
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account. **Update 2026-09-22:** the owner has registered that new account through the launcher on the rented server and played it from Slayer level 1 to 3.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.
@@ -703,7 +714,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **What:** from the friends-night CSVs, decide whether to allow more hunts, adding ports downwards and at most about 8 on this PC. *Update: the measurements now come from 4.12, and more ports are 4.13.*
   - **Done when:** there is a measured memory figure for a hunt server with 4 players fighting.
 
-- [ ] **4.10 Always-on host** (L, optional) — *Update 2026-09-22: a rented Windows Server 2019 VPS runs the stack in public mode, installed with the Windows server kit (`deploy/windows-server/`), not the Tailscale setup below. Done when friends have played on it while the owner's PC was off; that waits for the first real test (1.15).*
+- [ ] **4.10 Always-on host** (L, optional) — *Update 2026-09-22: a rented Windows Server 2019 VPS runs the stack in public mode, installed with the Windows server kit (`deploy/windows-server/`), not the Tailscale setup below. Done when friends have played on it while the owner's PC was off; that waits for the two-player test (1.15). The owner played on it alone on 2026-09-22.*
   - **What:** a Windows mini-PC or VPS with at least 8 GB RAM, 4 cores and about 15 GB of disk; no GPU needed. Same Tailscale sharing setup, so friends only change one address. A cheaper Linux host depends on 4.11.
   - **Why Windows:** the metagame and deploy server are Node.js and run anywhere. The game servers (Ramsgate and each hunt) are the Windows 1.4.4 client exe switched into server mode by the injected DLL. There is no Linux server build.
   - **Moving:** copy the latest backup (database, `.env` signing keys, `gameserver.key`) to the new host and install the hash-checked 1.4.4 files. Accounts, keys and saves come along. The owner then joins like a friend, with the friend kit and the owner key.
@@ -772,6 +783,15 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Why:** SmartScreen blocks unsigned installers outright on PCs set to block unrecognised apps: there is no "Run anyway". On other PCs it asks first (More info > Run anyway).
   - **Until then:** check the download's SHA-256 against `SHA256SUMS.txt` from the same release, then unblock the file (right-click > Properties > Unblock, or `Unblock-File` in PowerShell). [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html) and the launcher's README describe it.
   - **Done when:** a released installer shows a verified publisher and installs on a PC that blocks unrecognised apps, and installed launchers still update to the signed version.
+
+- [ ] **4.17 A proper fix for the dark pre-hunt airship** (S–M) — *Added 2026-09-22 at the owner's request: fix the airship without ruining the game's visuals.*
+  - **What:** on current graphics drivers, 1.4.4's automatic exposure turns the pre-hunt airship cabin nearly black with blown-out windows. `r.EyeAdaptationQuality=0` (found by Vvoidddd, [PR #5](https://github.com/mixutin/dauntless-revived/pull/5)) turns automatic exposure off. It fixed the airship, but it also made Ramsgate and every night scene far too dark, so launcher 0.1.1 reverted it. Candidates to try:
+    - keep automatic exposure on, but clamp its range
+    - a different metering method
+    - a launcher option, so each player can choose
+  - **You'll notice:** the airship cabin looks right, and Ramsgate and night scenes keep their normal brightness.
+  - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`.
+  - **Done when:** in an in-game A/B check by the owner, the airship and the Ramsgate and night scenes all look right.
 
 ---
 

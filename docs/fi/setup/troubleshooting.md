@@ -225,7 +225,8 @@ sekä kaveripaketti asettivat sen. Ensimmäisessä oikeassa testissä (22. syysk
 Ramsgatesta ja kaikista yökohtauksista aivan liian pimeitä, koska ne tarvitsevat automaattista valotusta
 kirkastuakseen. Siksi käynnistimen versiosta 0.1.1 alkaen mikään ei laita automaattista valotusta pois,
 ja käynnistin poistaa version 0.1.0 kirjoittaman rivin seuraavalla käynnistyskerralla. Ilmalaivan hytti on
-lyhyt kohtaus; korjaus, joka ei pimennä muuta peliä, on tiekartalla.
+lyhyt kohtaus; korjaus, joka ei pimennä muuta peliä, on
+[tiekartalla]({{ roadmap_page.url | relative_url }}) kohtana 4.17.
 
 Näin näet, mitä oikeasti pakotetaan:
 

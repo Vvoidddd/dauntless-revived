@@ -45,8 +45,9 @@ rakennetaan M2:n rinnalla, ja niitä testataan toisella tilillä ja toisella pel
 koneella. Muu yhdessä pelaamiseen tarvittava (M1) valmistellaan samaan aikaan. Ensimmäinen yhteinen
 peli-ilta odottaa, kunnes M2 on valmis.
 
-Tilanne 22.9.2026: M2:sta oikea eteneminen on valmis ja oletuksena päällä, ja ensimmäinen testi
-kaverin kanssa on käynnissä vuokratulla palvelimella julkisessa tilassa, ei Tailscalen kautta. Suorituskyvyn
+Tilanne 22.9.2026: M2:sta oikea eteneminen on valmis ja oletuksena päällä. Ensimmäinen oikea testi
+vuokratulla palvelimella julkisessa tilassa (ei Tailscalen kautta) onnistui 22.9.2026 yhdellä
+pelaajalla, ja seuraavaksi on vuorossa kahden pelaajan testi kaverin kanssa. Suorituskyvyn
 mittaamisen (4.12) on tarkoitus ottaa ensimmäiset mittauksensa ensimmäisissä kaveritesteissä.
 Nimenvaihdon toinen osa (4.15) tehdään ensimmäisen kaveritestin jälkeen. PostgreSQL (4.14) tarvitaan
 ennen mitään julkista julkaisua, ei kaveripalvelinta varten.
@@ -55,7 +56,8 @@ ennen mitään julkista julkaisua, ei kaveripalvelinta varten.
 
 ## Missä mennään nyt {#where-we-are}
 
-Itse peliä on toistaiseksi pelannut yksi pelaaja, omistaja, omalla koneellaan. Nämä toimivat:
+Itse peliä on toistaiseksi pelannut yksi pelaaja, omistaja: ensin omalla koneellaan ja 22.9.2026
+myös internetin yli vuokratulla palvelimella. Nämä toimivat:
 kirjautuminen, opetusjakso, Ramsgate (pelin keskuskaupunki), Training Dojo (harjoitussali), oikeat
 metsästykset, esineiden valmistus (crafting), tavarat ja käytössä oleva varustesarja.
 
@@ -77,12 +79,35 @@ paketissa:
 **Kaverikäynnistin 0.1.0 on julkaistu.** CI julkaisi sen GitHubin julkaisuihin (ensimmäinen
 automaattinen julkaisu) `SHA256SUMS.txt`-tiedoston ja käännöksen alkuperätodistuksen (build provenance
 attestation) kanssa. Asennetut käynnistimet päivittyvät `launcher-updates`-kanavasta. Käynnistintä ei
-ole vielä allekirjoitettu.
+ole vielä allekirjoitettu. Versio 0.1.1 julkaistiin samana yönä (katso alla).
 
-**Ensimmäinen oikea testi on käynnissä.** Omistaja rekisteröityi käynnistimellä vuokratulle
-palvelimelle ja latasi pelin yhdyskäytävän kautta. Kahden pelaajan testi kaverin kanssa (moninpeli ja
-ryhmät) on alkamassa. Ennen kuin se on tehty, emme väitä, että Ramsgate kahdella pelaajalla, ryhmät tai
-metsästykset toimivat internetin yli.
+**Ensimmäinen oikea testi 22.9.2026: yksi pelaaja internetin yli.** Omistaja pelasi vuokratulla
+palvelimella julkisessa tilassa käynnistimen versiolla 0.1.0, jonka hän latasi GitHubin julkaisuista.
+
+- Windowsin SmartScreen esti omistajan koneella allekirjoittamattoman asennusohjelman kokonaan:
+  tarjolla oli vain ”Älä suorita”, ei ”Suorita silti”. Tiedoston SHA-256-tiivisteen tarkistus
+  `SHA256SUMS.txt`-tiedostoa vasten ja eston poistaminen (Ominaisuudet > Poista esto, tai
+  `Unblock-File`) toimivat.
+- Koko polku toimi: kutsu, rekisteröityminen omalla käyttäjänimellä, pelin lataus (noin 11 Gt)
+  palvelimelta yhdyskäytävän kautta, opetussaari (sen pelipalvelin käynnistyi tarvittaessa),
+  Ramsgate, Training Dojo (käynnistyi tarvittaessa) ja ensimmäinen metsästys (uuden pelaajan
+  takaa-ajo eli pursuit).
+- Eteneminen: Slayer-taso 3, aseen mestaruus ja hirviön mestaruus (taso 2), joka nähtiin nyt
+  ensimmäistä kertaa pelissä. Pelipalvelin vahvisti tasopalkinnot.
+- Kolme pelipalvelinta pyöri yhtä aikaa. Peliporttien sallittujen lista avasi UDP-portit pelaajalle ja
+  sulki ne, kun hän lähti.
+- Koko pelikerran aikana, metsästyksen loppu mukaan lukien, lokiin ei tullut yhtään ”Allowing
+  overspend” -riviä: yksikään tavarapyyntö ei poistanut enempää kuin pelaajalla oli. Useita
+  tallennusten versioristiriitoja torjuttiin suunnitellusti (vanhempia tai kahdentuneita koko
+  tilannekuvan tallennuksia), ja uusin tallennus säilyi.
+- Käynnistimen 0.1.0 kirjoittama rivi `r.EyeAdaptationQuality=0` teki Ramsgatesta ja yökohtauksista
+  aivan liian pimeitä. CI julkaisi samana yönä version 0.1.1, joka ei enää kirjoita riviä ja poistaa
+  vanhan rivin seuraavalla käynnistyskerralla. Omistaja vahvisti, että Ramsgate näyttää 0.1.1:llä
+  normaalilta. Pimeä ilmalaiva ennen metsästystä palasi: se on tunnettu ja lyhyt kohtaus, ja
+  kunnollinen korjaus on kohta 4.17.
+- **Ei vielä varmistettu:** toinen oikea pelaaja (hänen kutsunsa on jo annettu), kaksi pelaajaa
+  Ramsgatessa, ryhmä ja yhteinen metsästys internetin yli. Tekstichattia ei ole rakennettu, ja
+  kavereiden näkyminen paikalla vaatii chat-palvelimen.
 
 **Ryhmät ja kaverilista on rakennettu palvelimen puolelle:** ryhmäkutsut, hyväksyminen ja
 hylkääminen, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle
@@ -103,8 +128,8 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Tallentuu:** tavarat, materiaalit, Ramsit (pelin raha), valmistetut varusteet, tehtävät ja tarinan
   eteneminen. Oikean etenemisen myötä, joka on nyt oletuksena päällä, tallentuvat myös Slayer-taso,
   aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (Elite-passi kaikille). Se läpäisi
-  pelitestin kertakäyttöisellä testitilillä, myös uudelleenkäynnistyksen yli (hirviöiden mestaruutta
-  ei ole vielä nähty pelissä).
+  pelitestin kertakäyttöisellä testitilillä, myös uudelleenkäynnistyksen yli, ja 22.9.2026
+  vuokratulla palvelimella nähtiin pelissä ensimmäistä kertaa myös hirviön mestaruus.
 - **Tallentuu, mutta ei vielä kokeiltu kokonaan pelissä:** palkkiotehtävät (bounties), päivittäiset
   ajastimet ja lisävarustesarjojen paikat.
 - **Ei vielä tallennu:** Escalation. Sille on toistaiseksi vain tynkä, joka heittää jokaisen
@@ -148,7 +173,10 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Windows-palvelinpaketti pyörii oikealla vuokratulla palvelimella** julkisessa tilassa
   (21.–22.9.2026), ja palvelimella tarkistetut asiat on lueteltu yllä.
 - **Kaverikäynnistin 0.1.0** on julkaistu GitHubin julkaisuihin CI:n ensimmäisenä automaattisena
-  julkaisuna, ja asennetut käynnistimet päivittävät itsensä.
+  julkaisuna, ja asennetut käynnistimet päivittävät itsensä. Versio 0.1.1 seurasi 22.9.2026.
+- **Ensimmäinen oikea testi yhdellä pelaajalla (22.9.2026):** omistaja kulki vuokratulla
+  palvelimella internetin yli käynnistimen latauksesta ja kutsusta pelin lataukseen, opetusjaksoon,
+  Ramsgateen, Training Dojoon ja ensimmäiseen metsästykseen. Yksityiskohdat ovat yllä.
 - **CI** tarkistaa jokaisen muutoksen: jokaisen paketin käännöksen ja testit, palvelinpaketin testit,
   ohjesivuston käännöksen ja sen, ettei projektiin ole lisätty salaisuuksia, avaimia, tietokantoja tai
   pelitiedostoja.
@@ -157,9 +185,10 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 
 ## Työn alla {#in-progress}
 
-- **Ensimmäinen kaveritesti (1.15)** on käynnissä vuokratulla palvelimella julkisessa tilassa, kuten
-  yllä kerrotaan. Samassa testissä kokeillaan ensimmäistä kertaa ryhmiä (1.9) ja sitä, että kummankin
-  pelaajan tallennukset menevät omalle tilille (1.12).
+- **Kahden pelaajan testi (1.15)** on seuraavana vuorossa vuokratulla palvelimella julkisessa
+  tilassa, ja kaverin kutsu on jo annettu. Siinä kokeillaan ensimmäistä kertaa kahta pelaajaa
+  Ramsgatessa, ryhmiä (1.9), yhteistä metsästystä internetin yli ja sitä, että kummankin pelaajan
+  tallennukset menevät omalle tilille (1.12).
 - **Käyttäjänimet ja kutsukoodit (1.5, 1.6)** on rakennettu: nimessä on 3–16 kirjainta, numeroa tai
   alaviivaa, nimi on yksilöllinen isoista ja pienistä kirjaimista riippumatta, ja ylläpitäjä voi
   vaihtaa nimen. Windows-palvelinpaketti vaatii kutsukoodin, ja omistaja rekisteröityi kutsulla.
@@ -167,7 +196,8 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Pelaajien siirto oikeaan etenemiseen (2.13).** Mitään ei siirretä automaattisesti: palvelimella,
   jolla oli jo pelaajia, he aloittavat Slayer-tasolta 1, ellei ylläpitäjä anna heille maksimitasoja
   tai valitse vanhaa tynkää (`PROGRESSION_MODE=stub`). Omalla palvelimellamme kaikki aloittavat
-  alusta: omistaja on rekisteröinyt uuden tilinsä käynnistimellä vuokratulle palvelimelle.
+  alusta: omistaja on rekisteröinyt uuden tilinsä käynnistimellä vuokratulle palvelimelle ja pelannut
+  sillä Slayer-tasolta 1 tasolle 3.
   Tynkäaikana pelanneen tilin siirtoa tasolle 1 ei ole vielä kokeiltu pelissä.
 - **Pelin lähettämien tietojen tallennus (0.4)** on kytketty päälle omistajan koneella. Se kerää
   seuraavalla pelikerralla, millaisia tallennuksia peli lähettää niille järjestelmille, jotka eivät
@@ -207,8 +237,9 @@ Tämä välitavoite tuo kaverit mukaan. Alkuperäinen suunnitelma oli jakaa isä
 turvallisesti Tailscalella (ohjelma, joka tekee salatun, yksityisen yhteyden koneiden välille). Omistaja
 päätti kuitenkin, että ensimmäinen kaveri-ilta pidetään vuokratulla Windows-palvelimella julkisessa
 tilassa: kaverit tarvitsevat vain käynnistimen ja kutsun, yksi salattu portti on auki maailmalle, ja
-pelin portit avautuvat vain kirjautuneille pelaajille. Tämä on rakennettu ja asennettu, ja ensimmäinen
-testi on käynnissä. Tilin voi luoda vain kutsukoodilla. Jokainen saa oman käyttäjänimen, jota kukaan
+pelin portit avautuvat vain kirjautuneille pelaajille. Tämä on rakennettu ja asennettu, omistaja
+pelasi sillä ensimmäisen oikean testin yksin 22.9.2026, ja kahden pelaajan testi on seuraavana
+vuorossa. Tilin voi luoda vain kutsukoodilla. Jokainen saa oman käyttäjänimen, jota kukaan
 muu ei voi ottaa, ja kadonneen avaimen voi korvata uudella. Ryhmät ja kaverilista rakennetaan, jotta
 kaverin voi kutsua samaan metsästykseen tarkoituksella (palvelimen puoli on jo rakennettu), ja muiden
 pelaajien nimet näkyvät oikein. Jokaisen kaverin saaliit tallentuvat hänen
@@ -259,7 +290,7 @@ Windows-palvelinpaketti käynnistää kaiken koneen käynnistyessä ja jolla kaa
 itsestään uudelleen. Se on valmis vasta, kun kaverit ovat pelanneet sillä omistajan koneen ollessa
 sammuksissa.
 
-M4:ään lisättiin 22.9.2026 viisi uutta kohtaa:
+M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
 
 - **4.12 Suorituskyvyn kirjaaminen ja kapasiteetin mittaus.** *Mitä:* 30–60 sekunnin välein
   ajettava mittari kirjaa jokaisesta pelipalvelimesta suorittimen käytön (prosentteina yhdestä
@@ -307,21 +338,36 @@ M4:ään lisättiin 22.9.2026 viisi uutta kohtaa:
   kuten sivulla [Liity kaverina]({{ friends_page.url | relative_url }}) kerrotaan. *Valmis, kun:*
   julkaistu asennusohjelma näyttää vahvistetun julkaisijan ja asentuu koneelle, joka estää
   tunnistamattomat sovellukset, ja asennetut käynnistimet päivittyvät yhä allekirjoitettuun versioon.
+- **4.17 Kunnollinen korjaus pimeään ilmalaivaan ennen metsästystä.** *Mitä:* nykyisillä
+  näytönohjainten ajureilla 1.4.4:n automaattinen valotus tekee ilmalaivan hytistä lähes mustan, ja
+  sen ikkunat palavat puhki valkoisiksi. Rivi `r.EyeAdaptationQuality=0` (sen löysi Vvoidddd, [PR #5](https://github.com/mixutin/dauntless-revived/pull/5))
+  laittaa automaattisen valotuksen pois. Se korjasi ilmalaivan, mutta teki myös Ramsgatesta ja kaikista
+  yökohtauksista aivan liian pimeitä, joten käynnistimen versio 0.1.1 perui sen. Omistaja haluaa
+  korjauksen, joka ei pilaa pelin ulkonäköä. Kokeiltavat vaihtoehdot: automaattinen valotus pysyy
+  päällä, mutta sen vaihteluväliä rajataan; valotus mitataan toisella tavalla; tai käynnistimeen tulee
+  asetus, josta jokainen pelaaja voi valita. Ensin selvitetään, mitä valotusasetuksia 1.4.4 hyväksyy
+  `Engine.ini`-tiedostossa. *Valmis, kun:* omistaja vertaa vaihtoehtoja pelissä rinnakkain
+  (A/B-vertailu), ja sekä ilmalaiva että Ramsgate ja yökohtaukset näyttävät oikeilta.
 
 ---
 
 ## Mitä pelaajan kannattaa tietää nyt {#what-to-tell-friends-right-now}
 
 - Tavarat, materiaalit, Ramsit, valmistetut varusteet, tehtävät ja tarinan eteneminen tallentuvat.
-- Slayer-taso, aseiden mestaruus ja Hunt Pass tallentuvat (oikea eteneminen on oletuksena päällä).
-  Kaikki aloittavat tasolta 1, ja jokaisella on Elite Hunt Pass. Palkkiotehtävät tallentuvat, mutta
-  niiden valitsemista ja lunastamista ei ole vielä kokeiltu pelissä.
+- Slayer-taso, aseiden ja hirviöiden mestaruus ja Hunt Pass tallentuvat (oikea eteneminen on
+  oletuksena päällä). Kaikki aloittavat tasolta 1, ja jokaisella on Elite Hunt Pass. Palkkiotehtävät
+  tallentuvat, mutta niiden valitsemista ja lunastamista ei ole vielä kokeiltu pelissä.
 - Älä vielä hajota cellejä (varusteisiin liitettäviä kykyesineitä) pölyksi. Kukaan ei ole
   tarkistanut, säilyykö pöly.
 - Sulje peli vähintään kerran päivässä. Kirjautuminen vanhenee 24 tunnissa, ja sen jälkeen
   tallennukset voivat epäonnistua.
-- Ryhmät on rakennettu palvelimelle, mutta niitä kokeillaan ensimmäistä kertaa nyt alkavassa
-  testissä. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä näy paikalla
+- Käynnistintä ei ole vielä allekirjoitettu. Jos Windows tarjoaa vain ”Älä suorita”, tarkista
+  asennusohjelma saman julkaisun `SHA256SUMS.txt`-tiedostoa vasten ja poista esto (Ominaisuudet >
+  Poista esto, tai `Unblock-File`).
+- Ilmalaiva ennen metsästystä on toistaiseksi hyvin pimeä. Se on lyhyt kohtaus, ja kunnollinen
+  korjaus on kohta 4.17.
+- Ryhmät on rakennettu palvelimelle, mutta niitä ei ole vielä kokeiltu kahdella pelaajalla; se on
+  seuraava testi. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä näy paikalla
   olevina.
 - Tekstichattia ei vielä ole. Käytä Discordia.
 
