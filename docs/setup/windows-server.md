@@ -12,6 +12,10 @@ ref: setup/windows-server
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
+{% assign gamesettings_page = site.pages | where: "path", "reference/game-settings.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "reference/scripts.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
 
 # Windows server kit
 {: .no_toc }
@@ -49,7 +53,7 @@ relay on their own PC, and only that relay talks to the internet:
 |:-----|:------|:-------------|
 | 1 | Friend's PC | The game talks plain HTTP to `127.0.0.1:61000`: the launcher's relay. |
 | 2 | Internet | The relay forwards every request over **TLS** to the server's gateway (port 443 by default). It accepts only the one certificate whose SHA-256 fingerprint came in the invite, so nobody in between can read or change the traffic, and no domain name or certificate authority is needed. |
-| 3 | Server | The **gateway** is the only public TCP port. It passes requests to the metagame and the content server, which listen on `127.0.0.1` only. It refuses admin routes and anything carrying the game-server key, limits request sizes and rates, and never logs keys or tokens. |
+| 3 | Server | The **gateway** is the only public TCP port. It passes requests to the metagame and the content server, which listen on `127.0.0.1` only. Of the `/undaunted/api` routes it passes only the four a launcher needs (register, key check, server status, registration mode), so every admin route stays on the server. It refuses anything carrying the game-server key, limits request sizes and rates, and never logs keys or tokens. |
 | 4 | Server | When a player logs in (or their game sends its heartbeat), the gateway tells the **allowlist helper** that player's address. The helper keeps one Windows Firewall rule, "Dauntless Revived game ports (allowlist)", that opens UDP 8770-8777 to exactly those addresses. An address drops out 10 minutes after its last heartbeat. Everyone else is dropped by the firewall. |
 | 5 | Friend's PC | The game's UDP traffic goes straight to the server's public address, through that rule. |
 
@@ -116,9 +120,10 @@ ssh -o UserKnownHostsFile=C:\dr\data\ssh\known_hosts -i C:\dr\data\ssh\dauntless
 
 If they match, answer `yes`. `Deploy-Remote.ps1 -HostKeyFingerprint SHA256:...` does the same check for
 you and refuses to upload a backup to an unverified host. When key login works, turn password login off
-in `C:\ProgramData\ssh\sshd_config` (set `PasswordAuthentication no`, then `Restart-Service sshd`); a
-deploy over this SSH session also offers to do it. Never send your server password to anyone, and never
-paste it into a script.
+in `C:\ProgramData\ssh\sshd_config` (set `PasswordAuthentication no`, then `Restart-Service sshd`). A
+public-mode install that runs over SSH, as `Deploy-Remote.ps1` does, makes that change itself, because
+the key login is proven by then. Never send your server password to anyone, and never paste it into a
+script.
 
 At the provider, allow **TCP 22 only from your own address**. If your home IP address changes, update
 that provider rule and re-run the installer with the new `-AdminIp` (over SSH).
@@ -187,6 +192,10 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
    runs as this account, never as an administrator. Task Scheduler keeps the password, encrypted, for
    the account's tasks, and every run of the installer sets a new one: some Server 2019 images refuse
    tasks that run without a stored password ("S4U") for any account that is not an administrator.
+   The game servers run as this account and read its game config, so the installer also writes the
+   account's `Game.ini` (the 167 endpoint overrides, pointing at this server's metagame) and
+   `Engine.ini` (memory lines, chat pointed at `127.0.0.1`). See
+   [Game settings]({{ gamesettings_page.url | relative_url }}#game-ini).
 6. **Certificate:** a self-signed certificate for the gateway (10 years, the public address as its
    name), made by the gateway's own tool. No Windows certificate store is touched. The fingerprint is
    printed; it goes into every invite.
@@ -206,20 +215,29 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
     the allowlist helper at startup as SYSTEM (it changes only its one firewall rule), and an hourly
     backup.
 
+The most used parameters are below. [Scripts and parameters]({{ scripts_page.url | relative_url }})
+lists all of them, and those of every other kit script.
+
 | Parameter | Default | Meaning |
 |:----------|:--------|:--------|
-| `-Mode` | `Public` | `Public` or `Private` (Tailscale). |
+| `-Mode` | a new install: `Public`; a re-run: the installed mode | `Public` or `Private` (Tailscale). |
 | `-GameZip` / `-GameZipUrl` | | The verified 1.4.4 zip, or an https link to it (resumable download). |
-| `-PublicHost` | the public IPv4 on the network adapter | The address or DNS name friends connect to. Needed when the VPS is behind 1:1 NAT. |
-| `-GatewayPort` | `443` | The gateway's TCP port. |
-| `-AdminIp` | | Address(es) allowed to use Remote Desktop, for example `198.51.100.20` or `198.51.100.0/24`. |
+| `-PublicHost` | the address stored by the last run, else the one public IPv4 on the network adapters | The address or DNS name friends connect to. Needed when the VPS is behind 1:1 NAT. |
+| `-GatewayPort` | the port stored by the last run, else `443` | The gateway's TCP port. |
+| `-AdminIp` | the list stored by the last run | Address(es) allowed to use Remote Desktop, for example `198.51.100.20` or `198.51.100.0/24`. |
 | `-KeepRdpOpen` | | Public mode without `-AdminIp`: leave internet-open RDP rules open instead of disabling them. |
 | `-RestoreFrom` | | A backup folder to move an existing server here. |
 | `-OwnerName` | | Username of the admin account on a new server (3-16 letters, digits or `_`). |
-| `-ServerName` | `Dauntless Revived` | The name friends see, in the launcher and in the game's welcome text. |
+| `-ServerName` | `Dauntless Revived` | The name friends see, in the launcher and in the game's welcome text. Not remembered: a re-run without it sets the name back to `Dauntless Revived`. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Where everything goes. |
-| `-InteractiveSession` | | The session-0 fallback, see below. |
+| `-InteractiveSession` | | The session-0 fallback, see below. Not remembered: a re-run without it turns the auto-logon off. |
 | `-NewCertificate` | | Make a new certificate. **Every invite handed out before stops working.** |
+
+`Deploy-Remote.ps1` passes `-Mode` on every install run (default `Public`), and in public mode also
+`-PublicHost` (default: the `-Server` address) and `-GatewayPort` (default `443`). When you deploy
+again to a server you already set up, repeat `-Mode Private`, a `-PublicHost` that differs from the
+SSH address, a gateway port other than 443, `-ServerName` and `-InteractiveSession` if you used them.
+`-Update` does not run the installer.
 
 ## Play yourself first
 
@@ -313,8 +331,11 @@ From your PC, `Deploy-Remote.ps1 -Server <address> -Status` shows the status wit
 `Update-DauntlessServer.ps1` on the server. It builds the new code while the server keeps running,
 takes a backup, switches over, and checks that the metagame answers and the gateway answers with the
 invite certificate. If that check fails within 3 minutes, it switches back to the previous build by
-itself. `Update-DauntlessServer.ps1 -Rollback` does the same by hand. Settings, keys, the certificate
-and the game files are left alone; run the installer again for those.
+itself. `Update-DauntlessServer.ps1 -Rollback` does the same by hand. Settings (apart from `GIT_COMMIT` in
+`metagame.env`, which records the new commit), keys, the certificate,
+the game files and the service account's `Game.ini` and `Engine.ini` are left alone; run the
+installer again for those. Do that after an update that changes the DLL's endpoint table, and in
+private mode when the server's Tailscale address changes.
 
 **The player list is for registered players only: the launcher comes first.** The server shows who
 is online only to a caller with an account key, and the launcher sends the player's key to see the
@@ -336,9 +357,11 @@ same rule, so an explicit line keeps the mode fixed. The
 ### Backups
 
 Backups are in `C:\DauntlessRevived\backups\<date>_<time>\`: the database (taken with SQLite's
-online backup and checked), the settings with their keys, the account keys and the gateway
-certificate. The newest 48 hourly backups and one per day for 30 days are kept. **They contain keys**:
-copy them off the server only encrypted. The same folder is what `-RestoreFrom` takes.
+online backup and checked), the settings with their keys, the admin account's key, the gateway
+certificate, `server.json` and the launcher news. The newest 48 backups (the hourly ones and the ones
+around starts and stops together) and the newest one of each of the last 30 days are kept. **They
+contain keys**: copy them off the server only encrypted. The same folder is what `-RestoreFrom` takes.
+What is and is not in a backup: [Files and data]({{ files_page.url | relative_url }}#backups).
 
 ## Session 0 and `-InteractiveSession`
 
@@ -364,13 +387,15 @@ sharing the machine are on [Run it for a group]({{ admin_page.url | relative_url
 | `C:\DauntlessRevived\bin\` | The kit's scripts. |
 | `app\` (and `app.prev\`) | The built server code (and the previous build, for rollbacks). |
 | `game\Dauntless\` | The verified 1.4.4 files. |
-| `data\config\` | `server.json` and the `.env` settings (secrets). |
-| `data\keys\`, `data\tls\` | Account and game-server keys; the gateway certificate and its private key. |
+| `data\config\` | `server.json` and the `.env` settings (secrets). Which keys the installer writes and which it keeps: [Configuration]({{ config_page.url | relative_url }}#server-kit). |
+| `data\keys\`, `data\tls\` | The admin account's key and the game-server key; the gateway certificate and its private key. |
 | `data\undaunted.db` | The database: accounts and saves. |
 | `data\logs\` | Logs of every component; `gateway.out.log` is the access log (no keys or tokens). |
-| `data\allowlist\` | The allowlist helper's audit log and state (Administrators and SYSTEM only). |
+| `data\allowlist\` | The allowlist helper's audit log and state (only Administrators and SYSTEM can write there). |
 | `backups\` | Hourly backups. |
 | `staging\` | What `Deploy-Remote.ps1` uploads; the game zip stays here for repairs. |
+
+Every folder and file, with who may read and write it: [Files and data]({{ files_page.url | relative_url }}#kit-install-root).
 
 ## Test the kit without a server
 
@@ -397,7 +422,10 @@ anything.
 C:\DauntlessRevived\bin\Stack.ps1 stop
 'Dauntless Revived stack', 'Dauntless Revived allowlist', 'Dauntless Revived backup' |
     ForEach-Object { Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue }
-Remove-NetFirewallRule -Group 'Dauntless Revived' -ErrorAction SilentlyContinue
+# Keep 'Dauntless Revived - SSH (TCP 22)' if the installer made it: every profile still blocks
+# inbound connections by default, so without that rule SSH would stop working.
+Get-NetFirewallRule -Group 'Dauntless Revived' -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -ne 'Dauntless Revived - SSH (TCP 22)' } | Remove-NetFirewallRule
 Remove-NetFirewallRule -Name 'DauntlessRevived-GamePorts-Allowlist' -ErrorAction SilentlyContinue
 Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like '*\dauntless' } | Remove-CimInstance
 Remove-LocalUser -Name dauntless
@@ -411,6 +439,19 @@ the folder); to use Remote Desktop again, re-enable its rule (`Enable-NetFirewal
 installer with `-AdminIp <your IP>`. If you used `-InteractiveSession`, also
 turn auto-logon off: `Set-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
 AutoAdminLogon 0`. Node.js and the Visual C++ runtime can be removed in "Apps and features".
+
+The snippet also leaves these installer changes in place:
+
+- Firewall policy values the installer removed because they kept Windows Firewall off. They are
+  listed as `policy|...` entries under `FirewallChanges`.
+- `PasswordAuthentication no` in `C:\ProgramData\ssh\sshd_config`, written by a public-mode install
+  that ran over SSH.
+- The account lockout policy of the first public-mode install: 10 wrong passwords lock an account for
+  15 minutes (`net accounts` shows it).
+- With `-InteractiveSession`, the stored auto-logon password (the LSA secret `DefaultPassword`). The
+  account it belongs to is deleted by the snippet, so the password no longer opens anything.
+- The "Log on as a batch job" right given to `dauntless`, the DirectX June 2010 runtime, and in
+  private mode Tailscale, whose network adapter the installer set to the Public network category.
 
 Hosting a modified server for other people comes with the AGPL's source-code obligation; see
 [Credits and license]({{ legal_page.url | relative_url }}).

@@ -9,6 +9,7 @@ ref: tools
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "reference/scripts.md" | first %}
 
 # Tools
 {: .no_toc }
@@ -36,7 +37,9 @@ these files.
 
 - The scripts are released under the **GNU Affero General Public License v3.0 (AGPL-3.0)**,
   together with our fork of Undaunted. **Status:** they are not in the repository yet; we plan to
-  add them in a `tools/` folder.
+  add them in a `tools/` folder. The `tools/` folder that exists today holds the project's own build
+  and packaging scripts, not these; they are listed in
+  [Scripts and parameters]({{ scripts_page.url | relative_url }}).
 - **Only point them at files you own:** your own, legally obtained copy of the game. They only read
   the game's files and never modify them (`pak9.py get` writes the one file you extract to the
   output path you give it). They include no game data, keys or other secrets.

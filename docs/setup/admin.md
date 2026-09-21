@@ -12,6 +12,10 @@ ref: setup/admin
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
 {% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign api_page = site.pages | where: "path", "reference/api.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "reference/scripts.md" | first %}
+{% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
 
 # Run it for a group
 {: .no_toc }
@@ -59,8 +63,9 @@ Port forwarding would put all of the following on the public internet:
   access to that player's data.
 - `POST /undaunted/api/Register` needs no authentication, and nothing in the metagame limits request
   rates.
-- The deploy server has no authentication at all. Anyone who reaches TCP 61001 can make your PC start
-  game processes.
+- The deploy server has no authentication at all. It listens on loopback and answers 403 to callers
+  on other machines, and those two checks are all that stop others from making your PC start game
+  processes through TCP 61001.
 - The game servers are a 2020 game build with an injected DLL, not hardened network services.
 
 Tailscale avoids all of that. Each friend's traffic to the host is encrypted with WireGuard, and only
@@ -218,9 +223,10 @@ Two `.env` settings in the metagame decide who can get in:
 | `INVITECODE` | Needs a valid code. A wrong or used-up code gets 401. |
 | `OPEN` | Anyone who can reach the metagame gets an account. |
 
-Set `INVITECODE` in `.env` **before** the metagame listens on Tailscale. Ours is still `OPEN`, which is
-harmless only while it listens on loopback. The admin API can switch the mode at runtime, but only in
-memory: a restart goes back to the `.env` value.
+Set `INVITECODE` in `.env` **before** the metagame listens on Tailscale. The `.env` in
+[Host a server]({{ host_page.url | relative_url }}#metagame) uses `OPEN`, which is harmless only while
+the metagame listens on loopback. (The Windows server kit always writes `INVITECODE`.) The admin API
+can switch the mode at runtime, but only in memory: a restart goes back to the `.env` value.
 
 Registration returns the new player's key (`UUK_` followed by 48 hex characters) once. The server keeps
 only its SHA-256 hash.
@@ -228,33 +234,34 @@ only its SHA-256 hash.
 ### Making invite codes
 
 Admin calls are authenticated with an admin account's own key in the `x-undaunted-user-api-key`
-header. In our layout the owner's key lives in `C:\dr\data\owner.key`. This block creates a random
-single-use code, lists all codes, and revokes one:
+header, and they work only directly against the metagame, never through a proxy or the public
+gateway. In our layout the owner's key lives in `C:\dr\data\owner.key`. This block asks the server
+for a new single-use code, lists all codes, and revokes one:
 
 ```powershell
 $M = "100.x.y.z:61000"    # wherever the metagame listens
 $h = @{ "x-undaunted-user-api-key" = (Get-Content C:\dr\data\owner.key -Raw).Trim() }
 
-# new single-use code from a cryptographic random source
-$b = New-Object byte[] 6
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
-$code = ([BitConverter]::ToString($b) -replace '-', '').ToLower()
-Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/RegisterInviteCode" -Headers $h `
-  -ContentType "application/json" `
-  -Body (@{ NewInviteCode = $code; Uses = 1; InfiniteUses = $false } | ConvertTo-Json)
+# new single-use code, made by the server (XXXX-XXXX-XXXX)
+$code = (Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/CreateInvite" -Headers $h `
+  -ContentType "application/json" -Body (@{ uses = 1 } | ConvertTo-Json) -TimeoutSec 10).code
 $code        # send this to one friend, privately
 
 # list, and revoke
-(Invoke-RestMethod -Uri "http://$M/undaunted/api/InviteCodes" -Headers $h).InviteCodes
-Invoke-RestMethod -Method Delete -Uri "http://$M/undaunted/api/InviteCode/$code" -Headers $h
+(Invoke-RestMethod -Uri "http://$M/undaunted/api/InviteCodes" -Headers $h -TimeoutSec 10).InviteCodes
+Invoke-RestMethod -Method Delete -Uri "http://$M/undaunted/api/InviteCode/$code" -Headers $h -TimeoutSec 10
 ```
 
+- `CreateInvite` makes three groups of four characters from Crockford's base32 alphabet (60 random
+  bits). `uses` is 1 to 1000. An optional `name` is a note for the metagame's log and is not stored;
+  the log shows only the code's first group. The older `RegisterInviteCode` still stores a code you
+  choose yourself. On a kit server, `New-Invite.ps1` does all of this for you.
 - Codes are used up atomically: a single SQL `UPDATE` checks and decrements the remaining uses, so two
   people cannot both redeem a single-use code.
-- A code is used up the moment it validates, before the account row is written. If writing the
-  account then fails, the code is gone anyway. Our planned username checks will run before the code is
-  used up.
-- Prefer single-use codes, one per friend, sent privately. Use `InfiniteUses` only briefly, if at all.
+- Register checks the code, then the username, and only then spends one use of the code and writes
+  the account, all in one database transaction. A rejected or taken name does not burn a code.
+- Prefer single-use codes, one per friend, sent privately. Use many uses (or `InfiniteUses` with
+  `RegisterInviteCode`) only briefly, if at all.
 
 ### Making an account an admin
 
@@ -263,28 +270,37 @@ metagame is stopped, for example with a small `better-sqlite3` script run from t
 folder (`UPDATE users SET isAdmin = 1 WHERE userId = ?`). An admin key is simply that user's account
 key, so keep it on the host.
 
-## The admin API (as it exists upstream)
+## The admin API {#admin-api}
 
 All routes live under `/undaunted/api` on the metagame port. "Admin" means the
 `x-undaunted-user-api-key` header must belong to a user with `isAdmin`. A missing or unknown key gets
-401; a valid key that is not an admin gets 403.
+401; a valid key that is not an admin gets 403. **An admin call that carries a proxy header gets 403**
+before the key is even checked, so admin calls work only directly against the metagame: on the host,
+or in private mode from a machine on the tailnet. The public gateway refuses them as well.
+
+[HTTP API]({{ api_page.url | relative_url }}#undaunted-api) lists every route with its body and
+answers. The ones used most for running a group:
 
 | Method and path | Auth | What it does |
 |:----------------|:-----|:-------------|
 | `GET /RegistrationStatus` | none | `{ "RegistrationMode": ... }` |
 | `POST /RegistrationStatus` | admin | Body `{ "RegistrationStatus": <mode> }`, where the mode is `NONE`, `INVITECODE` or `OPEN`. In memory only. |
+| `POST /CreateInvite` | admin | Body `{ "uses", "name" }` (both optional), returns `{ "code" }`. |
 | `GET /InviteCodes` | admin | All codes with their remaining uses. |
-| `POST /RegisterInviteCode` | admin | Body `{ "NewInviteCode", "Uses", "InfiniteUses" }`. |
+| `POST /RegisterInviteCode` | admin | Body `{ "NewInviteCode", "Uses", "InfiniteUses" }`: a code you choose. |
 | `DELETE /InviteCode/:code` | admin | Revoke a code. |
 | `GET /GetAllUsers` | admin | `{ "Users": [{ "Username", "UserId" }] }` |
+| `POST /RenameUser` | admin | Body `{ "UserId" }` or `{ "Username" }` plus `{ "NewUsername" }`. Renames the account and its characters. |
 | `POST /GenerateJWTForUserId` | admin | Body `{ "UserId" }`, returns `{ "JWT" }`. Mints a 24-hour game token **for any user**, which amounts to playing as them. Treat admin keys accordingly. |
 | `GET /PrivateOnlineStats` | admin | Per player: map, hunt and hunt start time, for players seen in the last 90 seconds. |
+| `GET /SaveHistory`, `POST /RollbackCharacter`, `POST /RollbackLoadout` | admin | The saved versions of a player's characters and loadouts, and rolling one back. The player should be offline. |
+| `POST /GrantEntitlement`, `POST /RevokeEntitlement` | admin | Give or take away an entitlement. |
 | `POST /Register` | none (mode-gated) | Body `{ "Username", "InviteCode" }`. Returns `{ "UUK" }`. |
 | `GET /GetUserInfo` | user key | `{ "UserId", "Username", "IsAdmin" }` |
-| `GET /PublicOnlineStats` | user key | `{ "NumActivePlayers" }` |
+| `GET /ServerStatus` | none | The server's name, version and source; with a user key also who is online. |
 
-Upstream's Electron launcher has an admin screen for the registration mode and invite codes, but it is
-hard-wired to upstream's own public server. We call the API directly instead.
+The friend launcher has no admin screen. Make admin calls directly, as in the examples on this page,
+or with the kit's scripts on a kit server.
 
 ### Progression (fork only) {#progression}
 
@@ -303,8 +319,8 @@ small script for both routes.
 
 ### Missing admin functions and workarounds
 
-Upstream has no API to rename, delete or ban a user, to revoke or reissue a key, or to promote an
-admin.
+There is no API to delete or ban a user, to revoke or reissue a key, or to promote an admin.
+Renaming does exist (`RenameUser`, see [Usernames](#usernames)).
 
 - **Locking someone out.** Remove their Tailscale share, which cuts network access at once. Then
   delete their row from `userapikeys`. Their key stops working at the next login, but a token that was
@@ -335,26 +351,34 @@ admin.
 
 ## Usernames
 
-**Current upstream behaviour:**
-
-- `Register` only checks that the trimmed name is not empty. It then stores the untrimmed string.
-- Names are not unique. Two players can both be "Slayer".
-- There is no rename. `/account/api/public/account` reports `canUpdateDisplayName: false`.
-- On a player's first login the metagame creates their character and names it after the username. A
-  rename therefore has to update both `users.name` and `characters.name`.
+- The name is chosen at registration. The friend launcher and the friend kit ask for it.
+- New names are 3-16 characters, letters, digits and underscore only (`^[A-Za-z0-9_]{3,16}$`), after
+  trimming surrounding spaces. `Register` answers 400 `username_invalid` otherwise.
+- Names are unique regardless of case: `Register` answers 409 `username_taken` for a name another
+  account already has in any case. The check runs in the same database transaction that creates the
+  account (there is no unique index), and before the invite code is used up, so a rejected name does
+  not burn a code.
+- Accounts made before these rules keep their names, even ones that break them.
+- `GET /undaunted/api/UsernameAvailable?Username=<name>` checks a name without registering. The
+  public gateway does not pass it, so it works only on the host or over the tailnet.
+- On a player's first login the metagame creates their character and names it after the username.
+  The admin route `POST /undaunted/api/RenameUser` therefore renames the account and its characters
+  together. The player sees the new name after logging in again. Whether other players' nameplates
+  update without a relog is unverified.
+- There is no rename inside the game: `/account/api/public/account` reports
+  `canUpdateDisplayName: false`.
 - Our own owner account still carries the placeholder name "Slayer".
 
-**Our planned rules** (on the roadmap, not built yet):
+To rename, with `$M` and `$h` set as in [Making invite codes](#making-invite-codes):
 
-- The name is chosen at registration. The friend package will ask for it.
-- 3-16 characters, letters, digits and underscore only (`^[A-Za-z0-9_]{3,16}$`), after trimming.
-- Unique regardless of case, enforced by a migration that adds a unique index on `lower(name)`.
-- Checked before the invite code is used up, so a rejected name does not burn a code.
-- Rename later, by the player or by an admin, updating both tables. It takes effect at the next login.
-  Whether other players' nameplates update without a relog is unverified.
-- Maybe an in-game rename, if the client offers one once `canUpdateDisplayName` is true (untested).
+```powershell
+$body = @{ Username = "OldName"; NewUsername = "New_Name" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/RenameUser" -Headers $h `
+  -ContentType "application/json" -Body $body -TimeoutSec 10
+```
 
-Until then, tell friends the rules before they register, and check `GetAllUsers` for clashes.
+`Username` is the current name in any case; `UserId` works instead. A new name another account has
+gets 409 `username_taken`.
 
 ## Capacity
 
@@ -389,17 +413,18 @@ Operational limits to know about:
 - A hunt server exits after **50 seconds in total** with nobody connected, and that counter never
   resets. A friend on a slow disk can arrive after their server is gone. The planned DLL fix makes the
   timeout configurable and resets it on join.
-- **When all hunt ports are busy**, the deploy server throws `No free ports left!`, and upstream's
-  metagame still marks the group ready, with host `""` and port 0. The players hang. A capacity check
-  that refuses cleanly is planned.
+- **When all hunt ports are busy**, the deploy server throws `No free ports left!` and answers the
+  metagame with an HTTP 500. Our metagame then marks the group's search as failed (the status poll
+  answers `FAILED`); upstream's marked the group ready with host `""` and port 0, and the players hung.
+  Keeping the group waiting until a port is free is planned.
 - **To add hunt ports, lower `PORT_RANGE_BEGIN`. Never raise `PORT_RANGE_END`.** The DLL treats any
   port of 8776 or above as a persistent server and turns the idle exit off there, so a hunt on such a
   port would never shut down. Widen the firewall rule to match.
 - The deploy server puts no memory limit on game processes yet. Planned guard: kill a hunt above about
   2.5 GB or Ramsgate above about 3 GB (Ramsgate then respawns), and refuse new servers when less than
   3 GB of RAM is free.
-- **Every game server opens a console window on the host's desktop. Closing one kills that server** for
-  everyone in it.
+- **Ramsgate and the Dojo each keep a console window open on the host's desktop. Closing one kills
+  that server** for everyone in it. Hunt servers are started with their window hidden.
 
 ## Keeping the PC available
 
@@ -423,13 +448,19 @@ The server is up only while the host PC is on, awake and signed in.
   stack and backs up the database before every start and after every stop. It works locally but is
   not in the repository yet (item 1.1 on the [roadmap]({{ roadmap_page.url | relative_url }})). Still
   planned for milestone M4: starting it from a scheduled task at logon, and a supervisor that restarts
-  a crashed metagame or deploy server with backoff.
+  a crashed metagame or deploy server with backoff. The Windows server kit already does both on a
+  rented server: its `Stack.ps1` runs from scheduled tasks at startup and restarts a crashed component
+  with backoff (see [Scripts and parameters]({{ scripts_page.url | relative_url }})). It works only on a
+  server installed with the kit, not on a hand-built host like this one.
 
 ## Back up the database
 
-Everything players own (accounts, characters, inventories, loadouts, invite codes) lives in one SQLite
-file, the `DB_FILENAME` in the metagame `.env`. Ours is `C:\dr\data\undaunted.db`. It is small, 132 KB
-with one player or about 25 KB per character, so keeping many copies costs nothing.
+Everything players own (accounts, characters, inventories, loadouts, progression, friends lists,
+invite codes) lives in one SQLite file, the `DB_FILENAME` in the metagame `.env`. Ours is
+`C:\dr\data\undaunted.db`. It starts small (ours was 132 KB with one player), but it also keeps each
+character's save history for rollbacks (the code estimates up to about 3.5 MB per character at the
+default settings) and item and progression logs that only grow. Every table is described on
+[Files and data]({{ files_page.url | relative_url }}#the-database).
 
 **The metagame runs any pending database migrations on every start, and takes no backup first.** Always
 back up before updating the fork or pulling upstream changes.
@@ -438,8 +469,11 @@ back up before updating the fork or pulling upstream changes.
 48 copies plus the newest copy of each of the last 30 days. `stack.ps1` also takes a backup before
 every start and after every stop, and it won't start the metagame if that backup fails. A restore test
 passed. These scripts work on our host but are not in the repository yet (items 0.1 and 1.1 on the
-[roadmap]({{ roadmap_page.url | relative_url }})). Copies off the PC are still open. On any other host,
-use one of the two options below.
+[roadmap]({{ roadmap_page.url | relative_url }})). Copies off the PC are still open. On a server
+installed with the Windows server kit, `Backup-DauntlessServer.ps1` does the same (hourly, before every
+start and after every stop; it keeps the newest 48 backups plus the newest one of each of the last
+30 days). On any other host, use one of the two
+options below.
 
 **Option 1: stopped copy.** Stop the metagame and copy the file. The database uses SQLite's default
 rollback journal, so there is no separate `-wal` file to forget.
@@ -491,5 +525,9 @@ back up the owner's account key.
    (section 6). Give them the link to [this site's repository]({{ site.github.repository_url }}) and
    the commit you run. The in-game status text (`/dauntless-status`) welcomes players by your
    server's name ("Welcome to Dauntless Revived!" unless you set `SERVER_NAME` in the metagame's
-   `.env`). We plan to put the source link there too. See
+   `.env`). After the fields the game reads, the same reply also carries the server's name, version,
+   commit and source link (`SOURCE_URL` and `GIT_COMMIT`, see
+   [Configuration]({{ config_page.url | relative_url }}#metagame-identity)). If you run modified
+   code, point `SOURCE_URL` at your modified source. We plan to put the source link in the in-game
+   text too. See
    [Credits and license]({{ legal_page.url | relative_url }}). It is not legal advice.

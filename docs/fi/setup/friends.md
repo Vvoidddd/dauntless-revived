@@ -149,7 +149,7 @@ järjestelmän omaa kopiota. Tämä välittäjä (proxy) lataa oikean järjestel
 välittää sen kolme funktiota (exports) eteenpäin ja lataa `UndauntedInternalServer.dll`-tiedoston.
 Tavallisessa käynnistyksessä (client-tilassa) tämä DLL lukee ensimmäisen komentoriviparametrin
 palvelimen osoitteeksi. Sen jälkeen se kirjoittaa uudelleen taustapalvelun osoitteet, jotka peli lukee
-asetuksistaan (165 avaimen taulukko sekä tilipalvelun asetukset): kuolleista `steelyard.ca`-palvelimista
+asetuksistaan (167 avaimen taulukko sekä tilipalvelun asetukset): kuolleista `steelyard.ca`-palvelimista
 osoitteeseen `http://<that address>/...` eli annettuun palvelinosoitteeseen. Kun sama DLL ladataan
 prosessiin, joka on käynnistetty valitsimella `-server`, se muuttaa kyseisen peliohjelman
 pelipalvelimeksi. Näin isäntä pyörittää Ramsgatea ja metsästyksiä.
@@ -181,11 +181,10 @@ puolestasi.
   Jos kadotat sen, isännän on annettava sinulle uusi käsin.
 - **Pidä se omana tietonasi.** Kuka tahansa, jolla on avaimesi, voi pelata sinuna.
 
-**Käyttäjänimen valinta.** Tällä hetkellä palvelin hyväksyy minkä tahansa nimen, joka ei ole tyhjä.
-Se ei estä kahta pelaajaa valitsemasta samaa nimeä, eikä nimeä voi vaihtaa. Hahmosi saa myös saman
-nimen ensimmäisellä kirjautumisella. Olemme lisäämässä sääntöjä: 3–16 merkkiä, vain kirjaimia,
-numeroita ja alaviivoja, ja nimen on oltava ainutlaatuinen isoista ja pienistä kirjaimista
-riippumatta. Valitse nimi, joka sopii jo näihin sääntöihin.
+**Käyttäjänimen valinta.** 3–16 merkkiä, vain kirjaimia, numeroita ja alaviivoja, ja nimen on
+oltava ainutlaatuinen isoista ja pienistä kirjaimista riippumatta. Palvelin hylkää kaikki muut nimet
+(katso taulukko alla). Hahmosi saa myös saman nimen ensimmäisellä kirjautumisella. Vain isäntä voi
+vaihtaa nimesi myöhemmin.
 
 Tämä skripti rekisteröi sinut ja tallentaa avaimen profiilikansioosi tulostamatta sitä. Se kieltäytyy
 toimimasta toista kertaa, koska uusi rekisteröinti loisi toisen, tyhjän tilin.
@@ -207,9 +206,13 @@ Set-Content -Path "$dir\account.key" -Value $r.UUK -NoNewline -Encoding ASCII
 | Palvelimen vastaus | Merkitys |
 |:--------------|:--------|
 | 200 | Rekisteröity. Avain on tiedostossa `account.key`. |
-| 401 | Kutsukoodi on väärä tai jo käytetty. |
-| 400 | Rekisteröinti on suljettu tai käyttäjänimi on tyhjä. |
+| 401 | Kutsukoodi on väärä tai jo käytetty (`invite_invalid`). |
+| 400 | Rekisteröinti on suljettu (`registration_closed`) tai käyttäjänimi rikkoo sääntöjä (`username_invalid`). |
+| 409 | Jollakulla on jo sama käyttäjänimi missä tahansa kirjainkoossa (`username_taken`). Valitse toinen: kutsukoodiasi ei kulutettu. |
 | Ei vastausta | Tailscale on pois päältä tai isännän palvelin ei ole käynnissä. |
+
+Hylkäyksen mukana tulee lyhyt JSON-muotoinen syy, `{"error": "<code>", "message": "..."}`, jonka
+PowerShell näyttää virheen yhteydessä.
 
 Tarkista, että avain toimii. Tämä tulostaa käyttäjätunnisteesi (user id), käyttäjänimesi ja sen,
 oletko ylläpitäjä:
@@ -379,11 +382,12 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
 |:--------|:-------------|
 | `Invoke-RestMethod` aikakatkaistaan | Tailscale on pois päältä, jakoa ei ole hyväksytty, tai isännän kone tai palvelin ei ole käynnissä. |
 | Rekisteröinti vastaa 401 | Väärä tai jo käytetty kutsukoodi. Pyydä isännältä uusi. |
-| Rekisteröinti vastaa 400 | Rekisteröinti on suljettu tai käyttäjänimi on tyhjä. |
+| Rekisteröinti vastaa 400 | Rekisteröinti on suljettu, tai käyttäjänimi ei ole 3–16 kirjainta, numeroa tai alaviivaa. |
+| Rekisteröinti vastaa 409 | Käyttäjänimi on varattu (missä tahansa kirjainkoossa). Valitse toinen; kutsukoodi toimii yhä. |
 | `play.ps1` sanoo `Hash mismatch` | Eri peliversio tai eri DLL-tiedostot. Ne eivät toimi yhdessä. |
 | Peli käynnistyy ilman konsoli-ikkunaa eikä pysty kirjautumaan | `dxgi.dll` ei ole `Win64`-kansiossa, tai virustorjunta poisti sen tai siirsi sen karanteeniin. Tarkista, että molemmat DLL-tiedostot ovat paikallaan ja että tiivisteet täsmäävät. |
 | Virhe tiedostosta `MSVCP140.dll` tai `VCRUNTIME140_1.dll` | Asenna Visual C++ 2015-2022 Redistributable (x64). |
-| Matchmaking tai siirtyminen metsästykseen jumittaa | Kaikki isännän metsästyspaikat voivat olla varattuina (kuusi kerrallaan). Palvelin antaa silloin virheen sijaan tyhjän osoitteen. Kerro isännälle. |
+| Matchmaking tai siirtyminen metsästykseen jumittaa | Kaikki isännän metsästyspaikat voivat olla varattuina (kuusi kerrallaan). Palvelin ei silloin pysty käynnistämään sinulle metsästystä, ja hakusi päättyy epäonnistuneena. Kerro isännälle. |
 | Metsästys ei koskaan lataudu, tai sinut lähetetään takaisin | Metsästyspalvelin sulkee itsensä, kun siihen ei ole ollut kukaan yhteydessä yhteensä 50 sekuntiin, ja hidas kentän lataus voi kestää kauemmin. Kerro isännälle. |
 
 ## Oikeutesi lähdekoodiin {#your-right-to-the-source}

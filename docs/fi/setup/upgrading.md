@@ -132,7 +132,8 @@ Palvelinpaketti ottaa varmuuskopion jokaisen päivityksen yhteydessä; itse koot
   `UndauntedMetagame`-kansiossa. Käynnistä metagame uudelleen muutoksen jälkeen.
 - **Windows-palvelinpaketti** ([Windows-palvelin]({{ winserver_page.url | relative_url }})):
   `C:\DauntlessRevived\data\config\metagame.env`. Asennus ja `Update-DauntlessServer.ps1` säilyttävät
-  jokaisen tiedostossa jo olevan rivin, joten palvelin, jolla oli jo `PROGRESSION_MODE=real` tai `stub`,
+  jokaisen tiedostossa jo olevan asetuksen (asennus kirjoittaa uudelleen vain palvelinkohtaiset
+  avaimet, eikä kumpikaan säilytä kommenttirivejä), joten palvelin, jolla oli jo `PROGRESSION_MODE=real` tai `stub`,
   pitää sen. Jos haluat jatkaa tyngällä, lisää rivi **ennen** päivitystä, tai lisää se jälkeenpäin ja
   aja `C:\DauntlessRevived\bin\Stack.ps1 restart -Only metagame`. Ellei tiedostossa lue `real` tai
   `stub`, päivitysohjelma toistaa onnistuneen päivityksen jälkeen metagamen varoituksen pelaajista,

@@ -8,6 +8,7 @@ ref: findings/multiplayer
 ---
 
 {% assign ci_page = site.pages | where: "path", "findings/client-internals.md" | first %}
+{% assign api_page = site.pages | where: "path", "reference/api.md" | first %}
 
 # How multiplayer works
 {: .no_toc }
@@ -178,9 +179,13 @@ The player's client loads the same DLL. In client mode, the first argument is th
 
 ## The deploy server
 
-The deploy server is a small Express app with a single endpoint,
-`POST /api/matchmaker/handle-matchmaking-for-player`, which has **no authentication**. Upstream
-listens on all interfaces. Our fork binds it, and the metagame, to `127.0.0.1` by default.
+The deploy server is a small Express app. Upstream has a single endpoint,
+`POST /api/matchmaker/handle-matchmaking-for-player`, which has **no authentication**, and listens on
+all interfaces. Our fork binds it, and the metagame, to `127.0.0.1` by default. It adds a second,
+read-only route, `GET /gameservers`, which lists the running game servers for the metagame's
+`ServerStatus`. Both routes are still unauthenticated, and both answer 403 to any caller that is not
+on loopback or that came through a proxy. [HTTP API]({{ api_page.url | relative_url }}#deploy-server)
+has the details.
 
 | Instance | Upstream | Our fork |
 |---|---|---|

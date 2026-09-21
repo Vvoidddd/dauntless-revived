@@ -11,6 +11,7 @@ description: "Kolme pientä Python-työkalua Dauntlessin tutkimiseen: xref.py oh
 {% assign crashes_page = site.pages | where: "path", "fi/findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
 {% assign contract_page = site.pages | where: "path", "fi/findings/backend-contract.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "fi/reference/scripts.md" | first %}
 
 # Työkalut
 {: .no_toc }
@@ -39,7 +40,9 @@ avaamaan näitä tiedostoja.
 
 - Skriptit julkaistaan **GNU Affero General Public License v3.0 (AGPL-3.0)** -lisenssillä yhdessä
   Undaunted-haaramme (fork, eli oman muokatun kopiomme) kanssa. **Tila:** ne eivät ole vielä
-  repositoriossa; aiomme lisätä ne `tools/`-kansioon.
+  repositoriossa; aiomme lisätä ne `tools/`-kansioon. Nykyisessä `tools/`-kansiossa on projektin omat
+  käännös- ja paketointiskriptit, eivät nämä; ne on lueteltu sivulla
+  [Skriptit ja parametrit]({{ scripts_page.url | relative_url }}).
 - **Käytä niitä vain tiedostoihin, jotka omistat:** omaan, laillisesti hankittuun pelikopioosi. Ne
   vain lukevat pelin tiedostoja eivätkä koskaan muuta niitä (`pak9.py get` kirjoittaa sen yhden
   puretun tiedoston antamaasi polkuun). Ne eivät sisällä pelin dataa, avaimia tai muita

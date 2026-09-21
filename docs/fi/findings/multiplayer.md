@@ -10,6 +10,7 @@ description: "Miten Undaunted tekee Dauntless 1.4.4 -peliohjelman kopioista peli
 ---
 
 {% assign ci_page = site.pages | where: "path", "fi/findings/client-internals.md" | first %}
+{% assign api_page = site.pages | where: "path", "fi/reference/api.md" | first %}
 
 # Näin moninpeli toimii
 {: .no_toc }
@@ -205,10 +206,14 @@ Pelaajan asiakasohjelma lataa saman DLL:n. Asiakastilassa ensimmäinen argumentt
 
 ## Deploy-palvelin {#the-deploy-server}
 
-Deploy-palvelin on pieni Express-sovellus, jossa on yksi päätepiste,
-`POST /api/matchmaker/handle-matchmaking-for-player`, eikä sillä ole **mitään tunnistautumista**.
-Upstream kuuntelee kaikissa verkkoliitännöissä. Meidän haaramme (fork, eli oma muokattu kopiomme)
-sitoo sen, samoin kuin metagamen, oletuksena osoitteeseen `127.0.0.1`.
+Deploy-palvelin on pieni Express-sovellus. Upstreamissa sillä on yksi päätepiste,
+`POST /api/matchmaker/handle-matchmaking-for-player`, jolla ei ole **mitään tunnistautumista**, ja se
+kuuntelee kaikissa verkkoliitännöissä. Meidän haaramme (fork, eli oma muokattu kopiomme) sitoo sen,
+samoin kuin metagamen, oletuksena osoitteeseen `127.0.0.1`. Haaramme lisää toisen, pelkästään
+lukevan reitin, `GET /gameservers`, joka luettelee käynnissä olevat pelipalvelimet metagamen
+`ServerStatus`-vastausta varten. Kummallakaan reitillä ei vieläkään ole tunnistautumista, ja
+kumpikin vastaa 403 jokaiselle kutsujalle, joka ei ole loopbackissa tai joka tuli välityspalvelimen
+kautta. Yksityiskohdat ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#deploy-server).
 
 | Instanssi | Upstream | Meidän haaramme |
 |---|---|---|

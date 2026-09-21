@@ -123,7 +123,8 @@ up around every update; on a hand-built host, see
   `UndauntedMetagame` folder. Restart the metagame after a change.
 - **Windows server kit** ([Windows server kit]({{ winserver_page.url | relative_url }})):
   `C:\DauntlessRevived\data\config\metagame.env`. The installer and `Update-DauntlessServer.ps1` keep
-  every line already in that file, so a server that already had `PROGRESSION_MODE=real` or `stub`
+  every setting already in that file (the installer rewrites only the keys that describe the host,
+  and neither keeps comment lines), so a server that already had `PROGRESSION_MODE=real` or `stub`
   keeps it. To stay on the stub, add the line **before** you update, or add it afterwards and run
   `C:\DauntlessRevived\bin\Stack.ps1 restart -Only metagame`. Unless the file says `real` or `stub`,
   the updater repeats the metagame's warning about players without stored progression after a

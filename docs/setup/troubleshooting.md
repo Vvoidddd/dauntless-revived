@@ -11,6 +11,7 @@ ref: setup/troubleshooting
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
+{% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
 
 # Troubleshooting
 {: .no_toc }
@@ -35,9 +36,13 @@ setup itself is in [Host a server]({{ host_page.url | relative_url }}). Unless a
 |---|---|
 | `C:\dr\data\metagame.log` | One JSON line per event. The fork logs every request as `METHOD /path gs=0` (client) or `gs=1` (game server). This is the main instrument: how far did the client get, and what did it ask for last? |
 | `C:\dr\data\deploy.log` | Matchmaking requests, `Running Gameserver Watchdog!` every 60 s, `Cleaning up Gameserver on port N` when a server exits. |
-| Game-server console windows | One per server, opened by the server DLL. They show the server's own output. |
+| Game-server console windows | Opened by the server DLL; they show the server's own output. Ramsgate's and the Dojo's are visible. Hunt servers are started with their window hidden. |
 | Client console window | Opened by the DLL in client mode. **If no console window appears when the client starts, the DLLs are not loaded.** |
 | `%LOCALAPPDATA%\Archon\Saved\Crashes\` | Crash reports. See [Crash forensics]({{ crashes_page.url | relative_url }}) for reading them. |
+| `C:\DauntlessRevived\data\logs\` (Windows server kit) | The same logs as `metagame.out.log` and `deploy.out.log`, plus the gateway's access log (`gateway.out.log`) and the supervisor's `supervisor.log`. |
+| `%APPDATA%\Dauntless Revived Launcher\logs\launcher.log` | The friend launcher: joins, connection problems, downloads and the game's command line (with the key hidden). |
+
+Every log file, its format and how it is rotated: [Files and data]({{ files_page.url | relative_url }}#logs).
 
 The 1.4.4 shipping client writes no game log file of its own. `Saved\Logs` only holds the embedded
 browser's logs. To read the metagame log as plain text:
@@ -368,10 +373,11 @@ intact. We have not tested unquoted values on 1.4.4.
 
 ## A game server vanished when a window was closed {#server-console-windows}
 
-Every game server opens a console window, because the server DLL's console logging is on by default.
-**Closing a console window ends that server** for everyone on it. The deploy server's watchdog
-restarts Ramsgate (and the Dojo) within about a minute. A hunt server is not restarted. Leave the
-windows open (minimise them). Writing server output to log files instead is on the
+Every game server opens a console, because the server DLL's console logging is on by default. The
+deploy server shows the windows of Ramsgate and the Dojo and starts hunt servers with their window
+hidden. **Closing a console window ends that server** for everyone on it. The deploy server's
+watchdog restarts Ramsgate (and the Dojo) within about a minute. A hunt server is not restarted.
+Leave the windows open (minimise them). Writing server output to log files instead is on the
 [roadmap]({{ roadmap_page.url | relative_url }}).
 
 A message box reading **"INVALID GAMESERVER ARGS"** means a game server was started with fewer than
@@ -388,9 +394,9 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 |---|---|---|
 | `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | 40+ | Upstream has no handler for unlocking a loadout slot. The game server (`gs=1`) sends it in bursts of retries, several within a few seconds, then again minutes later. Harmless. Handled since real progression became the default (roadmap 2.4); a low-level account sends none, so you only see this line with `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14x | The client and the game server both save the character, with version numbers, and reject each other's writes. Each time, the side whose write was rejected (sometimes the client, sometimes the game server) re-read the character and wrote again within about a second, so the last write reached the database. Not yet proven lossless when both change the same value at once; on the roadmap. |
-| `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | No friends list yet; the game shows "0 ONLINE FRIENDS". |
+| `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | There was no friends list then; the game showed "0 ONLINE FRIENDS". The fork now answers both routes (everyone still shows as offline). `MISC_ROUTES=0` puts the 404 back. |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |
-| `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping without handlers. |
+| `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping. The fork now answers `POST /candidate/player/alive` (`MISC_ROUTES=0` puts the 404 back). `DELETE /candidate` still gets a 404 on purpose: the client sends it right after every queued join, and hunts start only because it fails. `MATCHMAKING_CANCEL=1` turns a handler on, as an experiment. |
 | `Unauthenticated POST to /heartbeat which needs metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
 | `Running Gameserver Watchdog!` (deploy log) | every 60 s | Normal. |
 | `Cleaning up Gameserver on port 8775` (deploy log) | when a hunt ends | The hunt server exited and its port went back to the pool. |
@@ -450,6 +456,8 @@ went wrong for us.
   after 24 hours those saves fail with a server error. Until this is fixed, quit the game at least
   once a day. Whether the client ever refreshes its token is still untested.
 - **Running out of hunt ports.** With the default range, six hunts can run at once. A seventh
-  request fails inside the deploy server (`No free ports left!`, an HTTP 500 to the metagame), and
-  upstream's metagame logs `DeployServer returned status 500` and then hands the group an empty host
-  and port 0 instead of an error. This is on the roadmap together with the memory guard.
+  request fails inside the deploy server (`No free ports left!`, an HTTP 500 to the metagame). The
+  metagame logs `DeployServer returned status 500` and marks that group's search as failed: the
+  game's status poll answers `FAILED`. (Upstream's metagame handed the group an empty host and port 0
+  instead.) Keeping the group waiting until a port is free is on the roadmap together with the memory
+  guard.

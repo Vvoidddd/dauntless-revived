@@ -13,6 +13,7 @@ locale: fi_FI
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign crashes_page = site.pages | where: "path", "fi/findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
+{% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
 
 # Vianetsintä
 {: .no_toc }
@@ -42,9 +43,13 @@ Portti on numeroitu ”ovi”, jonka kautta ohjelmat ottavat yhteyttä toisiinsa
 |---|---|
 | `C:\dr\data\metagame.log` | Yksi JSON-rivi tapahtumaa kohden. Fork kirjaa jokaisen pyynnön muodossa `METHOD /path gs=0` (peliohjelma) tai `gs=1` (pelipalvelin). Tämä on tärkein mittarimme: kuinka pitkälle peliohjelma pääsi, ja mitä se pyysi viimeksi? |
 | `C:\dr\data\deploy.log` | Matchmaking-pyynnöt, `Running Gameserver Watchdog!` 60 sekunnin välein ja `Cleaning up Gameserver on port N`, kun palvelin sulkeutuu. |
-| Pelipalvelinten konsoli-ikkunat | Yksi kutakin palvelinta kohden, palvelin-DLL:n avaamana. Ne näyttävät palvelimen oman tulosteen. |
+| Pelipalvelinten konsoli-ikkunat | Palvelin-DLL:n avaamia; ne näyttävät palvelimen oman tulosteen. Ramsgaten ja Dojon ikkunat näkyvät. Metsästyspalvelimet käynnistetään ikkuna piilotettuna. |
 | Peliohjelman konsoli-ikkuna | DLL avaa sen client-tilassa. **Jos konsoli-ikkunaa ei ilmesty peliohjelman käynnistyessä, DLL-tiedostot eivät ole latautuneet.** |
 | `%LOCALAPPDATA%\Archon\Saved\Crashes\` | Kaatumisraportit. Niiden lukemisesta kerrotaan sivulla [Kaatumisten tutkiminen]({{ crashes_page.url | relative_url }}). |
+| `C:\DauntlessRevived\data\logs\` (Windows-palvelinpaketti) | Samat lokit nimillä `metagame.out.log` ja `deploy.out.log` sekä yhdyskäytävän pääsyloki (`gateway.out.log`) ja valvojan `supervisor.log`. |
+| `%APPDATA%\Dauntless Revived Launcher\logs\launcher.log` | Kavereiden käynnistin: liittymiset, yhteysongelmat, lataukset ja pelin komentorivi (avain piilotettuna). |
+
+Jokainen lokitiedosto, sen muoto ja kierrätys: [Tiedostot ja data]({{ files_page.url | relative_url }}#logs).
 
 1.4.4:n shipping-peliohjelma ei kirjoita omaa pelilokitiedostoa. `Saved\Logs` sisältää vain pelin
 sisäisen selaimen lokit. Näin luet metagamen lokia tavallisena tekstinä:
@@ -394,11 +399,13 @@ pelikerran jälkeen, ja jokainen arvo on ehjä. Emme ole testanneet lainausmerki
 
 ## Pelipalvelin katosi, kun ikkuna suljettiin {#server-console-windows}
 
-Jokainen pelipalvelin avaa konsoli-ikkunan (mustan tekstiruudun), koska palvelin-DLL:n konsolilokitus
-on oletuksena päällä. **Konsoli-ikkunan sulkeminen lopettaa sen palvelimen** kaikilta, jotka ovat
-siinä. Deploy-palvelimen vahtikoira (watchdog) käynnistää Ramsgaten (ja Dojon) uudelleen noin
-minuutissa. Metsästyspalvelinta ei käynnistetä uudelleen. Jätä ikkunat auki (pienennä ne).
-Palvelimen tulosteen kirjoittaminen lokitiedostoihin on [tiekartalla]({{ roadmap_page.url | relative_url }}).
+Jokainen pelipalvelin avaa konsolin (mustan tekstiruudun), koska palvelin-DLL:n konsolilokitus on
+oletuksena päällä. Deploy-palvelin näyttää Ramsgaten ja Dojon ikkunat ja käynnistää
+metsästyspalvelimet ikkuna piilotettuna. **Konsoli-ikkunan sulkeminen lopettaa sen palvelimen**
+kaikilta, jotka ovat siinä. Deploy-palvelimen vahtikoira (watchdog) käynnistää Ramsgaten (ja
+Dojon) uudelleen noin minuutissa. Metsästyspalvelinta ei käynnistetä uudelleen. Jätä ikkunat auki
+(pienennä ne). Palvelimen tulosteen kirjoittaminen lokitiedostoihin on
+[tiekartalla]({{ roadmap_page.url | relative_url }}).
 
 Ilmoitusikkuna, jossa lukee **”INVALID GAMESERVER ARGS”**, tarkoittaa, että pelipalvelin
 käynnistettiin alle kahdeksalla parametrilla exe-tiedoston nimen jälkeen. Vertaa komentoasi käsin
@@ -415,9 +422,9 @@ Omasta metagamen lokistamme (1.4.4, yksi pelaaja, yksi ilta opetusjaksoa, Ramsga
 |---|---|---|
 | `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | yli 40 kertaa | Alkuperäisessä projektissa ei ole käsittelijää varustepaikan avaamiselle. Pelipalvelin (`gs=1`) lähettää sen uusintayritysten ryöppyinä, useita muutaman sekunnin sisällä ja sitten taas minuuttien päästä. Vaaraton. Käsitellään siitä lähtien, kun oikeasta etenemisestä tuli oletus (tiekartan kohta 2.4); matalan tason tili ei lähetä sitä lainkaan, joten näet rivin vain asetuksella `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14 kertaa | Peliohjelma ja pelipalvelin tallentavat kumpikin hahmon versionumeroiden kanssa ja hylkäävät toistensa kirjoitukset. Joka kerta se osapuoli, jonka kirjoitus hylättiin (joskus peliohjelma, joskus pelipalvelin), luki hahmon uudelleen ja kirjoitti uudestaan noin sekunnin sisällä, joten viimeinen kirjoitus päätyi tietokantaan. Ei vielä todistettu häviöttömäksi tilanteessa, jossa molemmat muuttavat samaa arvoa samanaikaisesti; tiekartalla. |
-| `Unstubbed route GET /friends/api/public/friends/<account>` ja `.../blocklist/<account>` | 2 kertaa kumpikin | Kaverilistaa ei vielä ole; peli näyttää ”0 ONLINE FRIENDS”. |
+| `Unstubbed route GET /friends/api/public/friends/<account>` ja `.../blocklist/<account>` | 2 kertaa kumpikin | Kaverilistaa ei silloin ollut; peli näytti ”0 ONLINE FRIENDS”. Fork vastaa nyt molempiin reitteihin (kaikki näkyvät yhä offline-tilassa). `MISC_ROUTES=0` palauttaa 404:n. |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2 kertaa | Yhdestä osoitteesta, jonka peliohjelma kokoaa DLL:n osoiteohituksesta, puuttuu `/`. Metagame vastaa 404; mitään näkyvää ei hajoa. |
-| `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | muutaman kerran | Matchmaking-jonon ylläpitokutsuja, joille ei ole käsittelijää. |
+| `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | muutaman kerran | Matchmaking-jonon ylläpitokutsuja. Fork vastaa nyt kutsuun `POST /candidate/player/alive` (`MISC_ROUTES=0` palauttaa 404:n). `DELETE /candidate` saa yhä tarkoituksella 404:n: peliohjelma lähettää sen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että se epäonnistuu. `MATCHMAKING_CANCEL=1` ottaa käsittelijän käyttöön kokeiluna. |
 | `Unauthenticated POST to /heartbeat which needs metagame auth!` | kerran | Varhainen telemetrian elonmerkki (heartbeat), joka lähetetään kirjautumisen aikana ennen kuin istunto on valmis. Myöhemmät elonmerkit on tunnistettu. |
 | `Running Gameserver Watchdog!` (deploy-loki) | 60 sekunnin välein | Normaalia. |
 | `Cleaning up Gameserver on port 8775` (deploy-loki) | kun metsästys päättyy | Metsästyspalvelin sulkeutui, ja sen portti palasi vapaiden porttien joukkoon. |
@@ -484,6 +491,7 @@ jostakin, mikä olisi mennyt meillä pieleen.
   Uusiiko peliohjelma koskaan tunnistettaan itse, on vielä testaamatta.
 - **Metsästysportit loppuvat.** Oletusalueella kuusi metsästystä voi olla käynnissä kerralla.
   Seitsemäs pyyntö epäonnistuu deploy-palvelimen sisällä (`No free ports left!`, HTTP 500
-  metagamelle), ja alkuperäinen metagame kirjaa `DeployServer returned status 500` ja antaa sitten
-  ryhmälle virheen sijaan tyhjän osoitteen ja portin 0. Tämä on tiekartalla yhdessä muistisuojan
-  kanssa.
+  metagamelle). Metagame kirjaa `DeployServer returned status 500` ja merkitsee sen ryhmän haun
+  epäonnistuneeksi: pelin tilakysely vastaa `FAILED`. (Alkuperäinen metagame antoi ryhmälle sen sijaan
+  tyhjän osoitteen ja portin 0.) Tiekartalla on yhdessä muistisuojan kanssa muutos, jossa ryhmä odottaa,
+  kunnes portti vapautuu.

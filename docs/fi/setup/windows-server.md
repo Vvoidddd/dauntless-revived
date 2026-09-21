@@ -13,6 +13,10 @@ locale: fi_FI
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
+{% assign gamesettings_page = site.pages | where: "path", "fi/reference/game-settings.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "fi/reference/scripts.md" | first %}
 
 # Windows-palvelin
 {: .no_toc }
@@ -42,7 +46,7 @@ kohtiin 1.16 ja 1.17.
 {:toc}
 </details>
 
-## Näin julkinen tila toimii
+## Näin julkinen tila toimii {#how-public-mode-works}
 
 Pelin versio 1.4.4 puhuu salaamatonta HTTP:tä, eikä sitä saa muutettua. Siksi jokaisen kaverin
 käynnistin pitää hänen omalla koneellaan pientä välitintä, ja vain välitin puhuu internetiin:
@@ -51,7 +55,7 @@ käynnistin pitää hänen omalla koneellaan pientä välitintä, ja vain välit
 |:------|:------|:--------------|
 | 1 | Kaverin kone | Peli puhuu HTTP:tä osoitteeseen `127.0.0.1:61000`, eli käynnistimen välittimelle. |
 | 2 | Internet | Välitin lähettää kaiken **salattuna (TLS)** palvelimen yhdyskäytävälle (oletuksena portti 443). Se hyväksyy vain sen yhden varmenteen, jonka sormenjälki tuli kutsun mukana. Kukaan välissä ei voi lukea tai muuttaa liikennettä, eikä verkkotunnusta tai varmenteen myöntäjää tarvita. |
-| 3 | Palvelin | **Yhdyskäytävä** on ainoa julkinen TCP-portti. Se välittää pyynnöt metagamelle ja sisältöpalvelimelle, jotka kuuntelevat vain osoitteessa `127.0.0.1`. Se torjuu ylläpitokutsut ja kaiken, missä on pelipalvelimen avain, rajoittaa pyyntöjen koon ja määrän, eikä kirjaa lokiin avaimia. |
+| 3 | Palvelin | **Yhdyskäytävä** on ainoa julkinen TCP-portti. Se välittää pyynnöt metagamelle ja sisältöpalvelimelle, jotka kuuntelevat vain osoitteessa `127.0.0.1`. `/undaunted/api`-reiteistä se päästää läpi vain ne neljä, joita käynnistin tarvitsee (rekisteröinti, avaimen tarkistus, palvelimen tila, rekisteröintitila), joten jokainen ylläpitoreitti jää palvelimen sisälle. Se torjuu kaiken, missä on pelipalvelimen avain, rajoittaa pyyntöjen koon ja määrän, eikä kirjaa lokiin avaimia eikä tunnisteita. |
 | 4 | Palvelin | Kun pelaaja kirjautuu (tai hänen pelinsä lähettää elonmerkin), yhdyskäytävä kertoo pelaajan osoitteen **sallittujen listan apurille**. Apuri pitää yllä yhtä palomuurisääntöä, joka avaa UDP-portit 8770-8777 juuri näille osoitteille. Osoite putoaa pois 10 minuuttia viimeisen elonmerkin jälkeen, ja kaikki muut palomuuri pudottaa. |
 | 5 | Kaverin kone | Pelin UDP-liikenne kulkee suoraan palvelimen julkiseen osoitteeseen tämän säännön läpi. |
 
@@ -122,13 +126,15 @@ ssh -o UserKnownHostsFile=C:\dr\data\ssh\known_hosts -i C:\dr\data\ssh\dauntless
 Jos ne täsmäävät, vastaa `yes`. `Deploy-Remote.ps1 -HostKeyFingerprint SHA256:...` tekee saman
 tarkistuksen puolestasi eikä lähetä varmuuskopiota tarkistamattomalle palvelimelle. Kun avainkirjautuminen
 toimii, laita salasanakirjautuminen pois tiedostossa `C:\ProgramData\ssh\sshd_config`
-(`PasswordAuthentication no`, sitten `Restart-Service sshd`); SSH:n yli tehty asennus myös tarjoutuu
-tekemään sen. Älä koskaan lähetä palvelimen salasanaa kenellekään, äläkä kirjoita sitä mihinkään skriptiin.
+(`PasswordAuthentication no`, sitten `Restart-Service sshd`). Julkisen tilan asennus, joka ajetaan
+SSH:n yli, kuten `Deploy-Remote.ps1` sen ajaa, tekee tämän muutoksen itse, koska avainkirjautuminen on
+silloin jo todistettu. Älä koskaan lähetä palvelimen salasanaa kenellekään, äläkä kirjoita sitä
+mihinkään skriptiin.
 
 Salli palveluntarjoajalla **TCP 22 vain omasta osoitteestasi**. Jos kotisi IP-osoite muuttuu, päivitä
 palveluntarjoajan sääntö ja aja asennus uudelleen uudella `-AdminIp`-arvolla (SSH:n kautta).
 
-## Asennus omalta koneelta
+## Asennus omalta koneelta {#deploy-from-your-pc}
 
 **Ennen ensimmäistä asennusta.** Julkinen tila lähettää `git archive`n nykyisestä commitistasi
 (`HEAD`). Jos yhdyskäytävää ja sisältöpalvelinta ei ole vielä committoitu, arkistossa ei ole niitä ja
@@ -175,7 +181,7 @@ Uudelle palvelimelle, jolla ei ole vielä tietokantaa, käytä `-RestoreFrom`:n 
 
 `-WhatIf` näyttää suunnitelman ottamatta yhteyttä. `-UploadOnly` pysähtyy ennen asennusta.
 
-### Mitä asennus tekee
+### Mitä asennus tekee {#what-the-installer-does}
 
 `Install-DauntlessServer.ps1`:n voi ajaa myös suoraan palvelimella (esimerkiksi etätyöpöydän
 kautta). Jokaisen vaiheen voi toistaa turvallisesti, ja `-WhatIf` luettelee kaikki muutokset
@@ -196,7 +202,11 @@ tekemättä niitä.
    näytetä. Palvelin pyörii tällä tilillä, ei koskaan ylläpitäjänä. Tehtävien ajoitus (Task Scheduler)
    säilyttää salasanan salattuna tilin ajastettuja tehtäviä varten, ja asennusohjelma vaihtaa sen joka
    ajokerralla: jotkin Server 2019 -levykuvat eivät salli ilman tallennettua salasanaa ajettavia
-   tehtäviä ("S4U") muille kuin ylläpitäjille.
+   tehtäviä ("S4U") muille kuin ylläpitäjille. Pelipalvelimet pyörivät tällä tilillä ja lukevat sen
+   pelin asetukset, joten asennusohjelma kirjoittaa myös tilin `Game.ini`-tiedoston (167
+   osoiteohitusta, jotka osoittavat tämän palvelimen metagameen) ja `Engine.ini`-tiedoston
+   (muistirivit ja chat osoitteeseen `127.0.0.1`). Katso
+   [Pelin asetukset]({{ gamesettings_page.url | relative_url }}#game-ini).
 6. **Varmenne:** itse allekirjoitettu varmenne yhdyskäytävälle (10 vuotta, nimenä julkinen osoite),
    yhdyskäytävän omalla työkalulla. Windowsin varmennesäilöihin ei kosketa. Sormenjälki tulostetaan,
    ja se kulkee jokaisessa kutsussa.
@@ -217,20 +227,29 @@ tekemättä niitä.
     käynnistetään uudelleen), apuri käynnistyksessä SYSTEM-tilillä (se muuttaa vain omaa
     palomuurisääntöään), ja varmuuskopio kerran tunnissa.
 
+Alla ovat käytetyimmät parametrit. [Skriptit ja parametrit]({{ scripts_page.url | relative_url }})
+luettelee ne kaikki sekä paketin kaikkien muiden skriptien parametrit.
+
 | Parametri | Oletus | Merkitys |
 |:----------|:-------|:---------|
-| `-Mode` | `Public` | `Public` (julkinen) tai `Private` (Tailscale). |
+| `-Mode` | uusi asennus: `Public`; uusi ajo: asennettu tila | `Public` (julkinen) tai `Private` (Tailscale). |
 | `-GameZip` / `-GameZipUrl` | | Tarkistettu 1.4.4-zip, tai https-linkki siihen (lataus jatkuu katkoksen jälkeen). |
-| `-PublicHost` | verkkokortin julkinen IPv4 | Osoite tai verkkotunnus, johon kaverit liittyvät. Tarvitaan, jos palvelin on 1:1-NATin takana. |
-| `-GatewayPort` | `443` | Yhdyskäytävän TCP-portti. |
-| `-AdminIp` | | Osoitteet, joista etätyöpöytä sallitaan, esimerkiksi `198.51.100.20` tai `198.51.100.0/24`. |
+| `-PublicHost` | edellisen ajon tallentama osoite, muuten verkkokorttien ainoa julkinen IPv4-osoite | Osoite tai verkkotunnus, johon kaverit liittyvät. Tarvitaan, jos palvelin on 1:1-NATin takana. |
+| `-GatewayPort` | edellisen ajon tallentama portti, muuten `443` | Yhdyskäytävän TCP-portti. |
+| `-AdminIp` | edellisen ajon tallentama lista | Osoitteet, joista etätyöpöytä sallitaan, esimerkiksi `198.51.100.20` tai `198.51.100.0/24`. |
 | `-KeepRdpOpen` | | Julkinen tila ilman `-AdminIp`:tä: jätä internetille auki olevat etätyöpöytäsäännöt auki poistamisen sijaan. |
 | `-RestoreFrom` | | Varmuuskopiokansio, jolla olemassa oleva palvelin siirretään tänne. |
 | `-OwnerName` | | Uuden palvelimen ylläpitäjätilin käyttäjänimi (3-16 kirjainta, numeroa tai `_`). |
-| `-ServerName` | `Dauntless Revived` | Nimi, jonka kaverit näkevät käynnistimessä ja pelin tervetulotekstissä. |
+| `-ServerName` | `Dauntless Revived` | Nimi, jonka kaverit näkevät käynnistimessä ja pelin tervetulotekstissä. Ei muisteta: uusi ajo ilman sitä palauttaa nimeksi `Dauntless Revived`. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Minne kaikki asennetaan. |
-| `-InteractiveSession` | | Istunto 0:n varasuunnitelma, katso alempaa. |
+| `-InteractiveSession` | | Istunto 0:n varasuunnitelma, katso alempaa. Ei muisteta: uusi ajo ilman sitä laittaa automaattisen kirjautumisen pois. |
 | `-NewCertificate` | | Uusi varmenne. **Kaikki aiemmin annetut kutsut lakkaavat toimimasta.** |
+
+`Deploy-Remote.ps1` välittää jokaisessa asennusajossa `-Mode`:n (oletus `Public`) ja julkisessa
+tilassa myös `-PublicHost`:n (oletus: `-Server`-osoite) ja `-GatewayPort`:n (oletus `443`). Kun
+asennat uudelleen palvelimelle, jonka olet jo pystyttänyt, anna uudelleen `-Mode Private`,
+SSH-osoitteesta poikkeava `-PublicHost`, muu yhdyskäytävän portti kuin 443, `-ServerName` ja
+`-InteractiveSession`, jos käytit niitä. `-Update` ei aja asennusohjelmaa.
 
 ## Pelaa itse ensin
 
@@ -323,8 +342,11 @@ Omalta koneelta `Deploy-Remote.ps1 -Server <osoite> -Status` näyttää tilantee
 `Update-DauntlessServer.ps1`:n. Se kääntää uuden koodin palvelimen pyöriessä, ottaa varmuuskopion,
 vaihtaa uuteen ja tarkistaa, että metagame vastaa ja yhdyskäytävä vastaa kutsujen varmenteella. Jos
 tarkistus ei onnistu kolmessa minuutissa, se palaa itse edelliseen versioon.
-`Update-DauntlessServer.ps1 -Rollback` tekee saman käsin. Asetuksiin, avaimiin, varmenteeseen ja
-pelitiedostoihin ei kosketa; niitä varten aja asennus uudelleen.
+`Update-DauntlessServer.ps1 -Rollback` tekee saman käsin. Asetuksiin (paitsi `metagame.env`-tiedoston
+`GIT_COMMIT`-arvoon, johon kirjataan uusi commit), avaimiin, varmenteeseen,
+pelitiedostoihin eikä palvelutilin `Game.ini`- ja `Engine.ini`-tiedostoihin kosketa; niitä varten
+aja asennus uudelleen. Tee niin päivityksen jälkeen, joka muuttaa DLL:n osoitetaulukkoa, ja
+yksityisessä tilassa silloin, kun palvelimen Tailscale-osoite vaihtuu.
 
 **Pelaajalista on vain rekisteröityneille pelaajille: käynnistin ensin.** Palvelin näyttää paikalla
 olijat vain kysyjälle, jolla on tiliavain, ja käynnistin lähettää pelaajan avaimen nähdäkseen listan.
@@ -347,13 +369,15 @@ varmuuskopiosta noudattavat samaa sääntöä, joten erikseen asetettu rivi pit�
 
 ### Varmuuskopiot
 
-Varmuuskopiot ovat kansiossa `C:\DauntlessRevived\backups\<päivä>_<aika>\`: tietokanta (otettu
-SQLiten verkkovarmuuskopiolla ja tarkistettu), asetukset avaimineen, tilien avaimet ja yhdyskäytävän
-varmenne. Tallessa pidetään 48 uusinta tuntikopiota ja yksi päivää kohden 30 päivän ajalta.
-**Niissä on avaimia**: kopioi ne palvelimelta pois vain salattuina. Samaa kansiota `-RestoreFrom`
-käyttää.
+Varmuuskopiot ovat kansiossa `C:\DauntlessRevived\backups\<päivä>_<aika>\`: tietokanta (kopioitu
+SQLiten online backup -rajapinnalla palvelimen pyöriessä ja tarkistettu), asetukset avaimineen,
+ylläpitäjätilin avain, yhdyskäytävän varmenne, `server.json` ja käynnistimen uutiset. Tallessa
+pidetään 48 uusinta varmuuskopiota (tunnin välein otetut sekä käynnistysten ja pysäytysten yhteydessä
+otetut yhteensä) ja lisäksi viimeisten 30 päivän jokaisen päivän uusin kopio. **Niissä on avaimia**:
+kopioi ne palvelimelta pois vain salattuina. Samaa kansiota `-RestoreFrom` käyttää. Mitä
+varmuuskopiossa on ja mitä siinä ei ole: [Tiedostot ja data]({{ files_page.url | relative_url }}#backups).
 
-## Istunto 0 ja `-InteractiveSession`
+## Istunto 0 ja `-InteractiveSession` {#session-0-and--interactivesession}
 
 Käynnistyksen jälkeen palvelin pyörii ilman kirjautunutta käyttäjää (Windowsin "istunto 0").
 Pelipalvelimet avaavat käynnistyessään konsoli-ikkunan. Sen pitäisi toimia ilman työpöytää, mutta
@@ -380,13 +404,16 @@ Koneen jakamisesta kerrotaan sivulla [Palvelin ryhmälle]({{ admin_page.url | re
 | `C:\DauntlessRevived\bin\` | Paketin skriptit. |
 | `app\` (ja `app.prev\`) | Käännetty palvelinkoodi (ja edellinen versio paluuta varten). |
 | `game\Dauntless\` | Tarkistetut 1.4.4-tiedostot. |
-| `data\config\` | `server.json` ja `.env`-asetukset (salaisuuksia). |
-| `data\keys\`, `data\tls\` | Tilien ja pelipalvelimen avaimet; yhdyskäytävän varmenne ja sen yksityinen avain. |
+| `data\config\` | `server.json` ja `.env`-asetukset (salaisuuksia). Mitkä avaimet asennus kirjoittaa ja mitkä se säilyttää: [asetusten viitesivu]({{ config_page.url | relative_url }}#server-kit). |
+| `data\keys\`, `data\tls\` | Ylläpitäjätilin avain ja pelipalvelimen avain; yhdyskäytävän varmenne ja sen yksityinen avain. |
 | `data\undaunted.db` | Tietokanta: tilit ja tallennukset. |
 | `data\logs\` | Kaikkien osien lokit; `gateway.out.log` on pääsyloki (ei avaimia). |
-| `data\allowlist\` | Apurin tarkastusloki ja tila (vain ylläpitäjät ja SYSTEM). |
+| `data\allowlist\` | Apurin tarkastusloki ja tila (vain ylläpitäjät ja SYSTEM voivat kirjoittaa sinne). |
 | `backups\` | Tunnin välein otetut varmuuskopiot. |
 | `staging\` | Mitä `Deploy-Remote.ps1` lähettää; pelin zip jää tänne korjauksia varten. |
+
+Jokainen kansio ja tiedosto sekä se, kuka saa lukea ja kirjoittaa niitä:
+[Tiedostot ja data]({{ files_page.url | relative_url }}#kit-install-root).
 
 ## Paketin testaus ilman palvelinta
 
@@ -405,7 +432,7 @@ pyörivän palvelimen portteja:
   joka esittää palvelinta (katkennut lähetys, matkalla vioittunut osa, tarkistuksen jälkeen
   vioittunut osa).
 
-## Poistaminen
+## Poistaminen {#uninstall}
 
 Palvelimella, ylläpitäjänä avatussa PowerShellissä. **Ota ja kopioi varmuuskopio ensin talteen**,
 jos haluat säilyttää jotain.
@@ -414,7 +441,10 @@ jos haluat säilyttää jotain.
 C:\DauntlessRevived\bin\Stack.ps1 stop
 'Dauntless Revived stack', 'Dauntless Revived allowlist', 'Dauntless Revived backup' |
     ForEach-Object { Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue }
-Remove-NetFirewallRule -Group 'Dauntless Revived' -ErrorAction SilentlyContinue
+# Säilytä 'Dauntless Revived - SSH (TCP 22)', jos asennusohjelma teki sen: jokainen profiili estää yhä
+# saapuvat yhteydet oletuksena, joten ilman tätä sääntöä SSH lakkaisi toimimasta.
+Get-NetFirewallRule -Group 'Dauntless Revived' -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -ne 'Dauntless Revived - SSH (TCP 22)' } | Remove-NetFirewallRule
 Remove-NetFirewallRule -Name 'DauntlessRevived-GamePorts-Allowlist' -ErrorAction SilentlyContinue
 Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like '*\dauntless' } | Remove-CimInstance
 Remove-LocalUser -Name dauntless
@@ -428,6 +458,21 @@ kertoo, mitä ne olivat ennen (katso ennen kuin poistat kansion); ottaaksesi et�
 ota sen sääntö takaisin käyttöön (`Enable-NetFirewallRule`) tai aja asennus uudelleen `-AdminIp <IP>`. Jos käytit `-InteractiveSession`:ia, laita myös automaattinen kirjautuminen pois:
 `Set-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' AutoAdminLogon 0`.
 Node.js:n ja Visual C++ -kirjaston voi poistaa kohdasta "Sovellukset ja ominaisuudet".
+
+Nämä asennusohjelman muutokset jäävät myös voimaan:
+
+- Palomuurin käytäntöarvot, jotka asennusohjelma poisti, koska ne pitivät Windowsin palomuurin pois
+  päältä. Ne on lueteltu kohdassa `FirewallChanges` `policy|...`-alkuisina merkintöinä.
+- `PasswordAuthentication no` tiedostossa `C:\ProgramData\ssh\sshd_config`, jonka SSH:n yli ajettu
+  julkisen tilan asennus kirjoitti.
+- Ensimmäisen julkisen tilan asennuksen asettama tilien lukituskäytäntö: 10 väärää salasanaa lukitsee
+  tilin 15 minuutiksi (`net accounts` näyttää sen).
+- `-InteractiveSession`:in kanssa tallennettu automaattisen kirjautumisen salasana (LSA-salaisuus
+  `DefaultPassword`). Tili, jolle se kuuluu, poistetaan yllä olevilla komennoilla, joten salasana ei
+  enää avaa mitään.
+- Tilille `dauntless` annettu oikeus "Kirjaudu erätyönä" (Log on as a batch job), DirectX June 2010
+  -ajonaikainen kirjasto sekä yksityisessä tilassa Tailscale, jonka verkkokortin verkkoluokaksi
+  asennusohjelma asetti Julkinen (Public).
 
 Kun ylläpidät muokattua palvelinta muille, AGPL-lisenssi velvoittaa tarjoamaan lähdekoodin; katso
 [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}).

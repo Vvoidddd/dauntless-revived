@@ -15,6 +15,9 @@ locale: fi_FI
 {% assign verification_page = site.pages | where: "path", "fi/findings/verification.md" | first %}
 {% assign multiplayer_page = site.pages | where: "path", "fi/findings/multiplayer.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign api_page = site.pages | where: "path", "fi/reference/api.md" | first %}
+{% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
 
 # Pystytä palvelin
 {: .no_toc }
@@ -215,15 +218,18 @@ git -C C:\dr\undaunted checkout dauntless-revived
 git -C C:\dr\undaunted remote add upstream https://github.com/SyST3MDeV/Undaunted.git   # optional, to follow upstream
 ```
 
-Repositoriossa (koodivarastossa) on neljä projektia. Palvelinkoneella käytämme näitä:
+Repositoriossa (koodivarastossa) on kuusi projektia (`Undaunted*`-kansiot) sekä
+Windows-palvelinpaketti, kaveripaketti ja työkalut. Palvelinkoneella käytämme näitä:
 
 - `UndauntedMetagame`: taustapalvelu.
 - `UndauntedDeployServer`: pelipalvelimien valvoja.
 - Kaksi valmiiksi käännettyä DLL-tiedostoa kansiossa `UndauntedLauncher/assets/`.
 
-Emme käytä alkuperäisen projektin (upstream) Electron-käynnistintä (`UndauntedLauncher/src`). Se on
-kovakoodattu alkuperäisen projektin omaan palvelimeen ja sen omaan pelilataukseen. Palvelin-DLL:n
-C++-lähdekoodi on kansiossa `UndauntedInternalServer`.
+Kansion `UndauntedLauncher/src` Electron-sovellus on tämän forkin käynnistin kavereille: pelaajat
+liittyvät sillä palvelimelle kutsun avulla, ja se lataa pelin isännän omalta sisältöpalvelimelta.
+Tämän sivun palvelinasennus ei tarvitse sitä. Palvelin-DLL:n C++-lähdekoodi on kansiossa
+`UndauntedInternalServer`. Jokainen kansio ja se, mitä missäkin käännetään, on lueteltu sivulla
+[Tiedostot ja data]({{ files_page.url | relative_url }}).
 
 Alla luotavat `.env`-tiedostot ovat gitin ohittamia (git-ignored). Älä koskaan tallenna niitä
 versionhallintaan: niissä ovat allekirjoitusavaimet ja pelipalvelinavain.
@@ -521,7 +527,7 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 |---|---|
 | `PORT` | Metagamen HTTP-portti. Käytämme porttia **61000**. Katso porttihuomautus alla. |
 | `BIND_HOST` | **Vain forkissa.** Osoite, jossa kuunnellaan. Oletus on `127.0.0.1`. Alkuperäinen projekti kuunteli kaikissa verkkoliitännöissä, mikä yhdessä asetuksen `REGISTRATION_MODE=OPEN` kanssa antoi kenen tahansa koneen tavoittavan luoda tilejä. Muuta sitä vain, kun seuraat sivua [Palvelin ryhmälle]({{ admin_page.url | relative_url }}). |
-| `AUTH_MODE` | `APIKEY`: pelaajat kirjautuvat tilikohtaisella avaimella. `NONE` hyväksyy käyttäjätunnisteeksi mitä tahansa peliohjelma lähettää. Sitä noudatetaan vain tuotantotilan ulkopuolella; asetuksella `NODE_ENV=production` jokainen kirjautuminen silloin epäonnistuu. Älä koskaan käytä sitä. |
+| `AUTH_MODE` | `APIKEY`: pelaajat kirjautuvat tilikohtaisella avaimella. `NONE` hyväksyy käyttäjätunnisteeksi mitä tahansa peliohjelma lähettää. Sitä noudatetaan vain tuotantotilan ulkopuolella; asetuksella `NODE_ENV=production` kirjautumispyyntö ei silloin saa vastausta lainkaan, ja peli jää odottamaan. Älä koskaan käytä sitä. |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | RSA-avainpari, PEM, base64. Allekirjoittaa 24 tuntia voimassa olevat RS256-istuntotunnisteet. Luo omasi; älä koskaan käytä kenenkään muun avaimia. |
 | `DB_FILENAME` | SQLite-tiedosto. Käytä kauttaviivoja (`/`). Kansion `C:\dr\data` on oltava olemassa. |
 | `TARGET_CHANGELIST` | `239827`, muutoslistan numero `Version.txt`-tiedostosta. Matchmaking-vastaus kertoo sen peliohjelmalle koontiversion tunnisteena `239827_1.4.4_shipping`. |
@@ -529,11 +535,12 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `MATCHMAKING_MODE`, `DEPLOYSERVER_URL` | `DEPLOYSERVER` sekä osoite:portti ilman protokollaa (scheme): matchmaking annetaan deploy-palvelimen hoidettavaksi. |
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` tai `NONE`. `OPEN` on kunnossa niin kauan kuin metagame kuuntelee vain koneen sisäisessä osoitteessa (loopback). Vaihda tässä tiedostossa arvoksi `INVITECODE` ennen kuin kukaan muu voi tavoittaa sen. Ylläpitorajapinnan kautta tehty muutos kestää vain seuraavaan uudelleenkäynnistykseen. |
 | `NODE_ENV` | `production`. Lokit ovat silloin pelkkiä JSON-rivejä. |
-| `LOG_REQUESTS` | **Vain forkissa**, valinnainen. Jokainen pyyntö kirjataan muodossa `METHOD /path gs=0/1`, ellei arvo ole `0`. Se on tärkein vianetsintävälineemme. |
+| `LOG_REQUESTS` | **Vain forkissa**, valinnainen. Jokainen pyyntö kirjataan muodossa `METHOD /path gs=0/1`, ellei arvo ole `0`. Julkisen tilan yhdyskäytävän takana rivin loppuun tulee ` via=gateway ip=<pelaajan osoite>`. Se on tärkein vianetsintävälineemme. |
 | `PROGRESSION_MODE` | **Vain forkissa**, valinnainen. Puuttuva tai tyhjä (oletus) tai `real`: jokainen tili säilyttää oman Slayer-tasonsa, mestaruutensa (mastery), Hunt Passinsa (Elite-passi kaikille), varustesarjojen paikkansa, odotusaikansa (cooldowns) ja palkkiotehtävänsä (bounties). `stub`: alkuperäisen projektin valemaksimitasot, mitään ei tallenneta. Muu arvo kirjataan lokiin ja tulkitaan arvoksi `real`. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin [päivitysohjeet]({{ upgrade_page.url | relative_url }}). |
 | `PROGRESSION_REAL_ACCOUNTS` | **Vain forkissa**, valinnainen. Vain asetuksen `PROGRESSION_MODE=stub` kanssa: pilkuilla erotetut tilitunnukset, jotka saavat silti oikean etenemisen. |
 
-**Muut valinnaiset kytkimet (vain forkissa).** Jätä ne pois, niin saat oletuksen.
+**Muut valinnaiset kytkimet (vain forkissa).** Jätä ne pois, niin saat oletuksen. Kaikki muuttujat,
+se mitä puuttuva arvo tarkoittaa ja kuka kunkin asettaa, ovat [asetusten viitesivulla]({{ config_page.url | relative_url }}#metagame).
 
 | Avain | Oletus | Mitä se tekee |
 |---|---|---|
@@ -628,12 +635,13 @@ node -e "(async () => { const name = process.argv[1]; const base = 'http://127.0
 
 Huomioita:
 
-- Alkuperäinen projekti hyväksyy minkä tahansa ei-tyhjän käyttäjänimen, ei vaadi nimiltä
-  ainutlaatuisuutta, eikä nimeä voi vaihtaa. Valitse nimi, jonka haluat pitää. Käyttäjänimisäännöt
-  ja nimen vaihtaminen ovat [tiekartalla]({{ roadmap_page.url | relative_url }}).
-- Ylläpitorajapinta (kutsukoodit, rekisteröintitila, tilastot paikalla olevista pelaajista) ottaa
-  tämän avaimen `x-undaunted-user-api-key`-otsakkeessa. Sivu
-  [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) kertoo siitä.
+- Nimen on oltava 3–16 kirjainta, numeroa tai alaviivaa ja ainutlaatuinen kirjainkoosta
+  riippumatta. Muuten `Register` vastaa 400 (`username_invalid`) tai 409 (`username_taken`), ja
+  skripti pysähtyy. Ylläpitäjä voi myöhemmin vaihtaa tilin nimen reitillä `RenameUser`.
+- Ylläpitorajapinta (kutsukoodit, rekisteröintitila, nimenvaihdot, tilastot paikalla olevista
+  pelaajista) ottaa tämän avaimen `x-undaunted-user-api-key`-otsakkeessa, ja vain suoraan, ei
+  koskaan välityspalvelimen (proxy) kautta. Sivu [Palvelin ryhmälle]({{ admin_page.url | relative_url }})
+  kertoo siitä, ja [HTTP-rajapinta]({{ api_page.url | relative_url }}) luettelee jokaisen reitin.
 - Pidä `owner.key` poissa repositoriosta, kuvakaappauksista ja keskusteluista. Varmuuskopioi se
   yhdessä kahden `.env`-tiedoston ja `gameserver.key`-tiedoston kanssa, salattuna ja erillään
   tietokannasta.
@@ -667,7 +675,7 @@ $key = $null
 | Avain | Merkitys |
 |---|---|
 | `PORT` | 61001. Vain samalla koneella oleva metagame puhuu sille. |
-| `BIND_HOST` | **Vain forkissa.** Oletus on `127.0.0.1`. Pidä se siinä. Kuka tahansa, joka yltää tähän porttiin, voi käynnistää peliprosesseja koneellasi. |
+| `BIND_HOST` | **Vain forkissa.** Oletus on `127.0.0.1`. Pidä se siinä. Deploy-palvelimessa ei ole tunnistautumista: kuka tahansa, joka voi kutsua sitä, käynnistää peliprosesseja koneellasi. Toisena tarkistuksena se vastaa 403 jokaiselle kutsujalle, joka ei ole tällä koneella. |
 | `MY_IP` | Osoite, joka annetaan peliohjelmille pelipalvelimia varten. Paikallisessa pelissä `127.0.0.1`. |
 | `PORT_RANGE_BEGIN`, `PORT_RANGE_END` | Pelipalvelimien UDP-portit. Ramsgate ottaa aina `END`-portin (8777) ja Dojo portin `END-1` (8776). Metsästykset käyttävät loput (8770–8775 eli kuusi kerrallaan). |
 | `GAMESERVER_BINARY_PATH` | 1.4.4:n exe-tiedosto, kauttaviivoin. |
@@ -690,8 +698,10 @@ $p = Start-Process @dep; Set-Content C:\dr\data\deploy.pid $p.Id
 ```
 
 Se käynnistää pysyvän Ramsgate-palvelimen heti. Jokainen sen käynnistämä pelipalvelin on tavallinen
-peliprosessi, jolla on oma **konsoli-ikkunansa** (”Running as a server!”). **Älä sulje niitä
-ikkunoita.** Ikkunan sulkeminen tappaa sen palvelimen kaikilta, jotka ovat siinä.
+peliprosessi, jolla on oma konsolinsa. Ramsgate ja Dojo näyttävät omansa **konsoli-ikkunana**
+(”Running as a server!”). **Älä sulje niitä ikkunoita.** Ikkunan sulkeminen tappaa sen palvelimen
+kaikilta, jotka ovat siinä. Metsästyspalvelimet käynnistetään ikkuna piilotettuna, jotta jokaisesta
+metsästyksestä ei välähdä uutta ikkunaa.
 
 Jos haluat testata pelipalvelinta yksinään ilman deploy-palvelinta, käynnistä se käsin samoilla
 parametreilla, joita deploy-palvelin käyttää:
@@ -758,7 +768,8 @@ emme ole varmistaneet sitä puhtaalla koneella.
 ## 13. Käynnistä peliohjelma {#launch-the-client}
 
 Käynnistämme pelin skriptillä `C:\dr\tools\play.ps1`. Se kirjoittaa grafiikka- ja chat-asetukset
-(vaiheet 7 ja 14), lukee tiliavaimen tiedostosta `C:\dr\data\owner.key` tulostamatta sitä,
+(vaiheet 7 ja 14), lukee tiliavaimen tiedostosta `C:\dr\data\owner.key` (tai valitsimella
+`-KeyFile` annetusta tiedostosta) tulostamatta sitä,
 käynnistää pelin ja voi halutessasi seurata sen muistinkäyttöä. Tässä se kokonaisuudessaan:
 
 ```powershell
@@ -766,8 +777,9 @@ käynnistää pelin ja voi halutessasi seurata sen muistinkäyttöä. Tässä se
 #   -Graphics 4     FORCE this quality level on every launch (4 = Cinematic = max, 3 = Epic).
 #   -Graphics -1    don't force anything; use whatever you pick in the in-game menu.
 #   -Windowed       1280x720 window instead of your saved display mode.
+#   -KeyFile        account key to log in with (default: the owner's key).
 param([string]$Backend = "127.0.0.1:61000", [int]$Graphics = 4, [switch]$Windowed,
-      [int]$CapMB = 12000, [int]$Seconds = 0)
+      [int]$CapMB = 12000, [int]$Seconds = 0, [string]$KeyFile = "C:\dr\data\owner.key")
 
 $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 
@@ -818,7 +830,7 @@ if ($Graphics -ge 0) { "graphics FORCED to level $Graphics (4 = Cinematic/max), 
 else { "graphics: using your in-game menu choice" }
 
 $W   = "C:\D144\Dauntless\Archon\Binaries\Win64"
-$UUK = (Get-Content C:\dr\data\owner.key -Raw).Trim()      # your account key; never printed
+$UUK = (Get-Content $KeyFile -Raw).Trim()      # your account key; never printed
 $a = @($Backend, "-AUTH_PASSWORD=$UUK", "-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode",
   "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol",
   "-epicuserid=useridlol", "-epiclocale=en-US", "-epicsandboxid=sandboxidlol",

@@ -14,6 +14,10 @@ locale: fi_FI
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 {% assign host_page = site.pages | where: "path", "fi/setup/host.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign api_page = site.pages | where: "path", "fi/reference/api.md" | first %}
+{% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
+{% assign scripts_page = site.pages | where: "path", "fi/reference/scripts.md" | first %}
 
 # Palvelin ryhmälle
 {: .no_toc }
@@ -65,8 +69,9 @@ koneellesi) toisi kaiken seuraavan julkiseen internetiin:
   RS256-bearer-tunniste, joka antaa täyden pääsyn kyseisen pelaajan tietoihin.
 - `POST /undaunted/api/Register` ei vaadi tunnistautumista, eikä mikään metagamessa rajoita pyyntöjen
   määrää.
-- Deploy-palvelimessa ei ole tunnistautumista lainkaan. Kuka tahansa, joka yltää TCP-porttiin 61001,
-  voi saada koneesi käynnistämään peliprosesseja.
+- Deploy-palvelimessa ei ole tunnistautumista lainkaan. Se kuuntelee vain loopbackissa ja vastaa 403
+  muilta koneilta tuleville kutsujille, ja vain nämä kaksi tarkistusta estävät muita saamasta koneesi
+  käynnistämään peliprosesseja TCP-portin 61001 kautta.
 - Pelipalvelimet ovat vuoden 2020 peliversio, johon on ladattu DLL-tiedosto, eivätkä ne ole
   turvallisuutta varten vahvistettuja verkkopalveluita.
 
@@ -234,9 +239,11 @@ Kaksi metagamen `.env`-asetusta ratkaisee, kuka pääsee sisään:
 | `INVITECODE` | Vaatii kelvollisen koodin. Väärä tai jo käytetty koodi saa vastauksen 401. |
 | `OPEN` | Kuka tahansa, joka tavoittaa metagamen, saa tilin. |
 
-Aseta `.env`-tiedostoon `INVITECODE` **ennen** kuin metagame kuuntelee Tailscalessa. Meillä on yhä
-`OPEN`, mikä on vaaratonta vain niin kauan kuin metagame kuuntelee loopbackissa. Ylläpitorajapinta voi
-vaihtaa tilan ajon aikana, mutta vain muistissa: uudelleenkäynnistys palauttaa `.env`-tiedoston arvon.
+Aseta `.env`-tiedostoon `INVITECODE` **ennen** kuin metagame kuuntelee Tailscalessa.
+Sivun [Pystytä palvelin]({{ host_page.url | relative_url }}#metagame) `.env`-tiedostossa on arvo
+`OPEN`, mikä on vaaratonta vain niin kauan kuin metagame kuuntelee loopbackissa. (Windows-palvelinpaketti
+kirjoittaa aina `INVITECODE`.) Ylläpitorajapinta voi vaihtaa tilan ajon aikana, mutta vain muistissa:
+uudelleenkäynnistys palauttaa `.env`-tiedoston arvon.
 
 Rekisteröinti palauttaa uuden pelaajan avaimen (`UUK_` ja perässä 48 heksadesimaalimerkkiä) kerran.
 Palvelin säilyttää siitä vain SHA-256-tiivisteen (avaimesta laskettu sormenjälki, josta avainta ei voi
@@ -244,36 +251,39 @@ palauttaa).
 
 ### Kutsukoodien luominen {#making-invite-codes}
 
-Ylläpitokutsut tunnistetaan ylläpitäjätilin omalla avaimella `x-undaunted-user-api-key`-otsakkeessa.
-Meidän kokoonpanossamme omistajan avain on tiedostossa `C:\dr\data\owner.key`. Tämä lohko luo
-satunnaisen kertakäyttöisen koodin, listaa kaikki koodit ja peruu yhden:
+Ylläpitokutsut tunnistetaan ylläpitäjätilin omalla avaimella `x-undaunted-user-api-key`-otsakkeessa,
+ja ne toimivat vain suoraan metagamea vasten, eivät koskaan välityspalvelimen (proxy) tai julkisen
+yhdyskäytävän kautta. Meidän kokoonpanossamme omistajan avain on tiedostossa `C:\dr\data\owner.key`.
+Tämä lohko pyytää palvelimelta uuden kertakäyttöisen koodin, listaa kaikki koodit ja peruu yhden:
 
 ```powershell
 $M = "100.x.y.z:61000"    # wherever the metagame listens
 $h = @{ "x-undaunted-user-api-key" = (Get-Content C:\dr\data\owner.key -Raw).Trim() }
 
-# new single-use code from a cryptographic random source
-$b = New-Object byte[] 6
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
-$code = ([BitConverter]::ToString($b) -replace '-', '').ToLower()
-Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/RegisterInviteCode" -Headers $h `
-  -ContentType "application/json" `
-  -Body (@{ NewInviteCode = $code; Uses = 1; InfiniteUses = $false } | ConvertTo-Json)
+# new single-use code, made by the server (XXXX-XXXX-XXXX)
+$code = (Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/CreateInvite" -Headers $h `
+  -ContentType "application/json" -Body (@{ uses = 1 } | ConvertTo-Json) -TimeoutSec 10).code
 $code        # send this to one friend, privately
 
 # list, and revoke
-(Invoke-RestMethod -Uri "http://$M/undaunted/api/InviteCodes" -Headers $h).InviteCodes
-Invoke-RestMethod -Method Delete -Uri "http://$M/undaunted/api/InviteCode/$code" -Headers $h
+(Invoke-RestMethod -Uri "http://$M/undaunted/api/InviteCodes" -Headers $h -TimeoutSec 10).InviteCodes
+Invoke-RestMethod -Method Delete -Uri "http://$M/undaunted/api/InviteCode/$code" -Headers $h -TimeoutSec 10
 ```
 
+- `CreateInvite` tekee kolme neljän merkin ryhmää Crockfordin base32-aakkostosta (60 satunnaista
+  bittiä). `uses` on 1–1000. Valinnainen `name` on muistiinpano metagamen lokiin, eikä sitä
+  tallenneta; lokissa näkyy vain koodin ensimmäinen ryhmä. Vanhempi `RegisterInviteCode` tallentaa
+  yhä itse valitsemasi koodin. Paketilla asennetulla palvelimella `New-Invite.ps1` tekee kaiken tämän
+  puolestasi.
 - Koodit kulutetaan atomisesti eli yhtenä jakamattomana toimintona: yksi SQL-lause `UPDATE` tarkistaa
   ja vähentää jäljellä olevat käyttökerrat, joten kaksi ihmistä ei voi kumpikin lunastaa samaa
   kertakäyttöistä koodia.
-- Koodi kuluu heti, kun se hyväksytään, ennen kuin tilin rivi kirjoitetaan. Jos tilin kirjoittaminen
-  sitten epäonnistuu, koodi on silti mennyt. Suunnittelemamme käyttäjänimitarkistukset tehdään ennen
-  kuin koodi kulutetaan.
-- Suosi kertakäyttöisiä koodeja, yksi kullekin kaverille, lähetettynä yksityisesti. Käytä
-  `InfiniteUses`-asetusta vain lyhyen aikaa, jos ollenkaan.
+- Register tarkistaa ensin koodin, sitten käyttäjänimen, ja vasta sitten kuluttaa koodista yhden
+  käyttökerran ja kirjoittaa tilin, kaikki yhdessä tietokantatransaktiossa. Hylätty tai varattu nimi
+  ei polta koodia.
+- Suosi kertakäyttöisiä koodeja, yksi kullekin kaverille, lähetettynä yksityisesti. Käytä monen
+  käyttökerran koodeja (tai `RegisterInviteCode`-reitin `InfiniteUses`-asetusta) vain lyhyen aikaa,
+  jos ollenkaan.
 
 ### Tilin tekeminen ylläpitäjäksi {#making-an-account-an-admin}
 
@@ -282,29 +292,38 @@ tietokantaa metagamen ollessa pysäytettynä, esimerkiksi pienellä `better-sqli
 ajetaan `UndauntedMetagame`-kansiosta (`UPDATE users SET isAdmin = 1 WHERE userId = ?`). Ylläpitäjän
 avain on yksinkertaisesti kyseisen käyttäjän tiliavain, joten pidä se palvelinkoneella.
 
-## Ylläpitorajapinta (sellaisena kuin se on alkuperäisessä) {#the-admin-api-as-it-exists-upstream}
+## Ylläpitorajapinta {#admin-api}
 
 Kaikki reitit ovat metagamen portissa polun `/undaunted/api` alla. ”Ylläpitäjä” tarkoittaa, että
 `x-undaunted-user-api-key`-otsakkeen on kuuluttava käyttäjälle, jolla on `isAdmin`. Puuttuva tai
 tuntematon avain saa vastauksen 401; kelvollinen avain, joka ei kuulu ylläpitäjälle, saa vastauksen 403.
+**Ylläpitokutsu, jossa on välityspalvelimen otsake, saa vastauksen 403** jo ennen kuin avainta
+edes tarkistetaan. Siksi ylläpitokutsut toimivat vain suoraan metagamea vasten: palvelinkoneella tai
+yksityisessä tilassa koneelta, joka on samassa tailnetissä. Myös julkinen yhdyskäytävä torjuu ne.
+
+Sivu [HTTP-rajapinta]({{ api_page.url | relative_url }}#undaunted-api) luettelee jokaisen reitin
+runkoineen ja vastauksineen. Ryhmän palvelimen ylläpidossa eniten käytetyt:
 
 | Metodi ja polku | Tunnistautuminen | Mitä se tekee |
 |:----------------|:-----|:-------------|
 | `GET /RegistrationStatus` | ei mitään | `{ "RegistrationMode": ... }` |
 | `POST /RegistrationStatus` | ylläpitäjä | Runko `{ "RegistrationStatus": <mode> }`, jossa tila on `NONE`, `INVITECODE` tai `OPEN`. Vain muistissa. |
+| `POST /CreateInvite` | ylläpitäjä | Runko `{ "uses", "name" }` (kumpikin valinnainen), palauttaa `{ "code" }`. |
 | `GET /InviteCodes` | ylläpitäjä | Kaikki koodit jäljellä olevine käyttökertoineen. |
-| `POST /RegisterInviteCode` | ylläpitäjä | Runko `{ "NewInviteCode", "Uses", "InfiniteUses" }`. |
+| `POST /RegisterInviteCode` | ylläpitäjä | Runko `{ "NewInviteCode", "Uses", "InfiniteUses" }`: itse valitsemasi koodi. |
 | `DELETE /InviteCode/:code` | ylläpitäjä | Peruu koodin. |
 | `GET /GetAllUsers` | ylläpitäjä | `{ "Users": [{ "Username", "UserId" }] }` |
+| `POST /RenameUser` | ylläpitäjä | Runko `{ "UserId" }` tai `{ "Username" }` sekä `{ "NewUsername" }`. Nimeää tilin ja sen hahmot uudelleen. |
 | `POST /GenerateJWTForUserId` | ylläpitäjä | Runko `{ "UserId" }`, palauttaa `{ "JWT" }`. Luo 24 tuntia voimassa olevan pelitunnisteen **kenelle tahansa käyttäjälle**, mikä käytännössä tarkoittaa, että voi pelata hänenä. Suhtaudu ylläpitäjän avaimiin sen mukaisesti. |
 | `GET /PrivateOnlineStats` | ylläpitäjä | Pelaajakohtaisesti: kenttä, metsästys ja metsästyksen alkamisaika niille pelaajille, jotka on nähty viimeisten 90 sekunnin aikana. |
+| `GET /SaveHistory`, `POST /RollbackCharacter`, `POST /RollbackLoadout` | ylläpitäjä | Pelaajan hahmojen ja varustesarjojen tallennetut versiot sekä yhden version palauttaminen. Pelaajan pitäisi olla poissa pelistä. |
+| `POST /GrantEntitlement`, `POST /RevokeEntitlement` | ylläpitäjä | Antaa tai ottaa pois oikeuden (entitlement). |
 | `POST /Register` | ei mitään (rekisteröintitila rajaa) | Runko `{ "Username", "InviteCode" }`. Palauttaa `{ "UUK" }`. |
 | `GET /GetUserInfo` | käyttäjän avain | `{ "UserId", "Username", "IsAdmin" }` |
-| `GET /PublicOnlineStats` | käyttäjän avain | `{ "NumActivePlayers" }` |
+| `GET /ServerStatus` | ei mitään | Palvelimen nimi, versio ja lähdekoodi; käyttäjän avaimella myös se, kuka on paikalla. |
 
-Alkuperäisen projektin Electron-käynnistimessä on ylläpitonäkymä rekisteröintitilalle ja
-kutsukoodeille, mutta se on kovakoodattu alkuperäisen projektin omaan julkiseen palvelimeen. Me
-kutsumme rajapintaa suoraan.
+Kaverikäynnistimessä ei ole ylläpitonäkymää. Tee ylläpitokutsut suoraan, kuten tämän sivun
+esimerkeissä, tai paketilla asennetulla palvelimella paketin skripteillä.
 
 ### Eteneminen (vain forkissa) {#progression}
 
@@ -323,8 +342,9 @@ niissä on pieni skripti molempia reittejä varten.
 
 ### Puuttuvat ylläpitotoiminnot ja kiertotiet {#missing-admin-functions-and-workarounds}
 
-Alkuperäisessä projektissa ei ole rajapintaa käyttäjän uudelleennimeämiseen, poistamiseen tai
-estämiseen, avaimen perumiseen tai uusimiseen eikä ylläpitäjäksi ylentämiseen.
+Rajapintaa ei ole käyttäjän poistamiseen tai estämiseen, avaimen perumiseen tai uusimiseen eikä
+ylläpitäjäksi ylentämiseen. Nimen vaihto on olemassa (`RenameUser`, katso
+[Käyttäjänimet](#usernames)).
 
 - **Jonkun lukitseminen ulos.** Poista hänen Tailscale-jakonsa, mikä katkaisee verkkoyhteyden heti.
   Poista sitten hänen rivinsä taulusta `userapikeys`. Hänen avaimensa lakkaa toimimasta seuraavalla
@@ -355,31 +375,36 @@ estämiseen, avaimen perumiseen tai uusimiseen eikä ylläpitäjäksi ylentämis
 
 ## Käyttäjänimet {#usernames}
 
-**Alkuperäisen projektin nykyinen toiminta:**
-
-- `Register` tarkistaa vain, ettei siistitty nimi (alusta ja lopusta välilyönnit poistettuna) ole
-  tyhjä. Sitten se tallentaa siistimättömän merkkijonon.
-- Nimet eivät ole ainutlaatuisia. Kaksi pelaajaa voi olla kumpikin ”Slayer”.
-- Nimeä ei voi vaihtaa. `/account/api/public/account` ilmoittaa `canUpdateDisplayName: false`.
+- Nimi valitaan rekisteröitäessä. Kaverikäynnistin ja kaveripaketti kysyvät sitä.
+- Uudet nimet ovat 3–16 merkkiä, vain kirjaimia, numeroita ja alaviivoja
+  (`^[A-Za-z0-9_]{3,16}$`), kun alun ja lopun välilyönnit on ensin poistettu. Muuten `Register`
+  vastaa 400 `username_invalid`.
+- Nimet ovat ainutlaatuisia kirjainkoosta riippumatta: `Register` vastaa 409 `username_taken`, jos
+  toisella tilillä on jo sama nimi missä tahansa kirjainkoossa. Tarkistus tehdään samassa
+  tietokantatransaktiossa, joka luo tilin (ainutlaatuista indeksiä ei ole), ja ennen kuin kutsukoodi
+  kulutetaan, joten hylätty nimi ei polta koodia.
+- Ennen näitä sääntöjä tehdyt tilit säilyttävät nimensä, myös sääntöjä rikkovat.
+- `GET /undaunted/api/UsernameAvailable?Username=<name>` tarkistaa nimen rekisteröimättä. Julkinen
+  yhdyskäytävä ei päästä sitä läpi, joten se toimii vain palvelinkoneella tai tailnetin kautta.
 - Pelaajan ensimmäisellä kirjautumisella metagame luo hänen hahmonsa ja nimeää sen käyttäjänimen
-  mukaan. Nimen vaihtamisen on siksi päivitettävä sekä `users.name` että `characters.name`.
+  mukaan. Siksi ylläpitoreitti `POST /undaunted/api/RenameUser` nimeää tilin ja sen hahmot uudelleen
+  yhdessä. Pelaaja näkee uuden nimen kirjauduttuaan uudelleen. Päivittyvätkö muiden pelaajien näkemät
+  nimikyltit ilman uudelleenkirjautumista, on varmistamatta.
+- Pelin sisällä nimeä ei voi vaihtaa: `/account/api/public/account` ilmoittaa
+  `canUpdateDisplayName: false`.
 - Oma omistajatilimme kantaa yhä paikanpitäjänimeä ”Slayer”.
 
-**Suunnittelemamme säännöt** (tiekartalla, ei vielä rakennettu):
+Nimen vaihtaminen, kun `$M` ja `$h` on asetettu kuten kohdassa
+[Kutsukoodien luominen](#making-invite-codes):
 
-- Nimi valitaan rekisteröitäessä. Kaveripaketti kysyy sitä.
-- 3–16 merkkiä, vain kirjaimia, numeroita ja alaviivoja (`^[A-Za-z0-9_]{3,16}$`), siistimisen jälkeen.
-- Ainutlaatuinen isoista ja pienistä kirjaimista riippumatta. Tämän varmistaa migraatio, joka lisää
-  ainutlaatuisen indeksin arvolle `lower(name)`.
-- Tarkistetaan ennen kuin kutsukoodi kulutetaan, jotta hylätty nimi ei polta koodia.
-- Nimen vaihto myöhemmin, pelaajan itsensä tai ylläpitäjän tekemänä, päivittäen molemmat taulut. Se
-  tulee voimaan seuraavalla kirjautumisella. Päivittyvätkö muiden pelaajien näkemät nimikyltit ilman
-  uudelleenkirjautumista, on varmistamatta.
-- Ehkä nimen vaihto pelin sisällä, jos peliohjelma tarjoaa sitä, kun `canUpdateDisplayName` on tosi
-  (testaamatta).
+```powershell
+$body = @{ Username = "OldName"; NewUsername = "New_Name" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/RenameUser" -Headers $h `
+  -ContentType "application/json" -Body $body -TimeoutSec 10
+```
 
-Siihen asti kerro kavereille säännöt ennen kuin he rekisteröityvät, ja tarkista `GetAllUsers`-listasta,
-ettei samaa nimeä ole kahdesti.
+`Username` on nykyinen nimi missä tahansa kirjainkoossa; sen sijaan käy myös `UserId`. Uusi nimi,
+joka on jo toisella tilillä, saa vastauksen 409 `username_taken`.
 
 ## Kapasiteetti {#capacity}
 
@@ -419,9 +444,10 @@ Käytännön rajoituksia, jotka on hyvä tietää:
   eikä tuo laskuri koskaan nollaudu. Kaveri, jolla on hidas levy, voi saapua vasta, kun hänen
   palvelimensa on jo poissa. Suunniteltu DLL-korjaus tekee aikarajasta säädettävän ja nollaa sen, kun
   joku liittyy.
-- **Kun kaikki metsästysportit ovat varattuina**, deploy-palvelin heittää virheen `No free ports left!`,
-  ja alkuperäinen metagame merkitsee silti ryhmän valmiiksi, osoitteena `""` ja porttina 0. Pelaajat
-  jäävät jumiin. Kapasiteettitarkistus, joka kieltäytyy siististi, on suunnitteilla.
+- **Kun kaikki metsästysportit ovat varattuina**, deploy-palvelin heittää virheen `No free ports left!`
+  ja vastaa metagamelle HTTP 500 -virheellä. Metagamemme merkitsee silloin ryhmän haun epäonnistuneeksi
+  (tilakysely vastaa `FAILED`); alkuperäinen metagame merkitsi ryhmän valmiiksi, osoitteena `""` ja
+  porttina 0, ja pelaajat jäivät jumiin. Suunnitteilla on, että ryhmä odottaa, kunnes portti vapautuu.
 - **Lisätäksesi metsästysportteja pienennä `PORT_RANGE_BEGIN`-arvoa. Älä koskaan kasvata
   `PORT_RANGE_END`-arvoa.** DLL pitää jokaista porttia 8776 tai yli pysyvänä palvelimena ja kytkee
   tyhjäkäyntisulkeutumisen niissä pois, joten sellaisessa portissa oleva metsästys ei koskaan
@@ -429,8 +455,9 @@ Käytännön rajoituksia, jotka on hyvä tietää:
 - Deploy-palvelin ei vielä rajoita peliprosessien muistinkäyttöä. Suunniteltu suoja: lopeta metsästys,
   joka ylittää noin 2,5 Gt, tai Ramsgate, joka ylittää noin 3 Gt (Ramsgate käynnistyy silloin
   uudelleen), ja kieltäydy uusista palvelimista, kun vapaata keskusmuistia on alle 3 Gt.
-- **Jokainen pelipalvelin avaa konsoli-ikkunan isännän työpöydälle. Ikkunan sulkeminen tappaa sen
-  palvelimen** kaikilta, jotka ovat siinä.
+- **Ramsgatella ja Dojolla on kummallakin konsoli-ikkuna auki isännän työpöydällä. Ikkunan
+  sulkeminen tappaa sen palvelimen** kaikilta, jotka ovat siinä. Metsästyspalvelimet käynnistetään
+  ikkuna piilotettuna.
 
 ## Koneen pitäminen käytettävissä {#keeping-the-pc-available}
 
@@ -459,13 +486,19 @@ Palvelin on päällä vain, kun palvelinkone on päällä, hereillä ja kirjautu
   [tiekartta]({{ roadmap_page.url | relative_url }})). Välitavoitteeseen M4 on yhä suunniteltu kaksi
   asiaa: ajoitettu tehtävä käynnistää skriptin, kun omistaja kirjautuu koneelle, ja valvoja
   käynnistää kaatuneen metagamen tai deploy-palvelimen uudelleen yhä pidemmin odotuksin (backoff).
+  Windows-palvelinpaketti tekee jo molemmat vuokrapalvelimella: sen `Stack.ps1` käynnistyy
+  ajastetuista tehtävistä koneen käynnistyessä ja käynnistää kaatuneen osan uudelleen yhä pidemmin
+  odotuksin (katso [Skriptit ja parametrit]({{ scripts_page.url | relative_url }})). Se toimii vain
+  paketilla asennetulla palvelimella, ei tämän kaltaisella käsin pystytetyllä palvelinkoneella.
 
 ## Varmuuskopioi tietokanta {#back-up-the-database}
 
-Kaikki, mitä pelaajat omistavat (tilit, hahmot, tavarat, varustesetit, kutsukoodit), on yhdessä
-SQLite-tiedostossa, joka on metagamen `.env`-tiedoston `DB_FILENAME`. Meillä se on
-`C:\dr\data\undaunted.db`. Se on pieni: 132 kt yhdellä pelaajalla eli noin 25 kt hahmoa kohden, joten
-monen kopion säilyttäminen ei maksa mitään.
+Kaikki, mitä pelaajat omistavat (tilit, hahmot, tavarat, varustesetit, eteneminen, kaverilistat,
+kutsukoodit), on yhdessä SQLite-tiedostossa, joka on metagamen `.env`-tiedoston `DB_FILENAME`. Meillä
+se on `C:\dr\data\undaunted.db`. Aluksi se on pieni (meillä 132 kt yhdellä pelaajalla), mutta siihen
+tallentuu myös jokaisen hahmon tallennushistoria palautuksia varten (koodin arvion mukaan enintään
+noin 3,5 Mt hahmoa kohden oletusasetuksilla) sekä tavara- ja etenemislokit, jotka vain kasvavat.
+Jokainen taulu on kuvattu sivulla [Tiedostot ja data]({{ files_page.url | relative_url }}#the-database).
 
 **Metagame ajaa kaikki odottavat tietokannan migraatiot jokaisella käynnistyksellä, eikä ota ensin
 varmuuskopiota.** Varmuuskopioi aina ennen forkin päivittämistä tai alkuperäisen projektin muutosten
@@ -476,8 +509,10 @@ varmuuskopion tunnin välein. Se säilyttää 48 uusinta kopiota sekä viimeiste
 päivän uusimman kopion. `stack.ps1` ottaa lisäksi varmuuskopion ennen jokaista käynnistystä ja jokaisen
 pysäytyksen jälkeen, eikä se käynnistä metagamea, jos varmuuskopio epäonnistuu. Palautustesti
 onnistui. Nämä skriptit toimivat palvelinkoneellamme, mutta ne eivät ole vielä repositoriossa (katso
-[tiekartta]({{ roadmap_page.url | relative_url }})). Kopioita koneen ulkopuolelle ei vielä ole. Muilla
-koneilla käytä jompaakumpaa alla olevista vaihtoehdoista.
+[tiekartta]({{ roadmap_page.url | relative_url }})). Kopioita koneen ulkopuolelle ei vielä ole.
+Windows-palvelinpaketilla asennetulla palvelimella `Backup-DauntlessServer.ps1` tekee saman (tunnin
+välein, ennen jokaista käynnistystä ja jokaisen pysäytyksen jälkeen; se säilyttää 48 uusinta
+varmuuskopiota sekä kunkin viimeisen 30 päivän uusimman). Muilla koneilla käytä jompaakumpaa alla olevista vaihtoehdoista.
 
 **Vaihtoehto 1: kopio pysäytettynä.** Pysäytä metagame ja kopioi tiedosto. Tietokanta käyttää SQLiten
 oletusarvoista rollback journal -lokia, joten erillistä `-wal`-tiedostoa ei voi unohtaa.
@@ -532,6 +567,10 @@ pelipalvelinavain. Varmuuskopioi myös omistajan tiliavain.
    oltava saatavilla (kohta 6). Anna heille linkki [tämän sivuston repositorioon]({{ site.github.repository_url }})
    ja kerro, mitä versiota (commit) ajat. Pelinsisäinen tilateksti (`/dauntless-status`) toivottaa
    pelaajat tervetulleiksi palvelimesi nimellä (”Welcome to Dauntless Revived!”, ellet aseta
-   metagamen `.env`-tiedostoon muuta nimeä kohtaan `SERVER_NAME`). Aiomme laittaa lähdekoodilinkin
-   myös sinne. Katso [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}). Tämä ei ole
-   oikeudellista neuvontaa.
+   metagamen `.env`-tiedostoon muuta nimeä kohtaan `SERVER_NAME`). Samassa vastauksessa on niiden
+   kenttien jälkeen, jotka peli lukee, myös palvelimen nimi, versio, commit ja lähdekoodilinkki
+   (`SOURCE_URL` ja `GIT_COMMIT`, katso
+   [asetusten viitesivu]({{ config_page.url | relative_url }}#metagame-identity)). Jos ajat muokattua
+   koodia, osoita `SOURCE_URL` muokattuun lähdekoodiisi. Aiomme laittaa lähdekoodilinkin myös
+   pelissä näkyvään tekstiin. Katso [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}).
+   Tämä ei ole oikeudellista neuvontaa.

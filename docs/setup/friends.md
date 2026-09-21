@@ -137,7 +137,7 @@ Unblock-File "$W\dxgi.dll", "$W\UndauntedInternalServer.dll"
 system copy. This proxy loads the real system `dxgi.dll`, forwards its three exports, and loads
 `UndauntedInternalServer.dll`. In a normal (client) launch, that DLL reads the first command-line
 argument as the server address. It then rewrites the backend endpoints the game reads from its
-config (a table of 165 keys, plus the account-service settings), from the dead `steelyard.ca` hosts
+config (a table of 167 keys, plus the account-service settings), from the dead `steelyard.ca` hosts
 to `http://<that address>/...`. When the same DLL is loaded into a process started with `-server`,
 it turns that instance of the client into a game server instead. That is how the host
 runs Ramsgate and hunts.
@@ -167,10 +167,9 @@ key**, a string starting with `UUK_`. The key is your password. The game uses it
   lose it, the host has to issue you a new one by hand.
 - **Keep it private.** Anyone with your key can play as you.
 
-**Choosing a username.** Today the server accepts any non-empty name. It does not stop two players from
-picking the same name, and there is no rename. Your character is also named after it on first login.
-We are adding rules: 3-16 characters, only letters, digits and underscore, and unique regardless of
-upper and lower case. Pick a name that already fits those rules.
+**Choosing a username.** 3-16 characters, only letters, digits and underscore, and unique regardless
+of upper and lower case. The server refuses any other name (see the table below). Your character is
+also named after it on first login. Only the host can rename you later.
 
 This script registers you and saves the key to your profile folder without printing it. It refuses to
 run twice, because registering again would create a second, empty account.
@@ -192,9 +191,13 @@ Set-Content -Path "$dir\account.key" -Value $r.UUK -NoNewline -Encoding ASCII
 | Server answer | Meaning |
 |:--------------|:--------|
 | 200 | Registered. The key is in `account.key`. |
-| 401 | The invite code is wrong or already used up. |
-| 400 | Registration is closed, or the username is empty. |
+| 401 | The invite code is wrong or already used up (`invite_invalid`). |
+| 400 | Registration is closed (`registration_closed`), or the username breaks the rules (`username_invalid`). |
+| 409 | Someone already has that username, in any case (`username_taken`). Pick another one: your invite code was not used up. |
 | No answer | Tailscale is off, or the host's server is not running. |
+
+A refusal comes with a short JSON reason, `{"error": "<code>", "message": "..."}`, which PowerShell
+shows with the error.
 
 Check that the key works. This prints your user id, your username and whether you are an admin:
 
@@ -355,11 +358,12 @@ This is a small private revival and a work in progress. As of this writing:
 |:--------|:-------------|
 | `Invoke-RestMethod` times out | Tailscale is off, the share is not accepted, or the host's PC or server is down. |
 | Register answers 401 | Wrong or used-up invite code. Ask the host for a new one. |
-| Register answers 400 | Registration is closed, or the username is empty. |
+| Register answers 400 | Registration is closed, or the username is not 3-16 letters, digits or underscores. |
+| Register answers 409 | The username is taken (in any case). Pick another; the invite code still works. |
 | `Hash mismatch` from `play.ps1` | A different game build or different DLLs. They will not work together. |
 | Game starts with no console window and cannot log in | `dxgi.dll` is not in the `Win64` folder, or antivirus removed or quarantined it. Check that both DLLs are there and match the hashes. |
 | Error about `MSVCP140.dll` or `VCRUNTIME140_1.dll` | Install the Visual C++ 2015-2022 Redistributable (x64). |
-| Matchmaking or the trip to a hunt hangs | All of the host's hunt slots may be busy (six at a time). The server then hands out an empty address instead of an error. Tell the host. |
+| Matchmaking or the trip to a hunt hangs | All of the host's hunt slots may be busy (six at a time). The server then cannot start a hunt for you, and your search ends as failed. Tell the host. |
 | Hunt never loads, or you are sent back | A hunt server shuts itself down after 50 seconds in total with nobody connected, and a slow map load can take longer than that. Tell the host. |
 
 ## Your right to the source

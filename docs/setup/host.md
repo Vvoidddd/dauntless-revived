@@ -13,6 +13,9 @@ ref: setup/host
 {% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
 {% assign multiplayer_page = site.pages | where: "path", "findings/multiplayer.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign api_page = site.pages | where: "path", "reference/api.md" | first %}
+{% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
 
 # Host a server
 {: .no_toc }
@@ -196,15 +199,17 @@ git -C C:\dr\undaunted checkout dauntless-revived
 git -C C:\dr\undaunted remote add upstream https://github.com/SyST3MDeV/Undaunted.git   # optional, to follow upstream
 ```
 
-The repository contains four projects. On the host we use:
+The repository contains six projects (the `Undaunted*` folders), plus the Windows server kit, the
+friend kit and tools. On the host we use:
 
 - `UndauntedMetagame`: the backend.
 - `UndauntedDeployServer`: the game-server supervisor.
 - The two prebuilt DLLs kept in `UndauntedLauncher/assets/`.
 
-We don't use the upstream Electron launcher (`UndauntedLauncher/src`). It is hard-wired to the upstream
-project's own server and its own game download. The C++ source of the server DLL is in
-`UndauntedInternalServer`.
+The Electron app in `UndauntedLauncher/src` is this fork's friend launcher: players use it to join a
+server from an invite, and it downloads the game from the host's own content server. The host setup
+on this page doesn't need it. The C++ source of the server DLL is in `UndauntedInternalServer`. Every
+folder, and what builds where, is listed on [Files and data]({{ files_page.url | relative_url }}).
 
 The `.env` files you create below are git-ignored. Never commit them: they hold the signing keys and
 the game-server key.
@@ -479,7 +484,7 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 |---|---|
 | `PORT` | Metagame HTTP port. We use **61000**. See the port note below. |
 | `BIND_HOST` | **Fork only.** Address to listen on. Defaults to `127.0.0.1`. Upstream listened on every interface, which with `REGISTRATION_MODE=OPEN` let anyone who could reach the PC create accounts. Change it only when you follow [Run it for a group]({{ admin_page.url | relative_url }}). |
-| `AUTH_MODE` | `APIKEY`: players log in with a per-account key. `NONE` takes whatever the client sends as the user id. It is honoured only outside production; with `NODE_ENV=production` every login then fails. Never use it. |
+| `AUTH_MODE` | `APIKEY`: players log in with a per-account key. `NONE` takes whatever the client sends as the user id. It is honoured only outside production; with `NODE_ENV=production` the login request then gets no answer at all and the game waits. Never use it. |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | RSA key pair, PEM, base64. Signs the 24-hour RS256 session tokens. Generate your own; never reuse anyone else's. |
 | `DB_FILENAME` | SQLite file. Use forward slashes. `C:\dr\data` must exist. |
 | `TARGET_CHANGELIST` | `239827`, the changelist from `Version.txt`. The matchmaking response reports it to the client as build id `239827_1.4.4_shipping`. |
@@ -487,11 +492,12 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `MATCHMAKING_MODE`, `DEPLOYSERVER_URL` | `DEPLOYSERVER` with host:port and no scheme: hand matchmaking to the deploy server. |
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` or `NONE`. `OPEN` is fine while the metagame listens on loopback only. Switch to `INVITECODE` in this file before anyone else can reach it. Changing it through the admin API lasts only until the next restart. |
 | `NODE_ENV` | `production`. The logs are then plain JSON lines. |
-| `LOG_REQUESTS` | **Fork only**, optional. Every request is logged as `METHOD /path gs=0/1` unless this is `0`. It is our main diagnostic. |
+| `LOG_REQUESTS` | **Fork only**, optional. Every request is logged as `METHOD /path gs=0/1` unless this is `0`. Behind the public-mode gateway the line ends with ` via=gateway ip=<player address>`. It is our main diagnostic. |
 | `PROGRESSION_MODE` | **Fork only**, optional. Unset (the default) or `real`: every account keeps its own Slayer level, mastery, Hunt Pass (with the Elite pass for everyone), loadout slots, cooldowns and bounties. `stub`: upstream's fake max ranks, nothing stored. Any other value is logged and treated as real. Updating a server that already has players? Read the [upgrade notes]({{ upgrade_page.url | relative_url }}) first. |
 | `PROGRESSION_REAL_ACCOUNTS` | **Fork only**, optional. Only with `PROGRESSION_MODE=stub`: comma-separated account ids that get real progression anyway. |
 
-**Other optional switches (fork only).** Leave them out to get the default.
+**Other optional switches (fork only).** Leave them out to get the default. Every variable, with
+what an unset value means and who sets it, is on [Configuration]({{ config_page.url | relative_url }}#metagame).
 
 | Key | Default | What it does |
 |---|---|---|
@@ -581,10 +587,13 @@ node -e "(async () => { const name = process.argv[1]; const base = 'http://127.0
 
 Notes:
 
-- Upstream accepts any non-empty username, doesn't enforce unique names, and has no rename. Pick the
-  name you want to keep. Username rules and renaming are on the [roadmap]({{ roadmap_page.url | relative_url }}).
-- The admin API (invite codes, registration mode, online stats) takes this key in the
-  `x-undaunted-user-api-key` header. [Run it for a group]({{ admin_page.url | relative_url }}) covers it.
+- The name must be 3-16 letters, digits or underscores, and unique regardless of case. Otherwise
+  `Register` answers 400 (`username_invalid`) or 409 (`username_taken`) and the script stops. An admin
+  can rename an account later with `RenameUser`.
+- The admin API (invite codes, registration mode, renames, online stats) takes this key in the
+  `x-undaunted-user-api-key` header, and only directly, never through a proxy.
+  [Run it for a group]({{ admin_page.url | relative_url }}) covers it, and
+  [HTTP API]({{ api_page.url | relative_url }}) lists every route.
 - Keep `owner.key` out of the repository, screenshots and chat. Back it up together with the two
   `.env` files and `gameserver.key`, encrypted and separately from the database.
 
@@ -615,7 +624,7 @@ $key = $null
 | Key | Meaning |
 |---|---|
 | `PORT` | 61001. Only the metagame on the same PC talks to it. |
-| `BIND_HOST` | **Fork only.** Defaults to `127.0.0.1`. Keep it there. Anyone who can reach this port can start game processes on your PC. |
+| `BIND_HOST` | **Fork only.** Defaults to `127.0.0.1`. Keep it there. The deploy server has no authentication: whoever can call it starts game processes on your PC. As a second check it answers 403 to any caller that is not on this PC. |
 | `MY_IP` | The address handed to clients for game servers. `127.0.0.1` for local play. |
 | `PORT_RANGE_BEGIN`, `PORT_RANGE_END` | UDP ports for game servers. Ramsgate always takes `END` (8777) and the Dojo `END-1` (8776). Hunts use the rest (8770-8775, so six at a time). |
 | `GAMESERVER_BINARY_PATH` | The 1.4.4 exe, forward slashes. |
@@ -637,8 +646,9 @@ $p = Start-Process @dep; Set-Content C:\dr\data\deploy.pid $p.Id
 ```
 
 It starts the permanent Ramsgate server straight away. Every game server it starts is a normal game
-process with its own **console window** ("Running as a server!"). **Don't close those windows.**
-Closing one kills that server for everyone on it.
+process with its own console. Ramsgate and the Dojo show theirs as a **console window** ("Running as
+a server!"). **Don't close those windows.** Closing one kills that server for everyone on it. Hunt
+servers are started with their window hidden, so a new window doesn't flash up for every hunt.
 
 To test a game server on its own without the deploy server, start one by hand with the same
 arguments the deploy server uses:
@@ -701,16 +711,17 @@ they are unused, but we have not verified this on a clean machine.
 ## 13. Launch the client {#launch-the-client}
 
 We launch with `C:\dr\tools\play.ps1`. It writes the graphics and chat settings (steps 7 and 14),
-reads the account key from `C:\dr\data\owner.key` without printing it, starts the game, and can
-optionally watch its memory. Here it is in full:
+reads the account key from `C:\dr\data\owner.key` (or the file you name with `-KeyFile`) without
+printing it, starts the game, and can optionally watch its memory. Here it is in full:
 
 ```powershell
 # Launch the 1.4.4 client against our own Dauntless Revived backend.
 #   -Graphics 4     FORCE this quality level on every launch (4 = Cinematic = max, 3 = Epic).
 #   -Graphics -1    don't force anything; use whatever you pick in the in-game menu.
 #   -Windowed       1280x720 window instead of your saved display mode.
+#   -KeyFile        account key to log in with (default: the owner's key).
 param([string]$Backend = "127.0.0.1:61000", [int]$Graphics = 4, [switch]$Windowed,
-      [int]$CapMB = 12000, [int]$Seconds = 0)
+      [int]$CapMB = 12000, [int]$Seconds = 0, [string]$KeyFile = "C:\dr\data\owner.key")
 
 $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 
@@ -761,7 +772,7 @@ if ($Graphics -ge 0) { "graphics FORCED to level $Graphics (4 = Cinematic/max), 
 else { "graphics: using your in-game menu choice" }
 
 $W   = "C:\D144\Dauntless\Archon\Binaries\Win64"
-$UUK = (Get-Content C:\dr\data\owner.key -Raw).Trim()      # your account key; never printed
+$UUK = (Get-Content $KeyFile -Raw).Trim()      # your account key; never printed
 $a = @($Backend, "-AUTH_PASSWORD=$UUK", "-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode",
   "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol",
   "-epicuserid=useridlol", "-epiclocale=en-US", "-epicsandboxid=sandboxidlol",
