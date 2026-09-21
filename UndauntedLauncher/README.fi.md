@@ -1,0 +1,88 @@
+# Dauntless Revived Launcher
+
+*[In English](README.md)*
+
+Windows-sovellus, jonka kaverit asentavat pelatakseen Dauntless Revived -palvelimella. Se liittyy
+palvelimelle kutsulla, luo tilin, lataa ja tarkistaa Dauntless 1.4.4:n pelitiedostot ylläpitäjän
+omalta palvelimelta, laittaa kaiken valmiiksi ja käynnistää pelin. Kielinä englanti ja suomi.
+
+**Sovelluksessa tai tässä repositoriossa ei ole pelitiedostoja.** Ne tulevat ylläpitäjän
+sisältöpalvelimelta, ja jokainen tiedosto tarkistetaan käynnistimeen käännettyä listaa vasten
+(410 tiedostoa, koot ja SHA-256-tiivisteet, `UndauntedContent/data/dauntless-1.4.4.json`).
+Palvelin, joka tarjoaa jotain muuta, hylätään.
+
+## Kavereille
+
+1. Asenna `DauntlessRevivedLauncher-Setup.exe` projektin julkaisuista. Sitä ei ole vielä
+   allekirjoitettu, joten SmartScreen voi pyytää vahvistusta (Lisätietoja, sitten Suorita silti).
+2. Avaa ylläpitäjän lähettämä kutsulinkki tai liitä se Pelaa-sivulle ja paina **LIITY**.
+3. Valitse käyttäjänimi ja paina **REKISTERÖIDY**. Tallenna avaimesta varmuuskopio, kun käynnistin
+   tarjoaa sitä.
+4. Paina **ASENNA** (noin 11 Gt). Voit pitää tauon, sulkea käynnistimen ja jatkaa myöhemmin.
+5. Paina **PELAA**.
+
+## Kaksi palvelintyyppiä
+
+| | Yksityinen (kutsu v1) | Julkinen (kutsu v2) |
+|---|---|---|
+| Missä | ylläpitäjän koneella | palvelimella, jolla on julkinen IP |
+| Miten kaverit yhdistävät | Tailscale | suoraan, TLS-yhteydellä palvelimen yhdyskäytävään |
+| Kutsu | `dauntless-revived://join?v=1&host=…&port=61000&code=…&name=…[&share=…]` | `dauntless-revived://join?v=2&mode=public&host=…&port=443&fp=…&code=…&name=…` |
+
+Julkisessa tilassa kutsussa on `fp`, palvelimen TLS-varmenteen SHA-256. Jokainen yhteys (tila,
+rekisteröinti, lataukset ja itse peli) tarkistetaan sitä vasten ennen kuin mitään lähetetään.
+Palvelin, jolla on eri varmenne, ei saa mitään, ja käynnistin kertoo, ettei tämä ole kaverisi palvelin.
+
+Julkisen palvelimen tiliavain on sidottu tähän sormenjälkeen. Kutsu samaan osoitteeseen eri
+varmenteella ei koskaan saa avainta: käynnistin näyttää molemmat sormenjäljet ja kysyy ensin, ja avain
+siirtyy uudelle varmenteelle vain, jos vahvistat sen (tee niin vain, kun ylläpitäjä kertoo
+asentaneensa palvelimen uudelleen). Yksityiset (v1) kutsut toimivat vain Tailscale-osoitteilla
+(100.64.0.0/10) ja `*.ts.net`-nimillä, koska se yhteys on salaamatonta HTTP:tä tailnetin sisällä.
+
+Dauntless 1.4.4 osaa vain salaamatonta HTTP:tä, joten julkisessa tilassa käynnistin pitää pelin ajan
+käynnissä **paikallista välitintä**: peli puhuu omalla koneellasi osoitteeseen
+`http://127.0.0.1:61000`, ja välitin kuljettaa jokaisen pyynnön (ja chatin WebSocketin) lukitulla
+TLS-yhteydellä palvelimelle. Pidä käynnistin auki pelatessasi; se kysyy ennen sulkemista, jos peli on
+käynnissä. Välitin kuuntelee vain osoitteessa 127.0.0.1 ja hylkää verkkosivuilta tulevat pyynnöt.
+
+## Tietoturva
+
+- Sivu on eristetty (sandbox, context isolation, ei Node-oikeuksia). Se ei pääse verkkoon lainkaan:
+  pääprosessi tekee jokaisen pyynnön, ja vain kutsun palvelimelle. Sivu puhuu pääprosessille pienen
+  tyypitetyn rajapinnan kautta (`src/preload.ts`), ja jokainen argumentti tarkistetaan uudelleen.
+- Tiukka Content-Security-Policy. Kuvat tulevat vain sovelluksesta itsestään tai ylläpitäjän
+  kuvapaketista, jonka pääprosessi hakee lukitulla yhteydellä.
+- Siirtymät ja uudet ikkunat on estetty. Linkit avautuvat selaimeen vain kiinteältä sallittujen
+  listalta.
+- Tiliavain tallennetaan vain Windowsin DPAPI:lla (`safeStorage`). Sitä ei näytetä, sitä ei kirjoiteta
+  tavalliseen tiedostoon (paitsi itse tallentamaasi varmuuskopioon), ja se peitetään lokissa.
+- Electron-fuset: ei `ELECTRON_RUN_AS_NODE`-, `NODE_OPTIONS`- eikä debug-lippuja, ja sovelluskoodi
+  ladataan vain eheystarkistetusta asar-paketista.
+- Pelin tarvitsemat kaksi DLL:ää tulevat käynnistimen mukana, ja ne tarkistetaan lukittuja tiivisteitä
+  vasten ennen kopiointia ja ennen jokaista käynnistystä, kuten `friend-kit/play.ps1` tekee.
+
+## Kehitys
+
+Vaatimukset: Windows ja Node.js 24.
+
+```powershell
+npm ci
+npm run typecheck
+npm test            # yksikkötestit (node:test), paikalliset testipalvelimet vain porteissa 624xx
+npm run make        # asennusohjelma ja zip kansioon out/make/
+```
+
+`DAUNTLESS_REVIVED_RELAY_PORT` siirtää välittimen pois portista 61000 harjoituksia varten koneella,
+jolla portti 61000 on varattu. Palvelimen `QOS_TARGET_URL` pitää silloin osoittaa samaan porttiin.
+
+## Julkaisut ja päivitykset
+
+Tagi `launcher-v<versio>` (sama kuin `package.json`-tiedostossa) käynnistää työnkulun
+`.github/workflows/launcher-release.yml`: tyyppitarkistus, testit, käännös Windowsilla ja GitHub-
+julkaisu, jossa on asennusohjelma, zip ja `SHA256SUMS.txt`. Sama työnkulku päivittää jatkuvan
+`launcher-updates`-julkaisun, josta asennetut käynnistimet päivittävät itsensä tunnin välein.
+
+## Lisenssi
+
+AGPL-3.0-only. Perustuu gwogin (Gregory Morford) ja muiden tekijöiden Undaunted-käynnistimeen.
+Epävirallinen faniprojekti, jolla ei ole yhteyttä Phoenix Labsiin tai Epic Gamesiin.

@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Unit test build output
+.test-build/
