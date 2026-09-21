@@ -15,10 +15,10 @@
   a: >-
     Yes, against a private server. The official servers shut down on 30 May 2025, and without a backend
     the game cannot be played at all. Dauntless Revived is a replacement backend for the genuine
-    Dauntless 1.4.4 client: if you have your own copy of that client, you can host it and play. Today it
-    works for one player on the host PC, including login, the tutorial, Ramsgate, the Training Dojo,
-    hunts and crafting. Playing together over the internet is the next milestone. See
-    [what works now](index.md#current-status).
+    Dauntless 1.4.4 client: if you have your own copy of that client, you can host it and play. So far
+    the game has been played by one player on the host PC, including login, the tutorial, Ramsgate, the
+    Training Dojo, hunts and crafting. A server on a rented machine is running, and the first test with a
+    friend over the internet is in progress (September 2026). See [what works now](index.md#current-status).
 
 - id: is-there-a-dauntless-private-server
   q: "Is there a Dauntless private server?"
@@ -48,9 +48,10 @@
 - id: can-i-join-your-server
   q: "Can I join your server?"
   a: >-
-    No, sorry. It is a small private group of friends, not a public service. The server has no public
-    address; once friends can join (milestone M1), invited friends will connect to the host's PC over
-    Tailscale. You can run the same thing for your own group; see [Host a server](setup/host.md).
+    No, sorry. It is a small private group of friends, not a public service. Our server runs on a rented
+    machine, but only people the owner invites can make an account, and they join with the friend
+    launcher and an invite. You can run the same thing for your own group; see
+    [Host a server](setup/host.md) or, for a rented machine, the [Windows server kit](setup/windows-server.md).
 
 - id: how-do-i-host-my-own
   q: "How do I host my own Dauntless server?"
@@ -58,7 +59,9 @@
     You need a Windows PC, your own copy of the Dauntless 1.4.4 client, Node.js and the fork's source
     code. [Host a server](setup/host.md) walks through it step by step: verify the build, place the two
     DLLs, then start the metagame (the backend) and the deploy server (which starts the game servers).
-    [Run it for a group](setup/admin.md) covers letting friends in.
+    [Run it for a group](setup/admin.md) covers letting friends in. For an always-on server on a rented
+    Windows Server 2019 machine, the [Windows server kit](setup/windows-server.md) installs everything with
+    one command from your PC.
 
 - id: where-do-i-get-the-game-files
   q: "Where do I get the game files?"
@@ -100,18 +103,22 @@
     [Undaunted](https://github.com/SyST3MDeV/Undaunted), by gwog (Gregory Morford) and contributors, is
     the open-source project that made this possible. The server-mode DLL that turns a copy of the 1.4.4
     client into a game server, the deploy server, the metagame backend and the launcher are all theirs.
-    Dauntless Revived is a small modified fork of it. So far our changes are practical ones: safer network
-    defaults, clearer errors and a request log. We add documentation, a friend kit and a
-    [roadmap](roadmap.md) towards playing together with everything saved.
+    Dauntless Revived is a modified fork of it. We started with practical changes (safer network
+    defaults, clearer errors and a request log) and have since added saved progression, safer saves,
+    usernames and invite codes, parties and a friends list on the server side, a friend launcher built on
+    Undaunted's, a gateway for hosting on a public address, a Windows server kit, documentation in English
+    and Finnish, and a [roadmap](roadmap.md) towards playing together with everything saved.
 
 - id: can-you-play-with-friends
   q: "Can you play together with friends?"
   a: >-
-    Not yet. Friends over the internet (through Tailscale), parties and the friends list are milestone M1
-    on the [roadmap](roadmap.md). Upstream Undaunted reports hunts with up to 4 players working on the same
-    client, but we have not yet tested that with more than one player.
-    [How multiplayer works](findings/multiplayer.md) explains how a client-only build can host games at
-    all.
+    Not proven yet. The first real test with a friend is in progress (September 2026), on a rented server
+    where friends join with the launcher and an invite. Parties and the friends list are built on the
+    server side and pass our integration tests with simulated players, but have not been tried with two
+    real game clients yet. Upstream Undaunted reports hunts with up to 4 players working on the same
+    client, but we have not yet tested that with more than one player. The [roadmap](roadmap.md) tracks
+    this as milestone M1, and [How multiplayer works](findings/multiplayer.md) explains how a client-only
+    build can host games at all.
 
 - id: linux-and-steam-deck
   q: "Does it work on Linux or the Steam Deck?"

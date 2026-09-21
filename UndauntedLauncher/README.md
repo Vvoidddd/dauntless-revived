@@ -13,7 +13,12 @@ launcher (`UndauntedContent/data/dauntless-1.4.4.json`). A server that offers an
 ## For friends
 
 1. Install `DauntlessRevivedLauncher-Setup.exe` from the project's releases. It is not code-signed
-   yet, so SmartScreen may ask you to confirm (More info, then Run anyway).
+   yet, so SmartScreen may ask you to confirm (More info, then Run anyway). On a PC set to block
+   unrecognised apps, SmartScreen blocks it outright with no Run anyway. Then check the file against
+   `SHA256SUMS.txt` from the same release (`Get-FileHash .\DauntlessRevivedLauncher-Setup.exe` must
+   print the same SHA-256), unblock it (right-click > Properties > Unblock, or
+   `Unblock-File .\DauntlessRevivedLauncher-Setup.exe`) and run it again. Code-signing is roadmap
+   item 4.16.
 2. Open the invite link your host sent you, or paste it on the Play page and press **JOIN**.
 3. Pick a username and press **REGISTER**. Save a backup of your key when the launcher offers it.
 4. Press **INSTALL** (about 11 GB). You can pause, close the launcher and continue later.

@@ -53,11 +53,17 @@ These are deliberate. Please read them first, so that your report can focus on w
   processes on the host. It must never be exposed beyond the host PC, and the docs say so.
   Exposing it on purpose is a misconfiguration, not a vulnerability. A way to reach it from
   another machine in a default setup would be a vulnerability.
-- **Friends are meant to connect over Tailscale**, a private network the host shares by
-  invitation. Friends reach the metagame and the game servers through the host's Tailscale
-  address; the deploy server stays on loopback. The game's traffic to
-  the metagame is plain HTTP, because that is what the 1.4.4 client and the DLL speak.
-  Encryption comes from the Tailscale tunnel.
+- **Friends connect in one of two ways.** The game's traffic to the metagame is plain HTTP, because
+  that is what the 1.4.4 client and the DLL speak.
+  - **Private mode:** over Tailscale, a private network the host shares by invitation. Friends
+    reach the metagame and the game servers through the host's Tailscale address, and encryption
+    comes from the Tailscale tunnel.
+  - **Public mode** (the default of the Windows server kit in `deploy/windows-server/`): a TLS
+    gateway (`UndauntedGateway/`) is the game's only public TCP port. The client talks plain HTTP only to
+    the launcher on the player's own PC, which forwards over TLS pinned to the certificate
+    fingerprint in the invite. The gateway refuses admin routes and the game-server key from
+    outside, and the game's UDP ports are opened only for the addresses of players who logged in.
+  - The deploy server stays on loopback in both modes.
 - **Players log in with a personal account key**, and the server stores only a hash of it. A lost
   key cannot be recovered.
 - Game servers listen on UDP ports 8770 to 8777.
@@ -116,8 +122,16 @@ omaa asennustasi, älä muiden ihmisten palvelimia tai koneita.
 - Palvelimet kuuntelevat oletuksena vain omaa konetta (`127.0.0.1`).
 - Deploy serverissä ei ole tarkoituksella mitään tunnistusta. Sitä ei saa koskaan avata muiden
   koneiden käyttöön.
-- Kaverit on tarkoitus yhdistää Tailscalen kautta. Tailscale on ohjelma, joka tekee kavereiden
-  koneista yksityisen, salatun verkon.
+- Kaverit yhdistävät kahdella tavalla. Peli puhuu metagamelle salaamatonta HTTP:tä, koska 1.4.4-peli
+  ja DLL-tiedosto osaavat vain sitä.
+  - **Yksityinen tila:** Tailscalen kautta. Tailscale on ohjelma, joka tekee kavereiden koneista
+    yksityisen, salatun verkon.
+  - **Julkinen tila** (Windows-palvelinpaketin oletus, `deploy/windows-server/`): salattu
+    yhdyskäytävä (`UndauntedGateway/`) on pelin ainoa julkinen TCP-portti. Peli puhuu salaamatonta HTTP:tä
+    vain pelaajan omalla koneella olevalle käynnistimelle, joka välittää liikenteen salattuna kutsun
+    varmenteeseen kiinnitettyä yhteyttä pitkin. Yhdyskäytävä torjuu ylläpitoreitit ja pelipalvelimen
+    avaimen ulkopuolelta, ja pelin UDP-portit avataan vain kirjautuneiden pelaajien osoitteille.
+  - Deploy server pysyy molemmissa tiloissa vain omalla koneella.
 
 ### Mitä ohje ei koske
 

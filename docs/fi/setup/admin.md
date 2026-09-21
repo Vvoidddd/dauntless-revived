@@ -10,6 +10,7 @@ locale: fi_FI
 ---
 
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
+{% assign winserver_page = site.pages | where: "path", "fi/setup/windows-server.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 {% assign host_page = site.pages | where: "path", "fi/setup/host.md" | first %}
@@ -28,11 +29,13 @@ varmuuskopiot. Oletuksena on, että kokonaisuus pyörii jo paikallisesti sinulla
 (taustapalvelu, joka hoitaa tilit ja hahmot), deploy-palvelin (ohjelma, joka käynnistää
 pelipalvelimet) ja Ramsgate-palvelin.
 
-**Tilanne.** Tätä kirjoitettaessa kokonaisuutemme pyörii vain koneen sisällä (loopback) ja
-ainoastaan omistajalle. Alla olevat vaiheet ovat kokoonpano, johon olemme siirtymässä
-([tiekartan]({{ roadmap_page.url | relative_url }}) kohta ”Friends connected over Tailscale”). Kaikki,
-mikä on suunniteltu mutta ei vielä rakennettu, on merkitty sellaiseksi. Tämän kokoonpanon toinen puoli
-on sivu [Liity kaverina]({{ friends_page.url | relative_url }}).
+**Tilanne (22.9.2026).** Omistajan koneella kokonaisuutemme pyörii vain koneen sisällä (loopback) ja
+ainoastaan omistajalle. Alla olevaa Tailscale-kokoonpanoa ei ole vielä ajettu alusta loppuun:
+ensimmäisessä kaveritestissä käytämme sen sijaan
+[Windows-palvelinpakettia]({{ winserver_page.url | relative_url }}) julkisessa tilassa vuokratulla
+palvelimella (ks. [tiekartta]({{ roadmap_page.url | relative_url }}), kohdat 1.3, 1.15 ja 1.17).
+Kaikki, mikä on suunniteltu mutta ei vielä rakennettu, on merkitty sellaiseksi. Tämän kokoonpanon
+toinen puoli on sivu [Liity kaverina]({{ friends_page.url | relative_url }}).
 
 <details open markdown="block">
   <summary>Sisältö</summary>

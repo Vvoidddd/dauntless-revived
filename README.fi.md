@@ -25,7 +25,8 @@ Peli vain ottaa yhteyttä palvelimeen, jonka pystytät itse. Projekti on jatkoa
 Morford) ja muut tekijät. He rakensivat tärkeimmät osat. Yksi niistä on DLL-tiedosto (pieni
 ohjelmakirjasto, jonka peli lataa käynnistyessään). Sen avulla pelistä saadaan pelipalvelin. Lisäksi
 he tekivät palvelinohjelmat ja käynnistysohjelman. Tämä versio lisää niihin korjauksia,
-kavereille asennuspaketin ja ohjeet.
+tallentuvan etenemisen, palvelimen puolen pelaajaryhmät, Undauntedin käynnistimen pohjalta tehdyn
+kaverikäynnistimen, asennuspaketin vuokratuille Windows-palvelimille ja ohjeet.
 
 Tässä koodivarastossa (GitHubissa olevassa projektin kansiossa) tai ohjesivustolla ei jaeta
 pelitiedostoja. Tarvitset oman kopion Dauntless 1.4.4 -pelistä.
@@ -44,8 +45,8 @@ On. Tämä projekti on sellainen: itse ylläpidettävä palvelin 1.4.4-versiolle
 Se ei ole avoin kaikille, joten pystytät oman ja kutsut kaverisi.
 
 ### Pääsenkö pelaamaan teidän palvelimellanne?
-Et. Julkista palvelinta ei ole. [Asennusohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/)
-kertovat, miten pystytät oman.
+Et. Palvelimemme pyörii vuokratulla koneella, mutta tilin voi luoda vain se, jonka omistaja kutsuu.
+[Asennusohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/) kertovat, miten pystytät oman.
 
 ### Saako täältä pelin?
 Ei. Tässä koodivarastossa tai ohjesivustolla ei ole pelitiedostoja eikä linkkejä niihin.
@@ -67,24 +68,28 @@ Lisää vastauksia on sivulla
 
 ## Tilanne
 
-Syyskuu 2026. Kaikkea alla olevaa on kokeillut yksi pelaaja palvelinkoneella.
+Tilanne 22.9.2026. Itse peliä on tähän mennessä pelannut yksi ihminen, omistaja, palvelinkoneella.
+Merkintä ”(yksin)” tarkoittaa juuri sitä. Ensimmäinen testi kaverin kanssa vuokratulla palvelimella on
+käynnissä.
 
 | Ominaisuus | Tila | Lisätietoa |
 |---|---|---|
 | Kirjautuminen omalla avaimella | Toimii | Epic-tiliä ei tarvita |
 | Opetusjakso | Toimii | Pelipalvelin käynnistyy, kun sitä tarvitaan |
-| Ramsgate (pelin kaupunki, jossa pelaajat tapaavat) | Toimii | Ramsgaten palvelin on koko ajan päällä |
+| Ramsgate (pelin kaupunki, jossa pelaajat tapaavat) | Toimii (yksin) | Ramsgaten palvelin on koko ajan päällä |
 | Training Dojo (harjoitussali) | Toimii | Käynnistyy, kun joku menee sinne |
 | Metsästykset | Toimii (yksin) | Pelattu: Lesser Boreus -hirviön metsästys ja takaa-ajo (pursuit) |
 | Varusteiden valmistus | Toimii | |
 | Tavarat, varusteet ja tehtävät | Toimii (yksin) | Tallentuvat tietokantaan ja säilyvät, vaikka peli ja palvelin käynnistetään uudelleen |
-| Varmuuskopiot | Toimii meidän palvelinkoneellamme | Joka tunti sekä aina palvelimen käynnistyessä ja sammuessa. Palautus on kokeiltu. Varmuuskopio-ohjelmat eivät ole vielä tässä koodivarastossa ([ohje oman varmuuskopion tekemiseen](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html#back-up-the-database)). |
-| Kavereiden asennuspaketti | Valmis | Tarkistaa tiedostot ja käynnistää pelin. Odottaa Tailscalea ja kutsukoodeja. |
 | Pelaajan taso, mestaruus ja Hunt Pass (palkintojärjestelmä) | Toimii (yksin), oletuksena päällä | Alkavat alusta (Slayer-taso 1, ei mestaruutta, tyhjä Hunt Pass) ja tallentuvat; jokaisella tilillä on Elite Hunt Pass. Kokeiltu pelissä testitilillä, myös palvelimen uudelleenkäynnistyksen yli. `PROGRESSION_MODE=stub` palauttaa alkuperäisen kiinteän tason 50 ([päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html)) |
-| Pelaaminen kavereiden kanssa internetin yli | Ei vielä (M1) | Suunnitelma: Tailscale (ohjelma, joka yhdistää kavereiden koneet yksityiseen verkkoon) |
-| Pelaajaryhmät ja kaverilista | Ei vielä | |
+| Palvelin vuokratulla koneella | Käynnissä | [Windows-palvelinpaketti](https://mixutin.github.io/dauntless-revived/fi/setup/windows-server.html) asennettiin vuokratulle Windows Server 2019 -virtuaalipalvelimelle julkiseen tilaan 21.–22.9.2026. Siellä tarkistettu: palvelinkokonaisuus käynnistyy koneen käynnistyessä palvelutilillä, Ramsgate pyörii ja lähettää elonmerkkejä (heartbeat), yhdyskäytävä vastaa internetistä kiinnitetyllä varmenteella, ja tunnin välein otettava varmuuskopio toimii |
+| Kaverikäynnistin | Julkaistu | CI julkaisi ensimmäisen version, 0.1.0:n, [GitHubin julkaisuihin](https://github.com/mixutin/dauntless-revived/releases/latest) `SHA256SUMS.txt`-tiedoston ja käännöksen alkuperätodistuksen (build provenance attestation) kanssa; asennetut käynnistimet päivittävät itsensä. Omistaja rekisteröityi sillä vuokratulle palvelimelle ja latasi pelin yhdyskäytävän kautta. Ei vielä allekirjoitettu |
+| Pelaaminen kavereiden kanssa internetin yli | Ensimmäinen oikea testi käynnissä | Kahden pelaajan testi kaverin kanssa vuokratulla palvelimella on alkamassa. Ennen kuin se on tehty, emme väitä, että Ramsgate kahdella pelaajalla, ryhmät tai metsästykset toimivat internetin yli |
+| Pelaajaryhmät ja kaverilista | Rakennettu, ei vielä kokeiltu pelissä | Palvelimen puoli: ryhmäkutsut, hyväksyminen ja hylkääminen, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle metsästyspalvelimelle, yhdessä takaisin Ramsgateen, haku nimellä sekä SQLiteen tallentuva kaverilista ja estolista. Läpäisee integraatiotestit simuloiduilla pelaajilla; ei vielä kokeiltu kahdella oikealla peliohjelmalla. Kutsuminen ei vaadi kaveruutta. Kavereiden näkyminen paikalla vaatii chat-palvelimen, jota ei ole vielä rakennettu |
+| Varmuuskopiot | Toimii palvelimillamme | Joka tunti sekä aina palvelimen käynnistyessä ja sammuessa. Windows-palvelinpaketissa on oma varmuuskopiotehtävä (käynnissä vuokratulla palvelimella). Alkuperäisen palvelinkoneemme varmuuskopio-ohjelmat, joilla palautus on kokeiltu, eivät ole tässä koodivarastossa ([ohje oman varmuuskopion tekemiseen](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html#back-up-the-database)) |
+| Kavereiden asennuspaketti | Valmis | Vain Tailscalea käyttävä varavaihtoehto: tiedostot tarkistava asennus ja käynnistys. Kukaan kaveri ei ole vielä käyttänyt sitä |
 | Bounty-tehtävät (lisätehtävät, joista saa palkintoja) | Ei vielä | Tallentuvat oikean etenemisen kanssa; valintaa ja lunastusta ei ole vielä kokeiltu pelissä |
-| Tekstichat | Ei vielä | Suunniteltu: pieni oma viestipalvelin (XMPP) |
+| Tekstichat | Ei vielä | Ei rakennettu. Suunniteltu: pieni viestipalvelin (XMPP). Käytä sillä välin Discordia |
 | Useampi varustesarja | Ei vielä | Paikkojen avaukset tallentuvat oikean etenemisen kanssa; lisäpaikkoja ei ole vielä kokeiltu pelissä |
 
 Tarkka tehtävälista on tiedostossa [ROADMAP.md](ROADMAP.md) (englanniksi). Lyhyempi selitys suomeksi on
@@ -98,6 +103,8 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 | [Ohjesivusto englanniksi](https://mixutin.github.io/dauntless-revived/) | Samat ohjesivut englanniksi (in English) |
 | [Asennusohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/) | Oman palvelimen pystytys, kaverina liittyminen, palvelin ryhmälle ja ongelmien ratkaisu |
 | [Tekninen viite](https://mixutin.github.io/dauntless-revived/fi/reference/) | Jokainen asetus, portti, HTTP-reitti, tiedosto ja skripti oletusarvoineen palvelimen ylläpitäjille ja kehittäjille |
+| [Windows-palvelinpaketti](https://mixutin.github.io/dauntless-revived/fi/setup/windows-server.html) | Aina päällä oleva palvelin vuokratulla Windows Server 2019 -koneella yhdellä komennolla asennettuna, julkisessa tai yksityisessä tilassa |
+| [Käynnistimen lataus](https://github.com/mixutin/dauntless-revived/releases/latest) | Dauntless Revived Launcher kutsutuille kavereille ja `SHA256SUMS.txt` |
 | [Kavereiden asennuspaketti](friend-kit/) | Kertaluonteinen asennus ja pelin käynnistin kutsutuille pelaajille ([ohje](https://mixutin.github.io/dauntless-revived/fi/setup/friends.html)) |
 | [Tehtävälista](ROADMAP.md) | Välitavoitteet M0–M4 ja mitä on jo tehty |
 | [Usein kysytyt kysymykset](https://mixutin.github.io/dauntless-revived/fi/faq.html) | Lyhyet vastaukset yleisiin kysymyksiin |
@@ -106,21 +113,29 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 ## Miten tämä toimii
 
 1. Jokainen pelaaja käynnistää alkuperäisen, muuttamattoman 1.4.4-pelin. Pelin kansiossa on kaksi Undauntedin DLL-tiedostoa, jotka ohjaavat pelin yhteydet omalle palvelimellesi.
-2. **Metagame** on taustapalvelin eli ohjelma, jonka kanssa peli keskustelee taustalla (TypeScript, Express ja SQLite-tietokanta, portti 61000; portti on kuin oven numero verkossa). Se hoitaa tilit, hahmot, tavarat, varusteet ja pelien järjestämisen (matchmaking).
+2. **Metagame** on taustapalvelin eli ohjelma, jonka kanssa peli keskustelee taustalla (TypeScript, Express ja SQLite-tietokanta, portti 61000; portti on kuin oven numero verkossa). Se hoitaa tilit, hahmot, tavarat, varusteet, etenemisen, pelien järjestämisen (matchmaking), pelaajaryhmät ja kaverilistan.
 3. **Deploy server** (portti 61001, vain palvelinkoneella) käynnistää pelipalvelimia tarpeen mukaan. Ne ovat saman pelin kopioita, jotka DLL-tiedosto muuttaa palvelimiksi.
-4. Pelipalvelimet (UDP-portit 8770–8777) pyörittävät Ramsgatea, metsästyksiä ja harjoitussalia. Kaverit on tarkoitus tuoda mukaan Tailscalen kautta.
+4. Pelipalvelimet (UDP-portit 8770–8777: Ramsgate portissa 8777, harjoitussali portissa 8776 ja enintään 6 metsästystä porteissa 8770–8775) pyörittävät itse peliä.
+5. Kaverit yhdistävät kahdella tavalla. **Yksityisessä tilassa** he tulevat palvelinkoneelle Tailscalen kautta. **Julkisessa tilassa** ([Windows-palvelinpaketin](https://mixutin.github.io/dauntless-revived/fi/setup/windows-server.html) oletus) salattu **yhdyskäytävä** (gateway) on pelin ainoa julkinen TCP-portti: kaverikäynnistin tarkistaa sen varmenteen kutsun sormenjälkeä vasten, ja pelin UDP-portit avautuvat vain kirjautuneiden pelaajien osoitteille. Sen takana oleva **sisältöpalvelin** antaa pelitiedostot rekisteröityneille tileille, ja käynnistin tarkistaa jokaisen tiedoston siihen sisäänrakennettua listaa vasten.
 
 ## Mitä projektissa on
 
+Osien kansiot pitävät toistaiseksi alkuperäiset `Undaunted...`-nimensä (niiden nimeäminen uudelleen on
+tehtävälistan kohta 4.15); niissä olevien npm-pakettien nimet ovat `dauntless-revived-*`.
+
 | Kansio | Mikä se on |
 |---|---|
-| `UndauntedMetagame/` | Taustapalvelin, jonka kanssa peli keskustelee: tilit, hahmot, tavarat, varusteet, eteneminen ja pelien järjestäminen |
+| `UndauntedMetagame/` | Taustapalvelin, jonka kanssa peli keskustelee: tilit, hahmot, tavarat, varusteet, eteneminen, pelien järjestäminen, pelaajaryhmät, kaverilista ja ylläpitorajapinta `/undaunted/api` |
 | `UndauntedDeployServer/` | Käynnistää ja valvoo pelipalvelimia (Ramsgate, metsästykset, harjoitussali) |
-| `UndauntedInternalServer/` | DLL-tiedosto, jonka avulla peli toimii pelipalvelimena ja joka ohjaa pelaajat omalle taustapalvelimelle |
-| `UndauntedLauncher/` | Dauntless Revived Launcher: kutsuttujen kavereiden Windows-sovellus, pohjana alkuperäisen Undaunted-projektin käynnistin |
-| `friend-kit/` | Asennus- ja käynnistysohjelmat kavereiden koneille |
-| `tools/` | `make-friend-kit.ps1` kokoaa kavereiden asennuspaketin; `sync-roadmap.js` kopioi tehtävälistan ohjesivustolle |
-| `docs/` | Ohjesivusto (GitHub Pages) |
+| `UndauntedGateway/` | Vain julkisessa tilassa: salattu yhdyskäytävä (pelin ainoa julkinen TCP-portti) ja apuohjelma, joka avaa peliportit kirjautuneille pelaajille |
+| `UndauntedContent/` | Sisältöpalvelin: pelitiedostot (tarkistetaan 410 tiedoston luetteloa vasten), uutiset ja kuvapaketti, vain rekisteröityneille käynnistimille |
+| `UndauntedLauncher/` | Dauntless Revived Launcher: kutsuttujen kavereiden Windows-sovellus, pohjana alkuperäisen Undaunted-projektin käynnistin. Kansiossa `assets/` ovat ne kaksi tiivisteillä kiinnitettyä valmista DLL-tiedostoa, jotka jokainen asennustapa asentaa |
+| `UndauntedInternalServer/` | Undauntedin palvelin-DLL:n C++-lähdekoodi. DLL:n avulla peli toimii pelipalvelimena, ja se ohjaa pelaajat omalle taustapalvelimelle. Mikään tässä koodivarastossa ei käännä sitä; jokainen asennustapa käyttää valmiita DLL-tiedostoja kansiosta `UndauntedLauncher/assets/` |
+| `deploy/windows-server/` | Windows-palvelinpaketti: asentaa ja pyörittää koko palvelimen Windows Server 2019 -koneella julkisessa tai yksityisessä tilassa, varmuuskopioineen, kutsuineen ja päivityksineen |
+| `friend-kit/` | Vain Tailscalea käyttävät asennus- ja käynnistysohjelmat kavereiden koneille |
+| `tools/` | `sync-roadmap.js` ja `build-llms.js` (ohjesivuston tuotetut tiedostot), `make-friend-kit.ps1`, `make-game-manifest.js` sekä kansiossa `ci/` CI:n tarkistukset |
+| `docs/` | Ohjesivusto (GitHub Pages); suomenkieliset sivut ovat kansiossa `docs/fi/` |
+| `.github/` | CI:n työnkulut (`ci.yml`, `launcher-release.yml`), Dependabot sekä ilmoitus- ja muutospyyntöpohjat |
 | `ROADMAP.md` | Suunnitelma ja tehtävälista |
 
 ## Muutokset alkuperäiseen Undauntediin
@@ -134,8 +149,27 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 - Harjoitussali käynnistyy vasta, kun joku menee sinne, eikä heti alussa (`ENABLE_DOJO=1` palauttaa
   vanhan toiminnan).
 - Kirjautumistunnisteet poistetaan lokista. Valinnainen tallennus (`LOG_BODIES=1`) kirjaa, mitä peli
-  lähettää niihin tallennuksiin, jotka eivät vielä toimi. Kustakin pyynnöstä tallennetaan enintään 8 kt, ja
-  tunnisteet poistetaan.
+  lähettää niihin tallennuksiin, jotka eivät vielä toimi. Kustakin pyynnöstä tallennetaan enintään 8 kt
+  (`/inventory`-pyynnöistä 64 kt), ja tunnisteet poistetaan. Windows-palvelinpaketti pitää sen pois
+  päältä julkisessa tilassa.
+- **Turvallisemmat tallennukset.** Hahmon tallennus tehdään yhtenä tapahtumana (transaktio), ja
+  vanhentunut versio hylätään (409). Kahdesti saapuva tavaratapahtuma tehdään vain kerran, ja jokainen
+  tavaramuutos kirjataan lokiin, jota ei voi muuttaa jälkikäteen. Hahmon ja varustesarjan aiempaan
+  versioon voi palata ylläpitorajapinnan kautta. Alkuperäinen versio ei myöskään kertonut peliin
+  tapahtuman jälkeen poistetuista pinoista, joten käytetyt Ramsit ja materiaalit jäivät näkyviin ja
+  toinen päivitys meni läpi ilmaiseksi; tämä on korjattu.
+- **Käyttäjänimet ja kutsut.** Nimessä on 3–16 kirjainta, numeroa tai alaviivaa, se on yksilöllinen
+  isoista ja pienistä kirjaimista riippumatta, ja se tarkistetaan yhdessä kutsukoodin kanssa.
+  Ylläpitäjä voi vaihtaa pelaajan nimen.
+- **Oikeuksien tarkistus jokaisessa reitissä.** Pelaaja voi lukea ja muuttaa vain omaa tiliään ja omia
+  hahmojaan. Pelipalvelimien reitit vaativat pelipalvelimen avaimen ja suoran yhteyden samalta koneelta.
+- **Pelaajaryhmät ja kaverilista** (palvelimen puoli, ei vielä kokeiltu kahdella oikealla
+  peliohjelmalla): kutsut, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle
+  metsästyspalvelimelle ja yhdessä takaisin Ramsgateen, haku nimellä sekä SQLiteen tallentuva
+  kaverilista ja estolista.
+- **Palvelimen tila käynnistimelle.** Lista paikalla olevista pelaajista ja käynnissä olevista
+  metsästyksistä näytetään vain rekisteröityneille pelaajille. `/dauntless-status` kertoo palvelimen
+  nimen, version, lähdekoodin osoitteen ja koodiversion (AGPL:n takia), mutta ei pelaajamäärää.
 - **Oikea eteneminen oletuksena.** Alkuperäinen versio vastasi etenemistä koskeviin kyselyihin
   kiinteällä mallilla (jokainen tili tasolla 50, Hunt Passissa ei mitään lunastettavaa ja Elite-rata
   todennäköisesti lukittuna) eikä tallentanut mitään. Meidän metagamemme tallentaa Slayer-tason, mestaruuden
@@ -148,15 +182,38 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
   rekisteröi pelaajan ja ohjaa pelin chat-yhteyden palvelinkoneelle, jotta peli ei ota yhteyttä
   Epicin vanhaan chat-palvelimeen. Paketin mukana tulevat lisenssi, muiden tekijöiden
   tekijänoikeustiedot ja `SOURCE.txt`, joka kertoo tarkan koodiversion.
+- Oma **kaverikäynnistin** (`UndauntedLauncher/`), tehty alkuperäisen käynnistimen pohjalta, joka oli
+  kytketty kiinteästi Undauntedin omiin palvelimiin. Se liittyy palvelimelle kutsulla, rekisteröi
+  pelaajan (avain tallennetaan vain Windowsin DPAPI-suojauksella), lataa pelin isännältä ja tarkistaa
+  jokaisen tiedoston siihen sisäänrakennettua luetteloa vasten, asentaa kaksi kiinnitettyä
+  DLL-tiedostoa ja pelin asetukset sekä välittää julkisessa tilassa pelin salaamattomat HTTP-kutsut salattuna yhteytenä, joka on kiinnitetty
+  kutsun varmenteeseen. CI julkaisee jokaisen uuden version GitHubin julkaisuihin, ja asennetut
+  käynnistimet päivittävät itsensä.
+- **Sisältöpalvelin** (`UndauntedContent/`), joka antaa pelitiedostot vain rekisteröityneille tileille
+  ja jatkaa keskeytyneitä latauksia, sekä julkisen tilan **yhdyskäytävä** (`UndauntedGateway/`): pelin
+  ainoa julkinen TCP-portti, salaus kiinnitetyllä itse allekirjoitetulla varmenteella, ylläpitoreitit ja
+  pelipalvelimen avain torjutaan ulkopuolelta, pyyntöjen koko- ja määrärajat sekä apuohjelma, joka
+  avaa pelin UDP-portit vain kirjautuneiden pelaajien osoitteille.
+- **Windows-palvelinpaketti** (`deploy/windows-server/`): yksi komento omalta koneelta asentaa koko
+  palvelimen Windows Server 2019 -koneelle pelkällä avaimella toimivan SSH-yhteyden yli. Mukana ovat
+  vähäoikeuksinen palvelutili, käynnistys koneen käynnistyessä, valvonta, tunnin välein otettavat
+  varmuuskopiot, kutsut ja päivitykset.
+- Metsästyspalvelimet käynnistyvät konsoli-ikkuna piilotettuna.
+- **CI** jokaisesta muutoksesta: jokaisen paketin käännös ja testit, palvelinpaketin testit,
+  ohjesivuston käännös ja tarkistus, ettei projektiin ole lisätty salaisuuksia, avaimia, tietokantoja
+  tai pelitiedostoja.
+- **Oma nimi.** Kaikessa, mitä pelaaja näkee, lukee Dauntless Revived. Kansiot, `/undaunted/api`-reitit
+  ja `x-undaunted-*`-otsakkeet pitävät toistaiseksi Undaunted-nimet (tehtävälistan kohta 4.15).
 - **Ohjesivusto** kansiossa `docs/`, osoitteessa
-  [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/):
-  asennusohjeet, tutkimustulokset pelin taustapalveluista ja tehtävälista.
+  [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/), englanniksi ja
+  suomeksi: asennusohjeet, tekninen viite jokaisesta asetuksesta, portista, reitistä ja tiedostosta,
+  tutkimustulokset pelin taustapalveluista ja tehtävälista.
 
-Varmuuskopiot eivät ole vielä mukana. Meidän palvelinkoneellamme tietokannasta (tiedostosta, johon
-pelaajien tavarat tallentuvat) otetaan varmuuskopio joka tunti, ja jokainen kopio tarkistetaan
-(tehtävälistan kohta 0.1). Nämä varmuuskopio-ohjelmat eivät kuitenkaan ole vielä tässä
-koodivarastossa. Metagame ei itse ota varmuuskopioita. Jos pystytät oman palvelimen, huolehdi
-varmuuskopioista itse. Ohje on sivulla
+Varmuuskopiot: Windows-palvelinpaketti ottaa ne itse (joka tunti sekä aina käynnistyksen ja
+pysäytyksen yhteydessä), ja jokainen tietokannan kopio tarkistetaan `PRAGMA integrity_check`
+-komennolla. Alkuperäisellä palvelinkoneellamme on omat varmuuskopio-ohjelmansa (tehtävälistan kohta
+0.1), jotka eivät ole tässä koodivarastossa. Metagame ei itse ota varmuuskopioita. Jos pystytät
+palvelimen käsin, huolehdi varmuuskopioista itse. Ohje on sivulla
 [Palvelin ryhmälle](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html#back-up-the-database).
 
 ## Tietoturva
@@ -164,7 +221,11 @@ varmuuskopioista itse. Ohje on sivulla
 - Metagame ja deploy server kuuntelevat oletuksena vain osoitetta `127.0.0.1` eli omaa konetta.
 - Deploy serverissä **ei ole tunnistusta**. Se on tehty niin tarkoituksella. Älä koskaan avaa sitä
   muiden koneiden käyttöön.
-- Kaverit on tarkoitus yhdistää Tailscalen kautta, ei avoimen internetin yli.
+- Kaverit yhdistävät joko Tailscalen kautta (yksityinen tila) tai yhdyskäytävän kautta (julkinen tila).
+  1.4.4-peli itse käyttää salaamatonta HTTP:tä, joten julkisessa tilassa se keskustelee vain pelaajan
+  omalla koneella olevan käynnistimen kanssa, ja käynnistin välittää liikenteen salattuna palvelimen
+  varmenteeseen kiinnitettyä yhteyttä pitkin. Palvelimen pelipalveluista vain yhdyskäytävän TCP-portti
+  on auki kaikille; pelin UDP-portit avautuvat vain kirjautuneille pelaajille.
 
 Löysitkö tietoturva-aukon (virheen, jota joku voisi käyttää väärin)? Ilmoita siitä yksityisesti
 [tästä linkistä](https://github.com/mixutin/dauntless-revived/security/advisories/new), älä

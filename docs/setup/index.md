@@ -28,9 +28,11 @@ this setup, because Undaunted's server DLL hooks fixed addresses inside the 1.4.
 You need **your own copy** of the 1.4.4 client. This site and the repository contain no game files and
 do not link to downloads.
 
-**Status.** The host setup is what we run today, on loopback, for the owner alone. Opening it to
-friends over Tailscale is the configuration we are switching to. It is documented, but it has not
-been run end to end yet, and those pages say so where it matters.
+**Status (22 September 2026).** The host setup is what we run on the owner's PC, on loopback, for the
+owner alone. For friends we use the [Windows server kit]({{ winserver_page.url | relative_url }}) in
+public mode: it is deployed on a rented Windows Server 2019 VPS, and the first test with a friend is in
+progress. Opening a host PC to friends over Tailscale is documented, but it has not been run end to
+end yet, and those pages say so where it matters.
 
 ## Pages
 
@@ -39,7 +41,7 @@ been run end to end yet, and those pages say so where it matters.
 | [Host a server]({{ host_page.url | relative_url }}) | The person running the server | Verifying the build, installing it at a short path, placing the two DLLs with pinned hashes, the config files, starting the metagame and deploy server, first-boot checks, launching the client, and stopping everything. Ends with a one-page start checklist. |
 | [Join as a friend]({{ friends_page.url | relative_url }}) | An invited player | Tailscale, checking your game files, copying the two DLLs, registering for a personal account key, launching, and what works right now. |
 | [Run it for a group]({{ admin_page.url | relative_url }}) | The host, once the stack runs locally | Tailscale sharing, firewall rules scoped to the Tailscale interface, switching addresses, invite codes and accounts, the admin API, capacity, and database backups. Target configuration, not yet tested end to end. |
-| [Windows server kit]({{ winserver_page.url | relative_url }}) | The host, for an always-on rented server | One command from your PC installs everything on a Windows Server 2019 VPS over key-only SSH. Public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players. Invites, updates with rollback, backups, uninstall. Tested in sandbox mode, not yet on a real server. |
+| [Windows server kit]({{ winserver_page.url | relative_url }}) | The host, for an always-on rented server | One command from your PC installs everything on a Windows Server 2019 VPS over key-only SSH. Public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players. Invites, updates with rollback, backups, uninstall. Deployed on a rented server in public mode on 21–22 September 2026; the first test with a friend is in progress. |
 | [Troubleshooting]({{ trouble_page.url | relative_url }}) | Everyone | Problems we actually hit, with causes and fixes. A few entries come from reading the code and are marked as such. |
 | [Upgrade notes]({{ upgrade_page.url | relative_url }}) | The host, before updating a server that already has players | What each update changes for players and what to decide first. Now: real progression is on by default, so earlier players start at Slayer level 1 unless you keep their max ranks or stay on the stub. |
 

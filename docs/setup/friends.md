@@ -21,19 +21,33 @@ edits or certificates. All traffic goes over a private Tailscale connection to t
 `dauntless-revived://join?...` line (a public server on a rented machine), you do not need Tailscale or
 the manual steps below. Install the launcher from
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
-(`DauntlessRevivedLauncher-Setup.exe`; it is unsigned, so Windows SmartScreen warns the first time:
-**More info > Run anyway**), paste the invite line, and it does everything. If you already have an
-account key, choose **"I already have an account key"** and paste your `account.key` instead of
-registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale path.
+(`DauntlessRevivedLauncher-Setup.exe`), paste the invite line, and it does everything. If you already
+have an account key, choose **"I already have an account key"** and paste your `account.key` instead
+of registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale
+path.
+
+**If Windows blocks the installer.** The launcher is not code-signed yet, so Windows SmartScreen warns
+the first time: **More info > Run anyway**. On a PC set to block unrecognised apps, SmartScreen blocks
+it outright and there is no Run anyway. Then:
+
+1. Download `SHA256SUMS.txt` from the same release and check the installer against it. In PowerShell,
+   in the folder you downloaded to, `Get-FileHash .\DauntlessRevivedLauncher-Setup.exe` must print
+   the same SHA-256 as the file's line in `SHA256SUMS.txt`. If it does not, delete the file and do
+   not run it.
+2. Unblock the file: right-click it > **Properties** > tick **Unblock** > **OK**, or run
+   `Unblock-File .\DauntlessRevivedLauncher-Setup.exe` in PowerShell.
+3. Run it again.
 
 Everything on this page is about **build 1.4.4**. The final client, 2.1.1 ("Awakening", UE5), does not
 work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 executable, so it only
 works with that exact build. That is also why every step below checks a hash.
 
-**Status.** As of this writing no friend has connected yet. The host side is still being switched over
-to Tailscale (see [Run it for a group]({{ admin_page.url | relative_url }})). The steps below are what we
-will ask friends to do. The login, tutorial and Ramsgate path has so far been tested only on the host's
-own PC, with the host's own account.
+**Status (22 September 2026).** No friend has played on our server yet. Our server for friends runs
+in public mode on a rented machine: the owner has registered there with the launcher and downloaded the
+game through its gateway, and the first test with a friend is starting. The manual Tailscale path on
+this page has not been used by a friend yet (see [Run it for a group]({{ admin_page.url | relative_url }})).
+The login, tutorial and Ramsgate path has so far been played only on the host's own PC, with the
+host's own account.
 
 **The short way: the friend kit.** The host can give you a small zip, built from the repository's
 [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit) folder. After step 1,
@@ -343,14 +357,19 @@ This is a small private revival and a work in progress. As of this writing:
   1) and are saved, on a server that runs the current code with its default settings. Every account
   owns the Elite Hunt Pass. Behemoth mastery has not been seen in the game yet. On a server that ran
   an older version, your level may start over at 1 after the update: ask your host.
-- Parties and the friends list do not work yet: the game shows "0 ONLINE FRIENDS". To end up in the
-  same hunt, queue for the same hunt at about the same time. The matchmaker collects players who queue
-  for the same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with
-  nobody new joining.
+- Parties and the friends list are built on the server and pass our integration tests with
+  simulated players, but they have not been tried with two real game clients yet; the first test is
+  starting. You don't have to be friends to invite someone to a party. Friends do not show as online
+  yet, because that needs the chat server, which is not built. Until parties are proven, you can also
+  queue for the same hunt at about the same time: the matchmaker collects players who queue for the
+  same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with nobody new
+  joining.
+- There is no text chat yet. Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
   been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
-- When the host's PC is off, the server is off.
+- A server hosted on someone's PC is off when that PC is off. A server on a rented machine does not
+  depend on anyone's PC.
 
 ## Troubleshooting
 

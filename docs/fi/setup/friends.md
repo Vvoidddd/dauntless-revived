@@ -24,11 +24,22 @@ varmenteita. Kaikki liikenne kulkee yksityisen Tailscale-yhteyden kautta isänn�
 `dauntless-revived://join?...`-rivin (julkinen palvelin vuokrakoneella), et tarvitse Tailscalea etkä alla
 olevia käsivaiheita. Asenna käynnistin osoitteesta
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
-(`DauntlessRevivedLauncher-Setup.exe`; sitä ei ole allekirjoitettu, joten Windows SmartScreen varoittaa
-ensimmäisellä kerralla: **Lisätietoja > Suorita silti**), liitä kutsurivi, niin se hoitaa kaiken. Jos
-sinulla on jo tiliavain, valitse **"Minulla on jo tiliavain"** ja liitä `account.key`-tiedostosi
-rekisteröitymisen sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaiheinen
-Tailscale-polku.
+(`DauntlessRevivedLauncher-Setup.exe`), liitä kutsurivi, niin se hoitaa kaiken. Jos sinulla on jo
+tiliavain, valitse **"Minulla on jo tiliavain"** ja liitä `account.key`-tiedostosi rekisteröitymisen
+sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaiheinen Tailscale-polku.
+
+**Jos Windows estää asennusohjelman.** Käynnistintä ei ole vielä allekirjoitettu, joten Windows
+SmartScreen varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. Koneella, jossa
+tunnistamattomat sovellukset on asetettu estettäviksi, SmartScreen estää sen kokonaan, eikä Suorita
+silti -vaihtoehtoa ole. Tee silloin näin:
+
+1. Lataa samasta julkaisusta `SHA256SUMS.txt` ja tarkista asennusohjelma sitä vasten. Aja
+   PowerShellissä latauskansiossa `Get-FileHash .\DauntlessRevivedLauncher-Setup.exe`: sen on
+   näytettävä sama SHA-256 kuin tiedoston rivillä `SHA256SUMS.txt`-tiedostossa. Jos se ei täsmää,
+   poista tiedosto äläkä aja sitä.
+2. Poista esto: napsauta tiedostoa hiiren oikealla > **Ominaisuudet** > rastita **Poista esto** >
+   **OK**, tai aja PowerShellissä `Unblock-File .\DauntlessRevivedLauncher-Setup.exe`.
+3. Käynnistä se uudelleen.
 
 Kaikki tällä sivulla koskee **versiota 1.4.4**. Pelin viimeinen versio, 2.1.1 (”Awakening”, UE5), ei
 toimi tässä: `UndauntedInternalServer.dll` muokkaa kiinteitä muistiosoitteita 1.4.4:n
@@ -36,10 +47,12 @@ ohjelmatiedoston sisällä, joten se toimii vain juuri sen version kanssa. Siksi
 vaihe myös tarkistaa tiivisteen (hash). Tiiviste on tiedoston sisällöstä laskettu sormenjälki: jos
 tiedostosta muuttuu yksikin tavu, tiiviste muuttuu.
 
-**Tilanne.** Tätä kirjoitettaessa yksikään kaveri ei ole vielä liittynyt palvelimelle. Isännän puolta ollaan
-vielä siirtämässä Tailscaleen (katso [Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Alla
-olevat vaiheet ovat se, mitä tulemme pyytämään kavereita tekemään. Kirjautumista, opetusjaksoa ja
-Ramsgatea on toistaiseksi testattu vain isännän omalla koneella ja isännän omalla tilillä.
+**Tilanne (22.9.2026).** Yksikään kaveri ei ole vielä pelannut palvelimellamme. Kavereille tarkoitettu
+palvelimemme pyörii julkisessa tilassa vuokratulla koneella: omistaja on rekisteröitynyt sinne
+käynnistimellä ja ladannut pelin sen yhdyskäytävän kautta, ja ensimmäinen testi kaverin kanssa on
+alkamassa. Tämän sivun käsivaiheista Tailscale-polkua ei ole vielä käyttänyt yksikään kaveri (katso
+[Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Kirjautumista, opetusjaksoa ja Ramsgatea on
+toistaiseksi pelattu vain isännän omalla koneella ja isännän omalla tilillä.
 
 **Lyhyt tapa: kaveripaketti.** Isäntä voi antaa sinulle pienen zip-tiedoston, joka on koottu
 repositorion [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit)-kansiosta.
@@ -364,17 +377,22 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   ja tallentuvat, kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt
   Pass. Hirviöiden mestaruutta ei ole vielä nähty pelissä. Jos palvelimella oli aiemmin vanhempi
   versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä: kysy isännältä.
-- Ryhmät (parties) ja kaverilista eivät vielä toimi: peli näyttää ”0 ONLINE FRIENDS”. Jos haluatte
-  päästä samaan metsästykseen, jonottakaa siihen suunnilleen samaan aikaan. Matchmaker
+- Ryhmät (parties) ja kaverilista on rakennettu palvelimelle, ja ne läpäisevät integraatiotestimme
+  simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla;
+  ensimmäinen testi on alkamassa. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä
+  näy paikalla olevina, koska se vaatii chat-palvelimen, jota ei ole rakennettu. Ennen kuin ryhmät on
+  todettu toimiviksi, voitte myös jonottaa samaan metsästykseen suunnilleen samaan aikaan. Matchmaker
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja
   käynnistää heille yhden palvelimen, kun neljä on liittynyt tai kun 20 sekuntia kuluu ilman, että
   kukaan uusi liittyy.
+- Tekstichattia ei vielä ole. Käytä Discordia.
 - Palkkiotehtävät (bounties) ja odotusajat (cooldowns) tallentuvat, mutta palkkiotehtävän valitsemista
   ja lunastamista sekä vuorokauden vaihdetta ei ole vielä kokeiltu pelissä. Escalation-sarjat ovat
   vain tynkiä, jotka eivät oikeasti tallenna mitään, eivätkä ne säily pelikerrasta toiseen.
 - Äänichat toimi Vivoxilla, joka on maksullinen ulkopuolinen palvelu, eikä se voi palata. Käytä
   Discordia.
-- Kun isännän kone on sammutettu, palvelinkin on poissa päältä.
+- Jonkun omalla koneella pyörivä palvelin on poissa päältä, kun se kone on sammutettu. Vuokratulla
+  koneella pyörivä palvelin ei riipu kenenkään omasta koneesta.
 
 ## Vianetsintä {#troubleshooting}
 

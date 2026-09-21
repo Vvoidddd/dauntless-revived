@@ -54,8 +54,9 @@ molemmista versioista, on kirjoitettu tälle sivustolle.
 
 ## Tilanne nyt {#current-status}
 
-Tilanne syyskuussa 2026. Kaikki tämän osion tiedot koskevat **1.4.4**-peliohjelmaa. Tähän mennessä
-sitä on testattu yhdellä tietokoneella: omistaja on pelannut yksin.
+Tilanne 22.9.2026. Kaikki tämän osion tiedot koskevat **1.4.4**-peliohjelmaa. Itse peliä on tähän
+mennessä pelannut yksi ihminen, omistaja, yksin palvelinkoneella. Vuokratulla koneella pyörii
+palvelin, ja ensimmäinen testi kaverin kanssa internetin yli on käynnissä.
 
 ### Mikä toimii {#what-works}
 
@@ -67,6 +68,8 @@ sitä on testattu yhdellä tietokoneella: omistaja on pelannut yksin.
 | Metsästyspalvelimet | Toimii (yksin) | Deploy-palvelin käynnistää yhden pelipalvelimen jokaista metsästystä varten. Meidän kokoonpanossamme yksi pelaaja on pelannut opetusjakson metsästyksen, tavallisen metsästyksen (Lesser Boreus) ja takaa-ajon (pursuit). Undauntedin historian mukaan neljän pelaajan metsästykset ovat toimineet samalla peliversiolla, mutta me **emme ole vielä testanneet** metsästyksiä useamman kuin yhden pelaajan kanssa. |
 | Tavaroiden ja varustesarjojen tallennus | Toimii (yksin) | Materiaalit, Ramsit (pelin raha, todennäköisesti `CURRENCY_NOTES`-pino), valmistetut ja saadut varusteet, ensimmäinen varustesarja (loadout) sekä hahmon tiedot (tehtävien eteneminen, opetusjakson tila, liput, ulkonäkö) tallennetaan SQLite-tietokantaan. Metsästyksistä saatu saalis tallentuu. Tiedot säilyvät, vaikka peliohjelma tai koko palvelin käynnistetään uudelleen. Toistaiseksi tätä on testannut vain yksi pelaaja. |
 | Slayer-taso, mestaruus ja Hunt Pass | Toimii (yksin), oletuksena päällä | Oikea eteneminen (progression): Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (kauden palkintorata) alkavat alusta (Slayer-taso 1) ja tallentuvat. Jokaisella tilillä on Elite Hunt Pass, ja tasopalkinnot annetaan kerran. Slayer-tasoa, aseiden mestaruutta ja Hunt Passia on testattu pelissä kertakäyttöisellä testitilillä, myös koko palvelimen uudelleenkäynnistyksen yli; hirviöiden mestaruus käyttää samaa tallennusta, mutta sitä ei ole vielä nähty pelissä. `PROGRESSION_MODE=stub` palauttaa alkuperäisen projektin kiinteän tason 50. |
+| Palvelin vuokratulla koneella | Käynnissä | [Windows-palvelinpaketti]({{ '/fi/setup/windows-server.html' | relative_url }}) asennettiin vuokratulle Windows Server 2019 -virtuaalipalvelimelle julkiseen tilaan 21.–22.9.2026. Siellä tarkistettu: palvelinkokonaisuus käynnistyy koneen käynnistyessä paketin palvelutilillä, Ramsgate pyörii ja lähettää elonmerkkejä (heartbeat), yhdyskäytävä vastaa internetistä kiinnitetyllä varmenteella, ja tunnin välein otettava varmuuskopio toimii. Oikealle palvelimelle asentaminen paljasti kolme ongelmaa, joita hiekkalaatikkotestit eivät voineet löytää, ja ne kaikki on korjattu paketissa: palvelutilin kuvauksen 48 merkin enimmäispituus, Windows-levykuva, joka ei hyväksy ilman tallennettua salasanaa ajettavia ajastettuja tehtäviä (”S4U”) muille kuin ylläpitäjille, ja palveluntarjoajan levykuva, joka piti Windowsin palomuurin pois päältä käytäntöarvoilla. |
+| Kaverikäynnistin | Julkaistu | CI julkaisi ensimmäisen version, 0.1.0:n, [GitHubin julkaisuihin](https://github.com/mixutin/dauntless-revived/releases/latest) `SHA256SUMS.txt`-tiedoston ja käännöksen alkuperätodistuksen (build provenance attestation) kanssa. Asennetut käynnistimet päivittävät itsensä. Omistaja rekisteröityi sillä vuokratulle palvelimelle ja latasi pelin yhdyskäytävän kautta. Käynnistintä ei ole vielä allekirjoitettu. |
 
 Palvelinkoneella (tietokone, jolla palvelin pyörii) mitattu kulutus oli: Ramsgate-palvelin noin 1,1 Gt
 keskusmuistia (RAM) ja noin 0,2 suoritinydintä, jokainen metsästyspalvelin noin 0,9 Gt, ja pelaajan
@@ -74,20 +77,26 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
 
 ### Mikä ei vielä toimi {#what-does-not-work-yet}
 
-- **Pelaaminen kavereiden kanssa internetin yli.** Tällä hetkellä metagame ja deploy-palvelin
-  kuuntelevat vain palvelinkoneella, ja pelipalvelimien osoitteeksi kerrotaan `127.0.0.1`, joten vain
-  isäntä voi pelata. Suunnitelma on yhdistää kaverit Tailscalella (ohjelma, joka tekee salatun,
-  yksityisen yhteyden koneiden välille) ja ottaa kutsukoodit käyttöön.
-- **Ryhmät (parties) ja kaverilista.** Ryhmä on aina ”sinä yksin”, ja kaverilistassa näkyy 0 kaveria
-  paikalla.
+- **Pelaaminen kavereiden kanssa internetin yli: ensimmäinen oikea testi on käynnissä.** Vuokratulle
+  palvelimelle kaverit liittyvät käynnistimellä ja kutsulla ilman Tailscalea. Kahden pelaajan testi
+  kaverin kanssa on alkamassa. Ennen kuin se on tehty, emme väitä, että Ramsgate kahdella pelaajalla,
+  ryhmät tai metsästykset toimivat internetin yli.
+- **Ryhmät (parties) ja kaverilista: rakennettu, ei vielä kokeiltu pelissä.** Palvelimen puoli on
+  rakennettu: ryhmäkutsut, hyväksyminen ja hylkääminen, johtajaksi nostaminen, poistaminen ja
+  lähteminen, koko ryhmän sijoittaminen samalle metsästyspalvelimelle, yhdessä palaaminen Ramsgateen,
+  pelaajien haku nimellä sekä SQLiteen tallentuva kaverilista ja estolista. Se läpäisee
+  integraatiotestimme simuloiduilla pelaajilla, mutta sitä ei ole vielä kokeiltu kahdella oikealla
+  peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät näy paikalla olevina,
+  koska se vaatii chat-palvelimen, jota ei ole vielä rakennettu.
+- **Tekstichat.** Ei rakennettu. Suunnitelma on pieni XMPP-viestipalvelin. Käytä sillä välin Discordia.
 - **Palkkiotehtävät (bounties), odotusajat (cooldowns) ja Escalation.** Oikean etenemisen kanssa
   palkkiotehtävät ja odotusajat tallentuvat tilikohtaisesti, mutta palkkiotehtävän valitsemista ja
   lunastamista pelissä sekä odotusaikoja vuorokauden vaihteen yli ei ole vielä kokeiltu. Escalationille
   on yhä vain tynkä (paikanpitäjä, joka ei oikeasti tallenna mitään), joten sen eteneminen ei siirry
   pelikerrasta toiseen.
-- **Useat varustesarjat, oman käyttäjänimen valitseminen, tervetuloviesti ja postilaatikko,
-  kausitapahtumat sekä kauppa.** Oikean etenemisen kanssa varustesarjojen paikkojen avaukset
-  tallentuvat, mutta lisäpaikkoja ei ole vielä kokeiltu pelissä.
+- **Useat varustesarjat, tervetuloviesti ja postilaatikko, kausitapahtumat sekä kauppa.** Oikean
+  etenemisen kanssa varustesarjojen paikkojen avaukset tallentuvat, mutta lisäpaikkoja ei ole vielä
+  kokeiltu pelissä.
 
 [Tiekartassa]({{ roadmap_page.url | relative_url }}) on järjestys, jossa aiomme edetä, sekä oikeissa
 pelikerroissa nähdyt virheet. Kaikki ei voi palata. Äänichat toimi Vivoxilla, joka on maksullinen
@@ -128,12 +137,20 @@ Windows-palvelinpaketilla asennettu palvelin ajaa lisäksi sisältöpalvelinta k
 varten ja julkisessa tilassa salattua yhdyskäytävää, joka on sen ainoa julkinen portti. Jokainen osa
 on kuvattu [Tekninen viite]({{ reference_page.url | relative_url }}) -osiossa.
 
-Tähänastiset muutoksemme Undauntediin ovat pieniä ja käytännöllisiä. Molemmat palvelut kuuntelevat
-nyt oletuksena vain koneen sisäisessä osoitteessa. Päällekkäinen portti on nyt selvä virhe, kun se
-ennen johti hiljaiseen sulkeutumiseen. Jokainen pyyntö kirjataan lokiin. Training Dojo (harjoitussali)
+Muutoksemme Undauntediin alkoivat pieninä ja käytännöllisinä. Molemmat palvelut kuuntelevat nyt
+oletuksena vain koneen sisäisessä osoitteessa. Päällekkäinen portti on nyt selvä virhe, kun se ennen
+johti hiljaiseen sulkeutumiseen. Jokainen pyyntö kirjataan lokiin. Training Dojo (harjoitussali)
 käynnistyy vain silloin, kun sitä tarvitaan. Eteneminen on oletuksena oikeaa, kun taas alkuperäinen
-projekti vastasi kiinteällä mallilla eikä tallentanut mitään. [Tiekartassa]({{ roadmap_page.url | relative_url }})
-luetellaan ne kaikki.
+projekti vastasi kiinteällä mallilla eikä tallentanut mitään. Tallennukset ovat turvallisempia:
+toistettu tavaratapahtuma tehdään vain kerran, ja tallennusten historiasta voi palata aiempaan
+versioon. Sen jälkeen olemme lisänneet käyttäjänimet ja kutsukoodit, oikeuksien tarkistuksen jokaiseen
+reittiin, palvelimen puolen ryhmät ja kaverilistan, sisältöpalvelimen, julkisen tilan yhdyskäytävän,
+Undauntedin käynnistimen pohjalta tehdyn kaverikäynnistimen ja Windows-palvelinpaketin. Kaikessa,
+mitä pelaaja näkee, on nimi Dauntless Revived; kansiot, rajapinnan reitit ja otsakkeet pitävät
+toistaiseksi Undaunted-nimet.
+[README]({{ site.github.repository_url }}/blob/dauntless-revived/README.fi.md#muutokset-alkuperäiseen-undauntediin)
+luettelee jokaisen muutoksen, ja [tiekartta]({{ roadmap_page.url | relative_url }}) kertoo, mitä on
+tulossa.
 
 ---
 

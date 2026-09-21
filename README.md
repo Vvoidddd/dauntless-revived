@@ -20,8 +20,9 @@ the genuine **Dauntless 1.4.4** client (October 2020, Unreal Engine 4) again, on
 yourself. It is a modified fork of **[Undaunted](https://github.com/SyST3MDeV/Undaunted) by gwog
 (Gregory Morford) and contributors**, who built the parts that make this possible: the DLL that
 turns the retail client into a game server, the deploy server, the metagame backend and the
-launcher. This fork adds fixes, a friend kit and documentation. No game files are distributed in
-this repository or on the docs site: you need your own copy of the 1.4.4 client.
+launcher. This fork adds fixes, saved progression, server-side parties, a friend launcher built on
+Undaunted's, a server kit for rented Windows machines and documentation. No game files are
+distributed in this repository or on the docs site: you need your own copy of the 1.4.4 client.
 
 > **This is not a public server.** It is run for a few friends. Anyone can host their own copy from
 > this repository.
@@ -37,8 +38,8 @@ Yes, this is one: a self-hosted server for the 1.4.4 client, based on Undaunted.
 the public, so you run your own and invite your friends.
 
 ### Can I join your server?
-No. There is no public server. The [setup guide](https://mixutin.github.io/dauntless-revived/setup/)
-explains how to host one yourself.
+No. Our server runs on a rented machine, but only people the owner invites can make an account. The
+[setup guide](https://mixutin.github.io/dauntless-revived/setup/) explains how to host your own.
 
 ### Does this project give out the game?
 No. Neither this repository nor the docs site contains or links to game files. You need your own
@@ -58,24 +59,28 @@ More answers are in the [FAQ](https://mixutin.github.io/dauntless-revived/faq.ht
 
 ## Status
 
-As of September 2026. Everything below was tested by one player on the host PC.
+As of 22 September 2026. The game itself has so far been played by one person, the owner, on the
+host PC; the rows marked "(solo)" mean exactly that. The first test with a friend, on a rented
+server, is in progress.
 
 | Feature | State | Notes |
 |---|---|---|
 | Log in with a personal account key | Works | No Epic account needed |
 | Tutorial | Works | Started on demand by the deploy server |
-| Ramsgate (the hub city) | Works | A permanent Ramsgate server runs next to the backend |
+| Ramsgate (the hub city) | Works (solo) | A permanent Ramsgate server runs next to the backend |
 | Training Dojo | Works | Starts the first time someone goes there |
 | Hunts | Works (solo) | Played: a Lesser Boreus hunt and a pursuit |
 | Crafting | Works | |
 | Inventory, gear and quests | Works (solo) | Saved to SQLite; survives a client restart and a full server restart |
-| Backups | Works on our host | Hourly, plus one around every server start and stop; restore tested. The scripts are not in this repository yet ([do-it-yourself version](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database)) |
-| Friend kit | Built | Hash-checked setup and launcher; waits for Tailscale and invite codes |
 | Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Start from the beginning (Slayer level 1, no mastery, an empty Hunt Pass) and are saved; every account owns the Elite Hunt Pass. Tested in game on a throwaway account, including a full restart. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50 ([upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html)) |
-| Playing with friends over the internet | Not yet (M1) | Planned over Tailscale |
-| Parties and the friends list | Not yet | |
+| A server on a rented machine | Running | The [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs |
+| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation; installed launchers update themselves. The owner registered with it on the rented server and downloaded the game through the gateway. Not code-signed yet |
+| Playing with friends over the internet | First real test in progress | A two-player test with a friend on the rented server is starting. Until it is done, we don't claim that Ramsgate with two players, parties or hunts work over the internet |
+| Parties and the friends list | Built, not yet tried in game | Server side: party invites, accept and decline, promote, kick and leave, the whole party on one hunt server, back to Ramsgate together, lookups by name, and a friends list and blocklist saved in SQLite. Passes the integration tests with simulated players; not yet tried with two real game clients. Invites don't require being friends. Showing friends as online needs the chat server, which is not built |
+| Backups | Works on our hosts | Hourly, plus one around every server start and stop. The Windows server kit has its own backup task (running on the rented server). The scripts of our original host PC, where a restore was tested, are not in this repository ([do-it-yourself version](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database)) |
+| Friend kit | Built | The Tailscale-only fallback: hash-checked setup and play scripts. Not used by a friend yet |
 | Bounties | Not yet | Stored with real progression; drafting and claiming not yet tried in game |
-| Text chat | Not yet | Designed: a small local XMPP server |
+| Text chat | Not yet | Not built. Designed: a small XMPP server. Use Discord meanwhile |
 | Multiple loadouts | Not yet | Slot unlocks stored with real progression; the extra slots not yet tried in game |
 
 The live checklist, with every step and what "done" means for it, is [ROADMAP.md](ROADMAP.md).
@@ -86,6 +91,8 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
 |---|---|
 | [Documentation site](https://mixutin.github.io/dauntless-revived/) | Status, setup, findings and credits |
 | [Setup guide](https://mixutin.github.io/dauntless-revived/setup/) | Hosting a server, joining as a friend, running it for a group, troubleshooting |
+| [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) | An always-on server on a rented Windows Server 2019 machine, installed with one command, in public or private mode |
+| [Launcher download](https://github.com/mixutin/dauntless-revived/releases/latest) | The Dauntless Revived Launcher for invited friends, with `SHA256SUMS.txt` |
 | [Reference](https://mixutin.github.io/dauntless-revived/reference/) | Every setting, port, HTTP route, file and script, with defaults, for self-hosters and developers |
 | [Friend kit](friend-kit/) | One-time setup and launcher for invited players ([guide](https://mixutin.github.io/dauntless-revived/setup/friends.html)) |
 | [Roadmap](ROADMAP.md) | Milestones M0 to M4 and the live checklist |
@@ -96,21 +103,29 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
 ## How it works
 
 1. Each player runs the unmodified 1.4.4 client with two DLLs from Undaunted next to it; they point the game's backend calls at your server.
-2. The **metagame** (TypeScript, Express, SQLite; TCP 61000) handles accounts, characters, inventory, loadouts and matchmaking.
-3. The **deploy server** (TCP 61001, this PC only) starts game servers on demand: more copies of the same client, switched into server mode by the DLL.
-4. Those game servers (UDP 8770 to 8777) host Ramsgate, hunts and the Training Dojo; friends will reach them over Tailscale.
+2. The **metagame** (TypeScript, Express, SQLite; TCP 61000) handles accounts, characters, inventory, loadouts, progression, matchmaking, parties and the friends list.
+3. The **deploy server** (TCP 61001, this machine only) starts game servers on demand: more copies of the same client, switched into server mode by the DLL.
+4. Those game servers (UDP 8770 to 8777: Ramsgate on 8777, the Training Dojo on 8776, up to 6 hunts on 8770 to 8775) host the game itself.
+5. Friends connect in one of two ways. In **private mode** they reach the host over Tailscale. In **public mode** (the default of the [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html)) a TLS **gateway** is the game's only public TCP port: the friend launcher checks its certificate against the fingerprint in the invite, and the game's UDP ports open only for the addresses of players who logged in. A **content server** behind it hands the game files to registered accounts, and the launcher checks every file against a list built into it.
 
 ## Repository layout
 
+The component folders keep upstream's `Undaunted...` names for now (renaming them is roadmap item
+4.15); the npm packages in them are named `dauntless-revived-*`.
+
 | Folder | What it is |
 |---|---|
-| `UndauntedMetagame/` | The backend the game talks to: accounts, characters, inventory, loadouts, progression, matchmaking |
+| `UndauntedMetagame/` | The backend the game talks to: accounts, characters, inventory, loadouts, progression, matchmaking, parties, the friends list and the `/undaunted/api` admin API |
 | `UndauntedDeployServer/` | Starts and supervises game-server processes (Ramsgate, hunts, the Training Dojo) |
-| `UndauntedInternalServer/` | The DLL that lets the retail client run as a game server, and points clients at the backend |
-| `UndauntedLauncher/` | The Dauntless Revived Launcher: the Windows app for invited friends, based on Undaunted's launcher |
-| `friend-kit/` | Setup and launcher scripts for invited friends' PCs |
-| `tools/` | `make-friend-kit.ps1` builds the friend kit zip; `sync-roadmap.js` copies the roadmap into the docs |
-| `docs/` | The documentation site (GitHub Pages) |
+| `UndauntedGateway/` | Public mode only: the TLS gateway (the game's one public TCP port) and the helper that opens the game ports for logged-in players |
+| `UndauntedContent/` | The content server: the game files (checked against a manifest of 410 files), news and the art pack, for registered launchers only |
+| `UndauntedLauncher/` | The Dauntless Revived Launcher: the Windows app for invited friends, based on Undaunted's launcher. `assets/` holds the two pinned prebuilt DLLs every setup installs |
+| `UndauntedInternalServer/` | The C++ source of Undaunted's server DLL, which lets the retail client run as a game server and points clients at the backend. Nothing in this repository builds it; every setup uses the prebuilt DLLs from `UndauntedLauncher/assets/` |
+| `deploy/windows-server/` | The Windows server kit: installs and runs the whole server on Windows Server 2019, in public or private mode, with backups, invites and updates |
+| `friend-kit/` | The Tailscale-only setup and play scripts for invited friends' PCs |
+| `tools/` | `sync-roadmap.js` and `build-llms.js` (the generated docs files), `make-friend-kit.ps1`, `make-game-manifest.js`, and in `ci/` the checks CI runs |
+| `docs/` | The documentation site (GitHub Pages), with the Finnish pages in `docs/fi/` |
+| `.github/` | The CI workflows (`ci.yml`, `launcher-release.yml`), Dependabot, and the issue and pull request templates |
 | `ROADMAP.md` | The plan and live checklist |
 
 ## Changes from upstream
@@ -123,7 +138,23 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
   restores the old behaviour).
 - Tokens are removed from the request log. An optional capture of request bodies for the save
   routes that are not finished yet (`LOG_BODIES=1`) records what the game sends, capped at 8 KB per
-  request and with tokens removed.
+  request (64 KB for `/inventory`) and with tokens removed. The Windows server kit keeps it off in
+  public mode.
+- **Safer saves.** Character saves are transactional and refuse a stale version (409). An inventory
+  transaction that arrives twice is applied once, and every item change goes into an append-only
+  log. Character and loadout history can be rolled back from the admin API. Upstream also never
+  reported removed stacks after a transaction, so spent Rams and materials stayed on screen and a
+  second upgrade went through for free; that is fixed.
+- **Usernames and invites.** Names of 3 to 16 letters, digits and underscores, unique regardless of
+  case, checked together with the invite code; the admin can rename a player.
+- **A permission check on every route.** Players can only read and write their own account and
+  characters; game-server routes need the game-server key and a direct local connection.
+- **Parties and the friends list** (server side, not yet tried with two real game clients): invites,
+  promote, kick and leave, the whole party on one hunt server and back to Ramsgate together, lookups
+  by name, and a friends list and blocklist saved in SQLite.
+- **Live server status for the launcher.** The list of players online and running hunts is shown to
+  registered players only. `/dauntless-status` gives the server's name, version, source URL and
+  commit (for the AGPL), and no player count.
 - **Real progression by default.** Upstream answered progression with a fixed template (every
   account at level 50, a Hunt Pass with nothing to claim, and most likely the Elite track locked) and saved
   nothing. Our metagame stores Slayer level, mastery, the Hunt Pass, entitlements (the Elite pass
@@ -135,21 +166,46 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
   registers the player, points the game's chat connection at the host so it never contacts Epic's
   old chat server, and ships with the license, third-party notices and a `SOURCE.txt` naming the
   exact commit.
+- Our own **friend launcher** (`UndauntedLauncher/`), built on upstream's, which was hard-wired to
+  Undaunted's own servers. It joins a server from an invite, registers the player (the key is stored
+  only with Windows DPAPI), downloads the game from the host and checks every file against a manifest
+  built into it, installs the two pinned DLLs and the game settings, and in public mode relays the
+  game's plain-HTTP calls over TLS pinned to the invite's certificate. CI publishes each new version on GitHub Releases, and installed launchers
+  update themselves.
+- A **content server** (`UndauntedContent/`) that hands the game files only to registered accounts,
+  with resumable downloads, and a **gateway** (`UndauntedGateway/`) for public mode: the game's only
+  public TCP port, TLS with a pinned self-signed certificate, admin routes and the game-server key refused
+  from outside, body limits and rate limits, and a helper that opens the game's UDP ports only for
+  the addresses of players who logged in.
+- A **Windows server kit** (`deploy/windows-server/`): one command from your PC installs the whole
+  server on a Windows Server 2019 machine over key-only SSH, with a low-privilege service account,
+  start at boot, supervision, hourly backups, invites and updates.
+- Hunt servers start with their console window hidden.
+- **CI** on every push: the builds and tests of every package, the server kit's tests, the docs
+  build, and a check that no secrets, keys, databases or game files are committed.
+- **Our own name.** Everything players see says Dauntless Revived. The folders, the `/undaunted/api`
+  routes and the `x-undaunted-*` headers keep the Undaunted names for now (roadmap item 4.15).
 - A **documentation site** in `docs/`, published at
-  [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/): setup
-  guides, findings about the game's backend, and the roadmap.
+  [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/), in English
+  and Finnish: setup guides, a reference of every setting, port, route and file, findings about the
+  game's backend, and the roadmap.
 
-Not in the repository yet: our host runs hourly SQLite backups, each checked with
-`PRAGMA integrity_check` (roadmap item 0.1), but those scripts are not part of this repository.
-The metagame itself takes no backup, so if you self-host, set one up yourself:
+Backups: the Windows server kit takes them itself (hourly, and around every start and stop), each
+database copy checked with `PRAGMA integrity_check`. Our original host PC runs its own backup scripts
+(roadmap item 0.1), which are not part of this repository. The metagame itself takes no backup, so if
+you host by hand, set one up yourself:
 [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database)
 has a do-it-yourself version.
 
 ## Security
 
 - The metagame and the deploy server bind to `127.0.0.1` by default.
-- The deploy server has **no authentication by design**. Never expose it beyond the host PC.
-- Friends are meant to connect over Tailscale, not over the open internet.
+- The deploy server has **no authentication by design**. Never expose it beyond the host machine.
+- Friends connect either over Tailscale (private mode) or through the gateway (public mode). The 1.4.4
+  client itself speaks plain HTTP, so in public mode it only ever talks to the launcher on the
+  player's own PC, which forwards over TLS pinned to the server's certificate. Of the server's game
+  services, only the gateway's TCP port is open to everyone; the game's UDP ports open only for
+  players who logged in.
 
 Found a vulnerability? Please report it privately through
 [private vulnerability reporting](https://github.com/mixutin/dauntless-revived/security/advisories/new),

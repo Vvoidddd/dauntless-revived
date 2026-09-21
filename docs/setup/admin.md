@@ -8,6 +8,7 @@ ref: setup/admin
 ---
 
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
+{% assign winserver_page = site.pages | where: "path", "setup/windows-server.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
 {% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
@@ -24,10 +25,12 @@ This page covers how we open our Undaunted-based stack (client build **1.4.4**) 
 friends: network access, firewall, addresses, accounts, capacity and backups. It assumes the stack
 already runs for you locally, with the metagame, the deploy server and a Ramsgate server.
 
-**Status.** As of this writing our stack runs on loopback for the owner only. The steps below are the
-configuration we are switching to (the "Friends connected over Tailscale" item on the
-[roadmap]({{ roadmap_page.url | relative_url }})). Anything planned but not built yet is marked as
-such. The other side of this setup is [Join as a friend]({{ friends_page.url | relative_url }}).
+**Status (22 September 2026).** On the owner's PC our stack runs on loopback for the owner only. The
+Tailscale setup below has not been run end to end yet: for the first test with friends we use the
+[Windows server kit]({{ winserver_page.url | relative_url }}) in public mode on a rented server instead
+(see the [roadmap]({{ roadmap_page.url | relative_url }}), items 1.3, 1.15 and 1.17). Anything planned
+but not built yet is marked as such. The other side of this setup is
+[Join as a friend]({{ friends_page.url | relative_url }}).
 
 <details open markdown="block">
   <summary>Contents</summary>

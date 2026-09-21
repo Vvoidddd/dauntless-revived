@@ -8,6 +8,7 @@ ref: setup/windows-server
 ---
 
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
+{% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
 {% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
@@ -32,10 +33,19 @@ The kit has two modes:
 - **Private mode**: friends connect over Tailscale, as described in
   [Run it for a group]({{ admin_page.url | relative_url }}).
 
-**Status.** The kit is built and tested on a development PC in its sandbox mode (a full public-mode
-install into a scratch folder, with the gateway, the pinned certificate, invites and a restore from
-backup checked end to end). It has not yet been run against a real rented server. The friend launcher's
-public-mode relay is part of roadmap items 1.16 and 1.17 on the [roadmap]({{ roadmap_page.url | relative_url }}).
+**Status (22 September 2026).** The kit is built and tested on a development PC in its sandbox mode (a
+full public-mode install into a scratch folder, with the gateway, the pinned certificate, invites and a
+restore from backup checked end to end). On 21–22 September 2026 it was deployed in public mode to a
+real rented Windows Server 2019 VPS. Checked on that server: the stack starts at boot as the service
+account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with
+the pinned certificate, and the hourly backup task runs. The owner registered through the launcher
+there and downloaded the game through the gateway. The real server found three problems the sandbox
+could not, all fixed in the kit: Windows limits a local account's description to 48 characters, that
+image refuses scheduled tasks without a stored password ("S4U") for accounts that are not
+administrators, and the provider's image kept the firewall off with policy values (the last two are
+explained in the install steps below). The first test with a friend is in
+progress; private mode has not been run on a real server. See items 1.15 to 1.17 on the
+[roadmap]({{ roadmap_page.url | relative_url }}).
 
 <details open markdown="block">
   <summary>Contents</summary>
@@ -269,7 +279,11 @@ Run through this checklist once the server is deployed:
 3. Hand out the launcher. There is no in-launcher download link: friends get it from
    **`https://github.com/mixutin/dauntless-revived/releases/latest`**
    (`DauntlessRevivedLauncher-Setup.exe`). It is unsigned, so Windows SmartScreen warns the first time:
-   **More info > Run anyway**. CI publishes every new version in `UndauntedLauncher/package.json` by itself once all
+   **More info > Run anyway**. On a PC set to block unrecognised apps, SmartScreen blocks it outright
+   with no Run anyway; then the friend checks the file's SHA-256 against `SHA256SUMS.txt` from the same
+   release and unblocks it (right-click > **Properties** > **Unblock**, or `Unblock-File`), as
+   [Join as a friend]({{ friends_page.url | relative_url }}) explains. Code-signing is roadmap item
+   4.16. CI publishes every new version in `UndauntedLauncher/package.json` by itself once all
    checks pass (the repository variable `LAUNCHER_AUTO_RELEASE` set to `false` pauses that), and
    Actions > **Launcher release** > **Run workflow** on `dauntless-revived` publishes by hand (see
    "Releases and updates" in the launcher's README). Or send the `Setup.exe` with its SHA-256 through
@@ -301,7 +315,9 @@ The friend pastes it into the launcher. The code lets one person create an accou
 Friends get the launcher from
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
 (`DauntlessRevivedLauncher-Setup.exe`). It is unsigned, so Windows may warn that the app is
-unrecognised: **More info > Run anyway**. Keep the launcher open while playing.
+unrecognised: **More info > Run anyway**. If Windows blocks it with no Run anyway, the friend checks
+it against `SHA256SUMS.txt` and unblocks it (see [Join as a friend]({{ friends_page.url | relative_url }})).
+Keep the launcher open while playing.
 
 The `fp` is the certificate's fingerprint. As long as you keep the certificate, old invite lines keep
 working, even after a restore to a new server with the same address or DNS name (backups include the

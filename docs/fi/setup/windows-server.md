@@ -10,6 +10,7 @@ locale: fi_FI
 ---
 
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
+{% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
@@ -33,11 +34,20 @@ Tiloja on kaksi:
 - **Yksityinen tila**: kaverit liittyvät Tailscalen kautta, kuten sivulla
   [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) kerrotaan.
 
-**Tilanne.** Paketti on rakennettu ja testattu kehityskoneella sen hiekkalaatikkotilassa: koko julkisen
-tilan asennus väliaikaiseen kansioon, ja yhdyskäytävä, kiinnitetty varmenne, kutsut ja varmuuskopiosta
-palauttaminen tarkistettu alusta loppuun. Oikealla vuokrapalvelimella sitä ei ole vielä ajettu.
-Kaverikäynnistimen julkisen tilan välitin kuuluu [tiekartan]({{ roadmap_page.url | relative_url }})
-kohtiin 1.16 ja 1.17.
+**Tilanne (22.9.2026).** Paketti on rakennettu ja testattu kehityskoneella sen hiekkalaatikkotilassa:
+koko julkisen tilan asennus väliaikaiseen kansioon, ja yhdyskäytävä, kiinnitetty varmenne, kutsut ja
+varmuuskopiosta palauttaminen tarkistettu alusta loppuun. 21.–22.9.2026 se asennettiin julkiseen
+tilaan oikealle vuokratulle Windows Server 2019 -virtuaalipalvelimelle. Sillä palvelimella on
+tarkistettu: palvelinkokonaisuus käynnistyy koneen käynnistyessä palvelutilillä istunnossa 0,
+Ramsgate pyörii ja lähettää elonmerkkejä (heartbeat), yhdyskäytävä vastaa internetistä kiinnitetyllä
+varmenteella, ja tunnin välein ajettava varmuuskopiotehtävä toimii. Omistaja rekisteröityi siellä
+käynnistimellä ja latasi pelin yhdyskäytävän kautta. Oikea palvelin paljasti kolme ongelmaa, joita
+hiekkalaatikko ei voinut löytää, ja ne kaikki on korjattu paketissa: Windows sallii paikallisen tilin
+kuvaukseen enintään 48 merkkiä, se levykuva ei hyväksy ilman tallennettua salasanaa ajettavia
+ajastettuja tehtäviä (”S4U”) muille kuin ylläpitäjille, ja palveluntarjoajan levykuva piti palomuurin
+pois päältä käytäntöarvoilla (kaksi viimeistä selitetään alla asennuksen vaiheissa). Ensimmäinen testi
+kaverin kanssa on käynnissä; yksityistä tilaa ei ole ajettu oikealla palvelimella. Katso
+[tiekartan]({{ roadmap_page.url | relative_url }}) kohdat 1.15–1.17.
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -280,7 +290,12 @@ Käy tämä lista läpi, kun palvelin on asennettu:
 3. Jaa käynnistin. Käynnistimessä ei ole latauslinkkiä: kaverit hakevat sen osoitteesta
    **`https://github.com/mixutin/dauntless-revived/releases/latest`**
    (`DauntlessRevivedLauncher-Setup.exe`). Sitä ei ole allekirjoitettu, joten Windows SmartScreen
-   varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. CI julkaisee jokaisen
+   varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. Koneella, jossa tunnistamattomat
+   sovellukset on asetettu estettäviksi, SmartScreen estää sen kokonaan eikä tarjoa Suorita silti
+   -vaihtoehtoa; silloin kaveri tarkistaa tiedoston SHA-256:n saman julkaisun `SHA256SUMS.txt`-tiedostoa
+   vasten ja poistaa eston (hiiren oikea > **Ominaisuudet** > **Poista esto**, tai `Unblock-File`),
+   kuten sivulla [Liity kaverina]({{ friends_page.url | relative_url }}) kerrotaan. Allekirjoitus on
+   tiekartan kohta 4.16. CI julkaisee jokaisen
    `UndauntedLauncher/package.json`-tiedoston uuden version itse, kun kaikki tarkistukset menevät läpi
    (repositorion muuttuja `LAUNCHER_AUTO_RELEASE` arvolla `false` pysäyttää sen), ja Actions >
    **Launcher release** > **Run workflow** `dauntless-revived`-haaralle julkaisee käsin (ks.
@@ -312,7 +327,9 @@ Kaveri liittää rivin käynnistimeen. Koodilla voi luoda yhden tilin, joten lä
 Kaverit hakevat käynnistimen osoitteesta
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
 (`DauntlessRevivedLauncher-Setup.exe`). Sitä ei ole allekirjoitettu, joten Windows voi varoittaa, ettei
-sovellusta tunnisteta: **Lisätietoja > Suorita silti**. Pidä käynnistin auki pelatessasi.
+sovellusta tunnisteta: **Lisätietoja > Suorita silti**. Jos Windows estää sen eikä tarjoa Suorita silti
+-vaihtoehtoa, kaveri tarkistaa sen `SHA256SUMS.txt`-tiedostoa vasten ja poistaa eston (ks.
+[Liity kaverina]({{ friends_page.url | relative_url }})). Pidä käynnistin auki pelatessasi.
 
 `fp` on varmenteen sormenjälki. Niin kauan kuin varmenne pysyy samana, vanhat kutsurivit toimivat,
 myös kun palvelin palautetaan uudelle koneelle samalla osoitteella tai verkkotunnuksella

@@ -41,8 +41,9 @@ is written up here.
 
 ## Current status
 
-As of September 2026. Everything in this section is about the **1.4.4** client. So far it has been
-tested on one PC, by the owner, playing alone.
+As of 22 September 2026. Everything in this section is about the **1.4.4** client. The game itself
+has so far been played by one person, the owner, alone on the host PC. A server on a rented machine is
+running, and the first test with a friend over the internet is in progress.
 
 ### What works
 
@@ -54,6 +55,8 @@ tested on one PC, by the owner, playing alone.
 | Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
 | Saved inventory and loadouts | Works (solo) | Materials, Rams (most likely the `CURRENCY_NOTES` stack), crafted and granted gear, the first loadout slot, and character data (quest progress, tutorial state, flags, appearance) are stored in a SQLite database. Hunt loot is saved. The data survives a client restart and a full server restart. So far only one player has tested this. |
 | Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart; behemoth mastery uses the same storage but has not been seen in game yet. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
+| A server on a rented machine | Running | The [Windows server kit]({{ '/setup/windows-server.html' | relative_url }}) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the kit's service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. Deploying to a real server found three problems the sandbox tests could not, all fixed in the kit: a 48-character limit on the service account's description, a Windows image that refuses password-less scheduled tasks ("S4U") for accounts that are not administrators, and a provider image that kept Windows Firewall off through policy values. |
+| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update themselves. The owner registered with it on the rented server and downloaded the game through the gateway. It is not code-signed yet. |
 
 The measured cost on the host PC was about 1.1 GB of RAM and roughly 0.2 of a CPU core for the
 Ramsgate server, about 0.9 GB per hunt server, and 1.5 to 2.3 GB for the player's own client (the
@@ -61,18 +64,24 @@ higher figure at Cinematic settings).
 
 ### What does not work yet
 
-- **Playing with friends over the internet.** For now the metagame and deploy server listen on the
-  host PC only, and game servers are advertised at `127.0.0.1`, so only the host can play. The plan
-  is to connect friends over Tailscale and turn on invite codes.
-- **Parties and the friends list.** Parties are faked as "you, alone", and the friends list shows
-  0 online.
+- **Playing with friends over the internet: the first real test is in progress.** On the rented
+  server, friends join with the launcher and an invite, without Tailscale. A two-player test with a
+  friend is starting. Until it is done, we don't claim that Ramsgate with two players, parties or
+  hunts work over the internet.
+- **Parties and the friends list: built, not yet tried in game.** The server side is built: party
+  invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
+  returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved
+  in SQLite. It passes our integration tests with simulated players, but has not been tried with two
+  real game clients yet. You don't have to be friends to invite someone to a party. Friends don't
+  show as online, because that needs the chat server, which is not built.
+- **Text chat.** Not built. The design is a small XMPP server. Use Discord meanwhile.
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
   not been tried yet. Escalation is still stubbed, so its progress does not carry over between
   sessions.
-- **Multiple loadouts, choosing your own username, the welcome message and mailbox, seasonal events,
-  and the store.** With real progression, loadout slot unlocks are stored, but the extra slots have
-  not been tried in the game yet.
+- **Multiple loadouts, the welcome message and mailbox, seasonal events, and the store.** With real
+  progression, loadout slot unlocks are stored, but the extra slots have not been tried in the game
+  yet.
 
 The [roadmap]({{ roadmap_page.url | relative_url }}) has the order we plan to work in, plus the bugs
 we have seen in real sessions. Some things cannot come back. Voice chat ran on Vivox, a paid
@@ -111,11 +120,17 @@ A server installed with the Windows server kit also runs a content server for th
 downloads and, in public mode, a TLS gateway as its only public port. Every part is described in the
 [Reference]({{ '/reference/' | relative_url }}) section.
 
-Our changes to Undaunted so far are small and practical. Both services now bind to loopback by
+Our changes to Undaunted started small and practical. Both services now bind to loopback by
 default. A port clash is now a hard error, where it used to be a silent exit. Every request is
 logged. The Training Dojo starts only when it is needed. Progression is real by default, where
-upstream answered with a fixed template and saved nothing. The [roadmap]({{ roadmap_page.url | relative_url }})
-lists all of them.
+upstream answered with a fixed template and saved nothing. Saves are safer: a repeated inventory
+transaction is applied once, and save history can be rolled back. Since then we have added
+usernames and invite codes, a permission check on every route, parties and a friends list on the
+server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
+the Windows server kit. Everything players see is named Dauntless Revived; folders, API routes and
+headers keep the Undaunted names for now. The
+[README]({{ site.github.repository_url }}/blob/dauntless-revived/README.md#changes-from-upstream)
+lists every change, and the [roadmap]({{ roadmap_page.url | relative_url }}) what comes next.
 
 ---
 
