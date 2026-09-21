@@ -204,6 +204,21 @@ asetuksella.
 1920x1080 peliohjelma käyttää 1,9–2,3 Gt keskusmuistia (RAM), joten matalia rajoja ei koskaan
 tarvittu 1.4.4:ssä.
 
+### Ilmalaiva on tosi pimeä ja ikkunat palavat puhki valkoisiksi {#airship-dark-windows-blown-out}
+
+**Oire.** Metsästysretken valikot näyttävät normaaleilta, mutta ilmalaivan hytti ennen retkeä on lähes
+musta ja sen ikkunat täysin valkoiset. Ilmiö voi vaihdella retkestä toiseen, koska aula näyttää retken
+kohteen tunnelman.
+
+**Syy.** Dauntless 1.4.4:n automaattinen valotus (histogrammiin perustuva ”silmän sopeutuminen”)
+reagoi huonosti ilmalaivan tavallista suurempaan kirkkauserojen määrään nykyisillä näytönohjainten
+ajureilla. Kyse on jälkikäsittelystä, ei puuttuvista tekstuureista eikä väärästä retken määrityksestä.
+
+**Korjaus.** Käynnistin, kaveripaketin `play.ps1` ja isännän `play.ps1` asettavat nyt käyttäjän
+`Engine.ini`-tiedostoon rivin `r.EyeAdaptationQuality=0`. Sulje kaikki Dauntless-ikkunat ja käynnistä
+peli uudelleen, jotta asetus tulee voimaan. Asetus poistaa vain automaattisen valotuksen: resoluutio,
+tekstuurien laatu, valaistus ja retken tunnelma pysyvät ennallaan. Korjauksen löysi ja teki Vvoidddd.
+
 Näin näet, mitä oikeasti pakotetaan:
 
 ```powershell
