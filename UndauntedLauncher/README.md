@@ -89,10 +89,25 @@ taken. The server must then point `QOS_TARGET_URL` at the same port.
 
 ## Releases and updates
 
-Pushing a tag `launcher-v<version>` (matching `package.json`) runs
-`.github/workflows/launcher-release.yml`: typecheck, tests, build on Windows, then a GitHub release
-with the installer, the zip and `SHA256SUMS.txt`. The same workflow refreshes the rolling
-`launcher-updates` release, which installed launchers check every hour to update themselves.
+CI (`.github/workflows/ci.yml`) builds and tests the launcher on every push and keeps the installer,
+the zip and `SHA256SUMS.txt` as a download for a week. `.github/workflows/launcher-release.yml`
+publishes the version in `package.json` from `dauntless-revived` as the GitHub release
+`launcher-v<version>`, with a build provenance attestation for every file, and creates that tag. So to
+release, raise the version:
+
+- by default, a push to `dauntless-revived` that passes every check and has a version with no
+  `launcher-v<version>` release yet publishes the installer CI built. Set the repository variable
+  `LAUNCHER_AUTO_RELEASE` to `false` (Settings > Secrets and variables > Actions > Variables) to pause
+  that;
+- or run Actions > **Launcher release** > **Run workflow** on `dauntless-revived`.
+
+After publishing, the release workflow points the rolling `launcher-updates` release at the new
+version; installed launchers check it every hour to update themselves. A version is published only if
+it is newer than every earlier one, and never replaced. A prerelease version (such as `0.2.0-beta.1`)
+becomes a GitHub prerelease and never reaches `launcher-updates`. If a run fails halfway, re-run its
+failed jobs: it finishes what it started. Running the workflow for a version that is published already
+only brings `launcher-updates` up to it. Keep GitHub's immutable releases setting off, because
+`launcher-updates` is updated in place.
 
 ## License
 

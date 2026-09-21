@@ -30,6 +30,40 @@ are short.
 If a problem is in upstream Undaunted's code and not in a change this fork made, consider
 contributing the fix to [Undaunted](https://github.com/SyST3MDeV/Undaunted) as well.
 
+## Checks
+
+GitHub Actions runs these on every push and pull request ([`ci.yml`](.github/workflows/ci.yml)). Run
+the ones your change touches before you push. They need Windows and Node.js 24, except the docs and
+hygiene checks, which need only Node.js.
+
+| Check | Run it yourself |
+| --- | --- |
+| Server packages (`UndauntedMetagame`, `UndauntedGateway`, `UndauntedContent`, `UndauntedDeployServer`): build and unit tests | In the package folder: `npm ci`, `npm run build`, `npm test` |
+| Launcher: typecheck, unit tests, installer | In `UndauntedLauncher`: `npm ci`, `npm run typecheck`, `npm test`, `npm run make` |
+| Windows Server kit, in Windows PowerShell 5.1: every script parses, PSScriptAnalyzer finds no errors, and the kit's tests pass | `npm ci` in `UndauntedGateway` first. Then, in PowerShell from the repository root, `powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1`, and the same for `Test-DeployRemote.ps1`. Last, the same for `Test-Sandbox.ps1` with `-SandboxDir "$env:TEMP\dr-sandbox"` added (a few minutes; it uses loopback ports 62000-62499 only and deletes that folder at the end) |
+| Docs: generated files are current, and the site builds the way GitHub Pages builds it | `node tools/sync-roadmap.js` and `node tools/build-llms.js` must leave `git diff` empty |
+| No secrets or game files are committed, not even in a commit that a later one undoes, and the launcher version is valid | `node tools/ci/check-repo.js --history origin/dauntless-revived..HEAD` (without `--history`: the files only) |
+
+CodeQL (the repository's code scanning default setup) also scans the code for security problems, and
+Dependabot proposes dependency updates.
+
+Every push shows its launcher installer under the run's **Artifacts** for a week (not for pull
+requests from forks). Launcher releases are published from `dauntless-revived` only, as release
+`launcher-v<version>` for the version in `UndauntedLauncher/package.json`, and installed launchers
+update to it. To release a new launcher, raise that version. Then:
+
+- **Automatically (the default):** a push that passes every check, is still the head of the branch
+  and has a version with no `launcher-v<version>` release yet publishes that exact installer. To pause
+  this, set the repository variable `LAUNCHER_AUTO_RELEASE` to `false`.
+- **By hand:** Actions > **Launcher release** > **Run workflow** on `dauntless-revived` builds and
+  publishes the version. For a version that is published already, it only brings the self-update feed
+  up to it.
+
+A version is published only if it is newer than every earlier one, and never replaced. A prerelease
+version (such as `0.2.0-beta.1`) becomes a GitHub prerelease that installed launchers do not update
+to. Keep GitHub's immutable releases setting off: the `launcher-updates` release that installed
+launchers read is updated in place.
+
 ---
 
 ## Suomeksi
@@ -49,3 +83,30 @@ Kiitos, että haluat auttaa pitämään Dauntlessin pelattavana. Säännöt ovat
    samalla lisenssillä.
 6. **Tietoturva-aukoista** ilmoitetaan yksityisesti, ks. [SECURITY.md](SECURITY.md).
 7. **Ole ystävällinen.** Ks. [käytösohjeet](CODE_OF_CONDUCT.md).
+
+### Tarkistukset
+
+GitHub Actions ajaa jokaiselle pushille ja pull requestille samat tarkistukset
+([`ci.yml`](.github/workflows/ci.yml)): palvelinohjelmien ja käynnistimen käännöksen ja testit,
+Windows Server -paketin testit Windows PowerShell 5.1:llä, ohjesivuston käännöksen sekä tarkistuksen,
+ettei mukana ole salaisuuksia tai pelin tiedostoja, ei edes commitissa, jonka myöhempi commit kumoaa.
+Aja ennen pushia ne, joihin muutoksesi vaikuttaa. Komennot niiden ajamiseen omalla koneella ovat yllä
+englanninkielisen kohdan "Checks" taulukossa. CodeQL (repositorion koodiskannauksen oletusasetus)
+etsii lisäksi tietoturvaongelmia, ja Dependabot ehdottaa riippuvuuksien päivityksiä.
+
+Jokaisen pushin käynnistimen asennusohjelma on ladattavissa ajon kohdasta **Artifacts** viikon ajan
+(ei forkeista tulevissa pull requesteissa). Käynnistin julkaistaan vain `dauntless-revived`-haarasta
+julkaisuna `launcher-v<versio>` sillä versiolla, joka on `UndauntedLauncher/package.json`-tiedostossa,
+ja asennetut käynnistimet päivittyvät siihen. Uuden käynnistimen julkaisemiseksi nosta versiota.
+Sitten:
+
+- **Automaattisesti (oletus):** push, joka läpäisee kaikki tarkistukset, on yhä haaran uusin commit ja
+  jonka versiolla ei ole vielä `launcher-v<versio>`-julkaisua, julkaisee juuri sen asennusohjelman.
+  Tauon saat asettamalla repositorion muuttujan `LAUNCHER_AUTO_RELEASE` arvoon `false`.
+- **Käsin:** Actions > **Launcher release** > **Run workflow** `dauntless-revived`-haaralle kääntää ja
+  julkaisee version. Jo julkaistulla versiolla se vain päivittää itsepäivityskanavan siihen.
+
+Versio julkaistaan vain, jos se on uudempi kuin kaikki aiemmat, eikä julkaistua versiota koskaan
+korvata. Esiversio (kuten `0.2.0-beta.1`) julkaistaan GitHubin esijulkaisuna, johon asennetut
+käynnistimet eivät päivity. Pidä GitHubin muuttumattomat julkaisut (immutable releases) pois päältä:
+`launcher-updates`-julkaisua, jota asennetut käynnistimet lukevat, päivitetään paikallaan.

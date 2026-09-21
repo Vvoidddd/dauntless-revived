@@ -261,9 +261,11 @@ Käy tämä lista läpi, kun palvelin on asennettu:
 3. Jaa käynnistin. Käynnistimessä ei ole latauslinkkiä: kaverit hakevat sen osoitteesta
    **`https://github.com/mixutin/dauntless-revived/releases/latest`**
    (`DauntlessRevivedLauncher-Setup.exe`). Sitä ei ole allekirjoitettu, joten Windows SmartScreen
-   varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. Julkaisun teet pushaamalla
-   `.github/workflows/` ja sitten tagin `launcher-v0.1.0`; tai lähetä `Setup.exe` SHA-256-summineen
-   yksityisesti.
+   varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. CI julkaisee jokaisen
+   `UndauntedLauncher/package.json`-tiedoston uuden version itse, kun kaikki tarkistukset menevät läpi
+   (repositorion muuttuja `LAUNCHER_AUTO_RELEASE` arvolla `false` pysäyttää sen), ja Actions >
+   **Launcher release** > **Run workflow** `dauntless-revived`-haaralle julkaisee käsin (ks.
+   käynnistimen README, kohta "Julkaisut ja päivitykset"). Tai lähetä `Setup.exe` SHA-256-summineen yksityisesti.
 
 Jos kaveri **kirjautuu ja jää sitten jumiin Ramsgatea ladatessa**, palveluntarjoaja lähes varmasti estää
 UDP:n 8770-8777. Lisää yllä oleva sääntö ja tarkista palvelimen oma sallittujen lista:

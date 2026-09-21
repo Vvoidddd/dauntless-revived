@@ -9,6 +9,7 @@
   <a href="https://mixutin.github.io/dauntless-revived/fi/"><img alt="Ohjeet suomeksi" src="https://img.shields.io/badge/ohjeet-suomeksi-f59e0b?style=flat-square"></a>
   <a href="https://github.com/mixutin/dauntless-revived/discussions"><img alt="Keskustelupalsta (GitHub Discussions)" src="https://img.shields.io/badge/discussions-kysy%20%26%20kerro-8b5cf6?style=flat-square&logo=github"></a>
   <a href="https://github.com/mixutin/dauntless-revived/commits/dauntless-revived"><img alt="Viimeisin muutos dauntless-revived-haarassa" src="https://img.shields.io/github/last-commit/mixutin/dauntless-revived/dauntless-revived?style=flat-square"></a>
+  <a href="https://github.com/mixutin/dauntless-revived/actions/workflows/ci.yml?query=branch%3Adauntless-revived"><img alt="Automaattiset tarkistukset (CI) dauntless-revived-haarassa" src="https://img.shields.io/github/actions/workflow/status/mixutin/dauntless-revived/ci.yml?branch=dauntless-revived&event=push&style=flat-square&label=CI"></a>
 </p>
 
 # Dauntless Revived

@@ -251,8 +251,11 @@ Run through this checklist once the server is deployed:
 3. Hand out the launcher. There is no in-launcher download link: friends get it from
    **`https://github.com/mixutin/dauntless-revived/releases/latest`**
    (`DauntlessRevivedLauncher-Setup.exe`). It is unsigned, so Windows SmartScreen warns the first time:
-   **More info > Run anyway**. To make that release, push `.github/workflows/` and then the tag
-   `launcher-v0.1.0`; or send the `Setup.exe` with its SHA-256 through a private channel.
+   **More info > Run anyway**. CI publishes every new version in `UndauntedLauncher/package.json` by itself once all
+   checks pass (the repository variable `LAUNCHER_AUTO_RELEASE` set to `false` pauses that), and
+   Actions > **Launcher release** > **Run workflow** on `dauntless-revived` publishes by hand (see
+   "Releases and updates" in the launcher's README). Or send the `Setup.exe` with its SHA-256 through
+   a private channel.
 
 If a friend **logs in and then hangs loading Ramsgate**, the provider is almost certainly blocking
 UDP 8770-8777. Add the provider rule above, and check the server's own allowlist:

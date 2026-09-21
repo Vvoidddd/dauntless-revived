@@ -9,6 +9,7 @@
   <a href="https://mixutin.github.io/dauntless-revived/"><img alt="Documentation site" src="https://img.shields.io/badge/docs-mixutin.github.io-f59e0b?style=flat-square"></a>
   <a href="https://github.com/mixutin/dauntless-revived/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/badge/discussions-ask%20%26%20share-8b5cf6?style=flat-square&logo=github"></a>
   <a href="https://github.com/mixutin/dauntless-revived/commits/dauntless-revived"><img alt="Last commit on the dauntless-revived branch" src="https://img.shields.io/github/last-commit/mixutin/dauntless-revived/dauntless-revived?style=flat-square"></a>
+  <a href="https://github.com/mixutin/dauntless-revived/actions/workflows/ci.yml?query=branch%3Adauntless-revived"><img alt="CI status on the dauntless-revived branch" src="https://img.shields.io/github/actions/workflow/status/mixutin/dauntless-revived/ci.yml?branch=dauntless-revived&event=push&style=flat-square&label=CI"></a>
 </p>
 
 # Dauntless Revived

@@ -84,10 +84,27 @@ jolla portti 61000 on varattu. Palvelimen `QOS_TARGET_URL` pitää silloin osoit
 
 ## Julkaisut ja päivitykset
 
-Tagi `launcher-v<versio>` (sama kuin `package.json`-tiedostossa) käynnistää työnkulun
-`.github/workflows/launcher-release.yml`: tyyppitarkistus, testit, käännös Windowsilla ja GitHub-
-julkaisu, jossa on asennusohjelma, zip ja `SHA256SUMS.txt`. Sama työnkulku päivittää jatkuvan
-`launcher-updates`-julkaisun, josta asennetut käynnistimet päivittävät itsensä tunnin välein.
+CI (`.github/workflows/ci.yml`) kääntää ja testaa käynnistimen jokaisen pushin yhteydessä ja pitää
+asennusohjelman, zipin ja `SHA256SUMS.txt`:n ladattavana viikon ajan.
+`.github/workflows/launcher-release.yml` julkaisee `package.json`-tiedoston version
+`dauntless-revived`-haarasta GitHub-julkaisuna `launcher-v<versio>`, jokaiselle tiedostolle
+allekirjoitetun käännöstodistuksen (build provenance attestation) kera, ja luo sen tagin. Uusi julkaisu
+syntyy siis nostamalla versiota:
+
+- oletuksena `dauntless-revived`-haaran push, joka läpäisee kaikki tarkistukset ja jonka versiolla ei
+  ole vielä `launcher-v<versio>`-julkaisua, julkaisee CI:n kääntämän asennusohjelman. Tauon saat
+  asettamalla repositorion muuttujan `LAUNCHER_AUTO_RELEASE` arvoon `false` (Settings > Secrets and
+  variables > Actions > Variables);
+- tai aja Actions > **Launcher release** > **Run workflow** `dauntless-revived`-haaralle.
+
+Julkaisun jälkeen työnkulku siirtää jatkuvan `launcher-updates`-julkaisun uuteen versioon; asennetut
+käynnistimet tarkistavat sen tunnin välein ja päivittävät itsensä. Versio julkaistaan vain, jos se on
+uudempi kuin kaikki aiemmat, eikä julkaistua versiota koskaan korvata. Esiversio (kuten
+`0.2.0-beta.1`) julkaistaan GitHubin esijulkaisuna, eikä se koskaan päädy `launcher-updates`-julkaisuun.
+Jos ajo epäonnistuu kesken, aja sen epäonnistuneet työt uudelleen: se viimeistelee aloittamansa. Jo
+julkaistulle versiolle ajettu työnkulku vain päivittää `launcher-updates`-julkaisun siihen. Pidä
+GitHubin muuttumattomat julkaisut (immutable releases) pois päältä, koska `launcher-updates`-julkaisua
+päivitetään paikallaan.
 
 ## Lisenssi
 
