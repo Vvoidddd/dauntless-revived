@@ -21,8 +21,10 @@
       4. Game files: the verified 1.4.4 zip (SHA-256 556B9A64...BC6D; -GameZip, or -GameZipUrl which
          downloads with resume) extracted with tar.exe, every file checked against the content manifest,
          and the two server DLLs (pinned hashes).
-      5. A local low-privilege account "dauntless" (random password, never stored or shown) that runs
-         the stack, with its game config (Game.ini endpoints, Engine.ini memory caps and chat override).
+      5. A local low-privilege account "dauntless" that runs the stack, with its game config (Game.ini
+         endpoints, Engine.ini memory caps and chat override). Its password is random and never shown;
+         every run of this script sets a new one, and Task Scheduler keeps it, encrypted, for the
+         account's tasks (some Server 2019 images refuse password-less S4U tasks for non-admins).
       6. Public mode: a self-signed TLS certificate for the gateway (the gateway's make-cert tool; ECDSA,
          10 years, SAN = -PublicHost). Its SHA-256 fingerprint goes into every invite, so keep it: a
          new certificate invalidates all invites. No Windows certificate store is touched.
@@ -161,7 +163,9 @@ function Invoke-DbTool([string[]]$DbArgs, [string]$LogName) {
 }
 
 function New-DRPassword {
-    # 32 characters from all four character classes (meets any complexity policy). Never stored.
+    # 32 characters from all four character classes (meets any complexity policy). Never shown or
+    # logged; Windows keeps it only where the account needs it (Task Scheduler for its tasks, and the
+    # auto-logon LSA secret with -InteractiveSession).
     $sets = @('ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!#%+-.=?@_~')
     $all = -join $sets
     $chars = New-Object System.Collections.Generic.List[char]
@@ -825,7 +829,7 @@ try {
         try {
             $u = Get-LocalUser -Name $ServiceUser -ErrorAction SilentlyContinue
             if ($u) { Write-DROk "local account '$ServiceUser' exists" }
-            elseif (Test-Do "local account '$ServiceUser'" 'Create (random password, never stored or shown)') {
+            elseif (Test-Do "local account '$ServiceUser'" 'Create (random password, never shown; Task Scheduler keeps it encrypted for its tasks)') {
                 $pw = New-DRPassword
                 New-LocalUser -Name $ServiceUser -Password $pw -PasswordNeverExpires -UserMayNotChangePassword -AccountNeverExpires `
                     -FullName 'Dauntless Revived server' -Description 'Runs the Dauntless Revived server' | Out-Null  # Windows allows 48 characters at most
