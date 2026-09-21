@@ -100,6 +100,10 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | **M3** | The full game loop | many weeks; some parts are XL |
 | **M4** | Solid to run | 1–2 weeks |
 
+**Order of work (after decision 2):** friends are invited only once M2 lands, so after M0 we build **M2 (everything you earn is saved)** first. That can be built and tested with the owner alone.
+**Parties (1.9)** are built alongside M2 and tested with a second account in a second game window on this PC. The rest of M1 (Tailscale, invite codes, usernames, the friend package) is prepared in parallel.
+**1.15 First friends night** waits until M2 is done.
+
 **Rules for all milestones:**
 - Take the steps in order within a milestone. Steps from different milestones can overlap where their "Needs" allow it.
 - Test every new server response on a throwaway account before the owner's account uses it. A wrong response shape can crash the 1.4.4 client ("Trying to resize TArray to an invalid size").
@@ -625,16 +629,16 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 ## Decisions only you can make
 
 1. **Owner's progression when it becomes real (2.13).** Keep today's max, or start over. Recommended: keep the max.
-2. **Friends' progression.**
+2. **Friends' progression.** ✅ **Decided: Option B.** Friends are invited after M2, so their first hunt already counts.
    - Option A: friends start at level 1 once M2 lands. The XP they earn before then is lost.
    - Option B: invite friends only after M2, so their first hunt counts.
-3. **Elite Hunt Pass (`season09b_premium`) for everyone?** (2.14)
+3. **Elite Hunt Pass (`season09b_premium`) for everyone?** (2.14) ✅ **Decided: yes.** Grant it to every account, existing and new.
 4. **Daily login pack (`ent_daily_ssk01_plat`) for everyone?** It turns on daily login rewards. (2.14)
 5. **Hunt Pass season.** Stay on season09b, or research rebuilding 11b (XL). (2.15)
 6. **Store.** Items free, or priced in in-game currency. (3.7)
 7. **Our own reward values.** Bounty payouts, prices and other seasons' Hunt Pass rewards are lost. Anything we set is our design, not a restoration.
 8. **Repository.** Public, or private with friends invited. (1.13)
-9. **How friends get the 1.4.4 client.** This is a copyright question. (1.14)
+9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
 10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished.
 11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10)
 
