@@ -325,6 +325,7 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
+r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -344,6 +345,7 @@ r.Tonemapper.Sharpen=0.6
 |---|---|
 | `r.Streaming.PoolSize=3000`, `r.Streaming.LimitPoolSizeToVRAM=1` | Tekstuurien suoratoistopooli megatavuina, ei koskaan suurempi kuin näytönohjaimen muisti. Tämä rajaa suurinta muistin kuluttajaa heikentämättä laatua. |
 | `gc.TimeBetweenPurgingPendingKillObjects=10`, `s.ForceGCAfterLevelStreamedOut=1` | Siivoa roskat (vapauta käyttämätön muisti) useammin ja aina, kun jokin kentän osa poistuu muistista. Vaikuttaa muistiin, ei kuvanlaatuun. |
+| `r.EyeAdaptationQuality=0` | Poistaa 1.4.4:n automaattisen valotuksen, joka nykyisillä ajureilla tekee retkeä edeltävästä ilmalaivasta lähes mustan ja sen ikkunat puhki palaneiksi ([lisätietoa](troubleshooting.html#airship-dark-windows-blown-out)). |
 | `sg.*Quality=N` | Pakotettu laatutaso (katso vaihe 14). |
 | `sg.ResolutionQuality=100`, `r.ScreenPercentage=100` | Piirrä täydellä natiiviresoluutiolla. |
 | `r.MipMapLODBias=0`, `r.MaxAnisotropy=16` | Täyden resoluution tekstuuritasot (mipit); terävät tekstuurit myös vinossa katselukulmassa. |
@@ -758,7 +760,7 @@ $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 # VRAM and the two gc lines only affect memory cleanup, not image quality.
 $sys = @("[SystemSettings]",
          "r.Streaming.PoolSize=3000", "r.Streaming.LimitPoolSizeToVRAM=1",
-         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1")
+         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1", "r.EyeAdaptationQuality=0")
 $groups = "ViewDistance","AntiAliasing","Shadow","PostProcess","Texture","Effects","Foliage","Shading"
 if ($Graphics -ge 0) {
   $sys += ($groups | ForEach-Object { "sg.${_}Quality=$Graphics" })

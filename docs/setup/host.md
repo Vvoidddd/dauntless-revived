@@ -299,6 +299,7 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
+r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -318,6 +319,7 @@ r.Tonemapper.Sharpen=0.6
 |---|---|
 | `r.Streaming.PoolSize=3000`, `r.Streaming.LimitPoolSizeToVRAM=1` | Texture streaming pool in MB, never larger than the GPU's memory. This bounds the biggest memory consumer without lowering quality. |
 | `gc.TimeBetweenPurgingPendingKillObjects=10`, `s.ForceGCAfterLevelStreamedOut=1` | Collect garbage more often and after each streamed-out level. Affects memory, not image quality. |
+| `r.EyeAdaptationQuality=0` | Turns off 1.4.4's automatic exposure, which on current drivers makes the pre-hunt airship nearly black with blown-out windows ([details](troubleshooting.html#airship-dark-windows-blown-out)). |
 | `sg.*Quality=N` | The forced quality level (see step 14). |
 | `sg.ResolutionQuality=100`, `r.ScreenPercentage=100` | Render at full native resolution. |
 | `r.MipMapLODBias=0`, `r.MaxAnisotropy=16` | Full-resolution texture mips; sharp textures at glancing angles. |
@@ -701,7 +703,7 @@ $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 # VRAM and the two gc lines only affect memory cleanup, not image quality.
 $sys = @("[SystemSettings]",
          "r.Streaming.PoolSize=3000", "r.Streaming.LimitPoolSizeToVRAM=1",
-         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1")
+         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1", "r.EyeAdaptationQuality=0")
 $groups = "ViewDistance","AntiAliasing","Shadow","PostProcess","Texture","Effects","Foliage","Shading"
 if ($Graphics -ge 0) {
   $sys += ($groups | ForEach-Object { "sg.${_}Quality=$Graphics" })

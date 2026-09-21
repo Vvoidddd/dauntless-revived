@@ -46,6 +46,8 @@ export function splitLines(text: string): string[] {
   return lines;
 }
 
+// r.EyeAdaptationQuality=0: 1.4.4's automatic exposure turns the pre-hunt airship cabin nearly
+// black with blown-out windows on current drivers; this turns off only the automatic exposure.
 export function systemSettingsLines(graphics: GraphicsPreset): string[] {
   const sys = [
     "[SystemSettings]",
@@ -53,6 +55,7 @@ export function systemSettingsLines(graphics: GraphicsPreset): string[] {
     "r.Streaming.LimitPoolSizeToVRAM=1",
     "gc.TimeBetweenPurgingPendingKillObjects=10",
     "s.ForceGCAfterLevelStreamedOut=1",
+    "r.EyeAdaptationQuality=0",
   ];
   if (graphics >= 0) {
     for (const g of SCALABILITY_GROUPS) sys.push(`sg.${g}Quality=${graphics}`);
