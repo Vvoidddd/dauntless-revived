@@ -38,7 +38,7 @@ loginRouter.post("/login", HasUndauntedMetagameAuth, async (req: any, res) => {
         res.status(400);
         res.send();
 
-        logger.error(`UserID from Undaunted Auth ${req.AuthData.userId} didn't match UserID from token ${req.AuthData.email}`);
+        logger.error(`UserID from metagame auth ${req.AuthData.userId} didn't match UserID from token ${req.AuthData.email}`);
 
         return;
     }
@@ -49,7 +49,7 @@ loginRouter.post("/login", HasUndauntedMetagameAuth, async (req: any, res) => {
         res.status(400);
         res.send();
 
-        logger.error(`UserID from Undaunted Auth ${req.AuthData.userId} had no database entry!`);
+        logger.error(`UserID from metagame auth ${req.AuthData.userId} had no database entry!`);
 
         return;
     }

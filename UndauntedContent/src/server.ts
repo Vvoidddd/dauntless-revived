@@ -94,7 +94,7 @@ async function Main(){
             Fatal(`Could not listen on ${Host}:${TheConfig.port}: ${error instanceof Error ? error.message : String(error)}`);
         }
         Servers.push(Server);
-        logger.info(`Undaunted Content on ${Host}:${TheConfig.port}`);
+        logger.info(`Dauntless Revived content server on ${Host}:${TheConfig.port}`);
     }
 
     logger.info("content server ready", {

@@ -45,7 +45,7 @@ DrainAndRegisterAPIKeys().then(async () => {
       logger.fatal(`Could not listen on ${BIND_HOST}:${PORT}: ${err.message}`);
       process.exit(1);
     }
-    logger.info(`Undaunted Metagame on ${BIND_HOST}:${PORT}`);
+    logger.info(`Dauntless Revived metagame on ${BIND_HOST}:${PORT}`);
     logger.info(`Progression mode: ${DescribeProgressionMode()}`);
     try {
       const UpgradeNotice = ProgressionUpgradeNotice();

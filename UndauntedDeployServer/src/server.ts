@@ -19,6 +19,6 @@ app.listen(PORT, BIND_HOST, (err?: Error) => {
 
   setInterval(RunWatchdog, 60 * 1000);
 
-  logger.info(`Undaunted DeployServer on port ${PORT}`);
+  logger.info(`Dauntless Revived deploy server on port ${PORT}`);
   logger.info(`Clear Skies, Slayer.`);
 });

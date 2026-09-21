@@ -53,7 +53,7 @@ export async function HasUndauntedMetagameAuth(req: Request, res: Response, next
         res.status(401);
         res.send();
 
-        logger.error(`Unauthenticated ${req.method} to ${req.path} which needs Undaunted Metagame auth!`);
+        logger.error(`Unauthenticated ${req.method} to ${req.path} which needs metagame auth!`);
 
         return;
     }
@@ -70,7 +70,7 @@ export async function HasUndauntedMetagameAuth(req: Request, res: Response, next
         res.status(401);
         res.send();
 
-        logger.warn("Request with bad Undaunted Metagame auth!");
+        logger.warn("Request with bad metagame auth!");
 
         return;
     }
