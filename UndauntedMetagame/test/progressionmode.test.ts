@@ -123,10 +123,10 @@ describe("DescribeProgressionMode (the startup line)", () => {
         assert.equal(DescribeProgressionMode(), "real for every account (the default); PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode");
     });
 
-    it("describes stub mode with the number of listed accounts", () => {
+    it("describes stub mode with the number of listed accounts, worded as before", () => {
         SetEnv("stub", "UID-a,UID-b");
 
-        assert.equal(DescribeProgressionMode(), "stub (upstream's fake max ranks, nothing stored), real for 2 listed account(s)");
+        assert.equal(DescribeProgressionMode(), "stub, real for 2 listed account(s)");
     });
 });
 

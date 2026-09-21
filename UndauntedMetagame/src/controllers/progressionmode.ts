@@ -56,12 +56,13 @@ export function IsRealProgressionAccount(AccountId: unknown){
     return Current.Global || Current.Accounts.has(AccountId);
 }
 
-// For the startup log line "Progression mode: ..."
+// For the startup log line "Progression mode: ...". The stub wording is unchanged from
+// when stub was the default (scripts compare it).
 export function DescribeProgressionMode(){
     const Current = GetSettings();
 
     if(!Current.Global){
-        return `stub (upstream's fake max ranks, nothing stored), real for ${Current.Accounts.size} listed account(s)`;
+        return `stub, real for ${Current.Accounts.size} listed account(s)`;
     }
 
     const Ignored = Current.Accounts.size > 0 ? "; PROGRESSION_REAL_ACCOUNTS is ignored outside stub mode" : "";
