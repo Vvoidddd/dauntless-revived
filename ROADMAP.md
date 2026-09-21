@@ -54,7 +54,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 | System | Saves? | Notes |
 |---|---|---|
-| Account, login key, admin flag | Yes | Stored on disk. That it survives a restart is inferred from the code but not yet tested (0.3). A lost key can't be recovered (1.7). |
+| Account, login key, admin flag | Yes | Stored on disk. It survives a full restart: tested (0.3). A lost key can't be recovered (1.7). |
 | Username | Partly | It is saved but can't be changed, and two players can take the same name. Some responses send the name as `{}`. |
 | Quests, story, tutorial, flags, appearance (character data) | Yes, solo | There were 14 save conflicts today. After each one the client read the data again and its retry succeeded within about a second, so the last write is in the database. *Checker: not proven lossless if the client and a server change the same value at the same moment. Not tested with two players.* |
 | Recent players; daily and weekly rotations (heroic queue, weekly challenges, cell offerings) | Probably | Stored inside the character data (the `RecentPlayers` key exists and is empty). Not checked in play. |
@@ -111,7 +111,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 ### M0: Safety net
 
-- [ ] **0.1 Automatic database backups** (S)
+- [ ] **0.1 Automatic database backups** (S) — *Backup script done (online SQLite backup, integrity check, keys and config, keeps 30). The automatic schedule is still to set up.*
   - **What:**
     - A script that copies the save file with SQLite's online backup. That is safe while the server runs. Never copy the live file by hand.
     - It checks each copy with `PRAGMA integrity_check`.
@@ -127,7 +127,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** if `owner.key` is lost, you are locked out of your own account. Only a hash of the key is stored.
   - **Done when:** the encrypted archive opens on another machine.
 
-- [ ] **0.3 Restart test** (S)
+- [x] **0.3 Restart test** (S) — ✅ **Passed 2026-09-21.** All 12 tables were byte-identical before and after a full restart of the metagame, deploy server and Ramsgate server (row counts and content checksums). Startup migrations changed nothing. The client then logged in and loaded its character and inventory.
   - **What:** when nobody is playing, stop and start the metagame once. Log in with `owner.key` and check that the character loads at the same version.
   - **Why:** "your account survives a restart" is only inferred from the code. The account was registered after the running metagame started (log line 5), and the metagame hasn't restarted since.
   - **Needs:** 0.1.
@@ -142,14 +142,14 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** nothing.
   - **Done when:** the capture log holds at least one body for each of these: the XP grant, the Hunt Pass grant (`/progression/…/season09b/100`), a bounty save, a cooldown batch and an entitlement grant.
 
-- [ ] **0.5 Stop the game phoning Epic's chat server** (S)
+- [x] **0.5 Stop the game phoning Epic's chat server** (S) — ✅ **Verified 2026-09-21.** 90 s after launch: zero connections outside this PC; the client tried the local port 61099 instead.
   - **What:** 1.4.4 ships with chat and presence (XMPP) pointed at `wss://xmpp-service-prod.ol.epicgames.com:443` and keeps reconnecting to it, sending the account id and our login token. We confirmed a live connection from the client to that host. The launcher now rewrites `[OnlineSubsystemMcp.XMPP]` in the user `Engine.ini` to `ServerAddr="ws://127.0.0.1"`, `ServerPort=61099`, `bUseSSL=false`. Nothing listens there yet, so the connection fails exactly as it already does against Epic, which the game tolerates. A local presence server can take that port later (3.10).
   - **You'll notice:** nothing.
   - **Done when:** watching the client's connections for 90 s after a fresh launch shows nothing outside this PC. The friend package (1.14) must carry the same override.
 
 ### M1: Play together
 
-- [ ] **1.1 One-command start / stop / status** (S)
+- [ ] **1.1 One-command start / stop / status** (S) — *`stack.ps1 status|start|stop|restart` works locally and keeps old logs; not yet packaged.*
   - **What:** `C:\dr\tools\stack.ps1 start|stop|restart|status`.
     - **start:**
       1. Take a backup (0.1).
