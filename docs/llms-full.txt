@@ -2188,8 +2188,12 @@ textures or an incorrect hunt definition.
 real test (22 September 2026) it made Ramsgate and every night scene far too dark, because those scenes
 rely on automatic exposure to brighten them. So since launcher 0.1.1 nothing turns automatic exposure
 off, and the launcher removes the line 0.1.0 wrote on the next launch. The airship cabin is a short
-scene; a fix that does not darken the rest of the game is item 4.17 on the
-[roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html).
+scene. In the launcher’s Settings → Graphics, **Auto exposure** has an optional **Basic adaptive
+(experimental)** choice. The bundled 1.4.4 executable labels this as Auto Basic, so it does not
+switch exposure off. The default remains **Game default** for everyone. Try Basic only on your own
+client, then compare the same airship, Ramsgate and a night hunt; if anything looks worse, select
+Game default and relaunch. We have not yet verified the visual result in-game, so item 4.17 on the
+[roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) remains open.
 
 To see what is really being forced:
 
@@ -11847,6 +11851,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
     - keep automatic exposure on, but clamp its range
     - a different metering method
     - a launcher option, so each player can choose
+  - **Experiment:** the launcher now offers opt-in **Basic adaptive** metering. The bundled 1.4.4 executable identifies `r.EyeAdaptation.MethodOverride=2` as Auto Basic, so it keeps automatic exposure on. **Game default** remains the default and removes the override on the next launch. This is not a verified visual fix: compare the same airship, Ramsgate and a night hunt before considering it complete or changing the default.
   - **You'll notice:** the airship cabin looks right, and Ramsgate and night scenes keep their normal brightness.
   - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`.
   - **Done when:** in an in-game A/B check by the owner, the airship and the Ramsgate and night scenes all look right.

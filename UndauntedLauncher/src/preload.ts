@@ -40,6 +40,7 @@ const api = {
   setSettings: (patch: Partial<Settings>): Promise<Settings> =>
     ipcRenderer.invoke(IPC.setSettings, {
       ...(patch.graphics !== undefined ? { graphics: patch.graphics } : {}),
+      ...(patch.exposure !== undefined ? { exposure: patch.exposure } : {}),
       ...(patch.windowed !== undefined ? { windowed: patch.windowed } : {}),
       ...(patch.language !== undefined ? { language: patch.language } : {}),
     }),

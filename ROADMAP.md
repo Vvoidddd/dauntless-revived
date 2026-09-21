@@ -789,6 +789,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
     - keep automatic exposure on, but clamp its range
     - a different metering method
     - a launcher option, so each player can choose
+  - **Experiment:** the launcher now offers opt-in **Basic adaptive** metering. The bundled 1.4.4 executable identifies `r.EyeAdaptation.MethodOverride=2` as Auto Basic, so it keeps automatic exposure on. **Game default** remains the default and removes the override on the next launch. This is not a verified visual fix: compare the same airship, Ramsgate and a night hunt before considering it complete or changing the default.
   - **You'll notice:** the airship cabin looks right, and Ramsgate and night scenes keep their normal brightness.
   - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`.
   - **Done when:** in an in-game A/B check by the owner, the airship and the Ramsgate and night scenes all look right.

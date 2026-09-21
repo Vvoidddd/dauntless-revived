@@ -4,7 +4,7 @@ import { promises as fsp, readFileSync } from "node:fs";
 import path from "node:path";
 import { isPrivateModeHost, isValidFingerprint, isValidHost, isValidInviteCode, isValidShareUrl, cleanServerName, type ServerMode } from "../shared/invite";
 import { isValidUsername } from "../shared/username";
-import { DEFAULT_GRAPHICS, GRAPHICS_PRESETS, type GraphicsPreset, type Language } from "../shared/types";
+import { DEFAULT_GRAPHICS, EXPOSURE_MODES, GRAPHICS_PRESETS, type ExposureMode, type GraphicsPreset, type Language } from "../shared/types";
 
 export interface StoredServer {
   mode: ServerMode;
@@ -22,6 +22,7 @@ export interface StoredSettings {
   installDir: string | null; // null = the default folder
   verifiedDir: string | null; // the folder whose files were last fully checked or downloaded
   graphics: GraphicsPreset;
+  exposure: ExposureMode;
   windowed: boolean;
   language: Language;
   usernames: Record<string, string>; // per server id, for display only
@@ -35,6 +36,7 @@ export function defaultSettings(language: Language): StoredSettings {
     installDir: null,
     verifiedDir: null,
     graphics: DEFAULT_GRAPHICS,
+    exposure: "game",
     windowed: false,
     language,
     usernames: {},
@@ -77,6 +79,7 @@ export function sanitizeSettings(raw: unknown, language: Language): StoredSettin
   s.installDir = validDir(raw.installDir);
   s.verifiedDir = validDir(raw.verifiedDir);
   if (GRAPHICS_PRESETS.includes(raw.graphics as GraphicsPreset)) s.graphics = raw.graphics as GraphicsPreset;
+  if (EXPOSURE_MODES.includes(raw.exposure as ExposureMode)) s.exposure = raw.exposure as ExposureMode;
   s.windowed = raw.windowed === true;
   if (raw.language === "en" || raw.language === "fi") s.language = raw.language;
   if (isObject(raw.usernames)) {

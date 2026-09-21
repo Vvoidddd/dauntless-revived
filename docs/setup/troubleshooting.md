@@ -207,8 +207,12 @@ textures or an incorrect hunt definition.
 real test (22 September 2026) it made Ramsgate and every night scene far too dark, because those scenes
 rely on automatic exposure to brighten them. So since launcher 0.1.1 nothing turns automatic exposure
 off, and the launcher removes the line 0.1.0 wrote on the next launch. The airship cabin is a short
-scene; a fix that does not darken the rest of the game is item 4.17 on the
-[roadmap]({{ roadmap_page.url | relative_url }}).
+scene. In the launcher’s Settings → Graphics, **Auto exposure** has an optional **Basic adaptive
+(experimental)** choice. The bundled 1.4.4 executable labels this as Auto Basic, so it does not
+switch exposure off. The default remains **Game default** for everyone. Try Basic only on your own
+client, then compare the same airship, Ramsgate and a night hunt; if anything looks worse, select
+Game default and relaunch. We have not yet verified the visual result in-game, so item 4.17 on the
+[roadmap]({{ roadmap_page.url | relative_url }}) remains open.
 
 To see what is really being forced:
 

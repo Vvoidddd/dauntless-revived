@@ -1,7 +1,7 @@
 // Argument checks for every IPC call from the renderer. Anything unexpected is refused before it
 // reaches the controller.
 
-import { GRAPHICS_PRESETS, type ExternalTarget, type GraphicsPreset, type Settings } from "../shared/types";
+import { EXPOSURE_MODES, GRAPHICS_PRESETS, type ExposureMode, type ExternalTarget, type GraphicsPreset, type Settings } from "../shared/types";
 
 export function boundedString(v: unknown, max: number): string | null {
   return typeof v === "string" && v.length <= max ? v : null;
@@ -12,6 +12,7 @@ export function settingsPatch(v: unknown): Partial<Settings> | null {
   const out: Partial<Settings> = {};
   for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
     if (k === "graphics" && GRAPHICS_PRESETS.includes(val as GraphicsPreset)) out.graphics = val as GraphicsPreset;
+    else if (k === "exposure" && EXPOSURE_MODES.includes(val as ExposureMode)) out.exposure = val as ExposureMode;
     else if (k === "windowed" && typeof val === "boolean") out.windowed = val;
     else if (k === "language" && (val === "en" || val === "fi")) out.language = val;
     else return null;

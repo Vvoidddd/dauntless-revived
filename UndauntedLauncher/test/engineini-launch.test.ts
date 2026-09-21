@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { applyGameConfig, defaultConfigDir, rewriteEngineIniText, splitLines } from "../src/main/engineini";
+import { settingsPatch } from "../src/main/ipc-validate";
+import { sanitizeSettings } from "../src/main/settings";
 import { buildLaunchArgs, describeLaunch, FIXED_ARGS, GameProcess, maskArgs, type SpawnFn } from "../src/main/launch";
 import { addSecret, redact, setSink, log } from "../src/main/log";
 
@@ -257,4 +259,28 @@ test("Engine.ini: no graphics preset turns off the game's automatic exposure", (
   for (const g of [-1, 0, 1, 2, 3, 4] as const) {
     assert.ok(!rewriteEngineIniText([], "100.64.0.7", g).some((l) => /EyeAdaptation/i.test(l)), `preset ${g}`);
   }
+});
+
+test("Engine.ini: experimental Basic mode remains adaptive and can be reverted", async () => {
+  const dir = tempDir();
+  try {
+    const opts = { host: "100.64.0.7", graphics: 4 as const, configDir: dir };
+    await applyGameConfig({ ...opts, exposure: "basic" });
+    const basic = readFileSync(path.join(dir, "Engine.ini"), "latin1");
+    assert.match(basic, /r\.EyeAdaptation\.MethodOverride=2/);
+    assert.ok(!basic.includes("r.EyeAdaptationQuality=0"));
+    await applyGameConfig({ ...opts, exposure: "game" });
+    const restored = readFileSync(path.join(dir, "Engine.ini"), "latin1");
+    assert.ok(!/EyeAdaptation/i.test(restored));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("exposure setting defaults to the game and rejects unexpected renderer values", () => {
+  assert.equal(sanitizeSettings({}, "en").exposure, "game");
+  assert.equal(sanitizeSettings({ exposure: "basic" }, "en").exposure, "basic");
+  assert.equal(sanitizeSettings({ exposure: "manual" }, "en").exposure, "game");
+  assert.deepEqual(settingsPatch({ exposure: "basic" }), { exposure: "basic" });
+  assert.equal(settingsPatch({ exposure: "manual" }), null);
 });
