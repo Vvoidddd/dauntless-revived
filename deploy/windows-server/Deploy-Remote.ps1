@@ -465,12 +465,12 @@ $os = Get-CimInstance Win32_OperatingSystem
     if (-not $p.admin -and -not $script:Test) { Stop-DR "The SSH session is not elevated ($($p.user)). Use the Administrator account." }
 
     if ($Status) {
-        [void](Invoke-Remote "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Stack.ps1')) status; ''; & $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Get-ServerStatus.ps1'))" -Stream)
+        [void](Invoke-Remote "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Stack.ps1')) status 6>&1; ''; & $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Get-ServerStatus.ps1')) 6>&1" -Stream)
         exit $script:RemoteExit
     }
 
     if ($InviteFor) {
-        $lines = Invoke-Remote "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'New-Invite.ps1')) -For $(ConvertTo-DRPsLiteral $InviteFor); exit `$LASTEXITCODE" -Stream
+        $lines = Invoke-Remote "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'New-Invite.ps1')) -For $(ConvertTo-DRPsLiteral $InviteFor) 6>&1; exit `$LASTEXITCODE" -Stream
         if ($script:RemoteExit -ne 0) { Stop-DR 'New-Invite.ps1 failed on the server (see above).' }
         $invite = @($lines | Where-Object { $_ -match '^dauntless-revived://' }) | Select-Object -Last 1
         if ($invite) {
@@ -574,7 +574,9 @@ $os = Get-CimInstance Win32_OperatingSystem
         else { $cmdParts += "-$k " + (ConvertTo-DRPsLiteral ([string]$v)) }
     }
     foreach ($s in $switches) { $cmdParts += "-$s" }
-    $remoteCmd = ($cmdParts -join ' ') + '; exit $LASTEXITCODE'
+    # 6>&1: over Windows OpenSSH, Write-Host output reaches this PC twice (stdout and the console);
+    # sending the host stream into the output stream makes each line arrive once.
+    $remoteCmd = ($cmdParts -join ' ') + ' 6>&1; exit $LASTEXITCODE'
     if ($UploadOnly -or $script:Test) {
         Write-DRStep 'Ready'
         Write-DRInfo "everything is on the server. The command that would run there$(if ($script:Test) { ' (not run in a test)' }):"
