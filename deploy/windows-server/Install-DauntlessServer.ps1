@@ -134,6 +134,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\DauntlessServer.Common.ps1"
 
 $IsWhatIf = [bool]$WhatIfPreference
+$FirewallNeedsRestart = $false
 $UdpBegin = $DRUdpBegin
 $UdpEnd = $DRUdpEnd
 $ServiceUser = $DRNames.ServiceUser
@@ -264,6 +265,13 @@ function Set-DRAutoLogon([Security.SecureString]$Password) {
         [DRKit.Lsa]::StoreSecret('DefaultPassword', [IntPtr]::Zero)
         Set-ItemProperty -Path $wl -Name AutoAdminLogon -Value '0' -Type String
     }
+}
+
+# True when the firewall that is actually in effect (local settings merged with any policy) is on and
+# blocks inbound by default on every profile.
+function Test-DRFirewallEffective {
+    $p = @(Get-NetFirewallProfile -PolicyStore ActiveStore -ErrorAction SilentlyContinue)
+    return ($p.Count -gt 0 -and -not @($p | Where-Object { -not $_.Enabled -or "$($_.DefaultInboundAction)" -ne 'Block' }).Count)
 }
 
 # Registers a task that runs as the service account with its password stored by Task Scheduler (logon
@@ -1333,6 +1341,38 @@ try {
                 }
             } else { Write-DROk "profile $($fp.Name): on, inbound blocked by default" }
         }
+        # 4b. Policy values override the local settings above: some VPS images set
+        #     HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\<Profile>\EnableFirewall = 0, which leaves the
+        #     firewall OFF whatever the local profile says (every port open to the internet). Without a
+        #     domain these come from no GPO, so they are removed; AllowLocalPolicyMerge = 0 goes first, or
+        #     the local rules (SSH included) would be ignored once the firewall is on. The effective state
+        #     (active store) is what gets checked.
+        $polRoot = 'HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall'
+        foreach ($name in 'AllowLocalPolicyMerge', 'DefaultInboundAction', 'EnableFirewall') {
+            foreach ($pn in 'DomainProfile', 'PrivateProfile', 'PublicProfile', 'StandardProfile') {
+                $k = Join-Path $polRoot $pn
+                $val = (Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).$name
+                if ($null -eq $val) { continue }
+                $bad = switch ($name) { 'EnableFirewall' { $val -eq 0 } 'AllowLocalPolicyMerge' { $val -eq 0 } 'DefaultInboundAction' { $val -eq 0 } }   # 0 = off / ignore local rules / allow
+                if ($bad -and (Test-Do "firewall policy value $pn\$name = $val" 'Remove (it overrides the local firewall settings)')) {
+                    $fwChanges.Add("policy|$pn|$name|$val")
+                    Remove-ItemProperty -LiteralPath $k -Name $name
+                    Write-DROk "policy value $pn\$name = $val removed"
+                }
+            }
+        }
+        if (-not $IsWhatIf) {
+            if (Test-DRFirewallEffective) { Write-DROk 'effective firewall (all profiles, after any policy): on, inbound blocked by default' }
+            else {
+                # The firewall service reads these policy values when it starts; without a GPO nothing
+                # makes it read them again, so the change takes effect at the next restart.
+                $FirewallNeedsRestart = $true
+                $eff = (Get-NetFirewallProfile -PolicyStore ActiveStore | ForEach-Object { "$($_.Name)=$(if ($_.Enabled) { 'on' } else { 'OFF' })/$($_.DefaultInboundAction)" }) -join ', '
+                Write-DRWarn "the firewall in effect is still OFF ($eff). RESTART THE SERVER (Restart-Computer) to turn it on;"
+                Write-DRInfo '   until then every port on this server is open to the internet. If it is still off after a restart,'
+                Write-DRInfo '   look under HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall and at the provider''s settings.'
+            }
+        }
         # 5. Audit: anything else that accepts connections from anywhere on the public profile.
         $known = @($sshRules + $rdpRules | ForEach-Object { $_.Name })
         $others = @(Get-NetFirewallRule -Direction Inbound -Action Allow -Enabled True -ErrorAction SilentlyContinue | Where-Object {
@@ -1355,6 +1395,10 @@ try {
                 Write-DRWarn "firewall profile $($fp.Name): enabled=$($fp.Enabled), default inbound=$($fp.DefaultInboundAction). The rules below only limit anything if it is on and blocks by default:"
                 Write-DRInfo "   Set-NetFirewallProfile -Name $($fp.Name) -Enabled True -DefaultInboundAction Block   (check your remote-desktop rule first)"
             }
+        }
+        if (-not (Test-DRFirewallEffective)) {
+            Write-DRWarn 'the firewall actually in effect is off or allows inbound by default on some profile, whatever the local settings say: a policy overrides them'
+            Write-DRInfo '   look for EnableFirewall = 0 under HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\<Profile>'
         }
         $ts = Get-DRTailscaleAdapter
         if (Test-Do "Windows Firewall group '$($DRNames.FirewallGroup)'" 'Replace the inbound rules (Tailscale addresses only)') {
@@ -1473,6 +1517,12 @@ try {
             Write-Host "     TCP $($ports.gateway)  (the gateway)   and   UDP $UdpBegin-$UdpEnd  (the game servers)" -ForegroundColor Yellow
             Write-Host "  This server's own allowlist limits UDP to logged-in players. Without the provider UDP rule," -ForegroundColor Yellow
             Write-Host '  friends log in and then hang loading Ramsgate. This server cannot test the provider firewall.' -ForegroundColor Yellow
+        }
+        if ($FirewallNeedsRestart) {
+            Write-Host ''
+            Write-Host '  !!!!! RESTART THIS SERVER NOW (Restart-Computer): the Windows firewall is not in effect yet !!!!!' -ForegroundColor Red
+            Write-Host '  A policy value that kept it off was removed; the firewall service reads it again only when it starts.' -ForegroundColor Red
+            Write-Host '  The server starts by itself after the restart.' -ForegroundColor Red
         }
     } else {
         Write-Host "  Server '$ServerName' at ${Advertise}:$($ports.metagame) (private mode, Tailscale)$(if ($Sandbox) { '  (sandbox)' })" -ForegroundColor Green
