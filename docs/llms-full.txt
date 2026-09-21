@@ -454,7 +454,6 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
-r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -474,7 +473,6 @@ r.Tonemapper.Sharpen=0.6
 |---|---|
 | `r.Streaming.PoolSize=3000`, `r.Streaming.LimitPoolSizeToVRAM=1` | Texture streaming pool in MB, never larger than the GPU's memory. This bounds the biggest memory consumer without lowering quality. |
 | `gc.TimeBetweenPurgingPendingKillObjects=10`, `s.ForceGCAfterLevelStreamedOut=1` | Collect garbage more often and after each streamed-out level. Affects memory, not image quality. |
-| `r.EyeAdaptationQuality=0` | Turns off 1.4.4's automatic exposure, which on current drivers makes the pre-hunt airship nearly black with blown-out windows ([details](troubleshooting.html#airship-dark-windows-blown-out)). |
 | `sg.*Quality=N` | The forced quality level (see step 14). |
 | `sg.ResolutionQuality=100`, `r.ScreenPercentage=100` | Render at full native resolution. |
 | `r.MipMapLODBias=0`, `r.MaxAnisotropy=16` | Full-resolution texture mips; sharp textures at glancing angles. |
@@ -875,7 +873,7 @@ $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 # VRAM and the two gc lines only affect memory cleanup, not image quality.
 $sys = @("[SystemSettings]",
          "r.Streaming.PoolSize=3000", "r.Streaming.LimitPoolSizeToVRAM=1",
-         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1", "r.EyeAdaptationQuality=0")
+         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1")
 $groups = "ViewDistance","AntiAliasing","Shadow","PostProcess","Texture","Effects","Foliage","Shading"
 if ($Graphics -ge 0) {
   $sys += ($groups | ForEach-Object { "sg.${_}Quality=$Graphics" })
@@ -1343,7 +1341,6 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
-r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -2079,10 +2076,12 @@ windows are solid white. It can vary between hunts because the lobby previews th
 large brightness range on current graphics drivers. This is a post-processing problem, not missing
 textures or an incorrect hunt definition.
 
-**Fix.** The launcher, the friend kit's `play.ps1` and the host's `play.ps1` now set
-`r.EyeAdaptationQuality=0` in the user's `Engine.ini`. Close every Dauntless client and launch it
-again for the setting to take effect. This only disables automatic exposure; resolution, texture
-quality, lighting assets and hunt atmosphere stay unchanged. Found and fixed by Vvoidddd.
+**Status: not fixed by default.** Vvoidddd found that `r.EyeAdaptationQuality=0` in `Engine.ini`
+(automatic exposure off) fixes the airship, and launcher 0.1.0 and the friend kit set it. In the first
+real test (22 September 2026) it made Ramsgate and every night scene far too dark, because those scenes
+rely on automatic exposure to brighten them. So since launcher 0.1.1 nothing turns automatic exposure
+off, and the launcher removes the line 0.1.0 wrote on the next launch. The airship cabin is a short
+scene; a fix that does not darken the rest of the game is on the roadmap.
 
 To see what is really being forced:
 

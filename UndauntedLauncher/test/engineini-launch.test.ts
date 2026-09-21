@@ -21,7 +21,6 @@ const EXPECTED_FRESH = [
   "r.Streaming.LimitPoolSizeToVRAM=1",
   "gc.TimeBetweenPurgingPendingKillObjects=10",
   "s.ForceGCAfterLevelStreamedOut=1",
-  "r.EyeAdaptationQuality=0",
   "sg.ViewDistanceQuality=4",
   "sg.AntiAliasingQuality=4",
   "sg.ShadowQuality=4",
@@ -80,7 +79,6 @@ test("Engine.ini: replaces only the two managed sections and keeps the rest", as
       "r.Streaming.LimitPoolSizeToVRAM=1",
       "gc.TimeBetweenPurgingPendingKillObjects=10",
       "s.ForceGCAfterLevelStreamedOut=1",
-      "r.EyeAdaptationQuality=0",
       "",
       "[OnlineSubsystemMcp.XMPP]",
       'ServerAddr="ws://hostpc.tail1234.ts.net"',
@@ -239,4 +237,24 @@ test("launch args, public mode: the relay address comes first and the key stays 
   const line = describeLaunch("Dauntless-Win64-Shipping.exe", args);
   assert.ok(!line.includes(KEY));
   assert.ok(line.startsWith("Dauntless-Win64-Shipping.exe 127.0.0.1:61000 -AUTH_PASSWORD=<hidden> -AUTH_LOGIN=unused"));
+});
+
+test("Engine.ini: the r.EyeAdaptationQuality=0 line 0.1.0 wrote is gone after the next launch; other sections stay", async () => {
+  const dir = tempDir();
+  try {
+    const before = ["[SystemSettings]", "r.Streaming.PoolSize=3000", "r.EyeAdaptationQuality=0", "", "[Core.Log]", "LogOnline=Verbose"];
+    writeFileSync(path.join(dir, "Engine.ini"), before.map((l) => l + "\r\n").join(""), "latin1");
+    await applyGameConfig({ host: "100.64.0.7", graphics: -1, configDir: dir });
+    const text = readFileSync(path.join(dir, "Engine.ini"), "latin1");
+    assert.ok(!/EyeAdaptation/i.test(text), text);
+    assert.ok(text.includes("[Core.Log]\r\nLogOnline=Verbose\r\n"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Engine.ini: no graphics preset turns off the game's automatic exposure", () => {
+  for (const g of [-1, 0, 1, 2, 3, 4] as const) {
+    assert.ok(!rewriteEngineIniText([], "100.64.0.7", g).some((l) => /EyeAdaptation/i.test(l)), `preset ${g}`);
+  }
 });

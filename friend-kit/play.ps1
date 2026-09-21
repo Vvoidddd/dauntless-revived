@@ -50,10 +50,10 @@ foreach ($f in $Pinned.Keys) {
 #  - The texture pool is bounded by your GPU's memory; the gc lines only affect memory cleanup.
 $Cfg = Join-Path $env:LOCALAPPDATA "Archon\Saved\Config\WindowsClient"
 New-Item -ItemType Directory -Force $Cfg | Out-Null
-#  - r.EyeAdaptationQuality=0: 1.4.4's auto-exposure turns the pre-hunt airship cabin nearly black with
-#    blown-out windows on current drivers; this only turns off automatic exposure.
+#  - No r.EyeAdaptationQuality=0: turning 1.4.4's automatic exposure off fixed the dark pre-hunt airship
+#    but made Ramsgate and every night scene far too dark, so the game's own exposure stays on.
 $sys = @("[SystemSettings]", "r.Streaming.PoolSize=3000", "r.Streaming.LimitPoolSizeToVRAM=1",
-         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1", "r.EyeAdaptationQuality=0")
+         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1")
 $groups = "ViewDistance", "AntiAliasing", "Shadow", "PostProcess", "Texture", "Effects", "Foliage", "Shading"
 if ($Graphics -ge 0) {
   if ($Graphics -gt 4) { Fail "-Graphics is 0 to 4." }

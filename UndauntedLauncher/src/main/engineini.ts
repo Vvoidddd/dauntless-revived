@@ -46,8 +46,9 @@ export function splitLines(text: string): string[] {
   return lines;
 }
 
-// r.EyeAdaptationQuality=0: 1.4.4's automatic exposure turns the pre-hunt airship cabin nearly
-// black with blown-out windows on current drivers; this turns off only the automatic exposure.
+// No r.EyeAdaptationQuality=0 (0.1.0 wrote it to fix the dark pre-hunt airship): turning automatic exposure
+// off made Ramsgate and every night scene far too dark, so the game's own exposure stays on. Because this
+// section is replaced on every launch, the line 0.1.0 wrote disappears from existing Engine.ini files.
 export function systemSettingsLines(graphics: GraphicsPreset): string[] {
   const sys = [
     "[SystemSettings]",
@@ -55,7 +56,6 @@ export function systemSettingsLines(graphics: GraphicsPreset): string[] {
     "r.Streaming.LimitPoolSizeToVRAM=1",
     "gc.TimeBetweenPurgingPendingKillObjects=10",
     "s.ForceGCAfterLevelStreamedOut=1",
-    "r.EyeAdaptationQuality=0",
   ];
   if (graphics >= 0) {
     for (const g of SCALABILITY_GROUPS) sys.push(`sg.${g}Quality=${graphics}`);

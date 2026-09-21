@@ -214,10 +214,13 @@ kohteen tunnelman.
 reagoi huonosti ilmalaivan tavallista suurempaan kirkkauserojen määrään nykyisillä näytönohjainten
 ajureilla. Kyse on jälkikäsittelystä, ei puuttuvista tekstuureista eikä väärästä retken määrityksestä.
 
-**Korjaus.** Käynnistin, kaveripaketin `play.ps1` ja isännän `play.ps1` asettavat nyt käyttäjän
-`Engine.ini`-tiedostoon rivin `r.EyeAdaptationQuality=0`. Sulje kaikki Dauntless-ikkunat ja käynnistä
-peli uudelleen, jotta asetus tulee voimaan. Asetus poistaa vain automaattisen valotuksen: resoluutio,
-tekstuurien laatu, valaistus ja retken tunnelma pysyvät ennallaan. Korjauksen löysi ja teki Vvoidddd.
+**Tilanne: ei korjattu oletuksena.** Vvoidddd huomasi, että `Engine.ini`-tiedoston rivi
+`r.EyeAdaptationQuality=0` (automaattinen valotus pois) korjaa ilmalaivan, ja käynnistimen versio 0.1.0
+sekä kaveripaketti asettivat sen. Ensimmäisessä oikeassa testissä (22. syyskuuta 2026) se teki
+Ramsgatesta ja kaikista yökohtauksista aivan liian pimeitä, koska ne tarvitsevat automaattista valotusta
+kirkastuakseen. Siksi käynnistimen versiosta 0.1.1 alkaen mikään ei laita automaattista valotusta pois,
+ja käynnistin poistaa version 0.1.0 kirjoittaman rivin seuraavalla käynnistyskerralla. Ilmalaivan hytti on
+lyhyt kohtaus; korjaus, joka ei pimennä muuta peliä, on tiekartalla.
 
 Näin näet, mitä oikeasti pakotetaan:
 
