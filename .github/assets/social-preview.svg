@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="social-title social-desc">
+  <title id="social-title">Dauntless Revived</title>
+  <desc id="social-desc">Dauntless Revived. Private server revival of Dauntless 1.4.4. A fork of Undaunted, AGPL-3.0. Unofficial fan project, not affiliated with Phoenix Labs or Epic Games.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100c08"/>
+      <stop offset="1" stop-color="#1e160e"/>
+    </linearGradient>
+    <radialGradient id="ember" cx="0.5" cy="0.3" r="0.55">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ember2" cx="0.5" cy="1.1" r="0.6">
+      <stop offset="0" stop-color="#ea580c" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ea580c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#fb923c" stop-opacity="0.8"/>
+      <stop offset="0.5" stop-color="#fcd34d"/>
+      <stop offset="0.7" stop-color="#fb923c" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#fef3c7" stroke-opacity="0.035"/>
+    </pattern>
+  </defs>
+  <style>
+    .sans { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  </style>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#ember)"/>
+  <rect width="1280" height="640" fill="url(#ember2)"/>
+
+  <!-- heartbeat trace (original graphic) -->
+  <path d="M120 190H548l12-12l12 12H596l10 22l18-118l18 134l12-38H700l16-18l16 18H1160" fill="none" stroke="url(#trace)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="624" cy="94" r="7" fill="#fcd34d"/>
+  <circle cx="624" cy="94" r="18" fill="none" stroke="#fcd34d" stroke-opacity="0.3" stroke-width="2"/>
+
+  <text x="640" y="336" text-anchor="middle" class="sans" font-size="104" font-weight="800" fill="#fff7ed">Dauntless Revived</text>
+  <text x="640" y="404" text-anchor="middle" class="sans" font-size="40" fill="#e7d8c4">Private server revival · Dauntless 1.4.4</text>
+
+  <rect x="386" y="446" width="508" height="58" rx="29" fill="#2a1f10" stroke="#b7791f" stroke-width="2"/>
+  <text x="640" y="484" text-anchor="middle" class="mono" font-size="26" font-weight="600" fill="#fde68a">fork of Undaunted · AGPL-3.0</text>
+
+  <text x="640" y="566" text-anchor="middle" class="mono" font-size="22" fill="#a8a29e">github.com/mixutin/dauntless-revived</text>
+  <text x="640" y="602" text-anchor="middle" class="sans" font-size="18" fill="#7c6f5f">Unofficial fan project · not affiliated with Phoenix Labs or Epic Games</text>
+</svg>
