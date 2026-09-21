@@ -40,13 +40,16 @@ varmuuskopiosta palauttaminen tarkistettu alusta loppuun. 21.–22.9.2026 se ase
 tilaan oikealle vuokratulle Windows Server 2019 -virtuaalipalvelimelle. Sillä palvelimella on
 tarkistettu: palvelinkokonaisuus käynnistyy koneen käynnistyessä palvelutilillä istunnossa 0,
 Ramsgate pyörii ja lähettää elonmerkkejä (heartbeat), yhdyskäytävä vastaa internetistä kiinnitetyllä
-varmenteella, ja tunnin välein ajettava varmuuskopiotehtävä toimii. Omistaja rekisteröityi siellä
-käynnistimellä ja latasi pelin yhdyskäytävän kautta. Oikea palvelin paljasti kolme ongelmaa, joita
+varmenteella, ja tunnin välein ajettava varmuuskopiotehtävä toimii. 22.9.2026 omistaja pelasi siellä
+internetin yli: hän rekisteröityi käynnistimellä kutsun avulla, latasi pelin yhdyskäytävän kautta ja
+pelasi opetusjakson, Ramsgaten, Training Dojon ja ensimmäisen metsästyksen. Kolme pelipalvelinta pyöri
+yhtä aikaa, ja sallittujen lista avasi UDP-peliportit pelaajalle ja sulki ne, kun hän lähti. Oikea
+palvelin paljasti kolme ongelmaa, joita
 hiekkalaatikko ei voinut löytää, ja ne kaikki on korjattu paketissa: Windows sallii paikallisen tilin
 kuvaukseen enintään 48 merkkiä, se levykuva ei hyväksy ilman tallennettua salasanaa ajettavia
 ajastettuja tehtäviä (”S4U”) muille kuin ylläpitäjille, ja palveluntarjoajan levykuva piti palomuurin
-pois päältä käytäntöarvoilla (kaksi viimeistä selitetään alla asennuksen vaiheissa). Ensimmäinen testi
-kaverin kanssa on käynnissä; yksityistä tilaa ei ole ajettu oikealla palvelimella. Katso
+pois päältä käytäntöarvoilla (kaksi viimeistä selitetään alla asennuksen vaiheissa). Testi toisen
+pelaajan kanssa on seuraavana vuorossa; yksityistä tilaa ei ole ajettu oikealla palvelimella. Katso
 [tiekartan]({{ roadmap_page.url | relative_url }}) kohdat 1.15–1.17.
 
 <details open markdown="block">

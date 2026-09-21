@@ -42,8 +42,8 @@ is written up here.
 ## Current status
 
 As of 22 September 2026. Everything in this section is about the **1.4.4** client. The game itself
-has so far been played by one person, the owner, alone on the host PC. A server on a rented machine is
-running, and the first test with a friend over the internet is in progress.
+has so far been played by one person, the owner, alone: first on the host PC, then on 22 September
+2026 over the internet on a server on a rented machine. A test with a second player is next.
 
 ### What works
 
@@ -52,11 +52,11 @@ running, and the first test with a friend over the internet is in progress.
 | Log in with your own account | Works | Each player has an account on our server and logs in with a personal account key. **No Epic account is needed.** The 1.4.4 client has no Epic Online Services login; it predates that integration. It is launched in its exchange-code login mode. The injected DLL points the client's Epic-style account-service call at our metagame, which accepts the player's account key as the exchange code. |
 | Tutorial | Works | A new character is matchmade into the tutorial island. That island runs on a game server the deploy server starts on demand. |
 | Ramsgate | Works | A permanent Ramsgate server runs next to the backend. After the tutorial, and on every later login, the player goes straight there. |
-| Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
+| Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit on the host PC, and the new-player pursuit over the internet on the rented server, where three game servers ran at once. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
 | Saved inventory and loadouts | Works (solo) | Materials, Rams (most likely the `CURRENCY_NOTES` stack), crafted and granted gear, the first loadout slot, and character data (quest progress, tutorial state, flags, appearance) are stored in a SQLite database. Hunt loot is saved. The data survives a client restart and a full server restart. So far only one player has tested this. |
-| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart; behemoth mastery uses the same storage but has not been seen in game yet. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
-| A server on a rented machine | Running | The [Windows server kit]({{ '/setup/windows-server.html' | relative_url }}) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the kit's service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. Deploying to a real server found three problems the sandbox tests could not, all fixed in the kit: a 48-character limit on the service account's description, a Windows image that refuses password-less scheduled tasks ("S4U") for accounts that are not administrators, and a provider image that kept Windows Firewall off through policy values. |
-| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update themselves. The owner registered with it on the rented server and downloaded the game through the gateway. It is not code-signed yet. |
+| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart. On the rented server on 22 September 2026 the owner's new account reached Slayer level 3 and gained weapon mastery and behemoth mastery (rank 2, the first time behemoth mastery was seen in game), and the game server confirmed the rank rewards. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
+| A server on a rented machine | Running | The [Windows server kit]({{ '/setup/windows-server.html' | relative_url }}) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the kit's service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. Deploying to a real server found three problems the sandbox tests could not, all fixed in the kit: a 48-character limit on the service account's description, a Windows image that refuses password-less scheduled tasks ("S4U") for accounts that are not administrators, and a provider image that kept Windows Firewall off through policy values. In the first real test (22 September 2026) the tutorial island and the Training Dojo were started on demand, three game servers ran at once, and the UDP allowlist opened the game ports for the player and closed them after they left. Several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept. |
+| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update themselves. The owner downloaded 0.1.0 from there, registered with an invite on the rented server and downloaded the game (about 11 GB) through the gateway. Version 0.1.1, published by CI the same night, stopped turning off the game's automatic exposure, which had made Ramsgate and night scenes far too dark; with 0.1.1 Ramsgate looks normal, and the dark pre-hunt airship is back ([details]({{ '/setup/troubleshooting.html' | relative_url }}#airship-dark-windows-blown-out)). It is not code-signed yet: on the owner's PC SmartScreen blocked the installer outright, and checking it against `SHA256SUMS.txt` and unblocking it worked ([how]({{ '/setup/friends.html' | relative_url }})). |
 
 The measured cost on the host PC was about 1.1 GB of RAM and roughly 0.2 of a CPU core for the
 Ramsgate server, about 0.9 GB per hunt server, and 1.5 to 2.3 GB for the player's own client (the
@@ -64,10 +64,11 @@ higher figure at Cinematic settings).
 
 ### What does not work yet
 
-- **Playing with friends over the internet: the first real test is in progress.** On the rented
-  server, friends join with the launcher and an invite, without Tailscale. A two-player test with a
-  friend is starting. Until it is done, we don't claim that Ramsgate with two players, parties or
-  hunts work over the internet.
+- **Playing together over the internet: tested with one player, not yet with two.** On the rented
+  server, friends join with the launcher and an invite, without Tailscale. On 22 September 2026 the
+  owner went that way from the invite to the first hunt. Not yet verified: a second player (their
+  invite is issued), two players in Ramsgate, a party, and a hunt together over the internet. That
+  test is next.
 - **Parties and the friends list: built, not yet tried in game.** The server side is built: party
   invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
   returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved

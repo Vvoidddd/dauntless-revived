@@ -8,10 +8,11 @@
     Voi, yksityisellä palvelimella. Pelin viralliset palvelimet (tietokoneet, jotka pyörittivät peliä
     verkossa) suljettiin 30.5.2025, eikä peliä voi pelata ollenkaan ilman palvelinta. Dauntless Revived
     korvaa ne. Jos sinulla on oma kopio pelin versiosta 1.4.4, voit pystyttää palvelimen ja pelata.
-    Tähän mennessä peliä on pelannut yksi pelaaja palvelinkoneella: kirjautuminen, opetusjakso,
-    Ramsgaten kaupunki, Training Dojo -harjoitussali, metsästykset ja varusteiden valmistus toimivat.
-    Vuokratulla koneella pyörii palvelin, ja ensimmäinen testi kaverin kanssa internetin yli on
-    käynnissä (syyskuu 2026). Lue lisää [etusivulta](fi/index.md).
+    Tähän mennessä peliä on pelannut yksi pelaaja: palvelinkoneella (kirjautuminen, opetusjakso,
+    Ramsgaten kaupunki, Training Dojo -harjoitussali, metsästykset ja varusteiden valmistus toimivat)
+    ja 22.9.2026 internetin yli vuokratulla koneella pyörivällä palvelimella, kutsusta ensimmäiseen
+    metsästykseen asti. Pelaamista toisen pelaajan kanssa ei ole vielä kokeiltu. Lue lisää
+    [etusivulta](fi/index.md).
 
 - id: onko-yksityispalvelinta
   q: "Onko Dauntlessille olemassa yksityistä palvelinta?"
@@ -93,8 +94,9 @@
     Suurimmaksi osaksi. Esineet, materiaalit, Rams-raha, valmistetut varusteet, tehtävät ja tarinan
     eteneminen tallentuvat tietokantaan. Ne säilyvät, vaikka palvelin käynnistetään uudelleen, ja niistä
     otetaan varmuuskopio tunnin välein. Myös Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja
-    Hunt Pass (Elite-passi kaikille) tallentuvat: oikea eteneminen on oletuksena päällä, ja se läpäisi
-    pelitestin kertakäyttöisellä testitilillä (hirviöiden mestaruutta ei ole vielä nähty pelissä).
+    Hunt Pass (Elite-passi kaikille) tallentuvat: oikea eteneminen on oletuksena päällä, se läpäisi
+    pelitestin kertakäyttöisellä testitilillä, ja vuokratulla palvelimellamme 22.9.2026 Slayer-taso,
+    aseen mestaruus ja hirviön mestaruus nousivat kaikki pelissä.
     Palkkiotehtävät (bounties) ja päivittäiset rajoitukset tallentuvat, mutta niitä ei ole vielä
     kokeiltu pelissä kokonaan, eikä Escalation tallennu. Muiden asioiden tallentaminen kuuluu
     välitavoitteeseen M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista töistä).
@@ -117,8 +119,9 @@
 - id: voiko-kavereiden-kanssa-pelata
   q: "Voiko kavereiden kanssa pelata yhdessä?"
   a: >-
-    Sitä ei ole vielä todistettu. Ensimmäinen oikea testi kaverin kanssa on käynnissä (syyskuu 2026)
-    vuokratulla palvelimella, jolle kaverit liittyvät käynnistimellä ja kutsulla. Pelaajaryhmät
+    Sitä ei ole vielä todistettu. 22.9.2026 yksi pelaaja pelasi internetin yli vuokratulla
+    palvelimellamme, jolle kaverit liittyvät käynnistimellä ja kutsulla; testi toisen pelaajan kanssa on
+    seuraavana vuorossa. Pelaajaryhmät
     (parties) ja kaverilista on rakennettu palvelimen puolelle, ja ne läpäisevät integraatiotestimme
     simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla.
     Undauntedin tekijöiden mukaan neljän pelaajan metsästykset ovat toimineet samalla pelin versiolla.

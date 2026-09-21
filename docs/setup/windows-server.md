@@ -38,13 +38,16 @@ full public-mode install into a scratch folder, with the gateway, the pinned cer
 restore from backup checked end to end). On 21–22 September 2026 it was deployed in public mode to a
 real rented Windows Server 2019 VPS. Checked on that server: the stack starts at boot as the service
 account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with
-the pinned certificate, and the hourly backup task runs. The owner registered through the launcher
-there and downloaded the game through the gateway. The real server found three problems the sandbox
+the pinned certificate, and the hourly backup task runs. On 22 September 2026 the owner played there
+over the internet: registered through the launcher with an invite, downloaded the game through the
+gateway, and played the tutorial, Ramsgate, the Training Dojo and the first hunt. Three game servers
+ran at once, and the UDP allowlist opened the game ports for the player and closed them after they
+left. The real server found three problems the sandbox
 could not, all fixed in the kit: Windows limits a local account's description to 48 characters, that
 image refuses scheduled tasks without a stored password ("S4U") for accounts that are not
 administrators, and the provider's image kept the firewall off with policy values (the last two are
-explained in the install steps below). The first test with a friend is in
-progress; private mode has not been run on a real server. See items 1.15 to 1.17 on the
+explained in the install steps below). A test with a second player is next;
+private mode has not been run on a real server. See items 1.15 to 1.17 on the
 [roadmap]({{ roadmap_page.url | relative_url }}).
 
 <details open markdown="block">

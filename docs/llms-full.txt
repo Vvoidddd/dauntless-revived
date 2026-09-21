@@ -37,8 +37,8 @@ is written up here.
 ## Current status
 
 As of 22 September 2026. Everything in this section is about the **1.4.4** client. The game itself
-has so far been played by one person, the owner, alone on the host PC. A server on a rented machine is
-running, and the first test with a friend over the internet is in progress.
+has so far been played by one person, the owner, alone: first on the host PC, then on 22 September
+2026 over the internet on a server on a rented machine. A test with a second player is next.
 
 ### What works
 
@@ -47,11 +47,11 @@ running, and the first test with a friend over the internet is in progress.
 | Log in with your own account | Works | Each player has an account on our server and logs in with a personal account key. **No Epic account is needed.** The 1.4.4 client has no Epic Online Services login; it predates that integration. It is launched in its exchange-code login mode. The injected DLL points the client's Epic-style account-service call at our metagame, which accepts the player's account key as the exchange code. |
 | Tutorial | Works | A new character is matchmade into the tutorial island. That island runs on a game server the deploy server starts on demand. |
 | Ramsgate | Works | A permanent Ramsgate server runs next to the backend. After the tutorial, and on every later login, the player goes straight there. |
-| Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
+| Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit on the host PC, and the new-player pursuit over the internet on the rented server, where three game servers ran at once. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
 | Saved inventory and loadouts | Works (solo) | Materials, Rams (most likely the `CURRENCY_NOTES` stack), crafted and granted gear, the first loadout slot, and character data (quest progress, tutorial state, flags, appearance) are stored in a SQLite database. Hunt loot is saved. The data survives a client restart and a full server restart. So far only one player has tested this. |
-| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart; behemoth mastery uses the same storage but has not been seen in game yet. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
-| A server on a rented machine | Running | The [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the kit's service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. Deploying to a real server found three problems the sandbox tests could not, all fixed in the kit: a 48-character limit on the service account's description, a Windows image that refuses password-less scheduled tasks ("S4U") for accounts that are not administrators, and a provider image that kept Windows Firewall off through policy values. |
-| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update themselves. The owner registered with it on the rented server and downloaded the game through the gateway. It is not code-signed yet. |
+| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart. On the rented server on 22 September 2026 the owner's new account reached Slayer level 3 and gained weapon mastery and behemoth mastery (rank 2, the first time behemoth mastery was seen in game), and the game server confirmed the rank rewards. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
+| A server on a rented machine | Running | The [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the kit's service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. Deploying to a real server found three problems the sandbox tests could not, all fixed in the kit: a 48-character limit on the service account's description, a Windows image that refuses password-less scheduled tasks ("S4U") for accounts that are not administrators, and a provider image that kept Windows Firewall off through policy values. In the first real test (22 September 2026) the tutorial island and the Training Dojo were started on demand, three game servers ran at once, and the UDP allowlist opened the game ports for the player and closed them after they left. Several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept. |
+| Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update themselves. The owner downloaded 0.1.0 from there, registered with an invite on the rented server and downloaded the game (about 11 GB) through the gateway. Version 0.1.1, published by CI the same night, stopped turning off the game's automatic exposure, which had made Ramsgate and night scenes far too dark; with 0.1.1 Ramsgate looks normal, and the dark pre-hunt airship is back ([details](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out)). It is not code-signed yet: on the owner's PC SmartScreen blocked the installer outright, and checking it against `SHA256SUMS.txt` and unblocking it worked ([how](https://mixutin.github.io/dauntless-revived/setup/friends.html)). |
 
 The measured cost on the host PC was about 1.1 GB of RAM and roughly 0.2 of a CPU core for the
 Ramsgate server, about 0.9 GB per hunt server, and 1.5 to 2.3 GB for the player's own client (the
@@ -59,10 +59,11 @@ higher figure at Cinematic settings).
 
 ### What does not work yet
 
-- **Playing with friends over the internet: the first real test is in progress.** On the rented
-  server, friends join with the launcher and an invite, without Tailscale. A two-player test with a
-  friend is starting. Until it is done, we don't claim that Ramsgate with two players, parties or
-  hunts work over the internet.
+- **Playing together over the internet: tested with one player, not yet with two.** On the rented
+  server, friends join with the launcher and an invite, without Tailscale. On 22 September 2026 the
+  owner went that way from the invite to the first hunt. Not yet verified: a second player (their
+  invite is issued), two players in Ramsgate, a party, and a hunt together over the internet. That
+  test is next.
 - **Parties and the friends list: built, not yet tried in game.** The server side is built: party
   invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
   returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved
@@ -171,8 +172,8 @@ do not link to downloads.
 
 **Status (22 September 2026).** The host setup is what we run on the owner's PC, on loopback, for the
 owner alone. For friends we use the [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) in
-public mode: it is deployed on a rented Windows Server 2019 VPS, and the first test with a friend is in
-progress. Opening a host PC to friends over Tailscale is documented, but it has not been run end to
+public mode: it is deployed on a rented Windows Server 2019 VPS, where the owner played over the
+internet on 22 September 2026, and a test with a second player is next. Opening a host PC to friends over Tailscale is documented, but it has not been run end to
 end yet, and those pages say so where it matters.
 
 ## Pages
@@ -182,7 +183,7 @@ end yet, and those pages say so where it matters.
 | [Host a server](https://mixutin.github.io/dauntless-revived/setup/host.html) | The person running the server | Verifying the build, installing it at a short path, placing the two DLLs with pinned hashes, the config files, starting the metagame and deploy server, first-boot checks, launching the client, and stopping everything. Ends with a one-page start checklist. |
 | [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html) | An invited player | Tailscale, checking your game files, copying the two DLLs, registering for a personal account key, launching, and what works right now. |
 | [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html) | The host, once the stack runs locally | Tailscale sharing, firewall rules scoped to the Tailscale interface, switching addresses, invite codes and accounts, the admin API, capacity, and database backups. Target configuration, not yet tested end to end. |
-| [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) | The host, for an always-on rented server | One command from your PC installs everything on a Windows Server 2019 VPS over key-only SSH. Public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players. Invites, updates with rollback, backups, uninstall. Deployed on a rented server in public mode on 21–22 September 2026; the first test with a friend is in progress. |
+| [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) | The host, for an always-on rented server | One command from your PC installs everything on a Windows Server 2019 VPS over key-only SSH. Public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players. Invites, updates with rollback, backups, uninstall. Deployed on a rented server in public mode on 21–22 September 2026; one player played there over the internet on 22 September 2026, and a test with a second player is next. |
 | [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html) | Everyone | Problems we actually hit, with causes and fixes. A few entries come from reading the code and are marked as such. |
 | [Upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html) | The host, before updating a server that already has players | What each update changes for players and what to decide first. Now: real progression is on by default, so earlier players start at Slayer level 1 unless you keep their max ranks or stay on the stub. |
 
@@ -1127,11 +1128,11 @@ work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 
 works with that exact build. That is also why every step below checks a hash.
 
 **Status (22 September 2026).** No friend has played on our server yet. Our server for friends runs
-in public mode on a rented machine: the owner has registered there with the launcher and downloaded the
-game through its gateway, and the first test with a friend is starting. The manual Tailscale path on
-this page has not been used by a friend yet (see [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html)).
-The login, tutorial and Ramsgate path has so far been played only on the host's own PC, with the
-host's own account.
+in public mode on a rented machine. On 22 September 2026 the owner played there over the internet with
+the launcher, from the invite and the game download to the first hunt; a test with a second player is
+next. The manual Tailscale path on this page has not been used by a friend yet (see
+[Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html)). Every session so far has been played by
+the owner alone.
 
 **The short way: the friend kit.** The host can give you a small zip, built from the repository's
 [`friend-kit/`](https://github.com/mixutin/dauntless-revived/tree/dauntless-revived/friend-kit) folder. After step 1,
@@ -1427,16 +1428,20 @@ r.Tonemapper.Sharpen=0.6
 
 This is a small private revival and a work in progress. As of this writing:
 
-- On our own server, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
-  and a pursuit. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet
-  tested that with more than one player.
+- On our own servers, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
+  and a pursuit on the host PC, and on 22 September 2026 the same path up to the first hunt over the
+  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet tested that with more
+  than one player.
 - Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
   1) and are saved, on a server that runs the current code with its default settings. Every account
-  owns the Elite Hunt Pass. Behemoth mastery has not been seen in the game yet. On a server that ran
-  an older version, your level may start over at 1 after the update: ask your host.
+  owns the Elite Hunt Pass. Slayer level, weapon mastery and behemoth mastery have all been seen going
+  up in the game. On a server that ran an older version, your level may start over at 1 after the
+  update: ask your host.
+- The pre-hunt airship is very dark for now. It is a short scene; see
+  [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out).
 - Parties and the friends list are built on the server and pass our integration tests with
-  simulated players, but they have not been tried with two real game clients yet; the first test is
-  starting. You don't have to be friends to invite someone to a party. Friends do not show as online
+  simulated players, but they have not been tried with two real game clients yet; that is the next
+  test. You don't have to be friends to invite someone to a party. Friends do not show as online
   yet, because that needs the chat server, which is not built. Until parties are proven, you can also
   queue for the same hunt at about the same time: the matchmaker collects players who queue for the
   same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with nobody new
@@ -2461,13 +2466,16 @@ full public-mode install into a scratch folder, with the gateway, the pinned cer
 restore from backup checked end to end). On 21–22 September 2026 it was deployed in public mode to a
 real rented Windows Server 2019 VPS. Checked on that server: the stack starts at boot as the service
 account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with
-the pinned certificate, and the hourly backup task runs. The owner registered through the launcher
-there and downloaded the game through the gateway. The real server found three problems the sandbox
+the pinned certificate, and the hourly backup task runs. On 22 September 2026 the owner played there
+over the internet: registered through the launcher with an invite, downloaded the game through the
+gateway, and played the tutorial, Ramsgate, the Training Dojo and the first hunt. Three game servers
+ran at once, and the UDP allowlist opened the game ports for the player and closed them after they
+left. The real server found three problems the sandbox
 could not, all fixed in the kit: Windows limits a local account's description to 48 characters, that
 image refuses scheduled tasks without a stored password ("S4U") for accounts that are not
 administrators, and the provider's image kept the firewall off with policy values (the last two are
-explained in the install steps below). The first test with a friend is in
-progress; private mode has not been run on a real server. See items 1.15 to 1.17 on the
+explained in the install steps below). A test with a second player is next;
+private mode has not been run on a real server. See items 1.15 to 1.17 on the
 [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html).
 
 ## How public mode works
@@ -11917,7 +11925,7 @@ official servers shut down. Each answer links to the page with the details.
 
 ## Can you still play Dauntless after the shutdown?
 
-Yes, against a private server. The official servers shut down on 30 May 2025, and without a backend the game cannot be played at all. Dauntless Revived is a replacement backend for the genuine Dauntless 1.4.4 client: if you have your own copy of that client, you can host it and play. So far the game has been played by one player on the host PC, including login, the tutorial, Ramsgate, the Training Dojo, hunts and crafting. A server on a rented machine is running, and the first test with a friend over the internet is in progress (September 2026). See [what works now](https://mixutin.github.io/dauntless-revived/#current-status).
+Yes, against a private server. The official servers shut down on 30 May 2025, and without a backend the game cannot be played at all. Dauntless Revived is a replacement backend for the genuine Dauntless 1.4.4 client: if you have your own copy of that client, you can host it and play. So far the game has been played by one player: on the host PC (login, the tutorial, Ramsgate, the Training Dojo, hunts and crafting) and, on 22 September 2026, over the internet on a server on a rented machine, from the invite to the first hunt. Playing with a second player has not been tested yet. See [what works now](https://mixutin.github.io/dauntless-revived/#current-status).
 
 ## Is there a Dauntless private server?
 
@@ -11953,7 +11961,7 @@ We cannot give legal advice. What we can say is what the project does: it does n
 
 ## Does my progress save?
 
-Mostly. Items, materials, Rams, crafted gear, quests and story progress are saved in a database, survive restarts and are backed up every hour. Slayer level, weapon and behemoth mastery and the Hunt Pass (with the Elite pass for everyone) are saved too: real progression is on by default and passed an in-game test on a throwaway account (behemoth mastery has not been seen in the game yet). Bounties and daily limits are stored but not fully tried in the game yet, and escalation is not saved. The rest of "everything you earn is saved" is milestone M2 on the [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html).
+Mostly. Items, materials, Rams, crafted gear, quests and story progress are saved in a database, survive restarts and are backed up every hour. Slayer level, weapon and behemoth mastery and the Hunt Pass (with the Elite pass for everyone) are saved too: real progression is on by default and passed an in-game test on a throwaway account, and on our rented server on 22 September 2026 Slayer level, weapon mastery and behemoth mastery all went up in the game. Bounties and daily limits are stored but not fully tried in the game yet, and escalation is not saved. The rest of "everything you earn is saved" is milestone M2 on the [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html).
 
 ## What is Undaunted, and how is Dauntless Revived different?
 
@@ -11961,7 +11969,7 @@ Mostly. Items, materials, Rams, crafted gear, quests and story progress are save
 
 ## Can you play together with friends?
 
-Not proven yet. The first real test with a friend is in progress (September 2026), on a rented server where friends join with the launcher and an invite. Parties and the friends list are built on the server side and pass our integration tests with simulated players, but have not been tried with two real game clients yet. Upstream Undaunted reports hunts with up to 4 players working on the same client, but we have not yet tested that with more than one player. The [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) tracks this as milestone M1, and [How multiplayer works](https://mixutin.github.io/dauntless-revived/findings/multiplayer.html) explains how a client-only build can host games at all.
+Not proven yet. On 22 September 2026 one player played over the internet on our rented server, where friends join with the launcher and an invite; a test with a second player is next. Parties and the friends list are built on the server side and pass our integration tests with simulated players, but have not been tried with two real game clients yet. Upstream Undaunted reports hunts with up to 4 players working on the same client, but we have not yet tested that with more than one player. The [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) tracks this as milestone M1, and [How multiplayer works](https://mixutin.github.io/dauntless-revived/findings/multiplayer.html) explains how a client-only build can host games at all.
 
 ## Does it work on Linux or the Steam Deck?
 

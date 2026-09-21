@@ -9,6 +9,7 @@ ref: setup/friends
 
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 
 # Join as a friend
 {: .no_toc }
@@ -44,11 +45,11 @@ work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 
 works with that exact build. That is also why every step below checks a hash.
 
 **Status (22 September 2026).** No friend has played on our server yet. Our server for friends runs
-in public mode on a rented machine: the owner has registered there with the launcher and downloaded the
-game through its gateway, and the first test with a friend is starting. The manual Tailscale path on
-this page has not been used by a friend yet (see [Run it for a group]({{ admin_page.url | relative_url }})).
-The login, tutorial and Ramsgate path has so far been played only on the host's own PC, with the
-host's own account.
+in public mode on a rented machine. On 22 September 2026 the owner played there over the internet with
+the launcher, from the invite and the game download to the first hunt; a test with a second player is
+next. The manual Tailscale path on this page has not been used by a friend yet (see
+[Run it for a group]({{ admin_page.url | relative_url }})). Every session so far has been played by
+the owner alone.
 
 **The short way: the friend kit.** The host can give you a small zip, built from the repository's
 [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit) folder. After step 1,
@@ -351,16 +352,20 @@ r.Tonemapper.Sharpen=0.6
 
 This is a small private revival and a work in progress. As of this writing:
 
-- On our own server, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
-  and a pursuit. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet
-  tested that with more than one player.
+- On our own servers, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
+  and a pursuit on the host PC, and on 22 September 2026 the same path up to the first hunt over the
+  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet tested that with more
+  than one player.
 - Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
   1) and are saved, on a server that runs the current code with its default settings. Every account
-  owns the Elite Hunt Pass. Behemoth mastery has not been seen in the game yet. On a server that ran
-  an older version, your level may start over at 1 after the update: ask your host.
+  owns the Elite Hunt Pass. Slayer level, weapon mastery and behemoth mastery have all been seen going
+  up in the game. On a server that ran an older version, your level may start over at 1 after the
+  update: ask your host.
+- The pre-hunt airship is very dark for now. It is a short scene; see
+  [Troubleshooting]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
 - Parties and the friends list are built on the server and pass our integration tests with
-  simulated players, but they have not been tried with two real game clients yet; the first test is
-  starting. You don't have to be friends to invite someone to a party. Friends do not show as online
+  simulated players, but they have not been tried with two real game clients yet; that is the next
+  test. You don't have to be friends to invite someone to a party. Friends do not show as online
   yet, because that needs the chat server, which is not built. Until parties are proven, you can also
   queue for the same hunt at about the same time: the matchmaker collects players who queue for the
   same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with nobody new

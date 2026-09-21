@@ -11,6 +11,7 @@ locale: fi_FI
 
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 
 # Liity kaverina
 {: .no_toc }
@@ -49,11 +50,11 @@ vaihe myös tarkistaa tiivisteen (hash). Tiiviste on tiedoston sisällöstä las
 tiedostosta muuttuu yksikin tavu, tiiviste muuttuu.
 
 **Tilanne (22.9.2026).** Yksikään kaveri ei ole vielä pelannut palvelimellamme. Kavereille tarkoitettu
-palvelimemme pyörii julkisessa tilassa vuokratulla koneella: omistaja on rekisteröitynyt sinne
-käynnistimellä ja ladannut pelin sen yhdyskäytävän kautta, ja ensimmäinen testi kaverin kanssa on
-alkamassa. Tämän sivun käsivaiheista Tailscale-polkua ei ole vielä käyttänyt yksikään kaveri (katso
-[Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Kirjautumista, opetusjaksoa ja Ramsgatea on
-toistaiseksi pelattu vain isännän omalla koneella ja isännän omalla tilillä.
+palvelimemme pyörii julkisessa tilassa vuokratulla koneella. 22.9.2026 omistaja pelasi siellä
+internetin yli käynnistimellä, kutsusta ja pelin latauksesta ensimmäiseen metsästykseen asti; testi
+toisen pelaajan kanssa on seuraavana vuorossa. Tämän sivun käsivaiheista Tailscale-polkua ei ole vielä
+käyttänyt yksikään kaveri (katso [Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Kaikki
+tähänastiset pelikerrat on pelannut omistaja yksin.
 
 **Lyhyt tapa: kaveripaketti.** Isäntä voi antaa sinulle pienen zip-tiedoston, joka on koottu
 repositorion [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit)-kansiosta.
@@ -370,17 +371,20 @@ r.Tonemapper.Sharpen=0.6
 
 Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaessa:
 
-- Omalla palvelimellamme yksi pelaaja on pelannut opetusjakson, Ramsgaten, Training Dojon
-  (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit). Alkuperäinen Undaunted kertoo,
-  että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman
-  kuin yhden pelaajan kanssa.
+- Omilla palvelimillamme yksi pelaaja on pelannut palvelinkoneella opetusjakson, Ramsgaten, Training
+  Dojon (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit), ja 22.9.2026 saman polun
+  ensimmäiseen metsästykseen asti internetin yli vuokratulla palvelimella. Alkuperäinen Undaunted kertoo, että metsästykset enintään
+  neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman kuin yhden pelaajan kanssa.
 - Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat alusta (Slayer-taso 1)
   ja tallentuvat, kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt
-  Pass. Hirviöiden mestaruutta ei ole vielä nähty pelissä. Jos palvelimella oli aiemmin vanhempi
-  versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä: kysy isännältä.
+  Pass. Slayer-tason, aseen mestaruuden ja hirviön mestaruuden on kaikkien nähty nousevan pelissä. Jos
+  palvelimella oli aiemmin vanhempi versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä: kysy
+  isännältä.
+- Ilmalaiva ennen metsästystä on toistaiseksi hyvin pimeä. Se on lyhyt kohtaus; katso
+  [Vianetsintä]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
 - Ryhmät (parties) ja kaverilista on rakennettu palvelimelle, ja ne läpäisevät integraatiotestimme
-  simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla;
-  ensimmäinen testi on alkamassa. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä
+  simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla; se on
+  seuraava testi. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä
   näy paikalla olevina, koska se vaatii chat-palvelimen, jota ei ole rakennettu. Ennen kuin ryhmät on
   todettu toimiviksi, voitte myös jonottaa samaan metsästykseen suunnilleen samaan aikaan. Matchmaker
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja

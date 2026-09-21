@@ -36,8 +36,8 @@ pelitiedostoja eikä linkkejä niiden latauksiin.
 **Tilanne (22.9.2026).** Isännän kokoonpano on se, mitä ajamme omistajan koneella: vain koneen
 sisällä (loopback) ja pelkästään omistajalle. Kavereita varten käytämme
 [Windows-palvelinpakettia]({{ winserver_page.url | relative_url }}) julkisessa tilassa: se on asennettu
-vuokratulle Windows Server 2019 -virtuaalipalvelimelle, ja ensimmäinen testi kaverin kanssa on
-käynnissä. Isännän koneen avaaminen kavereille Tailscalen kautta (ohjelma, joka tekee salatun,
+vuokratulle Windows Server 2019 -virtuaalipalvelimelle, jolla omistaja pelasi internetin yli
+22.9.2026, ja testi toisen pelaajan kanssa on seuraavana vuorossa. Isännän koneen avaaminen kavereille Tailscalen kautta (ohjelma, joka tekee salatun,
 yksityisen yhteyden koneiden välille) on kirjoitettu auki, mutta sitä ei ole vielä ajettu alusta
 loppuun, ja sivuilla kerrotaan se aina siellä, missä sillä on merkitystä.
 
@@ -48,7 +48,7 @@ loppuun, ja sivuilla kerrotaan se aina siellä, missä sillä on merkitystä.
 | [Pystytä palvelin]({{ host_page.url | relative_url }}) | Palvelinta pyörittävälle | Version tarkistus, asennus lyhyeen polkuun, kahden DLL-tiedoston asennus kiinnitettyjä tiivisteitä vasten, asetustiedostot, metagamen ja deploy-palvelimen käynnistys, ensimmäisen käynnistyksen tarkistukset, peliohjelman käynnistys ja kaiken pysäyttäminen. Lopussa on yhden sivun käynnistyslista. |
 | [Liity kaverina]({{ friends_page.url | relative_url }}) | Kutsutulle pelaajalle | Tailscale, pelitiedostojen tarkistus, kahden DLL-tiedoston kopiointi, rekisteröityminen henkilökohtaista tiliavainta varten, käynnistys ja se, mikä toimii juuri nyt. |
 | [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) | Isännälle, kun kokonaisuus toimii jo paikallisesti | Tailscale-jako, Tailscale-liitäntään rajatut palomuurisäännöt, osoitteiden vaihtaminen, kutsukoodit ja tilit, ylläpitorajapinta, kapasiteetti ja tietokannan varmuuskopiot. Tavoitekokoonpano, jota ei ole vielä testattu alusta loppuun. |
-| [Windows-palvelin]({{ winserver_page.url | relative_url }}) | Isännälle, jatkuvasti päällä olevaa vuokrapalvelinta varten | Yksi komento omalta koneelta asentaa kaiken Windows Server 2019 -virtuaalipalvelimelle SSH-avaimella. Julkinen tila: yksi salattu portti kiinnitetyllä varmenteella, ja peliportit auki vain kirjautuneille pelaajille. Kutsut, päivitykset paluumahdollisuudella, varmuuskopiot ja poistaminen. Asennettu vuokratulle palvelimelle julkiseen tilaan 21.–22.9.2026; ensimmäinen testi kaverin kanssa on käynnissä. |
+| [Windows-palvelin]({{ winserver_page.url | relative_url }}) | Isännälle, jatkuvasti päällä olevaa vuokrapalvelinta varten | Yksi komento omalta koneelta asentaa kaiken Windows Server 2019 -virtuaalipalvelimelle SSH-avaimella. Julkinen tila: yksi salattu portti kiinnitetyllä varmenteella, ja peliportit auki vain kirjautuneille pelaajille. Kutsut, päivitykset paluumahdollisuudella, varmuuskopiot ja poistaminen. Asennettu vuokratulle palvelimelle julkiseen tilaan 21.–22.9.2026; yksi pelaaja pelasi siellä internetin yli 22.9.2026, ja testi toisen pelaajan kanssa on seuraavana vuorossa. |
 | [Vianetsintä]({{ trouble_page.url | relative_url }}) | Kaikille | Ongelmat, joihin oikeasti törmäsimme, syineen ja korjauksineen. Muutama kohta on peräisin koodin lukemisesta, ja ne on merkitty sellaisiksi. |
 | [Päivitysohjeet]({{ upgrade_page.url | relative_url }}) | Isännälle ennen sellaisen palvelimen päivitystä, jolla on jo pelaajia | Mitä kukin päivitys muuttaa pelaajille ja mitä pitää päättää ensin. Nyt: oikea eteneminen on oletuksena päällä, joten aiemmin pelanneet aloittavat Slayer-tasolta 1, ellet pidä heidän maksimitasojaan tai jatka tyngällä. |
 
