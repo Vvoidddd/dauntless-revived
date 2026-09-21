@@ -14,3 +14,12 @@
 # Runtime secrets and generated data
 **/.env
 /data/
+
+# Also never commit game archives, keys or databases
+*.pak
+*.ucas
+*.utoc
+*.key
+*.db
+*.db-wal
+*.db-shm
