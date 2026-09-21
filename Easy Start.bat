@@ -1,10 +1,25 @@
 @echo off
 setlocal
-title Dauntless Revived Launcher
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\start-local.ps1" %*
+title Undaunted Launcher
+cd /d "%~dp0UndauntedLauncher"
+
+if not exist "node_modules\.bin\electron-forge.cmd" (
+  echo Installing launcher dependencies. This is only needed once...
+  call npm ci --no-audit --no-fund
+  if errorlevel 1 goto :failed
+)
+
+set "UNDAUNTED_METAGAME=127.0.0.1:61000"
+call npm start
 if errorlevel 1 (
-  echo.
-  echo Dauntless Revived could not start. See the message above.
-  pause
+  goto :failed
 )
 endlocal
+exit /b 0
+
+:failed
+echo.
+echo The Undaunted Launcher could not start. See the message above.
+pause
+endlocal
+exit /b 1

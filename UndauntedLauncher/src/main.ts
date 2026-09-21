@@ -13,8 +13,11 @@ const DAUNTLESS_144_BASEGAME_ZIP_HASH = "556b9a648a5e5e7e11b6f8dd3d80ff8e88fceb0
 const BYTES_REQUIRED_TO_INSTALL = 25 * 1024 * 1024 * 1024; // 25 GB
 const BASE_GAME_CDN_LINK = "https://undauntedcdn.nyc3.cdn.digitaloceanspaces.com/BaseGame144.zip"; // TODO: Swap to cdn.stayundaunted.com
 const CONST_LAUNCH_ARGS = ["-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode", "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol", "-epicuserid=useridlol", "-epiclocale=en-US", "-epicsandboxid=sandboxidlol", "-epicdeploymentid=deploymentidlol"];
-const BASE_API_URL = MAIN_WINDOW_VITE_DEV_SERVER_URL ? "http://127.0.0.1:60000" : "http://api.stayundaunted.com";
-const METAGAME_BASE_URL = MAIN_WINDOW_VITE_DEV_SERVER_URL ? "127.0.0.1:60000" : "api.stayundaunted.com";
+// Let self-hosters point the launcher at their own metagame. The local fork
+// uses 61000; the old launcher hard-coded either upstream or development port
+// 60000, so merely starting it could never reach this installation.
+const METAGAME_BASE_URL = process.env.UNDAUNTED_METAGAME ?? "127.0.0.1:61000";
+const BASE_API_URL = `http://${METAGAME_BASE_URL}`;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
