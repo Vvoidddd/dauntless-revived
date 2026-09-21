@@ -5253,7 +5253,7 @@ DLLs do, and the pinned build facts. The step-by-step guides are
 | Started by | The launcher (`UndauntedLauncher/`), the friend kit's `play.ps1`, or the host's own `play.ps1` | The deploy server (`UndauntedDeployServer/`) |
 | First argument | The metagame address, `host:port` | The game-server key (secret) |
 | Server DLL mode | Client mode: answers the backend endpoints in memory | Server mode: the command line contains `-server` |
-| `Engine.ini` | Memory lines, `r.EyeAdaptationQuality=0`, an optional forced graphics level, the chat redirect | Memory lines and the chat redirect |
+| `Engine.ini` | Memory lines, an optional forced graphics level, the chat redirect | Memory lines and the chat redirect |
 | `Game.ini` | Not needed | **Required**: 167 quoted endpoint overrides |
 | `GameUserSettings.ini` | `sg.*Quality` lines set to the forced level, if one is forced | Not touched |
 | Whose config folder | The player's Windows account | The account that runs the deploy server: the owner's account on a hand-set-up host, the `dauntless` service account on a server installed with the kit |
@@ -5299,7 +5299,7 @@ is in [Game assets and config](https://mixutin.github.io/dauntless-revived/findi
 | Friend kit, `friend-kit/play.ps1` | Every launch, also with `-DryRun` | The same lines as the launcher | Never | Same as the launcher |
 | Host's `C:\dr\tools\play.ps1` (not in the repository; listed in full in [Host a server, step 13](https://mixutin.github.io/dauntless-revived/setup/host.html#launch-the-client)) | Every launch | The same lines | Never | Same, plus `sg.ResolutionQuality=100.000000` |
 | Host's `make-gameini.ps1` (a script to save from [Host a server, step 8](https://mixutin.github.io/dauntless-revived/setup/host.html#game-ini); not in the repository) | When you run it | Not touched | Overwrites the whole file | Not touched |
-| Windows server kit, `Install-DauntlessServer.ps1` | Every run of the installer. `Update-DauntlessServer.ps1` does **not** rewrite these files. | Memory lines and the chat redirect only: no `r.EyeAdaptationQuality`, no graphics lines | Overwrites the whole file | Not touched |
+| Windows server kit, `Install-DauntlessServer.ps1` | Every run of the installer. `Update-DauntlessServer.ps1` does **not** rewrite these files. | Memory lines and the chat redirect only: no graphics lines | Overwrites the whole file | Not touched |
 | The game itself | While it runs | Rewrites the file and keeps our sections | Rewrites the file; quoted values survive | From its options menu |
 
 For a new file, the launcher writes exactly the bytes the friend kit's `play.ps1` writes. A launcher
@@ -5351,7 +5351,6 @@ the cooked default applies.
 | `r.Streaming.LimitPoolSizeToVRAM` | `1` | `0` or `1` | Never lets that pool grow past the graphics card's memory. | All four writers, always |
 | `gc.TimeBetweenPurgingPendingKillObjects` | `10` | seconds | Collects garbage more often. Affects memory, not image quality. | All four writers, always |
 | `s.ForceGCAfterLevelStreamedOut` | `1` | `0` or `1` | Collects garbage after each streamed-out level. Affects memory only. | All four writers, always |
-| `r.EyeAdaptationQuality` | `0` | `0` turns it off | Turns off 1.4.4's automatic exposure, which on current graphics drivers makes the pre-hunt airship cabin nearly black with blown-out windows. Resolution, textures, lighting and hunt atmosphere stay the same. Close every client and start it again for the change to apply. | The three client writers (launcher, friend kit, host script), always. Not the server kit: game servers render nothing. |
 | `sg.ViewDistanceQuality`, `sg.AntiAliasingQuality`, `sg.ShadowQuality`, `sg.PostProcessQuality`, `sg.TextureQuality`, `sg.EffectsQuality`, `sg.FoliageQuality`, `sg.ShadingQuality` | the chosen level | `0` to `4` | Forces one scalability level on all eight groups. See [Graphics levels](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#graphics-levels). | Client writers, only when a level of 0 or higher is chosen |
 | `sg.ResolutionQuality` | `100` | percent | Full resolution scale. | Client writers, with a forced level |
 | `r.ScreenPercentage` | `100` | percent | Renders at full native resolution. | Client writers, with a forced level |
@@ -5363,6 +5362,12 @@ The memory lines come from our 2.1.1 work, where a client with no limits reached
 are a precaution; we have not measured 1.4.4 without them. The low caps we used before these were
 the cause of [blurry graphics](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#blurry-graphics).
 
+**No exposure line any more.** Launcher 0.1.0, and the friend kit and host script of that time, also
+wrote `r.EyeAdaptationQuality=0`. It fixed the dark pre-hunt airship but made Ramsgate and night
+scenes far too dark, so since launcher 0.1.1 no writer sets it, and the next launch's rewrite removes
+the old line. See
+[Airship is extremely dark with blown-out windows](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out).
+
 A client launched with the launcher's default level (4) gets this section:
 
 ```ini
@@ -5371,7 +5376,6 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
-r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -5387,8 +5391,8 @@ r.MaxAnisotropy=16
 r.Tonemapper.Sharpen=0.6
 ```
 
-With level `-1` it ends after `r.EyeAdaptationQuality=0`. The server kit writes only the first four
-lines.
+With level `-1` it ends after `s.ForceGCAfterLevelStreamedOut=1`: only the four memory lines, the
+same four the server kit writes.
 
 ### Graphics levels
 

@@ -67,7 +67,7 @@ sivuilla [Pystytä palvelin]({{ host_page.url | relative_url }}),
 | Kuka käynnistää | Käynnistin (`UndauntedLauncher/`), kaveripaketin `play.ps1` tai isännän oma `play.ps1` | Deploy-palvelin (`UndauntedDeployServer/`) |
 | Ensimmäinen parametri | Metagamen osoite, `host:port` | Pelipalvelimen avain (salainen) |
 | Palvelin-DLL:n tila | Client-tila: vastaa taustapalvelun osoiteavaimiin suoraan muistissa | Palvelintila: komentorivillä on `-server` |
-| `Engine.ini` | Muistirivit, `r.EyeAdaptationQuality=0`, valinnainen pakotettu grafiikkataso ja chatin uudelleenohjaus | Muistirivit ja chatin uudelleenohjaus |
+| `Engine.ini` | Muistirivit, valinnainen pakotettu grafiikkataso ja chatin uudelleenohjaus | Muistirivit ja chatin uudelleenohjaus |
 | `Game.ini` | Ei tarvita | **Pakollinen**: 167 lainausmerkeissä olevaa osoiteohitusta |
 | `GameUserSettings.ini` | `sg.*Quality`-rivit pakotetun tason mukaisiksi, jos taso pakotetaan | Ei kosketa |
 | Kenen asetuskansio | Pelaajan Windows-tilin | Deploy-palvelinta ajavan tilin: käsin pystytetyllä isäntäkoneella omistajan tili, paketilla asennetulla palvelimella palvelutili `dauntless` |
@@ -113,7 +113,7 @@ kerrotaan lisää sivulla [Pelin sisältö ja asetukset]({{ assets_page.url | re
 | Kaveripaketti, `friend-kit/play.ps1` | Jokaisella käynnistyksellä, myös valinnalla `-DryRun` | Samat rivit kuin käynnistin | Ei koskaan | Kuten käynnistin |
 | Isännän `C:\dr\tools\play.ps1` (ei repositoriossa; kokonaisuudessaan sivun [Pystytä palvelin vaiheessa 13]({{ host_page.url | relative_url }}#launch-the-client)) | Jokaisella käynnistyksellä | Samat rivit | Ei koskaan | Sama, ja lisäksi `sg.ResolutionQuality=100.000000` |
 | Isännän `make-gameini.ps1` (skripti, jonka tallennat sivun [Pystytä palvelin vaiheesta 8]({{ host_page.url | relative_url }}#game-ini); ei repositoriossa) | Kun ajat sen | Ei kosketa | Korvaa koko tiedoston | Ei kosketa |
-| Windows-palvelinpaketti, `Install-DauntlessServer.ps1` | Jokaisella asennusohjelman ajokerralla. `Update-DauntlessServer.ps1` **ei** kirjoita näitä tiedostoja uudelleen. | Vain muistirivit ja chatin uudelleenohjaus: ei `r.EyeAdaptationQuality`-riviä eikä grafiikkarivejä | Korvaa koko tiedoston | Ei kosketa |
+| Windows-palvelinpaketti, `Install-DauntlessServer.ps1` | Jokaisella asennusohjelman ajokerralla. `Update-DauntlessServer.ps1` **ei** kirjoita näitä tiedostoja uudelleen. | Vain muistirivit ja chatin uudelleenohjaus: ei grafiikkarivejä | Korvaa koko tiedoston | Ei kosketa |
 | Peli itse | Käynnissä ollessaan | Kirjoittaa tiedoston uudelleen ja säilyttää osiomme | Kirjoittaa tiedoston uudelleen; lainausmerkeissä olevat arvot säilyvät | Asetusvalikostaan |
 
 Kun tiedostoa ei vielä ole, käynnistin kirjoittaa täsmälleen samat tavut kuin kaveripaketin
@@ -168,7 +168,6 @@ pätee pelin valmis oletusarvo.
 | `r.Streaming.LimitPoolSizeToVRAM` | `1` | `0` tai `1` | Ei koskaan anna poolin kasvaa näytönohjaimen muistia suuremmaksi. | Kaikki neljä kirjoittajaa, aina |
 | `gc.TimeBetweenPurgingPendingKillObjects` | `10` | sekuntia | Siivoaa roskat (vapauttaa käyttämätöntä muistia) useammin. Vaikuttaa muistiin, ei kuvanlaatuun. | Kaikki neljä kirjoittajaa, aina |
 | `s.ForceGCAfterLevelStreamedOut` | `1` | `0` tai `1` | Siivoaa roskat aina, kun jokin kentän osa poistuu muistista. Vaikuttaa vain muistiin. | Kaikki neljä kirjoittajaa, aina |
-| `r.EyeAdaptationQuality` | `0` | `0` poistaa sen käytöstä | Poistaa 1.4.4:n automaattisen valotuksen, joka nykyisillä näytönohjainajureilla tekee metsästystä edeltävän ilmalaivan hytistä lähes mustan ja sen ikkunoista puhki palaneita. Resoluutio, tekstuurit, valaistus ja metsästysten tunnelma pysyvät ennallaan. Muutos tulee voimaan, kun suljet kaikki peliohjelmat ja käynnistät pelin uudelleen. | Kolme peliohjelman kirjoittajaa (käynnistin, kaveripaketti, isännän skripti), aina. Ei palvelinpaketti: pelipalvelimet eivät piirrä mitään. |
 | `sg.ViewDistanceQuality`, `sg.AntiAliasingQuality`, `sg.ShadowQuality`, `sg.PostProcessQuality`, `sg.TextureQuality`, `sg.EffectsQuality`, `sg.FoliageQuality`, `sg.ShadingQuality` | valittu taso | `0`–`4` | Pakottaa saman skaalautuvuustason (laatutason) kaikkiin kahdeksaan ryhmään. Katso [Grafiikkatasot](#graphics-levels). | Peliohjelman kirjoittajat, vain kun valittu taso on 0 tai suurempi |
 | `sg.ResolutionQuality` | `100` | prosenttia | Täysi resoluutioskaala. | Peliohjelman kirjoittajat, kun taso on pakotettu |
 | `r.ScreenPercentage` | `100` | prosenttia | Piirtää täydellä natiiviresoluutiolla. | Peliohjelman kirjoittajat, kun taso on pakotettu |
@@ -180,6 +179,13 @@ Muistirivit ovat peräisin 2.1.1-työstämme, jossa rajoittamaton peliohjelma no
 1.4.4:ssä ne ovat varotoimi; emme ole mitanneet 1.4.4:ää ilman niitä. Aiemmin käyttämämme matalat
 rajat aiheuttivat [sumean grafiikan]({{ trouble_page.url | relative_url }}#blurry-graphics).
 
+**Valotusriviä ei enää ole.** Käynnistimen versio 0.1.0 sekä saman ajan kaveripaketti ja isännän
+skripti kirjoittivat myös rivin `r.EyeAdaptationQuality=0`. Se korjasi pimeän ilmalaivan ennen
+metsästystä, mutta teki Ramsgatesta ja yökohtauksista aivan liian pimeitä. Siksi käynnistimen versiosta
+0.1.1 alkaen mikään kirjoittaja ei aseta sitä, ja seuraavan käynnistyksen uudelleenkirjoitus poistaa
+vanhan rivin. Katso
+[Ilmalaiva on tosi pimeä ja ikkunat palavat puhki valkoisiksi]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
+
 Käynnistimen oletustasolla (4) käynnistetty peliohjelma saa tämän osion:
 
 ```ini
@@ -188,7 +194,6 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
-r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -204,8 +209,8 @@ r.MaxAnisotropy=16
 r.Tonemapper.Sharpen=0.6
 ```
 
-Tasolla `-1` osio päättyy riviin `r.EyeAdaptationQuality=0`. Palvelinpaketti kirjoittaa vain neljä
-ensimmäistä asetusriviä.
+Tasolla `-1` osio päättyy riviin `s.ForceGCAfterLevelStreamedOut=1`: siinä on vain neljä
+muistiriviä, samat, jotka palvelinpaketti kirjoittaa.
 
 ### Grafiikkatasot {#graphics-levels}
 
