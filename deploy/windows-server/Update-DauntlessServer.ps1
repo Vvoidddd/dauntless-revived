@@ -89,6 +89,36 @@ function Set-Commit([string]$Commit, [string]$RefName, [string]$Kind) {
     }
 }
 
+# Real progression became the default in September 2026. Unless metagame.env says real or stub,
+# players who played under the old stub start at Slayer level 1, and the metagame logs
+# how many at startup. Repeat that line here, so a host who updates without reading the upgrade notes
+# still sees it. Never fails the update.
+function Read-SharedText([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    $fs = New-Object IO.FileStream($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    try { return (New-Object IO.StreamReader($fs)).ReadToEnd() } finally { $fs.Dispose() }
+}
+
+function Show-ProgressionUpgradeNotice([string]$MetaEnv, [string]$Log, [int]$WaitSec = 20) {
+    try {
+        # An empty or unknown value means real too, so only real and stub skip the check.
+        $mode = ([string](Read-DREnv $MetaEnv)['PROGRESSION_MODE']).Trim().ToLowerInvariant()
+        if ($mode -eq 'real' -or $mode -eq 'stub') { return }
+        # The metagame logs the mode line and the notice together once it listens: wait for the mode
+        # line, then a moment for the notice behind it.
+        $text = Read-SharedText $Log
+        for ($i = 0; $i -lt $WaitSec -and -not $text.Contains('Progression mode:'); $i++) { Start-Sleep -Seconds 1; $text = Read-SharedText $Log }
+        if (-not $text.Contains('Progression mode:')) { return }
+        Start-Sleep -Seconds 1
+        $line = @((Read-SharedText $Log) -split "`r?`n" | Where-Object { $_.Contains('have no stored progression yet') }) | Select-Object -Last 1
+        if (-not $line) { return }
+        $msg = $line
+        try { $m = ($line | ConvertFrom-Json).msg; if ($m) { $msg = [string]$m } } catch { }
+        Write-DRWarn "metagame: $msg"
+        Write-DRWarn 'Upgrade notes: https://mixutin.github.io/dauntless-revived/setup/upgrading.html (PROGRESSION_MODE=real or stub in metagame.env fixes the mode and skips this check)'
+    } catch { Write-DRWarn "could not read the metagame log for the progression notice ($($_.Exception.Message))" }
+}
+
 $exitCode = 0
 try {
     $Root = Resolve-DRRoot $Root $PSScriptRoot
@@ -194,6 +224,7 @@ try {
     $why = Test-Healthy
     if (-not $why) {
         Write-DROk "the server is up on $commit"
+        Show-ProgressionUpgradeNotice $P.MetaEnv (Join-Path $P.Logs 'metagame.out.log')
     } else {
         Write-DRWarn "the new code did not come up ($why); switching back to $prevCommit"
         [void](Invoke-Kit 'Stack.ps1' @('stop', '-Root', $Root, '-NoBackup'))
