@@ -164,13 +164,18 @@ export interface Branding {
   accent: string | null;
 }
 
+// The links the page can ask the main process to open. The page names one of these; it never passes
+// a URL. The main process maps each to its URL (src/main/links.ts).
 export type ExternalTarget =
   | "tailscale_download"
   | "tailscale_share"
   | "vc_redist"
   | "server_source"
   | "project_source"
-  | "project_license";
+  | "project_license"
+  | "project_contributors"
+  | "upstream_source"
+  | "upstream_contributors";
 
 export type RegisterOutcome =
   | { ok: true; username: string }

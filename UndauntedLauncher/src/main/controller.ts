@@ -54,7 +54,7 @@ import { buildLaunchArgs, describeLaunch, GameProcess, type SpawnFn } from "./la
 import { backupFileText, KeyStore, KeyStoreError, serverId, type Encryptor, type KeySlot } from "./keystore";
 import { SettingsStore, type StoredServer, type StoredSettings } from "./settings";
 import { freeBytes, missingVcRuntime } from "./system";
-import { isAllowedExternalUrl } from "./links";
+import { fixedLinkUrl, isAllowedExternalUrl } from "./links";
 import { describeError, log } from "./log";
 import { DEFAULT_RELAY_PORT, Relay, RelayError } from "./relay";
 import {
@@ -62,11 +62,8 @@ import {
   EXE_NAME,
   EXE_RELATIVE_PATH,
   PINNED_EXE_SHA256,
-  PROJECT_LICENSE_URL,
   PROJECT_URL,
   STATUS_POLL_MS,
-  TAILSCALE_DOWNLOAD_URL,
-  VC_REDIST_URL,
   XMPP_PORT,
 } from "./constants";
 
@@ -1128,26 +1125,17 @@ export class Controller {
   }
 
   async openExternal(target: ExternalTarget): Promise<ActionResult> {
-    let url: string | null = null;
+    let url: string | null;
     switch (target) {
-      case "tailscale_download":
-        url = TAILSCALE_DOWNLOAD_URL;
-        break;
       case "tailscale_share":
         url = this.s.server?.mode === "private" ? this.s.server.share : null;
-        break;
-      case "vc_redist":
-        url = VC_REDIST_URL;
         break;
       case "server_source":
         url = this.status?.sourceUrl ?? PROJECT_URL;
         break;
-      case "project_source":
-        url = PROJECT_URL;
-        break;
-      case "project_license":
-        url = PROJECT_LICENSE_URL;
-        break;
+      default:
+        // Every other target opens its one fixed URL; an unknown name gets null.
+        url = fixedLinkUrl(target);
     }
     if (!url || !isAllowedExternalUrl(url, this.status?.sourceUrl ?? null)) return err("unknown");
     await this.p.openExternal(url);

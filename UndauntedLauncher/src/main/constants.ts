@@ -4,6 +4,10 @@ export const APP_ID = "io.github.mixutin.dauntlessrevived";
 export const SQUIRREL_NAME = "DauntlessRevivedLauncher";
 export const PROJECT_URL = "https://github.com/mixutin/dauntless-revived";
 export const PROJECT_LICENSE_URL = "https://github.com/mixutin/dauntless-revived/blob/dauntless-revived/LICENSE.txt";
+export const PROJECT_CONTRIBUTORS_URL = "https://github.com/mixutin/dauntless-revived/graphs/contributors";
+// Undaunted, the project this launcher and the whole fork are a modified version of.
+export const UPSTREAM_URL = "https://github.com/SyST3MDeV/Undaunted";
+export const UPSTREAM_CONTRIBUTORS_URL = "https://github.com/SyST3MDeV/Undaunted/graphs/contributors";
 export const TAILSCALE_DOWNLOAD_URL = "https://tailscale.com/download/windows";
 export const VC_REDIST_URL = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
 // Self-update feed: a rolling GitHub release that the release workflow keeps current

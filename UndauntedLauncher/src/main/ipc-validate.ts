@@ -19,17 +19,22 @@ export function settingsPatch(v: unknown): Partial<Settings> | null {
   return out;
 }
 
-const TARGETS: readonly ExternalTarget[] = [
-  "tailscale_download",
-  "tailscale_share",
-  "vc_redist",
-  "server_source",
-  "project_source",
-  "project_license",
-];
+// Every link name the page may send (a Record, so the compiler catches a name missing here). Only
+// these exact strings pass: never a URL.
+const TARGETS: Readonly<Record<ExternalTarget, true>> = {
+  tailscale_download: true,
+  tailscale_share: true,
+  vc_redist: true,
+  server_source: true,
+  project_source: true,
+  project_license: true,
+  project_contributors: true,
+  upstream_source: true,
+  upstream_contributors: true,
+};
 
 export function externalTarget(v: unknown): ExternalTarget | null {
-  return TARGETS.includes(v as ExternalTarget) ? (v as ExternalTarget) : null;
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(TARGETS, v) ? (v as ExternalTarget) : null;
 }
 
 // Hidden override for the relay port (tests and rehearsals on a PC where 61000 is taken).

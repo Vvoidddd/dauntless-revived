@@ -1,5 +1,40 @@
 // Which links the launcher may open in the browser. The renderer never passes a URL: it names a
-// target, the main process picks the URL and checks it here before shell.openExternal.
+// target (an ExternalTarget), the main process picks the URL and checks it here before
+// shell.openExternal.
+
+import type { ExternalTarget } from "../shared/types";
+import {
+  PROJECT_CONTRIBUTORS_URL,
+  PROJECT_LICENSE_URL,
+  PROJECT_URL,
+  TAILSCALE_DOWNLOAD_URL,
+  UPSTREAM_CONTRIBUTORS_URL,
+  UPSTREAM_URL,
+  VC_REDIST_URL,
+} from "./constants";
+
+// The targets that always open one fixed URL. The other two come from the server side: the
+// Tailscale share link in a private invite, and the host's own source link.
+export type FixedTarget = Exclude<ExternalTarget, "tailscale_share" | "server_source">;
+
+export const FIXED_LINKS: Readonly<Record<FixedTarget, string>> = Object.freeze({
+  tailscale_download: TAILSCALE_DOWNLOAD_URL,
+  vc_redist: VC_REDIST_URL,
+  project_source: PROJECT_URL,
+  project_license: PROJECT_LICENSE_URL,
+  project_contributors: PROJECT_CONTRIBUTORS_URL,
+  upstream_source: UPSTREAM_URL,
+  upstream_contributors: UPSTREAM_CONTRIBUTORS_URL,
+});
+
+// The URL of a fixed target, or null for anything else (a raw URL, an unknown name, "__proto__").
+export function fixedLinkUrl(target: unknown): string | null {
+  if (typeof target !== "string" || !Object.prototype.hasOwnProperty.call(FIXED_LINKS, target)) return null;
+  return FIXED_LINKS[target as FixedTarget];
+}
+
+// On github.com only these exact pages: the project's and upstream Undaunted's.
+const GITHUB_PAGES: ReadonlySet<string> = new Set([PROJECT_URL, PROJECT_LICENSE_URL, PROJECT_CONTRIBUTORS_URL, UPSTREAM_URL, UPSTREAM_CONTRIBUTORS_URL]);
 
 function parse(url: string): URL | null {
   if (typeof url !== "string" || url.length > 1024) return null;
@@ -22,7 +57,7 @@ export function isAllowedStaticUrl(url: string): boolean {
     case "aka.ms":
       return u.pathname.startsWith("/vs/");
     case "github.com":
-      return u.pathname === "/mixutin/dauntless-revived" || u.pathname.startsWith("/mixutin/dauntless-revived/");
+      return GITHUB_PAGES.has(url);
     default:
       return false;
   }
