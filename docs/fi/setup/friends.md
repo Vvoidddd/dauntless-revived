@@ -35,8 +35,9 @@ silti -vaihtoehtoa ole. Tee silloin näin:
 
 1. Lataa samasta julkaisusta `SHA256SUMS.txt` ja tarkista asennusohjelma sitä vasten. Aja
    PowerShellissä latauskansiossa `Get-FileHash .\DauntlessRevivedLauncher-Setup.exe`: sen on
-   näytettävä sama SHA-256 kuin tiedoston rivillä `SHA256SUMS.txt`-tiedostossa. Jos se ei täsmää,
-   poista tiedosto äläkä aja sitä.
+   näytettävä sama SHA-256 kuin tiedoston rivillä `SHA256SUMS.txt`-tiedostossa (PowerShell näyttää sen
+   isoin kirjaimin ja tiedostossa se on pienin; sillä erolla ei ole väliä). Jos se ei täsmää, poista
+   tiedosto äläkä aja sitä.
 2. Poista esto: napsauta tiedostoa hiiren oikealla > **Ominaisuudet** > rastita **Poista esto** >
    **OK**, tai aja PowerShellissä `Unblock-File .\DauntlessRevivedLauncher-Setup.exe`.
 3. Käynnistä se uudelleen.

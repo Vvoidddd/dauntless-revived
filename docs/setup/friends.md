@@ -32,8 +32,9 @@ it outright and there is no Run anyway. Then:
 
 1. Download `SHA256SUMS.txt` from the same release and check the installer against it. In PowerShell,
    in the folder you downloaded to, `Get-FileHash .\DauntlessRevivedLauncher-Setup.exe` must print
-   the same SHA-256 as the file's line in `SHA256SUMS.txt`. If it does not, delete the file and do
-   not run it.
+   the same SHA-256 as the file's line in `SHA256SUMS.txt` (PowerShell prints it in capital letters
+   and the file has small ones; that difference does not matter). If it does not, delete the file and
+   do not run it.
 2. Unblock the file: right-click it > **Properties** > tick **Unblock** > **OK**, or run
    `Unblock-File .\DauntlessRevivedLauncher-Setup.exe` in PowerShell.
 3. Run it again.

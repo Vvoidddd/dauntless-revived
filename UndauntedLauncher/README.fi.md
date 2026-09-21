@@ -18,7 +18,7 @@ Palvelin, joka tarjoaa jotain muuta, hylätään.
    Koneella, jossa tunnistamattomat sovellukset on asetettu estettäviksi, SmartScreen estää sen
    kokonaan eikä tarjoa Suorita silti -vaihtoehtoa. Tarkista silloin tiedosto saman julkaisun
    `SHA256SUMS.txt`-tiedostoa vasten (`Get-FileHash .\DauntlessRevivedLauncher-Setup.exe` -komennon on
-   näytettävä sama SHA-256), poista esto (hiiren oikea > Ominaisuudet > Poista esto, tai
+   näytettävä sama SHA-256 isoin kirjaimin), poista esto (hiiren oikea > Ominaisuudet > Poista esto, tai
    `Unblock-File .\DauntlessRevivedLauncher-Setup.exe`) ja käynnistä se uudelleen. Allekirjoitus on
    tiekartan kohta 4.16.
 2. Avaa ylläpitäjän lähettämä kutsulinkki tai liitä se Pelaa-sivulle ja paina **LIITY**.
