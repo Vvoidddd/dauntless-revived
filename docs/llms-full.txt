@@ -450,6 +450,7 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
+r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -469,6 +470,7 @@ r.Tonemapper.Sharpen=0.6
 |---|---|
 | `r.Streaming.PoolSize=3000`, `r.Streaming.LimitPoolSizeToVRAM=1` | Texture streaming pool in MB, never larger than the GPU's memory. This bounds the biggest memory consumer without lowering quality. |
 | `gc.TimeBetweenPurgingPendingKillObjects=10`, `s.ForceGCAfterLevelStreamedOut=1` | Collect garbage more often and after each streamed-out level. Affects memory, not image quality. |
+| `r.EyeAdaptationQuality=0` | Turns off 1.4.4's automatic exposure, which on current drivers makes the pre-hunt airship nearly black with blown-out windows ([details](troubleshooting.html#airship-dark-windows-blown-out)). |
 | `sg.*Quality=N` | The forced quality level (see step 14). |
 | `sg.ResolutionQuality=100`, `r.ScreenPercentage=100` | Render at full native resolution. |
 | `r.MipMapLODBias=0`, `r.MaxAnisotropy=16` | Full-resolution texture mips; sharp textures at glancing angles. |
@@ -852,7 +854,7 @@ $U = "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient"
 # VRAM and the two gc lines only affect memory cleanup, not image quality.
 $sys = @("[SystemSettings]",
          "r.Streaming.PoolSize=3000", "r.Streaming.LimitPoolSizeToVRAM=1",
-         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1")
+         "gc.TimeBetweenPurgingPendingKillObjects=10", "s.ForceGCAfterLevelStreamedOut=1", "r.EyeAdaptationQuality=0")
 $groups = "ViewDistance","AntiAliasing","Shadow","PostProcess","Texture","Effects","Foliage","Shading"
 if ($Graphics -ge 0) {
   $sys += ($groups | ForEach-Object { "sg.${_}Quality=$Graphics" })
@@ -1041,6 +1043,15 @@ URL: https://mixutin.github.io/dauntless-revived/setup/friends.html
 This page is for someone the host has invited. You play with **your own copy of the Dauntless 1.4.4
 client** (October 2020, UE4) against the host's server. You do not need an Epic account, hosts-file
 edits or certificates. All traffic goes over a private Tailscale connection to the host's PC.
+
+**Public-mode servers use the launcher, not this page.** If the host sent you a
+`dauntless-revived://join?...` line (a public server on a rented machine), you do not need Tailscale or
+the manual steps below. Install the launcher from
+[github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
+(`DauntlessRevivedLauncher-Setup.exe`; it is unsigned, so Windows SmartScreen warns the first time:
+**More info > Run anyway**), paste the invite line, and it does everything. If you already have an
+account key, choose **"I already have an account key"** and paste your `account.key` instead of
+registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale path.
 
 Everything on this page is about **build 1.4.4**. The final client, 2.1.1 ("Awakening", UE5), does not
 work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 executable, so it only
@@ -1311,6 +1322,7 @@ r.Streaming.PoolSize=3000
 r.Streaming.LimitPoolSizeToVRAM=1
 gc.TimeBetweenPurgingPendingKillObjects=10
 s.ForceGCAfterLevelStreamedOut=1
+r.EyeAdaptationQuality=0
 sg.ViewDistanceQuality=4
 sg.AntiAliasingQuality=4
 sg.ShadowQuality=4
@@ -2019,6 +2031,20 @@ temporal anti-aliasing softens the image a little at any setting.
 `-Graphics -1` keeps only the memory lines and lets the menu decide. At Cinematic and 1920x1080, the
 client uses 1.9-2.3 GB of RAM, so the low caps were never needed for 1.4.4.
 
+### Airship is extremely dark with blown-out windows
+
+**Symptom.** The hunt UI looks normal, but the pre-hunt airship cabin is nearly black while its
+windows are solid white. It can vary between hunts because the lobby previews the hunt atmosphere.
+
+**Cause.** Dauntless 1.4.4's histogram eye adaptation can react badly to the airship's unusually
+large brightness range on current graphics drivers. This is a post-processing problem, not missing
+textures or an incorrect hunt definition.
+
+**Fix.** The launcher, the friend kit's `play.ps1` and the host's `play.ps1` now set
+`r.EyeAdaptationQuality=0` in the user's `Engine.ini`. Close every Dauntless client and launch it
+again for the setting to take effect. This only disables automatic exposure; resolution, texture
+quality, lighting assets and hunt atmosphere stay unchanged. Found and fixed by Vvoidddd.
+
 To see what is really being forced:
 
 ```powershell
@@ -2314,8 +2340,8 @@ own relay. That is why the relay port is fixed at 61000.
 |:-----|:--------|:------|
 | TCP 443 (`-GatewayPort`) | Everyone | The gateway, TLS only, `node.exe` only. |
 | UDP 8770-8777 | Only addresses of players who logged in | The allowlist rule; closed while nobody plays and whenever the stack is stopped. Only the game executable may receive. |
-| TCP 22 | Everyone, **key login only** | OpenSSH, for your own administration. The installer warns if password login is still on. |
-| TCP 3389 | Only `-AdminIp` | Remote Desktop, if you use it. Without `-AdminIp` the installer prints a loud warning when RDP is open to the whole internet. |
+| TCP 22 | Everyone, **key login only** | OpenSSH, for your own administration. A deploy over SSH turns password login off (key login is already proven); otherwise the installer warns. Limit this to your own address at the provider. |
+| TCP 3389 | Only `-AdminIp` | Remote Desktop, if you use it. Without `-AdminIp` the installer **turns off** any internet-open RDP rule (use key-only SSH instead); `-KeepRdpOpen` leaves it open. |
 | Everything else | Nobody | Every firewall profile is set to block inbound connections by default. |
 
 Not reachable from outside, ever: the metagame (61000), the content server (61002), the deploy server
@@ -2327,8 +2353,9 @@ Not reachable from outside, ever: the metagame (61000), the content server (6100
   run the game servers: they are the game's own executable and need the desktop DLLs.
   At least **8 GB RAM**, 4 vCPU and **40 GB of disk**, plus a **public IPv4 address**.
   Ramsgate takes about 1.1 GB of RAM, each hunt about 1 GB.
-- In the provider's own firewall or security group (if it has one): allow TCP 443, UDP 8770-8777 and
-  TCP 22, and RDP (3389) only from your own address.
+- In the provider's own firewall or security group (many have one, blocking inbound by default): allow
+  **TCP 443 and UDP 8770-8777 from any address**, and TCP 22 (and RDP 3389, if you use it) only from
+  your own address. See "Before friends join" below; without the UDP rule friends hang loading Ramsgate.
 - **The verified Dauntless 1.4.4 zip** (SHA-256 `556B9A64...BC6D`) on your PC, or an https link the
   server can download it from.
 - **Your PC:** a checkout of the repository, Windows 10 or 11 with the built-in OpenSSH client, and an
@@ -2352,19 +2379,47 @@ Start-Service sshd
 $k = 'C:\ProgramData\ssh\administrators_authorized_keys'
 Set-Content -Path $k -Value 'ssh-ed25519 AAAA... your-key-comment' -Encoding ascii
 icacls $k /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F'   # Administrators, SYSTEM
+
+# 3. Print this server's SSH host-key fingerprint, to check on the first connection
+Get-ChildItem C:\ProgramData\ssh\ssh_host_ed25519_key.pub | ForEach-Object { ssh-keygen -lf $_.FullName }
 ```
 
-Test from your PC: `ssh -i C:\dr\data\ssh\dauntless_deploy Administrator@<server address> hostname`.
-When that works, turn password login off in `C:\ProgramData\ssh\sshd_config` (set
-`PasswordAuthentication no`, then `Restart-Service sshd`). Never send your server password to anyone,
-and never paste it into a script.
+Note the `SHA256:...` fingerprint that step 3 prints (in the provider console, where nothing is in the
+middle). Then test from your PC, writing the host key into the same `known_hosts` the kit uses, and
+compare the fingerprint it shows with the one from step 3:
+
+```powershell
+ssh -o UserKnownHostsFile=C:\dr\data\ssh\known_hosts -i C:\dr\data\ssh\dauntless_deploy Administrator@<server address> hostname
+```
+
+If they match, answer `yes`. `Deploy-Remote.ps1 -HostKeyFingerprint SHA256:...` does the same check for
+you and refuses to upload a backup to an unverified host. When key login works, turn password login off
+in `C:\ProgramData\ssh\sshd_config` (set `PasswordAuthentication no`, then `Restart-Service sshd`); a
+deploy over this SSH session also offers to do it. Never send your server password to anyone, and never
+paste it into a script.
+
+At the provider, allow **TCP 22 only from your own address**. If your home IP address changes, update
+that provider rule and re-run the installer with the new `-AdminIp` (over SSH).
 
 ## Deploy from your PC
+
+**Before the first deploy.** Public mode ships a `git archive` of your current commit (`HEAD`). If the
+gateway and content server are not committed yet, that archive would not contain them and the install
+would fail on the server, but only after the ~10.5 GB game zip had already gone up. So either **commit
+and push your work first**, or pass **`-WorkingTree`** to deploy your current files (never keys or
+`.env`). The example below uses `-WorkingTree`; drop it once your work is committed. `Deploy-Remote.ps1`
+now checks for this and stops before uploading anything if `HEAD` is missing the gateway.
+
+The 10.5 GB game zip takes hours over a home connection (about 2.5 h at 10 Mbit/s). `-GameZipUrl
+https://...` lets the server download it instead, and `-UploadOnly` uploads the day before without
+running the installer.
 
 From the repository folder on your PC:
 
 ```powershell
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 `
+    -WorkingTree `
+    -HostKeyFingerprint SHA256:... `
     -GameZip D:\BaseGame144.zip `
     -RestoreFrom C:\dr\backups\2026-10-01_200000 `
     -AdminIp 198.51.100.20 `
@@ -2406,8 +2461,10 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
 4. **Game files:** the zip's SHA-256 is checked, it is extracted with Windows' own `tar.exe`, every
    file is checked against the content manifest, and the two server DLLs are installed with their
    pinned hashes.
-5. **Service account:** a local user `dauntless` with a random password that is never stored or shown.
-   The stack runs as this account, never as an administrator.
+5. **Service account:** a local user `dauntless` with a random password that is never shown. The stack
+   runs as this account, never as an administrator. Task Scheduler keeps the password, encrypted, for
+   the account's tasks, and every run of the installer sets a new one: some Server 2019 images refuse
+   tasks that run without a stored password ("S4U") for any account that is not an administrator.
 6. **Certificate:** a self-signed certificate for the gateway (10 years, the public address as its
    name), made by the gateway's own tool. No Windows certificate store is touched. The fingerprint is
    printed; it goes into every invite.
@@ -2417,7 +2474,12 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
    only by Administrators and SYSTEM. Nothing secret is ever printed.
 8. **Database and owner account:** the owner (admin) account is created, its key saved to
    `data\keys\owner.key`; or the database and keys come from the backup.
-9. **Firewall** as in the table above.
+9. **Firewall** as in the table above. The installer checks the firewall that is actually in effect,
+   not only its normal settings: some VPS images keep Windows Firewall off with a policy value
+   (`EnableFirewall = 0` under `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`) while the normal
+   settings say it is on, which leaves every port open to the internet. The installer removes such
+   values. Windows applies the change only after a restart, so the installer then prints **RESTART
+   THIS SERVER NOW** in red.
 10. **Scheduled tasks:** the stack at startup as `dauntless` (supervised: a crashed part is restarted),
     the allowlist helper at startup as SYSTEM (it changes only its one firewall rule), and an hourly
     backup.
@@ -2429,12 +2491,50 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
 | `-PublicHost` | the public IPv4 on the network adapter | The address or DNS name friends connect to. Needed when the VPS is behind 1:1 NAT. |
 | `-GatewayPort` | `443` | The gateway's TCP port. |
 | `-AdminIp` | | Address(es) allowed to use Remote Desktop, for example `198.51.100.20` or `198.51.100.0/24`. |
+| `-KeepRdpOpen` | | Public mode without `-AdminIp`: leave internet-open RDP rules open instead of disabling them. |
 | `-RestoreFrom` | | A backup folder to move an existing server here. |
 | `-OwnerName` | | Username of the admin account on a new server (3-16 letters, digits or `_`). |
 | `-ServerName` | `Dauntless Revived` | The name friends see. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Where everything goes. |
 | `-InteractiveSession` | | The session-0 fallback, see below. |
 | `-NewCertificate` | | Make a new certificate. **Every invite handed out before stops working.** |
+
+## Play yourself first
+
+Prove the whole path from a real outside address before you invite anyone. Note that your own PC's
+launcher needs port 61000 for its relay, which is the same port the local development stack uses, so
+your own **PLAY fails with `relay_port_busy` while that stack is running**.
+
+1. On nights you play on the rented server, stop the local stack (`C:\dr\tools\stack.ps1 stop`), or
+   simply do not start it.
+2. Install the launcher and make an invite for yourself: `Deploy-Remote.ps1 -Server <address>
+   -InviteFor <you>`.
+3. Register, install and play until Ramsgate loads.
+4. On the server, check that `Stack.ps1 status` lists your address in the allowlist and shows Ramsgate
+   on UDP 8777.
+5. Only then send invites to friends.
+
+`DAUNTLESS_REVIVED_RELAY_PORT` moves the relay off 61000, but that is only for tests; friends always use
+61000.
+
+## Before friends join
+
+Run through this checklist once the server is deployed:
+
+1. **At your provider** (cloud firewall / security group, e.g. AWS security groups, Azure NSGs,
+   Hetzner/Vultr cloud firewalls), allow inbound **from any address**: TCP `-GatewayPort` (443 by
+   default) and **UDP 8770-8777**. Many providers block inbound by default, and this server's own
+   allowlist already limits UDP to logged-in players. Your own PC cannot test the UDP path.
+2. At the provider, limit **TCP 22** and **TCP 3389** to your own address.
+3. Hand out the launcher. There is no in-launcher download link: friends get it from
+   **`https://github.com/mixutin/dauntless-revived/releases/latest`**
+   (`DauntlessRevivedLauncher-Setup.exe`). It is unsigned, so Windows SmartScreen warns the first time:
+   **More info > Run anyway**. To make that release, push `.github/workflows/` and then the tag
+   `launcher-v0.1.0`; or send the `Setup.exe` with its SHA-256 through a private channel.
+
+If a friend **logs in and then hangs loading Ramsgate**, the provider is almost certainly blocking
+UDP 8770-8777. Add the provider rule above, and check the server's own allowlist:
+`Get-NetFirewallRule -Name DauntlessRevived-GamePorts-Allowlist | Get-NetFirewallAddressFilter`.
 
 ## Invites
 
@@ -2455,9 +2555,18 @@ dauntless-revived://join?v=2&mode=public&host=203.0.113.7&port=443&fp=<64 hex ch
 The friend pastes it into the launcher. The code lets one person create an account; send it privately.
 `-List` shows the codes that are still open, `-Revoke <code>` deletes one.
 
+Friends get the launcher from
+[github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
+(`DauntlessRevivedLauncher-Setup.exe`). It is unsigned, so Windows may warn that the app is
+unrecognised: **More info > Run anyway**. Keep the launcher open while playing.
+
 The `fp` is the certificate's fingerprint. As long as you keep the certificate, old invite lines keep
 working, even after a restore to a new server with the same address or DNS name (backups include the
-certificate). Friends who already have an account are not affected by invites at all.
+certificate). Friends who already have an account (moved over with `-RestoreFrom`) still need an invite
+line to find the server: only the invite carries the host and certificate fingerprint. In the launcher
+they choose **"I already have an account key"** and paste the contents of their old `account.key`
+instead of registering. If they press REGISTER, they spend the invite code and end up with a second,
+empty account.
 
 ## Day to day
 
@@ -2467,7 +2576,7 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 |:--------|:-------------|
 | `C:\DauntlessRevived\bin\Stack.ps1 status` | Every component with its process and ports, the gateway's TLS check, the allowlist, the game servers, the scheduled tasks and the last backup. |
 | `Stack.ps1 stop` / `start` / `restart` | Stops or starts everything through the scheduled tasks. Stopping also closes the game ports. `restart -Only gateway` restarts one part. |
-| `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>'`. |
+| `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. The server shows that list to registered players only, so the script asks with the owner key (run it as administrator). From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>' -KeyFile <your account.key>`. Without a key it says the list is hidden. |
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
 
@@ -2481,6 +2590,13 @@ takes a backup, switches over, and checks that the metagame answers and the gate
 invite certificate. If that check fails within 3 minutes, it switches back to the previous build by
 itself. `Update-DauntlessServer.ps1 -Rollback` does the same by hand. Settings, keys, the certificate
 and the game files are left alone; run the installer again for those.
+
+**The player list is for registered players only: the launcher comes first.** The server shows who
+is online only to a caller with an account key, and the launcher sends the player's key to see the
+list. Launchers released before that change send no key. Against a server that has it, they show
+"0 players online" and "No worlds are running right now." until they update themselves. When you
+update a server from an older version, do it only after the launcher release with the change is
+out, or tell your friends that the count is wrong until their launcher has updated.
 
 ### Backups
 
@@ -2553,9 +2669,11 @@ Remove-LocalUser -Name dauntless
 Remove-Item -Recurse -Force C:\DauntlessRevived
 ```
 
-Two firewall changes are not undone by that: Remote Desktop rules limited to `-AdminIp`, and firewall
-profiles switched to "block inbound by default". `data\config\server.json` lists what they were before
-under `FirewallChanges` (look before you delete the folder). If you used `-InteractiveSession`, also
+Some firewall changes are not undone by that: Remote Desktop rules limited to `-AdminIp` or disabled
+(public mode without `-AdminIp`), and firewall profiles switched to "block inbound by default".
+`data\config\server.json` lists what they were before under `FirewallChanges` (look before you delete
+the folder); to use Remote Desktop again, re-enable its rule (`Enable-NetFirewallRule`) or re-run the
+installer with `-AdminIp <your IP>`. If you used `-InteractiveSession`, also
 turn auto-logon off: `Set-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
 AutoAdminLogon 0`. Node.js and the Visual C++ runtime can be removed in "Apps and features".
 
