@@ -373,8 +373,9 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
 
 - Omilla palvelimillamme yksi pelaaja on pelannut palvelinkoneella opetusjakson, Ramsgaten, Training
   Dojon (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit), ja 22.9.2026 saman polun
-  ensimmäiseen metsästykseen asti internetin yli vuokratulla palvelimella. Alkuperäinen Undaunted kertoo, että metsästykset enintään
-  neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman kuin yhden pelaajan kanssa.
+  ensimmäiseen metsästykseen asti internetin yli vuokratulla palvelimella. Alkuperäinen Undaunted
+  kertoo, että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä
+  useamman kuin yhden pelaajan kanssa.
 - Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat alusta (Slayer-taso 1)
   ja tallentuvat, kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt
   Pass. Slayer-tason, aseen mestaruuden ja hirviön mestaruuden on kaikkien nähty nousevan pelissä. Jos

@@ -354,8 +354,8 @@ This is a small private revival and a work in progress. As of this writing:
 
 - On our own servers, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
   and a pursuit on the host PC, and on 22 September 2026 the same path up to the first hunt over the
-  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet tested that with more
-  than one player.
+  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We
+  have not yet tested that with more than one player.
 - Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
   1) and are saved, on a server that runs the current code with its default settings. Every account
   owns the Elite Hunt Pass. Slayer level, weapon mastery and behemoth mastery have all been seen going

@@ -37,9 +37,10 @@ pelitiedostoja eikä linkkejä niiden latauksiin.
 sisällä (loopback) ja pelkästään omistajalle. Kavereita varten käytämme
 [Windows-palvelinpakettia]({{ winserver_page.url | relative_url }}) julkisessa tilassa: se on asennettu
 vuokratulle Windows Server 2019 -virtuaalipalvelimelle, jolla omistaja pelasi internetin yli
-22.9.2026, ja testi toisen pelaajan kanssa on seuraavana vuorossa. Isännän koneen avaaminen kavereille Tailscalen kautta (ohjelma, joka tekee salatun,
-yksityisen yhteyden koneiden välille) on kirjoitettu auki, mutta sitä ei ole vielä ajettu alusta
-loppuun, ja sivuilla kerrotaan se aina siellä, missä sillä on merkitystä.
+22.9.2026, ja testi toisen pelaajan kanssa on seuraavana vuorossa. Isännän koneen avaaminen
+kavereille Tailscalen kautta (ohjelma, joka tekee salatun, yksityisen yhteyden koneiden välille) on
+kirjoitettu auki, mutta sitä ei ole vielä ajettu alusta loppuun, ja sivuilla kerrotaan se aina siellä,
+missä sillä on merkitystä.
 
 ## Sivut {#pages}
 

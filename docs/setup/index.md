@@ -31,8 +31,9 @@ do not link to downloads.
 **Status (22 September 2026).** The host setup is what we run on the owner's PC, on loopback, for the
 owner alone. For friends we use the [Windows server kit]({{ winserver_page.url | relative_url }}) in
 public mode: it is deployed on a rented Windows Server 2019 VPS, where the owner played over the
-internet on 22 September 2026, and a test with a second player is next. Opening a host PC to friends over Tailscale is documented, but it has not been run end to
-end yet, and those pages say so where it matters.
+internet on 22 September 2026, and a test with a second player is next. Opening a host PC to friends
+over Tailscale is documented, but it has not been run end to end yet, and those pages say so where it
+matters.
 
 ## Pages
 

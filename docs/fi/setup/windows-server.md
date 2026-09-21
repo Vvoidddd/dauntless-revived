@@ -44,8 +44,8 @@ varmenteella, ja tunnin välein ajettava varmuuskopiotehtävä toimii. 22.9.2026
 internetin yli: hän rekisteröityi käynnistimellä kutsun avulla, latasi pelin yhdyskäytävän kautta ja
 pelasi opetusjakson, Ramsgaten, Training Dojon ja ensimmäisen metsästyksen. Kolme pelipalvelinta pyöri
 yhtä aikaa, ja sallittujen lista avasi UDP-peliportit pelaajalle ja sulki ne, kun hän lähti. Oikea
-palvelin paljasti kolme ongelmaa, joita
-hiekkalaatikko ei voinut löytää, ja ne kaikki on korjattu paketissa: Windows sallii paikallisen tilin
+palvelin paljasti kolme ongelmaa, joita hiekkalaatikko ei voinut löytää, ja ne kaikki on korjattu
+paketissa: Windows sallii paikallisen tilin
 kuvaukseen enintään 48 merkkiä, se levykuva ei hyväksy ilman tallennettua salasanaa ajettavia
 ajastettuja tehtäviä (”S4U”) muille kuin ylläpitäjille, ja palveluntarjoajan levykuva piti palomuurin
 pois päältä käytäntöarvoilla (kaksi viimeistä selitetään alla asennuksen vaiheissa). Testi toisen
