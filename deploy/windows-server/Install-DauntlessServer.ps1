@@ -530,6 +530,10 @@ try {
                 Write-DROk "Node.js $ver installed"
             }
         }
+        # A fresh MSI install reaches PATH only in new logon sessions, but npm's install scripts
+        # (cmd.exe -> node, e.g. better-sqlite3's prebuild-install) run in this one.
+        $nodeDir = Split-Path -Parent $NodeExe
+        if (($env:Path -split ';') -notcontains $nodeDir) { $env:Path = "$nodeDir;$env:Path"; Write-DROk "Node.js added to this session's PATH ($nodeDir)" }
         # Visual C++ 2015-2022 x64 (UndauntedInternalServer.dll imports MSVCP140 and VCRUNTIME140_1)
         $vcMissing = @('MSVCP140.dll', 'VCRUNTIME140.dll', 'VCRUNTIME140_1.dll') | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sys32 $_)) }
         if (-not $vcMissing) { Write-DROk 'Visual C++ 2015-2022 x64 runtime' }
