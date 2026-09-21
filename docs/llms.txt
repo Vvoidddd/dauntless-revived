@@ -23,6 +23,17 @@
 - [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html): Install a Dauntless Revived server on a rented Windows Server 2019 VPS in public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players, key-only SSH deployment, invites, updates and backups.
 - [Upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html): What changes for players when you update an existing Dauntless Revived server: real progression is now on by default. How to keep old max ranks, start fresh, or stay on the stub.
 
+## Reference
+
+- [Reference](https://mixutin.github.io/dauntless-revived/reference/): Reference for Dauntless Revived: every setting, port, HTTP route, file, game setting and script, with defaults and who sets them, checked against the code.
+- [Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html): Every environment variable of the Dauntless Revived servers: defaults, allowed values, what each does, who sets it, and which switches are on by default.
+- [Ports and network](https://mixutin.github.io/dauntless-revived/reference/ports.html): Every TCP and UDP port of a Dauntless Revived server: who listens where, bind addresses in private and public mode, request paths and the kit firewall rules.
+- [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html): Every HTTP route of the Dauntless Revived metagame, deploy server, content server and gateway, with who may call it and what the internet can reach.
+- [Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html): Where Dauntless Revived keeps its files: the repository, a host's folders, the server kit's install root, the SQLite database, logs, backups and the launcher.
+- [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html): What Dauntless Revived changes in the 1.4.4 client and its game servers: the user ini files and who writes them, command lines, the two DLLs and the pinned build.
+- [Scripts and parameters](https://mixutin.github.io/dauntless-revived/reference/scripts.html): Every script you run for Dauntless Revived: the Windows server kit, the friend kit, tools/ and the npm scripts, with each parameter, its default and examples.
+- [Developer guide](https://mixutin.github.io/dauntless-revived/reference/development.html): How to work on Dauntless Revived: prerequisites, building and testing each package, running the stack and the launcher locally, CI, and where the code lives.
+
 ## Findings
 
 - [Findings](https://mixutin.github.io/dauntless-revived/findings/): What we learned about how the online side of Dauntless worked, from the 1.4.4 and 2.1.1 clients: backend contract, client internals, multiplayer and crashes.
@@ -53,6 +64,14 @@
 - [Vianetsintä](https://mixutin.github.io/dauntless-revived/fi/setup/troubleshooting.html): Dauntless 1.4.4 ja Dauntless Revived -palvelin: ongelmat, joihin törmäsimme, syineen ja korjauksineen. Varatut portit, kirjautuminen, sumea grafiikka, Defender ja git.
 - [Windows-palvelin](https://mixutin.github.io/dauntless-revived/fi/setup/windows-server.html): Dauntless Revived -palvelin vuokratulle Windows Server 2019 -koneelle julkisessa tilassa: yksi salattu portti, kiinnitetty varmenne, peliportit auki vain kirjautuneille, asennus SSH:lla, kutsut ja varmuuskopiot.
 - [Päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html): Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: oikea eteneminen on nyt oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä.
+- [Tekninen viite](https://mixutin.github.io/dauntless-revived/fi/reference/): Dauntless Revivedin tekninen viite: jokainen asetus, portti, HTTP-reitti, tiedosto, pelin asetus ja skripti oletusarvoineen, tarkistettuna koodia vasten.
+- [Asetukset](https://mixutin.github.io/dauntless-revived/fi/reference/configuration.html): Dauntless Revived -palvelinten kaikki ympäristömuuttujat: oletukset, sallitut arvot, mitä kukin tekee, kuka sen asettaa ja mitkä kytkimet ovat oletuksena päällä.
+- [Portit ja verkko](https://mixutin.github.io/dauntless-revived/fi/reference/ports.html): Dauntless Revived -palvelimen kaikki TCP- ja UDP-portit: kuka kuuntelee missäkin, kuunteluosoitteet yksityisessä ja julkisessa tilassa, pyyntöjen reitit ja palvelinpaketin palomuurisäännöt.
+- [HTTP-rajapinta](https://mixutin.github.io/dauntless-revived/fi/reference/api.html): Dauntless Revivedin metagamen, deploy-palvelimen, sisältöpalvelimen ja yhdyskäytävän jokainen HTTP-reitti: kuka saa kutsua sitä ja mihin internetistä pääsee.
+- [Tiedostot ja data](https://mixutin.github.io/dauntless-revived/fi/reference/files.html): Missä Dauntless Revived pitää tiedostonsa: repositorio, käsin pystytetyn palvelinkoneen kansiot, palvelinpaketin asennuskansio, SQLite-tietokanta, lokit, varmuuskopiot ja käynnistin.
+- [Pelin asetukset](https://mixutin.github.io/dauntless-revived/fi/reference/game-settings.html): Mitä Dauntless Revived muuttaa 1.4.4-peliohjelmassa ja pelipalvelimissa: ini-tiedostot ja kuka ne kirjoittaa, komentorivit, kaksi DLL-tiedostoa ja kiinnitetty versio.
+- [Skriptit ja parametrit](https://mixutin.github.io/dauntless-revived/fi/reference/scripts.html): Kaikki Dauntless Revivedin ajettavat skriptit: Windows-palvelinpaketti, kaveripaketti, tools/ ja npm-skriptit, jokainen parametri oletusarvoineen ja esimerkkeineen.
+- [Kehittäjän opas](https://mixutin.github.io/dauntless-revived/fi/reference/development.html): Dauntless Revivedin kehittäminen: esivaatimukset, pakettien käännös ja testit, palvelinten ja käynnistimen ajo omalla koneella, CI ja koodin sijainti.
 - [Löydökset](https://mixutin.github.io/dauntless-revived/fi/findings/): Mitä Dauntlessin verkkopuolesta on saatu selville kahdesta peliversiosta: tiedostojen tarkistus, asetukset, taustapalvelun rajapinta, moninpeli ja kaatumiset.
 - [Pelitiedostojen tarkistaminen](https://mixutin.github.io/dauntless-revived/fi/findings/verification.html): Miten varmistimme, että yhteisön arkistoimat Dauntless-versiot 2.1.1 ja 1.4.4 ovat aitoja, ehjiä ja puhtaita: allekirjoitukset, manifestit ja virustarkistus.
 - [Pelin sisältö ja asetukset](https://mixutin.github.io/dauntless-revived/fi/findings/assets.html): Miten Dauntlessin versiot 2.1.1 ja 1.4.4 tallentavat sisältönsä ja asetuksensa, miten niitä luetaan ja mitä käyttäjän asetustiedostolla voi muuttaa.

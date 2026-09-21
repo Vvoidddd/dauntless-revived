@@ -232,8 +232,12 @@ const link = (p, label) => `- [${label || p.title}](${p.url}): ${p.description |
 const englishByRef = new Map(english.map(p => [p.ref, p]));
 const pick = ref => englishByRef.get(ref);
 const setupPages = englishOrdered.filter(p => p.ref === "setup/index" || p.parent === "Setup");
+const referencePages = englishOrdered.filter(p => p.ref === "reference/index" || p.parent === "Reference");
 const findingsPages = englishOrdered.filter(p => p.ref === "findings/index" || p.parent === "Findings");
-const listed = new Set(["index", "faq", ...setupPages.map(p => p.ref), ...findingsPages.map(p => p.ref)]);
+const listed = new Set([
+    "index", "faq",
+    ...setupPages.map(p => p.ref), ...referencePages.map(p => p.ref), ...findingsPages.map(p => p.ref),
+]);
 const projectPages = englishOrdered.filter(p => !listed.has(p.ref));
 
 const llms = [
@@ -251,6 +255,10 @@ const llms = [
     "## Setup",
     "",
     ...setupPages.map(p => link(p)),
+    "",
+    "## Reference",
+    "",
+    ...referencePages.map(p => link(p)),
     "",
     "## Findings",
     "",
