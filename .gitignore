@@ -1,0 +1,16 @@
+# Local Dauntless client files (copyrighted; never commit)
+/BaseGame144/
+/BaseGame144.zip
+
+# Local development environments and caches
+/.venv/
+/.vs/
+/.vscode/
+/__pycache__/
+/.pytest_cache/
+/.test-tmp/
+/.test-tmp-security/
+
+# Runtime secrets and generated data
+**/.env
+/data/
