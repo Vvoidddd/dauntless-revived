@@ -184,7 +184,8 @@ tehtävälistan kohta 4.15); niissä olevien npm-pakettien nimet ovat `dauntless
   tekijänoikeustiedot ja `SOURCE.txt`, joka kertoo tarkan koodiversion.
 - Oma **kaverikäynnistin** (`UndauntedLauncher/`), tehty alkuperäisen käynnistimen pohjalta, joka oli
   kytketty kiinteästi Undauntedin omiin palvelimiin. Se liittyy palvelimelle kutsulla, rekisteröi
-  pelaajan (avain tallennetaan vain Windowsin DPAPI-suojauksella), lataa pelin isännältä ja tarkistaa
+  pelaajan (se säilyttää avaimen vain Windowsin DPAPI-suojauksella salattuna; ainoa selväkielinen
+  kopio on varmuuskopio, jonka pelaaja itse päättää tallentaa), lataa pelin isännältä ja tarkistaa
   jokaisen tiedoston siihen sisäänrakennettua luetteloa vasten, asentaa kaksi kiinnitettyä
   DLL-tiedostoa ja pelin asetukset sekä välittää julkisessa tilassa pelin salaamattomat HTTP-kutsut salattuna yhteytenä, joka on kiinnitetty
   kutsun varmenteeseen. CI julkaisee jokaisen uuden version GitHubin julkaisuihin, ja asennetut

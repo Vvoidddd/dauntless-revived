@@ -167,8 +167,9 @@ The component folders keep upstream's `Undaunted...` names for now (renaming the
   old chat server, and ships with the license, third-party notices and a `SOURCE.txt` naming the
   exact commit.
 - Our own **friend launcher** (`UndauntedLauncher/`), built on upstream's, which was hard-wired to
-  Undaunted's own servers. It joins a server from an invite, registers the player (the key is stored
-  only with Windows DPAPI), downloads the game from the host and checks every file against a manifest
+  Undaunted's own servers. It joins a server from an invite, registers the player (it keeps the key
+  only encrypted with Windows DPAPI; the one plain copy is a backup the player chooses to save),
+  downloads the game from the host and checks every file against a manifest
   built into it, installs the two pinned DLLs and the game settings, and in public mode relays the
   game's plain-HTTP calls over TLS pinned to the invite's certificate. CI publishes each new version on GitHub Releases, and installed launchers
   update themselves.
