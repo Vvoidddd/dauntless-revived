@@ -14,6 +14,7 @@ locale: fi_FI
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign verification_page = site.pages | where: "path", "fi/findings/verification.md" | first %}
 {% assign multiplayer_page = site.pages | where: "path", "fi/findings/multiplayer.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 
 # Pystytä palvelin
 {: .no_toc }
@@ -531,6 +532,22 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` tai `NONE`. `OPEN` on kunnossa niin kauan kuin metagame kuuntelee vain koneen sisäisessä osoitteessa (loopback). Vaihda tässä tiedostossa arvoksi `INVITECODE` ennen kuin kukaan muu voi tavoittaa sen. Ylläpitorajapinnan kautta tehty muutos kestää vain seuraavaan uudelleenkäynnistykseen. |
 | `NODE_ENV` | `production`. Lokit ovat silloin pelkkiä JSON-rivejä. |
 | `LOG_REQUESTS` | **Vain forkissa**, valinnainen. Jokainen pyyntö kirjataan muodossa `METHOD /path gs=0/1`, ellei arvo ole `0`. Se on tärkein vianetsintävälineemme. |
+| `PROGRESSION_MODE` | **Vain forkissa**, valinnainen. Tyhjä (oletus) tai `real`: jokainen tili säilyttää oman Slayer-tasonsa, mestaruutensa (mastery), Hunt Passinsa (Elite-passi kaikille), varustesarjojen paikkansa, odotusaikansa (cooldowns) ja palkkiotehtävänsä (bounties). `stub`: alkuperäisen projektin valemaksimitasot, mitään ei tallenneta. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin [päivitysohjeet]({{ upgrade_page.url | relative_url }}). |
+| `PROGRESSION_REAL_ACCOUNTS` | **Vain forkissa**, valinnainen. Vain asetuksen `PROGRESSION_MODE=stub` kanssa: pilkuilla erotetut tilitunnukset, jotka saavat silti oikean etenemisen. |
+
+**Muut valinnaiset kytkimet (vain forkissa).** Jätä ne pois, niin saat oletuksen.
+
+| Avain | Oletus | Mitä se tekee |
+|---|---|---|
+| `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` | Oikeudet (entitlements), jotka jokaisella tilillä on. Ensimmäinen on Elite Hunt Pass. |
+| `INVENTORY_REFUSE_OVERSPEND` | pois | `1` torjuu tavarapyynnön, joka poistaa enemmän kuin pelaajalla on. Pois päältä, koska torjunta hylkää koko pyynnön palkintoineen, eikä yhtään metsästyksen lopun pyyntöä ole vielä tarkistettu sitä vasten. Siihen asti ylitys pysäytetään nollaan ja kirjataan lokiin tekstillä "Allowing overspend". |
+| `DB_WAL` | pois | `1` vaihtaa tietokannan WAL-tilaan. Pois päältä, koska tässä kuvatut varmuuskopiot kopioivat pelkän tietokantatiedoston, ja äkillinen pysäytys jättää uusimmat tallennukset erilliseen `-wal`-tiedostoon. |
+| `LOG_BODIES`, `BODY_LOG_FILE` | pois, `bodies.log` | `1` kirjoittaa keskeneräisten tallennusreittien pyyntöjen sisällön tiedostoon (8 kt kukin, tavaroilla 64 kt, tunnisteet poistettuina). Kehitysapu; se tallentaa, mitä pelaajat lähettävät. |
+| `MATCHMAKING_CANCEL` | pois | `1` vastaa peliohjelman jonon perumiseen. Pois päältä, koska peliohjelma lähettää perumisen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että perumiseen vastataan 404. |
+| `PROGRESSION_ALLOW_DELETE` | pois | `1` antaa pelipalvelimien nollata etenemisradan (vianetsintäkomento). Ylläpitäjän avaimella se onnistuu aina. |
+| `PROGRESSION_GRANT_CAP` | `5000` | Suurin kokemuspistemäärä (XP), jonka yksi pyyntö voi lisätä yhdelle radalle. |
+| `SAVE_HISTORY_KEEP`, `SAVE_HISTORY_HOURLY`, `SAVE_HISTORY_DAILY` | `100`, `48`, `30` | Hahmon ja varustesarjojen versiot, jotka säilytetään palautuksia varten: uusimmat, sitten yksi tunnissa, sitten yksi päivässä. |
+| `INVENTORY_REPORT_REMOVALS`, `MISC_ROUTES`, `STATUS_EXTRA`, `ACCOUNT_DISPLAY_NAME` (`0`), `PROGRESSION_CONFIRM` (`off`) | päällä | Sulkeissa oleva arvo palauttaa yhden palan alkuperäisen projektin vanhaa toimintaa vertailuja varten. Jätä ne asettamatta. |
 
 **Miksi portit 61000/61001 eikä 60000.** Alkuperäisen projektin käynnistin käyttää kehitystilassa
 osoitetta `127.0.0.1:60000`, ja ensimmäinen suunnitelmamme käytti portteja 60000/60001. Meidän
@@ -566,6 +583,7 @@ Odotettu tulos:
 Registered 0 new Gameserver API Key(s) on boot!
 Registered 0 new User API Key(s) on boot!
 Undaunted Metagame on 127.0.0.1:61000
+Progression mode: real for every account (the default)
 Clear Skies, Slayer.
 ```
 

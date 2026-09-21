@@ -12,6 +12,7 @@ locale: fi_FI
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 
 # Windows-palvelin
 {: .no_toc }
@@ -330,6 +331,13 @@ vasten ne näyttävät "0 pelaajaa paikalla" ja "Yhtään maailmaa ei ole nyt k�
 päivittävät itsensä. Kun päivität palvelimen vanhemmasta versiosta, tee se vasta, kun muutoksen
 sisältävä käynnistin on julkaistu, tai kerro kavereille, että luku on väärin, kunnes heidän
 käynnistimensä on päivittynyt.
+
+**Oikea eteneminen on nyt oletus: päätä ennen päivitystä.** Palvelin, jonka `metagame.env`-tiedostossa
+ei ole `PROGRESSION_MODE`-riviä, vaihtaa alkuperäisen projektin valemaksimitasoista oikeaan
+etenemiseen, ja aiemmin pelanneet aloittavat Slayer-tasolta 1. Päivitys ei siirrä mitään. Pidä
+valittujen pelaajien maksimitasot antamalla heille lähtötaso `grandfather`, tai lisää ensin
+`PROGRESSION_MODE=stub` tiedostoon `C:\DauntlessRevived\data\config\metagame.env`, jos haluat jatkaa
+tyngällä. [Päivitysohjeissa]({{ upgrade_page.url | relative_url }}) on yksityiskohdat ja skripti.
 
 ### Varmuuskopiot
 

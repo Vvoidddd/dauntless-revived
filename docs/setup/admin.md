@@ -10,6 +10,8 @@ ref: setup/admin
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
+{% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
 
 # Run it for a group
 {: .no_toc }
@@ -283,6 +285,21 @@ All routes live under `/undaunted/api` on the metagame port. "Admin" means the
 
 Upstream's Electron launcher has an admin screen for the registration mode and invite codes, but it is
 hard-wired to upstream's own public server. We call the API directly instead.
+
+### Progression (fork only) {#progression}
+
+Real progression is on by default: every account keeps its own Slayer level, mastery and Hunt Pass
+(`PROGRESSION_MODE`, see [Host a server]({{ host_page.url | relative_url }}#metagame)). Two admin routes
+go with it:
+
+| Method and path | Auth | What it does |
+|:----------------|:-----|:-------------|
+| `GET /Progression?UserId=<id>` | admin | One account's tracks with the ranks the game will show, its objectives, Hunt Pass and entitlements, and whether it is in real mode. |
+| `POST /SeedProgression` | admin | Body `{ "UserId", "Mode" }`. `grandfather` sets every track to its maximum rank, fully confirmed (nothing is granted); `fresh` sets every track to 0 and clears the objectives. Run it while the player is offline. |
+
+A server that already had players before real progression became the default starts them at Slayer
+level 1. The [upgrade notes]({{ upgrade_page.url | relative_url }}) explain the choice and include a
+small script for both routes.
 
 ### Missing admin functions and workarounds
 

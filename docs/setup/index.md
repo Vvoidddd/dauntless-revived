@@ -13,6 +13,7 @@ ref: setup/index
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "setup/windows-server.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
 {% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
 
@@ -39,6 +40,7 @@ been run end to end yet, and those pages say so where it matters.
 | [Run it for a group]({{ admin_page.url | relative_url }}) | The host, once the stack runs locally | Tailscale sharing, firewall rules scoped to the Tailscale interface, switching addresses, invite codes and accounts, the admin API, capacity, and database backups. Target configuration, not yet tested end to end. |
 | [Windows server kit]({{ winserver_page.url | relative_url }}) | The host, for an always-on rented server | One command from your PC installs everything on a Windows Server 2019 VPS over key-only SSH. Public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players. Invites, updates with rollback, backups, uninstall. Tested in sandbox mode, not yet on a real server. |
 | [Troubleshooting]({{ trouble_page.url | relative_url }}) | Everyone | Problems we actually hit, with causes and fixes. A few entries come from reading the code and are marked as such. |
+| [Upgrade notes]({{ upgrade_page.url | relative_url }}) | The host, before updating a server that already has players | What each update changes for players and what to decide first. Now: real progression is on by default, so earlier players start at Slayer level 1 unless you keep their max ranks or stay on the stub. |
 
 ## Suggested order
 

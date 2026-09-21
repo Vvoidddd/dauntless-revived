@@ -12,6 +12,8 @@ locale: fi_FI
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
+{% assign host_page = site.pages | where: "path", "fi/setup/host.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 
 # Palvelin ryhmälle
 {: .no_toc }
@@ -303,6 +305,21 @@ tuntematon avain saa vastauksen 401; kelvollinen avain, joka ei kuulu ylläpitä
 Alkuperäisen projektin Electron-käynnistimessä on ylläpitonäkymä rekisteröintitilalle ja
 kutsukoodeille, mutta se on kovakoodattu alkuperäisen projektin omaan julkiseen palvelimeen. Me
 kutsumme rajapintaa suoraan.
+
+### Eteneminen (vain forkissa) {#progression}
+
+Oikea eteneminen on oletuksena päällä: jokainen tili säilyttää oman Slayer-tasonsa, mestaruutensa
+(mastery) ja Hunt Passinsa (`PROGRESSION_MODE`, katso [Pystytä palvelin]({{ host_page.url | relative_url }}#metagame)).
+Siihen kuuluu kaksi ylläpitoreittiä:
+
+| Metodi ja polku | Tunnistautuminen | Mitä se tekee |
+|:----------------|:-----|:-------------|
+| `GET /Progression?UserId=<tunnus>` | ylläpitäjä | Yhden tilin radat niillä tasoilla, jotka peli näyttää, sen tavoitteet (objectives), Hunt Pass ja oikeudet (entitlements), sekä tieto siitä, onko tili oikean etenemisen tilassa. |
+| `POST /SeedProgression` | ylläpitäjä | Runko `{ "UserId", "Mode" }`. `grandfather` asettaa jokaisen radan korkeimmalle tasolleen täysin vahvistettuna (mitään ei jaeta); `fresh` asettaa jokaisen radan nollaan ja tyhjentää tavoitteet. Aja se, kun pelaaja ei ole pelissä. |
+
+Palvelin, jolla oli pelaajia jo ennen kuin oikeasta etenemisestä tuli oletus, aloittaa heidät
+Slayer-tasolta 1. [Päivitysohjeissa]({{ upgrade_page.url | relative_url }}) kerrotaan vaihtoehdot, ja
+niissä on pieni skripti molempia reittejä varten.
 
 ### Puuttuvat ylläpitotoiminnot ja kiertotiet {#missing-admin-functions-and-workarounds}
 

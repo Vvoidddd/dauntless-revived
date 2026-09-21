@@ -12,6 +12,7 @@ ref: setup/host
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
 {% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
 {% assign multiplayer_page = site.pages | where: "path", "findings/multiplayer.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
 
 # Host a server
 {: .no_toc }
@@ -489,6 +490,22 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` or `NONE`. `OPEN` is fine while the metagame listens on loopback only. Switch to `INVITECODE` in this file before anyone else can reach it. Changing it through the admin API lasts only until the next restart. |
 | `NODE_ENV` | `production`. The logs are then plain JSON lines. |
 | `LOG_REQUESTS` | **Fork only**, optional. Every request is logged as `METHOD /path gs=0/1` unless this is `0`. It is our main diagnostic. |
+| `PROGRESSION_MODE` | **Fork only**, optional. Unset (the default) or `real`: every account keeps its own Slayer level, mastery, Hunt Pass (with the Elite pass for everyone), loadout slots, cooldowns and bounties. `stub`: upstream's fake max ranks, nothing stored. Updating a server that already has players? Read the [upgrade notes]({{ upgrade_page.url | relative_url }}) first. |
+| `PROGRESSION_REAL_ACCOUNTS` | **Fork only**, optional. Only with `PROGRESSION_MODE=stub`: comma-separated account ids that get real progression anyway. |
+
+**Other optional switches (fork only).** Leave them out to get the default.
+
+| Key | Default | What it does |
+|---|---|---|
+| `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` | The entitlements every account owns. The first one is the Elite Hunt Pass. |
+| `INVENTORY_REFUSE_OVERSPEND` | off | `1` refuses an inventory transaction that removes more than the player has. Off because a refusal drops the whole transaction, rewards included, and no hunt-end transaction has been checked against it yet. Meanwhile an overspend is clamped at 0 and logged as "Allowing overspend". |
+| `DB_WAL` | off | `1` switches the database to WAL mode. Off because the backups described here copy the database file alone, and a hard stop leaves the newest saves in a separate `-wal` file. |
+| `LOG_BODIES`, `BODY_LOG_FILE` | off, `bodies.log` | `1` appends the request bodies of unfinished save routes to the file (8 KB each, 64 KB for inventory, tokens removed). A development aid; it records what players send. |
+| `MATCHMAKING_CANCEL` | off | `1` answers the client's matchmaking cancel. Off because the client sends a cancel right after every queued join, and hunts only start because that cancel is answered 404. |
+| `PROGRESSION_ALLOW_DELETE` | off | `1` lets game servers reset a progression track (a debug command). An admin key can always do it. |
+| `PROGRESSION_GRANT_CAP` | `5000` | The most XP one request may add to one track. |
+| `SAVE_HISTORY_KEEP`, `SAVE_HISTORY_HOURLY`, `SAVE_HISTORY_DAILY` | `100`, `48`, `30` | Character and loadout versions kept for rollbacks: the newest ones, then one per hour, then one per day. |
+| `INVENTORY_REPORT_REMOVALS`, `MISC_ROUTES`, `STATUS_EXTRA`, `ACCOUNT_DISPLAY_NAME` (`0`), `PROGRESSION_CONFIRM` (`off`) | on | Each value in brackets puts back one piece of upstream's old behaviour, for comparisons. Leave them unset. |
 
 **Why ports 61000/61001 and not 60000.** Upstream's launcher uses `127.0.0.1:60000` in development
 mode, and our first plan used 60000/60001. On our PC, `127.0.0.1:60000` is already held by
@@ -521,6 +538,7 @@ Expected:
 Registered 0 new Gameserver API Key(s) on boot!
 Registered 0 new User API Key(s) on boot!
 Undaunted Metagame on 127.0.0.1:61000
+Progression mode: real for every account (the default)
 Clear Skies, Slayer.
 ```
 

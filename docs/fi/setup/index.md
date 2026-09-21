@@ -15,6 +15,7 @@ locale: fi_FI
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "fi/setup/windows-server.md" | first %}
+{% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 {% assign verification_page = site.pages | where: "path", "fi/findings/verification.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 
@@ -46,6 +47,7 @@ merkitystä.
 | [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) | Isännälle, kun kokonaisuus toimii jo paikallisesti | Tailscale-jako, Tailscale-liitäntään rajatut palomuurisäännöt, osoitteiden vaihtaminen, kutsukoodit ja tilit, ylläpitorajapinta, kapasiteetti ja tietokannan varmuuskopiot. Tavoitekokoonpano, jota ei ole vielä testattu alusta loppuun. |
 | [Windows-palvelin]({{ winserver_page.url | relative_url }}) | Isännälle, jatkuvasti päällä olevaa vuokrapalvelinta varten | Yksi komento omalta koneelta asentaa kaiken Windows Server 2019 -virtuaalipalvelimelle SSH-avaimella. Julkinen tila: yksi salattu portti kiinnitetyllä varmenteella, ja peliportit auki vain kirjautuneille pelaajille. Kutsut, päivitykset paluumahdollisuudella, varmuuskopiot ja poistaminen. Testattu hiekkalaatikkotilassa, ei vielä oikealla palvelimella. |
 | [Vianetsintä]({{ trouble_page.url | relative_url }}) | Kaikille | Ongelmat, joihin oikeasti törmäsimme, syineen ja korjauksineen. Muutama kohta on peräisin koodin lukemisesta, ja ne on merkitty sellaisiksi. |
+| [Päivitysohjeet]({{ upgrade_page.url | relative_url }}) | Isännälle ennen sellaisen palvelimen päivitystä, jolla on jo pelaajia | Mitä kukin päivitys muuttaa pelaajille ja mitä pitää päättää ensin. Nyt: oikea eteneminen on oletuksena päällä, joten aiemmin pelanneet aloittavat Slayer-tasolta 1, ellet pidä heidän maksimitasojaan tai jatka tyngällä. |
 
 ## Suositeltu järjestys {#suggested-order}
 
