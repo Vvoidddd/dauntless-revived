@@ -10,7 +10,8 @@ import { STRINGS, type StringKey } from "../src/shared/i18n";
 import type { ExternalTarget } from "../src/shared/types";
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const NOTICES = readFileSync(path.join(ROOT, "THIRD-PARTY-NOTICES.txt"), "utf8");
+// Line endings depend on the checkout (Windows runners and core.autocrlf give CRLF), so compare with LF.
+const NOTICES = readFileSync(path.join(ROOT, "THIRD-PARTY-NOTICES.txt"), "utf8").replace(/\r\n/g, "\n");
 
 function person(list: readonly CreditPerson[], github: string): CreditPerson {
   const p = list.find((x) => x.github === github);
