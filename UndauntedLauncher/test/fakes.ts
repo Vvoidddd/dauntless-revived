@@ -220,6 +220,7 @@ export interface MetagameOptions {
   existingUsers?: Map<string, string>; // lower-case username -> key
   statusMissing?: boolean; // behave like an older metagame without ServerStatus
   statusForEveryone?: boolean; // behave like a metagame that lists everyone to anyone (no "limited" field)
+  sourceUrl?: string; // the host's own source link in ServerStatus (default: the project's repository)
 }
 
 export class FakeMetagame {
@@ -284,7 +285,7 @@ export class FakeMetagame {
         online: true,
         version: "1.0.0",
         commit: "abc1234",
-        sourceUrl: "https://github.com/mixutin/dauntless-revived",
+        sourceUrl: this.opts.sourceUrl ?? "https://github.com/mixutin/dauntless-revived",
         registration: this.opts.registration ?? "INVITECODE",
         playersOnline: full ? 2 : 0,
         players: full

@@ -74,7 +74,9 @@ export function cleanHttpsUrl(v: unknown): string | null {
   try {
     const url = new URL(v);
     if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
-    return url.toString();
+    // The same limits as the link check in src/main/links.ts, so a Source button never does nothing.
+    const text = url.toString();
+    return text.length <= 1024 ? text : null;
   } catch {
     return null;
   }

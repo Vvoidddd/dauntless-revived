@@ -1,6 +1,7 @@
 // Links the launcher opens in the browser. The page only names a link; the main process opens exactly
 // that link's fixed URL. Raw URLs, unknown names, look-alike hosts and other repositories never get
 // through, neither at the IPC check nor at the URL allow-list.
+// Port: 62445 a private-mode (plain HTTP, loopback) metagame that announces its own source link.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +12,14 @@ import { Controller, type Platform } from "../src/main/controller";
 import { externalTarget } from "../src/main/ipc-validate";
 import { FIXED_LINKS, fixedLinkUrl, isAllowedExternalUrl, isAllowedStaticUrl, type FixedTarget } from "../src/main/links";
 import { setSink } from "../src/main/log";
+import { formatInvite } from "../src/shared/invite";
+import { parseServerStatus } from "../src/shared/status";
 import type { ExternalTarget } from "../src/shared/types";
+import { FakeMetagame } from "./fakes";
+
+const HOST_PORT = 62445;
+const HOST_SOURCE = "https://git.example.org/friday/server";
+const SHARE = "https://login.tailscale.com/admin/invite/links-test";
 
 // Every fixed link and the one URL it opens, written out here on purpose (not taken from constants.ts).
 const EXPECTED: Record<FixedTarget, string> = {
@@ -122,6 +130,30 @@ function controller(): { c: Controller; opened: string[] } {
   return { c: new Controller(p), opened };
 }
 
+// A controller that has joined a private server announcing sourceUrl, through an invite carrying
+// the given Tailscale share link, with the server's status loaded.
+async function joined(sourceUrl: string, share: string | null): Promise<{ c: Controller; opened: string[]; stop: () => Promise<void> }> {
+  const meta = new FakeMetagame({ name: "Link Hunts", validCodes: new Set(["LINK-CODE"]), contentPort: null, sourceUrl });
+  await meta.start(HOST_PORT);
+  const { c, opened } = controller();
+  const stop = async () => {
+    await c.shutdown();
+    await meta.stop();
+  };
+  try {
+    await c.init();
+    const text = formatInvite({ mode: "private", host: "127.0.0.1", port: HOST_PORT, fp: null, code: "LINK-CODE", name: "Link Hunts", share });
+    assert.deepEqual(await c.submitInvite(text), { ok: true });
+    assert.equal(c.snapshot().status?.sourceUrl, sourceUrl, "the host's status is loaded");
+    assert.equal(c.snapshot().server?.hasShare, share !== null);
+  } catch (e) {
+    await stop();
+    throw e;
+  }
+  opened.length = 0;
+  return { c, opened, stop };
+}
+
 test("every fixed link name maps to exactly its URL", () => {
   assert.deepEqual({ ...FIXED_LINKS }, EXPECTED);
   for (const [name, url] of Object.entries(EXPECTED)) {
@@ -149,6 +181,73 @@ test("the Tailscale share link opens nothing without a private invite", async ()
   const r = await c.openExternal("tailscale_share");
   assert.equal(r.ok, false);
   assert.deepEqual(opened, []);
+});
+
+test("with a host's status loaded: its source link opens as itself, and never changes a fixed link", async () => {
+  const hx = await joined(HOST_SOURCE, SHARE);
+  try {
+    assert.deepEqual(await hx.c.openExternal("server_source"), { ok: true });
+    assert.deepEqual(hx.opened, [HOST_SOURCE], "the host's own source link, exactly, once");
+
+    for (const [name, url] of Object.entries(EXPECTED)) {
+      hx.opened.length = 0;
+      assert.deepEqual(await hx.c.openExternal(name as ExternalTarget), { ok: true }, name);
+      assert.deepEqual(hx.opened, [url], `${name} still opens only its own URL`);
+    }
+
+    hx.opened.length = 0;
+    assert.deepEqual(await hx.c.openExternal("tailscale_share"), { ok: true });
+    assert.deepEqual(hx.opened, [SHARE], "the invite's own share link, exactly, once");
+
+    // The host's link is not a link name either: sent as one, it opens nothing.
+    for (const name of [HOST_SOURCE, SHARE, "__proto__", "repo"]) {
+      hx.opened.length = 0;
+      assert.equal((await hx.c.openExternal(name as ExternalTarget)).ok, false, name);
+      assert.deepEqual(hx.opened, [], name);
+    }
+  } finally {
+    await hx.stop();
+  }
+});
+
+test("a host's source link on its own port opens too, and no share link means nothing to open", async () => {
+  const withPort = "https://git.example.org:3000/friday/server";
+  const hx = await joined(withPort, null);
+  try {
+    assert.deepEqual(await hx.c.openExternal("server_source"), { ok: true });
+    assert.deepEqual(hx.opened, [withPort]);
+    hx.opened.length = 0;
+    assert.equal((await hx.c.openExternal("tailscale_share")).ok, false);
+    assert.deepEqual(hx.opened, []);
+    // The port is allowed for the host's own link only, never for a fixed page.
+    assert.equal(isAllowedExternalUrl("https://github.com:3000/mixutin/dauntless-revived", withPort), false);
+  } finally {
+    await hx.stop();
+  }
+});
+
+test("every source link the status check keeps is one the link check opens", () => {
+  const kept = [
+    HOST_SOURCE,
+    "https://git.example.org:3000/friday/server",
+    "https://git.example.org:443/friday/server",
+    "https://GIT.Example.org/friday/server",
+    "https://git.example.org/friday server",
+    "https://bücher.example/src",
+    "https://git.example.org/" + " x".repeat(240),
+  ];
+  const dropped = [
+    "http://git.example.org/friday/server",
+    "https://user:pw@git.example.org/friday/server",
+    "javascript:alert(1)",
+    "https://git.example.org/" + " ".repeat(400) + "x", // too long once encoded
+    "not a url",
+  ];
+  for (const raw of [...kept, ...dropped]) {
+    const url = parseServerStatus({ name: "x", sourceUrl: raw })?.sourceUrl ?? null;
+    assert.equal(url !== null, kept.includes(raw), JSON.stringify(raw));
+    if (url !== null) assert.ok(isAllowedExternalUrl(url, url), `the Source button for ${JSON.stringify(url)} would do nothing`);
+  }
 });
 
 test("unknown names and raw URLs sent as a link name open nothing", async () => {
