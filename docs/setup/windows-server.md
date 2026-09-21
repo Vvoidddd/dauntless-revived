@@ -216,7 +216,7 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
 | `-KeepRdpOpen` | | Public mode without `-AdminIp`: leave internet-open RDP rules open instead of disabling them. |
 | `-RestoreFrom` | | A backup folder to move an existing server here. |
 | `-OwnerName` | | Username of the admin account on a new server (3-16 letters, digits or `_`). |
-| `-ServerName` | `Dauntless Revived` | The name friends see. |
+| `-ServerName` | `Dauntless Revived` | The name friends see, in the launcher and in the game's welcome text. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Where everything goes. |
 | `-InteractiveSession` | | The session-0 fallback, see below. |
 | `-NewCertificate` | | Make a new certificate. **Every invite handed out before stops working.** |

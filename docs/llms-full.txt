@@ -691,7 +691,7 @@ Expected:
 ```
 Registered 0 new Gameserver API Key(s) on boot!
 Registered 0 new User API Key(s) on boot!
-Undaunted Metagame on 127.0.0.1:61000
+Dauntless Revived metagame on 127.0.0.1:61000
 Progression mode: real for every account (the default)
 Clear Skies, Slayer.
 ```
@@ -837,7 +837,7 @@ Get-CimInstance Win32_Process -Filter "Name='Dauntless-Win64-Shipping.exe'" | Fo
 
 # 5. the deploy server log
 Get-Content C:\dr\data\deploy.log | ForEach-Object { try { ($_ | ConvertFrom-Json).msg } catch { $_ } }
-#    expect: Undaunted DeployServer on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
+#    expect: Dauntless Revived deploy server on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
 ```
 
 The Ramsgate server should settle at about 1.1 GB and 0.2 of a core. Game servers bind UDP on all
@@ -861,7 +861,7 @@ reads the account key from `C:\dr\data\owner.key` without printing it, starts th
 optionally watch its memory. Here it is in full:
 
 ```powershell
-# Launch the 1.4.4 client against our own Undaunted backend.
+# Launch the 1.4.4 client against our own Dauntless Revived backend.
 #   -Graphics 4     FORCE this quality level on every launch (4 = Cinematic = max, 3 = Epic).
 #   -Graphics -1    don't force anything; use whatever you pick in the in-game menu.
 #   -Windowed       1280x720 window instead of your saved display mode.
@@ -1045,8 +1045,8 @@ Once steps 1-12 are done, this is the whole routine.
 | 1 | Close heavy programs. If you use WSL, run `wsl --shutdown`. | Several GB of RAM free |
 | 2 | Make sure nothing old is running: no `node` on 61000/61001, no `-server` game processes. | Step 12, commands 1 and 4 show nothing |
 | 3 | `Game.ini` is intact. | Step 8 health check: `167 / 0 / 0` |
-| 4 | Start the metagame from `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, step 9). | Log: `Undaunted Metagame on 127.0.0.1:61000` |
-| 5 | Start the deploy server from `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, step 11). | Log: `Undaunted DeployServer on port 61001` |
+| 4 | Start the metagame from `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, step 9). | Log: `Dauntless Revived metagame on 127.0.0.1:61000` |
+| 5 | Start the deploy server from `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, step 11). | Log: `Dauntless Revived deploy server on port 61001` |
 | 6 | Wait for Ramsgate. | A server console window opens; UDP 8777 bound by `Dauntless-Win64-Shipping` |
 | 7 | `powershell -NoProfile -ExecutionPolicy Bypass -File C:\dr\tools\play.ps1` | Metagame log shows `POST /account/api/oauth/token`, then `POST /login` |
 | 8 | Play. Don't close any console window. | `gs=1` lines appear when a server loads you |
@@ -1893,8 +1893,9 @@ back up the owner's account key.
 7. The AGPL requirements are covered. Friends use the modified metagame over the network, so they are
    entitled to its source (section 13). The DLLs you hand them also need their source available
    (section 6). Give them the link to [this site's repository](https://github.com/mixutin/dauntless-revived) and
-   the commit you run. Upstream's in-game status text (`/dauntless-status`) still reads "Welcome to
-   Undaunted v0.0.5!". We plan to put the source link there. See
+   the commit you run. The in-game status text (`/dauntless-status`) welcomes players by your
+   server's name ("Welcome to Dauntless Revived!" unless you set `SERVER_NAME` in the metagame's
+   `.env`). We plan to put the source link there too. See
    [Credits and license](https://mixutin.github.io/dauntless-revived/legal.html). It is not legal advice.
 
 ================================================================================
@@ -1931,8 +1932,8 @@ Get-Content C:\dr\data\metagame.log -Tail 40 | ForEach-Object { try { ($_ | Conv
 
 ## Port 60000 is taken, and the metagame says "Clear Skies" anyway
 
-**Symptom.** The metagame printed `Undaunted Metagame on port 60000` and `Clear Skies, Slayer.`, but
-nothing worked. The client and our own HTTP calls to `127.0.0.1:60000` connected and then waited
+**Symptom.** The metagame printed that it was listening on port 60000, and `Clear Skies, Slayer.`,
+but nothing worked. The client and our own HTTP calls to `127.0.0.1:60000` connected and then waited
 forever. The request log stayed empty.
 
 **Cause.** Two problems together:
@@ -2270,7 +2271,7 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 | `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | No friends list yet; the game shows "0 ONLINE FRIENDS". |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping without handlers. |
-| `Unauthenticated POST to /heartbeat which needs Undaunted Metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
+| `Unauthenticated POST to /heartbeat which needs metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
 | `Running Gameserver Watchdog!` (deploy log) | every 60 s | Normal. |
 | `Cleaning up Gameserver on port 8775` (deploy log) | when a hunt ends | The hunt server exited and its port went back to the pool. |
 
@@ -2532,7 +2533,7 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
 | `-KeepRdpOpen` | | Public mode without `-AdminIp`: leave internet-open RDP rules open instead of disabling them. |
 | `-RestoreFrom` | | A backup folder to move an existing server here. |
 | `-OwnerName` | | Username of the admin account on a new server (3-16 letters, digits or `_`). |
-| `-ServerName` | `Dauntless Revived` | The name friends see. |
+| `-ServerName` | `Dauntless Revived` | The name friends see, in the launcher and in the game's welcome text. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Where everything goes. |
 | `-InteractiveSession` | | The session-0 fallback, see below. |
 | `-NewCertificate` | | Make a new certificate. **Every invite handed out before stops working.** |
@@ -3748,7 +3749,7 @@ A key set here overrides the cooked value. On our 2.1.1 machine, after the game'
 | `LocalMapOptions=?CharacterId=<id>` | `Engine.ini` | 2.1.1 | Read by the client: requests then carry that character id. `?AuthToken=` and `?AccountId=` are **not** read. `?listen` makes the boot fail |
 | `GlobalDefaultGameMode=/Game/blueprints/gamemode/BPGM_City.BPGM_City_C` | `Engine.ini` | 2.1.1 | Game mode for the direct city boot |
 | `[/Script/Archon.ArchonPlayerController] PlayerStartEventTimeout=600.0` | `Game.ini` | 2.1.1 | Stretches the 120 s failsafe that ends in "You have been signed out" |
-| `[OnlineSubsystemPhoenix]` `*Endpoint="http://127.0.0.1:61000/..."` (167 keys, all quoted) | `Game.ini` | 1.4.4 game servers | Points our game-server processes at the Undaunted metagame. In server mode the Undaunted DLL does not redirect endpoints, so this override is what makes the server's backend calls arrive at the metagame. The **client** needs none of it: the DLL hooks `FConfigCacheIni::GetString` and substitutes the URLs in memory |
+| `[OnlineSubsystemPhoenix]` `*Endpoint="http://127.0.0.1:61000/..."` (167 keys, all quoted) | `Game.ini` | 1.4.4 game servers | Points our game-server processes at our metagame. In server mode the Undaunted DLL does not redirect endpoints, so this override is what makes the server's backend calls arrive at the metagame. The **client** needs none of it: the DLL hooks `FConfigCacheIni::GetString` and substitutes the URLs in memory |
 
 ### What it cannot do
 

@@ -2,7 +2,7 @@
 title: Troubleshooting
 parent: Setup
 nav_order: 4
-description: "Problems we hit running the Dauntless 1.4.4 client against an Undaunted server, with causes and fixes: port clashes, login, blurry graphics, Defender and git."
+description: "Problems we hit running the Dauntless 1.4.4 client against a Dauntless Revived server, with causes and fixes: port clashes, login, blurry graphics, Defender and git."
 lang: en
 ref: setup/troubleshooting
 ---
@@ -50,8 +50,8 @@ Get-Content C:\dr\data\metagame.log -Tail 40 | ForEach-Object { try { ($_ | Conv
 
 ## Port 60000 is taken, and the metagame says "Clear Skies" anyway {#port-60000-is-taken-and-the-metagame-says-clear-skies-anyway}
 
-**Symptom.** The metagame printed `Undaunted Metagame on port 60000` and `Clear Skies, Slayer.`, but
-nothing worked. The client and our own HTTP calls to `127.0.0.1:60000` connected and then waited
+**Symptom.** The metagame printed that it was listening on port 60000, and `Clear Skies, Slayer.`,
+but nothing worked. The client and our own HTTP calls to `127.0.0.1:60000` connected and then waited
 forever. The request log stayed empty.
 
 **Cause.** Two problems together:
@@ -389,7 +389,7 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 | `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | No friends list yet; the game shows "0 ONLINE FRIENDS". |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping without handlers. |
-| `Unauthenticated POST to /heartbeat which needs Undaunted Metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
+| `Unauthenticated POST to /heartbeat which needs metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
 | `Running Gameserver Watchdog!` (deploy log) | every 60 s | Normal. |
 | `Cleaning up Gameserver on port 8775` (deploy log) | when a hunt ends | The hunt server exited and its port went back to the pool. |
 

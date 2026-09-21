@@ -537,7 +537,7 @@ Expected:
 ```
 Registered 0 new Gameserver API Key(s) on boot!
 Registered 0 new User API Key(s) on boot!
-Undaunted Metagame on 127.0.0.1:61000
+Dauntless Revived metagame on 127.0.0.1:61000
 Progression mode: real for every account (the default)
 Clear Skies, Slayer.
 ```
@@ -683,7 +683,7 @@ Get-CimInstance Win32_Process -Filter "Name='Dauntless-Win64-Shipping.exe'" | Fo
 
 # 5. the deploy server log
 Get-Content C:\dr\data\deploy.log | ForEach-Object { try { ($_ | ConvertFrom-Json).msg } catch { $_ } }
-#    expect: Undaunted DeployServer on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
+#    expect: Dauntless Revived deploy server on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
 ```
 
 The Ramsgate server should settle at about 1.1 GB and 0.2 of a core. Game servers bind UDP on all
@@ -707,7 +707,7 @@ reads the account key from `C:\dr\data\owner.key` without printing it, starts th
 optionally watch its memory. Here it is in full:
 
 ```powershell
-# Launch the 1.4.4 client against our own Undaunted backend.
+# Launch the 1.4.4 client against our own Dauntless Revived backend.
 #   -Graphics 4     FORCE this quality level on every launch (4 = Cinematic = max, 3 = Epic).
 #   -Graphics -1    don't force anything; use whatever you pick in the in-game menu.
 #   -Windowed       1280x720 window instead of your saved display mode.
@@ -891,8 +891,8 @@ Once steps 1-12 are done, this is the whole routine.
 | 1 | Close heavy programs. If you use WSL, run `wsl --shutdown`. | Several GB of RAM free |
 | 2 | Make sure nothing old is running: no `node` on 61000/61001, no `-server` game processes. | Step 12, commands 1 and 4 show nothing |
 | 3 | `Game.ini` is intact. | Step 8 health check: `167 / 0 / 0` |
-| 4 | Start the metagame from `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, step 9). | Log: `Undaunted Metagame on 127.0.0.1:61000` |
-| 5 | Start the deploy server from `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, step 11). | Log: `Undaunted DeployServer on port 61001` |
+| 4 | Start the metagame from `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, step 9). | Log: `Dauntless Revived metagame on 127.0.0.1:61000` |
+| 5 | Start the deploy server from `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, step 11). | Log: `Dauntless Revived deploy server on port 61001` |
 | 6 | Wait for Ramsgate. | A server console window opens; UDP 8777 bound by `Dauntless-Win64-Shipping` |
 | 7 | `powershell -NoProfile -ExecutionPolicy Bypass -File C:\dr\tools\play.ps1` | Metagame log shows `POST /account/api/oauth/token`, then `POST /login` |
 | 8 | Play. Don't close any console window. | `gs=1` lines appear when a server loads you |

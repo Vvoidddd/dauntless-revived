@@ -3,7 +3,7 @@ title: Vianetsintä
 parent: Asennus
 grand_parent: Dauntless Revived suomeksi
 nav_order: 4
-description: "Dauntless 1.4.4 ja Undaunted-palvelin: ongelmat, joihin törmäsimme, syineen ja korjauksineen. Varatut portit, kirjautuminen, sumea grafiikka, Defender ja git."
+description: "Dauntless 1.4.4 ja Dauntless Revived -palvelin: ongelmat, joihin törmäsimme, syineen ja korjauksineen. Varatut portit, kirjautuminen, sumea grafiikka, Defender ja git."
 lang: fi
 ref: setup/troubleshooting
 locale: fi_FI
@@ -57,8 +57,8 @@ Get-Content C:\dr\data\metagame.log -Tail 40 | ForEach-Object { try { ($_ | Conv
 
 ## Portti 60000 on varattu, ja metagame sanoo silti ”Clear Skies” {#port-60000-is-taken-and-the-metagame-says-clear-skies-anyway}
 
-**Oire.** Metagame tulosti `Undaunted Metagame on port 60000` ja `Clear Skies, Slayer.`, mutta mikään
-ei toiminut. Peliohjelma ja omat HTTP-kutsumme osoitteeseen `127.0.0.1:60000` saivat yhteyden ja
+**Oire.** Metagame tulosti kuuntelevansa porttia 60000 ja `Clear Skies, Slayer.`, mutta mikään ei
+toiminut. Peliohjelma ja omat HTTP-kutsumme osoitteeseen `127.0.0.1:60000` saivat yhteyden ja
 jäivät sitten odottamaan loputtomiin. Pyyntöloki pysyi tyhjänä.
 
 **Syy.** Kaksi ongelmaa yhdessä:
@@ -415,7 +415,7 @@ Omasta metagamen lokistamme (1.4.4, yksi pelaaja, yksi ilta opetusjaksoa, Ramsga
 | `Unstubbed route GET /friends/api/public/friends/<account>` ja `.../blocklist/<account>` | 2 kertaa kumpikin | Kaverilistaa ei vielä ole; peli näyttää ”0 ONLINE FRIENDS”. |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2 kertaa | Yhdestä osoitteesta, jonka peliohjelma kokoaa DLL:n osoiteohituksesta, puuttuu `/`. Metagame vastaa 404; mitään näkyvää ei hajoa. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | muutaman kerran | Matchmaking-jonon ylläpitokutsuja, joille ei ole käsittelijää. |
-| `Unauthenticated POST to /heartbeat which needs Undaunted Metagame auth!` | kerran | Varhainen telemetrian elonmerkki (heartbeat), joka lähetetään kirjautumisen aikana ennen kuin istunto on valmis. Myöhemmät elonmerkit on tunnistettu. |
+| `Unauthenticated POST to /heartbeat which needs metagame auth!` | kerran | Varhainen telemetrian elonmerkki (heartbeat), joka lähetetään kirjautumisen aikana ennen kuin istunto on valmis. Myöhemmät elonmerkit on tunnistettu. |
 | `Running Gameserver Watchdog!` (deploy-loki) | 60 sekunnin välein | Normaalia. |
 | `Cleaning up Gameserver on port 8775` (deploy-loki) | kun metsästys päättyy | Metsästyspalvelin sulkeutui, ja sen portti palasi vapaiden porttien joukkoon. |
 

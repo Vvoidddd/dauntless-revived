@@ -371,7 +371,7 @@ A key set here overrides the cooked value. On our 2.1.1 machine, after the game'
 | `LocalMapOptions=?CharacterId=<id>` | `Engine.ini` | 2.1.1 | Read by the client: requests then carry that character id. `?AuthToken=` and `?AccountId=` are **not** read. `?listen` makes the boot fail |
 | `GlobalDefaultGameMode=/Game/blueprints/gamemode/BPGM_City.BPGM_City_C` | `Engine.ini` | 2.1.1 | Game mode for the direct city boot |
 | `[/Script/Archon.ArchonPlayerController] PlayerStartEventTimeout=600.0` | `Game.ini` | 2.1.1 | Stretches the 120 s failsafe that ends in "You have been signed out" |
-| `[OnlineSubsystemPhoenix]` `*Endpoint="http://127.0.0.1:61000/..."` (167 keys, all quoted) | `Game.ini` | 1.4.4 game servers | Points our game-server processes at the Undaunted metagame. In server mode the Undaunted DLL does not redirect endpoints, so this override is what makes the server's backend calls arrive at the metagame. The **client** needs none of it: the DLL hooks `FConfigCacheIni::GetString` and substitutes the URLs in memory |
+| `[OnlineSubsystemPhoenix]` `*Endpoint="http://127.0.0.1:61000/..."` (167 keys, all quoted) | `Game.ini` | 1.4.4 game servers | Points our game-server processes at our metagame. In server mode the Undaunted DLL does not redirect endpoints, so this override is what makes the server's backend calls arrive at the metagame. The **client** needs none of it: the DLL hooks `FConfigCacheIni::GetString` and substitutes the URLs in memory |
 
 ### What it cannot do
 

@@ -530,7 +530,8 @@ pelipalvelinavain. Varmuuskopioi myös omistajan tiliavain.
 7. AGPL-lisenssin vaatimukset on hoidettu. Kaverit käyttävät muokattua metagamea verkon yli, joten
    heillä on oikeus sen lähdekoodiin (kohta 13). Myös heille antamiesi DLL-tiedostojen lähdekoodin on
    oltava saatavilla (kohta 6). Anna heille linkki [tämän sivuston repositorioon]({{ site.github.repository_url }})
-   ja kerro, mitä versiota (commit) ajat. Alkuperäisen projektin pelinsisäinen tilateksti
-   (`/dauntless-status`) sanoo yhä ”Welcome to Undaunted v0.0.5!”. Aiomme laittaa lähdekoodilinkin
-   sinne. Katso [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}). Tämä ei ole oikeudellista
-   neuvontaa.
+   ja kerro, mitä versiota (commit) ajat. Pelinsisäinen tilateksti (`/dauntless-status`) toivottaa
+   pelaajat tervetulleiksi palvelimesi nimellä (”Welcome to Dauntless Revived!”, ellet aseta
+   metagamen `.env`-tiedostoon muuta nimeä kohtaan `SERVER_NAME`). Aiomme laittaa lähdekoodilinkin
+   myös sinne. Katso [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}). Tämä ei ole
+   oikeudellista neuvontaa.

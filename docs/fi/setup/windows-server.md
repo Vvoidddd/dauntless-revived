@@ -227,7 +227,7 @@ tekemättä niitä.
 | `-KeepRdpOpen` | | Julkinen tila ilman `-AdminIp`:tä: jätä internetille auki olevat etätyöpöytäsäännöt auki poistamisen sijaan. |
 | `-RestoreFrom` | | Varmuuskopiokansio, jolla olemassa oleva palvelin siirretään tänne. |
 | `-OwnerName` | | Uuden palvelimen ylläpitäjätilin käyttäjänimi (3-16 kirjainta, numeroa tai `_`). |
-| `-ServerName` | `Dauntless Revived` | Nimi, jonka kaverit näkevät. |
+| `-ServerName` | `Dauntless Revived` | Nimi, jonka kaverit näkevät käynnistimessä ja pelin tervetulotekstissä. |
 | `-InstallRoot` | `C:\DauntlessRevived` | Minne kaikki asennetaan. |
 | `-InteractiveSession` | | Istunto 0:n varasuunnitelma, katso alempaa. |
 | `-NewCertificate` | | Uusi varmenne. **Kaikki aiemmin annetut kutsut lakkaavat toimimasta.** |

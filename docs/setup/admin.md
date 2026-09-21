@@ -489,6 +489,7 @@ back up the owner's account key.
 7. The AGPL requirements are covered. Friends use the modified metagame over the network, so they are
    entitled to its source (section 13). The DLLs you hand them also need their source available
    (section 6). Give them the link to [this site's repository]({{ site.github.repository_url }}) and
-   the commit you run. Upstream's in-game status text (`/dauntless-status`) still reads "Welcome to
-   Undaunted v0.0.5!". We plan to put the source link there. See
+   the commit you run. The in-game status text (`/dauntless-status`) welcomes players by your
+   server's name ("Welcome to Dauntless Revived!" unless you set `SERVER_NAME` in the metagame's
+   `.env`). We plan to put the source link there too. See
    [Credits and license]({{ legal_page.url | relative_url }}). It is not legal advice.

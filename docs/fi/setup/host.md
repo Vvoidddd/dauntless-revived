@@ -582,7 +582,7 @@ Odotettu tulos:
 ```
 Registered 0 new Gameserver API Key(s) on boot!
 Registered 0 new User API Key(s) on boot!
-Undaunted Metagame on 127.0.0.1:61000
+Dauntless Revived metagame on 127.0.0.1:61000
 Progression mode: real for every account (the default)
 Clear Skies, Slayer.
 ```
@@ -737,7 +737,7 @@ Get-CimInstance Win32_Process -Filter "Name='Dauntless-Win64-Shipping.exe'" | Fo
 
 # 5. the deploy server log
 Get-Content C:\dr\data\deploy.log | ForEach-Object { try { ($_ | ConvertFrom-Json).msg } catch { $_ } }
-#    expect: Undaunted DeployServer on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
+#    expect: Dauntless Revived deploy server on port 61001 / Clear Skies, Slayer. / Running Gameserver Watchdog! (every 60 s)
 ```
 
 Ramsgate-palvelimen pitäisi asettua noin 1,1 gigatavuun ja 0,2 suoritinytimeen. Pelipalvelimet
@@ -764,7 +764,7 @@ Käynnistämme pelin skriptillä `C:\dr\tools\play.ps1`. Se kirjoittaa grafiikka
 käynnistää pelin ja voi halutessasi seurata sen muistinkäyttöä. Tässä se kokonaisuudessaan:
 
 ```powershell
-# Launch the 1.4.4 client against our own Undaunted backend.
+# Launch the 1.4.4 client against our own Dauntless Revived backend.
 #   -Graphics 4     FORCE this quality level on every launch (4 = Cinematic = max, 3 = Epic).
 #   -Graphics -1    don't force anything; use whatever you pick in the in-game menu.
 #   -Windowed       1280x720 window instead of your saved display mode.
@@ -955,8 +955,8 @@ Kun vaiheet 1–12 on tehty, tämä on koko rutiini.
 | 1 | Sulje raskaat ohjelmat. Jos käytät WSL:ää, aja `wsl --shutdown`. | Useita gigatavuja RAM-muistia vapaana |
 | 2 | Varmista, ettei mitään vanhaa ole käynnissä: ei `node`-prosessia porteissa 61000/61001, ei `-server`-peliprosesseja. | Vaiheen 12 komennot 1 ja 4 eivät näytä mitään |
 | 3 | `Game.ini` on ehjä. | Vaiheen 8 kuntotarkistus: `167 / 0 / 0` |
-| 4 | Käynnistä metagame kansiosta `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, vaihe 9). | Loki: `Undaunted Metagame on 127.0.0.1:61000` |
-| 5 | Käynnistä deploy-palvelin kansiosta `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, vaihe 11). | Loki: `Undaunted DeployServer on port 61001` |
+| 4 | Käynnistä metagame kansiosta `C:\dr\undaunted\UndauntedMetagame` (`Start-Process @meta`, vaihe 9). | Loki: `Dauntless Revived metagame on 127.0.0.1:61000` |
+| 5 | Käynnistä deploy-palvelin kansiosta `C:\dr\undaunted\UndauntedDeployServer` (`Start-Process @dep`, vaihe 11). | Loki: `Dauntless Revived deploy server on port 61001` |
 | 6 | Odota Ramsgatea. | Palvelimen konsoli-ikkuna aukeaa; UDP 8777 on prosessin `Dauntless-Win64-Shipping` varaama |
 | 7 | `powershell -NoProfile -ExecutionPolicy Bypass -File C:\dr\tools\play.ps1` | Metagamen lokissa näkyy `POST /account/api/oauth/token` ja sitten `POST /login` |
 | 8 | Pelaa. Älä sulje yhtään konsoli-ikkunaa. | `gs=1`-rivejä ilmestyy, kun palvelin lataa sinut |
