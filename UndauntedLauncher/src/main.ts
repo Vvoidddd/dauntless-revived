@@ -562,6 +562,12 @@ function ApplyLegacyAirshipRenderingFix(){
     EngineConfig = Lines.join("\n");
   }
 
+  // Keep XMPP on the same private host as metagame. Even before a chat service
+  // exists there, this prevents the 1.4.4 client from reconnecting to Epic.
+  const ChatHost = new URL(`http://${METAGAME_BASE_URL}`).hostname;
+  const WithoutOldXmpp = EngineConfig.replace(/^\[OnlineSubsystemMcp\.XMPP\][^\r\n]*(?:\r?\n(?!\[)[^\r\n]*)*/im, "").trimEnd();
+  EngineConfig = `${WithoutOldXmpp}\n\n[OnlineSubsystemMcp.XMPP]\nServerAddr="ws://${ChatHost}"\nServerPort=61099\nbUseSSL=false\n`;
+
   writeFileSync(EngineConfigPath, EngineConfig, "utf8");
 }
 

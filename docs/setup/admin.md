@@ -39,11 +39,34 @@ such. The other side of this setup is [Join as a friend]({{ friends_page.url | r
 | Ramsgate server | UDP 8777 (`PORT_RANGE_END`) | Players. Always running, and restarted by the deploy server's watchdog if it dies. |
 | Training Dojo | UDP 8776 | Players. Our fork starts it on first use; `ENABLE_DOJO=1` restores upstream's always-on behaviour. |
 | Hunt servers | UDP 8770-8775 | Players. One per group of up to 4. Each exits after 50 seconds in total with nobody connected. |
+| Chat and presence (planned) | TCP 61099 | Clients only after a local XMPP service is implemented and authenticated. Do not expose it yet. |
 
 The game servers are further instances of the same 1.4.4 client executable. The deploy server starts
 them with `-server -nullrhi`, the two DLLs load into each one, and they need no GPU. Upstream's
 launcher expects a local metagame on port 60000, but on our host another program already held 60000,
 so we use 61000 and 61001.
+
+The desktop launcher now points the client's XMPP setting at the same host as its metagame setting,
+on port 61099. This is only a safe redirect away from Epic's live chat server: it does **not** make
+text chat or friend online status work. The 1.4.4 XMPP authentication and room-join stanzas still
+need to be captured with two test accounts before a service can implement them. Until that is done,
+leave port 61099 closed to other machines and use Discord or another external chat service.
+
+### Record server performance
+
+On the host, run this in a separate PowerShell window during a play session:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\log-performance.ps1
+```
+
+It appends a host row and one row per running server process every 60 seconds to
+`C:\dr\data\performance.csv`: UTC time, role, process ID, UDP port, working-set memory, CPU use and
+free physical memory. CPU use is zero on the first sample because a previous sample is needed.
+The script reads only local processes and the metagame/deploy PID files; it does not log account keys
+or process command lines. Stop it with Ctrl+C. Use `-Once` for a single sample or
+`-IntervalSeconds 15` for a shorter interval. Keep the CSV private because process and capacity
+information can still be useful to an attacker.
 
 ## Why Tailscale instead of port forwarding
 

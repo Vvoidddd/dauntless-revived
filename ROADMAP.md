@@ -295,7 +295,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 - [ ] **1.15 First friends night** (S) — *Owner decision (2026-09-21): the first friends night runs on a **rented Windows Server with a public IP** (4.10) in **public mode** (1.17), not over Tailscale and not on the owner's PC.*
   - *Order: launcher (1.16) → public mode (1.17) with a permission audit → parties (1.9) → a rehearsal with two clients on the owner's PC through the public-mode path → the owner rents the server and enables key-only SSH (a one-time setup) → remote deployment and data migration → invites → friends night.*
   - **What:**
-    - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory.
+    - Log server memory, CPU and free memory into a CSV every minute. `tools/log-performance.ps1` now does this without recording process arguments or account keys; the two-player session and report remain untested.
     - Afterwards, produce a report of errors, save conflicts, missing routes and killed servers.
     - Close WSL and other heavy programs while hosting.
   - **Watch out for:**
@@ -593,7 +593,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.5, 3.7.
   - **Done when:** one event runs start to finish and its currency and rewards are saved.
 
-- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.*
+- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). Local/friend scripts already redirect XMPP away from Epic; the desktop launcher now follows its configured metagame host on port 61099 too. There is no XMPP listener yet. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the authentication handshake and room names the client joins (party, Ramsgate, whispers). Capture those with two throwaway accounts before implementing or exposing a listener. Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.*
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
