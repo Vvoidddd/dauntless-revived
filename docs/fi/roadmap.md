@@ -97,8 +97,8 @@ palvelimella julkisessa tilassa käynnistimen versiolla 0.1.0, jonka hän latasi
 - Kolme pelipalvelinta pyöri yhtä aikaa. Peliporttien sallittujen lista avasi UDP-portit pelaajalle ja
   sulki ne, kun hän lähti.
 - Koko pelikerran aikana, metsästyksen loppu mukaan lukien, lokiin ei tullut yhtään ”Allowing
-  overspend” -riviä: yksikään tavarapyyntö ei poistanut enempää kuin pelaajalla oli. Useita
-  tallennusten versioristiriitoja torjuttiin suunnitellusti (vanhempia tai kahdentuneita koko
+  overspend” -varoitusta (metagame kirjaa sen, kun tavarapyyntö poistaa enemmän kuin pelaajalla on).
+  Useita tallennusten versioristiriitoja torjuttiin suunnitellusti (vanhempia tai kahdentuneita koko
   tilannekuvan tallennuksia), ja uusin tallennus säilyi.
 - Käynnistimen 0.1.0 kirjoittama rivi `r.EyeAdaptationQuality=0` teki Ramsgatesta ja yökohtauksista
   aivan liian pimeitä. CI julkaisi samana yönä version 0.1.1, joka ei enää kirjoita riviä ja poistaa
