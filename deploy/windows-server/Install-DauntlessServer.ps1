@@ -801,7 +801,7 @@ try {
             elseif (Test-Do "local account '$ServiceUser'" 'Create (random password, never stored or shown)') {
                 $pw = New-DRPassword
                 New-LocalUser -Name $ServiceUser -Password $pw -PasswordNeverExpires -UserMayNotChangePassword -AccountNeverExpires `
-                    -FullName 'Dauntless Revived server' -Description 'Runs the Dauntless Revived server (Install-DauntlessServer.ps1)' | Out-Null
+                    -FullName 'Dauntless Revived server' -Description 'Runs the Dauntless Revived server' | Out-Null  # Windows allows 48 characters at most
                 Write-DROk "local account '$ServiceUser' created"
             }
             $svcSid = Get-DRLocalUserSid $ServiceUser
