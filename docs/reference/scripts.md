@@ -28,6 +28,7 @@ its default and an example:
 - the Windows server kit in `deploy/windows-server/`,
 - the friend kit in `friend-kit/`,
 - the maintenance scripts in `tools/`,
+- the CI workflows in `.github/workflows/` and their tools in `tools/ci/`,
 - the npm scripts of every package.
 
 It is a lookup table. The step-by-step guides are
@@ -776,6 +777,75 @@ total bytes and the manifest's own SHA-256. It runs at low priority, reads the z
 of reads), exits with `1` on any failure, and needs `yauzl`: run `npm ci` in `UndauntedContent` or
 `UndauntedLauncher` first. After regenerating the manifest, rebuild the launcher.
 
+## CI workflows and tools {#ci-workflows-and-tools}
+
+GitHub Actions runs the two workflows. You start them by hand from the repository's **Actions** tab,
+and run the tools from a checkout. What each CI job checks, and how launcher releases work, is in the
+[Developer guide]({{ dev_page.url | relative_url }}#ci). The repository variable
+`LAUNCHER_AUTO_RELEASE`, which pauses automatic releases, is in
+[Configuration]({{ config_page.url | relative_url }}#ci-settings).
+
+| Workflow | Runs on | Inputs | What it does |
+|:---------|:--------|:-------|:-------------|
+| `.github/workflows/ci.yml` (**CI**) | Every push to any branch, every pull request, and Actions > **CI** > **Run workflow** | none | Builds and tests the four server packages, the launcher and the server kit, checks the docs and the repository, and keeps the launcher's release files for 7 days (not for pull requests from forks). Then, on a push to `dauntless-revived` in `mixutin/dauntless-revived` that passed every check, it publishes the launcher version if that version has no release yet, unless `LAUNCHER_AUTO_RELEASE` is `false`. |
+| `.github/workflows/launcher-release.yml` (**Launcher release**) | Actions > **Launcher release** > **Run workflow** on `dauntless-revived`; called by `ci.yml` | None by hand. `ci.yml` passes `version` (it must equal the `UndauntedLauncher/package.json` version at that commit) and `artifact` (the release files it built). | Publishes the launcher version as the release `launcher-v<version>`, creates that tag, attests the build provenance of every file, and points the `launcher-updates` feed at it. Run by hand, it builds and tests the commit itself; for a version that is published already, it only brings the feed up to it. It refuses to run on any branch but `dauntless-revived`, the default branch. |
+
+### tools/ci/check-repo.js {#check-repojs}
+
+```text
+node tools/ci/check-repo.js [--history <revision range>]
+```
+
+The repository hygiene check. Without arguments it checks every tracked file:
+
+- no secret or game file by its name: `.env` files other than `.env.example`, keys and certificates,
+  databases, logs, game archives and assets, executables, archives, DLLs other than the two pinned
+  ones, anything under `data/` or `BaseGame144/`;
+- no tracked file that a `.gitignore` rule excludes;
+- no file identical to a file of the 1.4.4 game (by the hashes in the game manifest);
+- nothing inside a file that is shaped like a secret: an account key, a JWT, a private key (also
+  base64-encoded), a Tailscale key or a GitHub token;
+- the two DLLs in `UndauntedLauncher/assets/` match their pins in the launcher and the server kit,
+  and the launcher version in `UndauntedLauncher/package.json` is valid.
+
+| Argument | What it does |
+|:---------|:-------------|
+| `--history <revision range>` | Also checks every file version that the commits in the range added or changed, for example `origin/dauntless-revived..HEAD` before a push. `--history HEAD` checks the whole history. A secret that was committed and deleted again is still in the history, so the key has to be replaced. |
+
+It never prints what a match contains, only the file, the line and the kind of match. Exit code `0`
+means nothing was found, `1` a problem, `2` a usage error. It has no dependencies, so it needs no
+`npm ci`.
+
+### tools/ci/launcher-version.js {#launcher-versionjs}
+
+The launcher version rules that `check-repo.js` and the release workflow share. A launcher version is
+a semantic version without build metadata (`x.y.z` or `x.y.z-prerelease`), and it names the release
+tag `launcher-v<version>`.
+
+| Command | What it does |
+|:--------|:-------------|
+| `node tools/ci/launcher-version.js valid <version>` | Exit code `0` if it is a launcher version, `1` if not. |
+| `node tools/ci/launcher-version.js compare <a> <b>` | Prints `-1`, `0` or `1` (semantic version order). |
+| `node tools/ci/launcher-version.js newest <version> [<other>...]` | Exit code `0` if `<version>` is newer than every other one that counts: a release is compared with the other releases only, a prerelease with everything. Otherwise it prints the newer or equal one and exits with `1`. Others that are not launcher versions are skipped with a warning. |
+| `node tools/ci/launcher-version.js nuget <version>` | Prints the version as Squirrel's package names spell it. |
+| `node tools/ci/launcher-version.js from-nupkg <file name>` | Prints the version in a `*-full.nupkg` file name, or exits with `1` if there is none. |
+
+A usage error, or a `<version>` that is not a launcher version where one is required, exits with `2`.
+
+### collect-release.ps1 {#collect-releaseps1}
+
+From `UndauntedLauncher`, after `npm run make`:
+
+```powershell
+pwsh -NoProfile -File scripts\collect-release.ps1
+```
+
+It takes no parameters. It empties `release\` and copies into it what a launcher release publishes:
+`DauntlessRevivedLauncher-Setup.exe`, the Squirrel update files (`RELEASES` and the full `.nupkg`) and
+the portable zip, renamed `DauntlessRevivedLauncher-<version>-win32-x64.zip`. Then it writes
+`SHA256SUMS.txt` for all of them and prints it. It stops if one of the files is missing. CI and the
+release workflow run it; `release\` is git-ignored.
+
 ## npm scripts
 
 Run each one in its package folder after `npm ci`. Arguments for the script itself go after `--`,
@@ -860,6 +930,7 @@ Node.js 24.19.0 on a server.
 | `UndauntedMetagame/scripts/make-hunt-titles.js` | `node scripts/make-hunt-titles.js` in `UndauntedMetagame` | Rebuilds `src/vendor/hunt_titles.json`, the hunt names that `ServerStatus` shows, from the deploy server's hunt tables in `UndauntedDeployServer/src/vendor`. Rerun it after those tables change. |
 | `UndauntedGateway/tools/make-cert.js` | `npm run make-cert -- ...` | See above. |
 | `UndauntedLauncher/scripts/run-tests.mjs`, `make-icon.mjs` | `npm test`, `npm run icon` | See above. |
+| `UndauntedLauncher/scripts/collect-release.ps1` | `pwsh -NoProfile -File scripts\collect-release.ps1` in `UndauntedLauncher`, after `npm run make` | Collects the release files in `release\`; see [collect-release.ps1](#collect-releaseps1). |
 
 ## Scripts printed in the guides
 

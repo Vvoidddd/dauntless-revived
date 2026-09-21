@@ -205,7 +205,7 @@ players from `GET /undaunted/api/ServerStatus` (see [HTTP API]({{ api_page.url |
 
 | Name | Default | Values | What it does | Set by |
 |:-----|:--------|:-------|:-------------|:-------|
-| `SERVER_NAME` | `Dauntless Revived` | printable ASCII, cut to 64 characters | The server's name in the status replies. | Kit: always, from `-ServerName` (default `Dauntless Revived`). The installer does not remember it: pass `-ServerName` on every run, or the name goes back to the default. |
+| `SERVER_NAME` | `Dauntless Revived` | printable ASCII, cut to 64 characters | The server's name in the status replies, and in the in-game welcome text of `/dauntless-status` (`Welcome to <name>!`, translated into each of the eight languages the reply carries). | Kit: always, from `-ServerName` (default `Dauntless Revived`). The installer does not remember it: pass `-ServerName` on every run, or the name goes back to the default. |
 | `SERVER_VERSION` | the version recorded at build time (`dist/build-info.json`), then `package.json`, then `unknown` | printable ASCII, up to 32 characters | Version in the status replies. | Nobody by default |
 | `GIT_COMMIT` | the commit recorded at build time (with `-dirty` if the metagame folder had uncommitted changes), then `unknown` | up to 64 characters of letters, digits and `._+-`; anything else is ignored | The commit the running code came from. | Kit: always (the installed commit); `Update-DauntlessServer.ps1` rewrites it on every update and rollback |
 | `SOURCE_URL` | `https://github.com/mixutin/dauntless-revived` | URL, printable ASCII, up to 256 characters | Where the source of the running server is, for the AGPL source offer ([Credits and license]({{ legal_page.url | relative_url }})). If you run modified code for other people, point it at your modified source. | Kit: always the repository URL from `deploy/windows-server/DauntlessServer.Common.ps1`, so a hand edit is overwritten on the next installer run; a fork changes it there |
@@ -470,6 +470,23 @@ process. You do not set these yourself; the table says what each is used for.
 When the kit builds the code (`npm ci`, `npm run build`) it sets `NODE_ENV=development`, so that
 TypeScript is installed, and turns off npm's update, funding and audit messages. That is only the
 build step: the running components get `NODE_ENV=production` from their `.env` files.
+
+---
+
+## CI and release settings {#ci-settings}
+
+These are not read by any server component. They are settings of the GitHub repository, read by the
+workflows in `.github/workflows/` ([Developer guide]({{ dev_page.url | relative_url }}#ci)). A fork has
+its own.
+
+| Name | Kind | Default | Values | What it does | Set by |
+|:-----|:-----|:--------|:-------|:-------------|:-------|
+| `LAUNCHER_AUTO_RELEASE` | Repository variable (Settings > Secrets and variables > Actions > Variables), read by `ci.yml` | unset: on | `false` pauses automatic releases; unset, they are on | Automatic launcher releases: a push to `dauntless-revived` that passes every check, is still the head of the branch, and has a launcher version with no `launcher-v<version>` release yet publishes that launcher ([Launcher releases]({{ dev_page.url | relative_url }}#launcher-releases)). Only the repository `mixutin/dauntless-revived` publishes automatically. While it is `false`, Actions > **Launcher release** > **Run workflow** still publishes by hand. | The repository owner |
+
+The workflows need no secrets of their own: they use the token GitHub gives every run, with write
+access only in the jobs that publish a release. Code scanning with CodeQL is the repository's default
+setup, a repository setting, not a workflow file. GitHub's immutable releases setting must stay off,
+because the `launcher-updates` release that installed launchers read is updated in place.
 
 ---
 

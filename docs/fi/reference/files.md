@@ -72,7 +72,8 @@ joilta sallit etätyöpöydän, joten älä julkaise sitäkään.
 ## Repositorio {#the-repository}
 
 Repositorio on [Undauntedin](https://github.com/SyST3MDeV/Undaunted) fork, ja työhaara on
-`dauntless-revived`. Osien kansiot ovat säilyttäneet alkuperäisen projektin `Undaunted...`-nimet.
+`dauntless-revived`. Osien kansiot ovat säilyttäneet alkuperäisen projektin `Undaunted...`-nimet;
+niiden npm-pakettien nimet ovat muotoa `dauntless-revived-*` (esimerkiksi `dauntless-revived-metagame`).
 
 | Kansio | Mitä siinä on | Käännöstulos (gitin ohittama) |
 |:-------|:--------------|:------------------------------|
@@ -80,13 +81,13 @@ Repositorio on [Undauntedin](https://github.com/SyST3MDeV/Undaunted) fork, ja ty
 | `UndauntedDeployServer/` | Käynnistää ja valvoo pelipalvelinprosesseja (Ramsgate, Training Dojo, metsästykset). `src/vendor/` sisältää metsästystaulukot. | `dist/`, `build/` |
 | `UndauntedGateway/` | Vain julkinen tila: TLS-yhdyskäytävä (`dist/server.js`) ja sallittujen listan apuri (`dist/allowlist/server.js`). `tools/make-cert.js` tekee yhdyskäytävän varmenteen. | `dist/`, `build/` |
 | `UndauntedContent/` | Sisältöpalvelin: pelitiedostot, uutiset ja kuvapaketti rekisteröityneille käynnistimille. `data/dauntless-1.4.4.json` on pelin tiedostoluettelo (manifest, 410 tiedostoa), joka käännetään myös käynnistimen sisään. | `dist/`, `build/` |
-| `UndauntedLauncher/` | Tämän forkin käynnistin kavereille (Electron). `assets/` sisältää kuvakkeet ja kaksi kiinnitettyä valmiiksi käännettyä DLL-tiedostoa, `dxgi.dll` ja `UndauntedInternalServer.dll`, jotka jokainen asennustapa asentaa (palvelinkone, palvelinpaketti, kaveripaketti ja käynnistin). | `.vite/` (`npm start`), `out/` (`npm run package` ja `npm run make`), `.test-build/` (testit). Julkaisutyönkulku kokoaa asennusohjelman, zip-tiedoston ja `SHA256SUMS.txt`-tiedoston kansioon `release/`, jota git ei ohita. |
+| `UndauntedLauncher/` | Tämän forkin käynnistin kavereille (Electron). `assets/` sisältää kuvakkeet ja kaksi kiinnitettyä valmiiksi käännettyä DLL-tiedostoa, `dxgi.dll` ja `UndauntedInternalServer.dll`, jotka jokainen asennustapa asentaa (palvelinkone, palvelinpaketti, kaveripaketti ja käynnistin). Kansiossa `scripts/` ovat testien ajaja, kuvakkeen tekijä ja `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` ja `npm run make`), `.test-build/` (testit), `release/` (julkaisutiedostot, jotka `scripts/collect-release.ps1` kokoaa komennon `npm run make` jälkeen: asennusohjelma, Squirrelin päivitystiedostot, zip ja `SHA256SUMS.txt`). |
 | `UndauntedInternalServer/` | Palvelin-DLL:n C++-lähdekoodi: Visual Studio -ratkaisu, `dllmain.cpp` (jossa on osoitetaulukko, josta `Game.ini` generoidaan), pelimoottorin otsaketiedostot kansiossa `SDK/` sekä `MinHook/`. Mikään tämän repositorion skripti tai työnkulku ei käännä sitä; kaikki käyttävät valmiiksi käännettyjä DLL-tiedostoja kansiosta `UndauntedLauncher/assets/`. | Visual Studion tuotokset (`x64/`, `*.dll` ja vastaavat) |
 | `deploy/windows-server/` | Windows-palvelinpaketti: skriptit, `lib/` (Node-apurit `dr-db.js`, `dr-keys.js` ja `verify-game.js`) ja `tests/`. | ei mitään |
 | `friend-kit/` | Kutsuttujen kavereiden asennus- ja pelaamisskriptit, vain Tailscalen kautta pelaamiseen. | `tools/make-friend-kit.ps1` rakentaa zip-tiedoston repositorion ulkopuolelle |
-| `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js`. | ei mitään |
+| `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js` sekä kansiossa `ci/` CI:n käyttämät `check-repo.js` (repositorion tarkistus) ja `launcher-version.js` (käynnistimen versiosäännöt). | ei mitään |
 | `docs/` | Tämä sivusto (GitHub Pages, Jekyll). `docs/fi/` sisältää suomenkieliset sivut, `docs/_data/faq_en.yml` ja `faq_fi.yml` usein kysytyt kysymykset. | ei mitään |
-| `.github/` | Issue- ja pull request -pohjat, jakokuvat (social images) ja `workflows/launcher-release.yml`. | ei mitään |
+| `.github/` | Issue- ja pull request -pohjat, jakokuvat (social images), `dependabot.yml` sekä työnkulut `workflows/ci.yml` ja `workflows/launcher-release.yml`. | ei mitään |
 
 Juuressa ovat `README.md` ja `README.fi.md`, `ROADMAP.md` (päivittyvä tarkistuslista),
 `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE.txt` (AGPL-3.0), `.gitignore` ja

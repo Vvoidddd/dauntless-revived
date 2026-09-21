@@ -68,7 +68,8 @@ either.
 ## The repository
 
 The repository is a fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted); the working branch is
-`dauntless-revived`. The component folders keep upstream's `Undaunted...` names.
+`dauntless-revived`. The component folders keep upstream's `Undaunted...` names; the npm packages in
+them are named `dauntless-revived-*` (for example `dauntless-revived-metagame`).
 
 | Folder | What it holds | Build output (git-ignored) |
 |:-------|:--------------|:---------------------------|
@@ -76,13 +77,13 @@ The repository is a fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted);
 | `UndauntedDeployServer/` | Starts and supervises the game-server processes (Ramsgate, the Training Dojo, hunts). `src/vendor/` holds the hunt tables. | `dist/`, `build/` |
 | `UndauntedGateway/` | Public mode only: the TLS gateway (`dist/server.js`) and the allowlist helper (`dist/allowlist/server.js`). `tools/make-cert.js` makes the gateway certificate. | `dist/`, `build/` |
 | `UndauntedContent/` | The content server: game files, news and the art pack for registered launchers. `data/dauntless-1.4.4.json` is the game manifest (410 files) that the launcher also compiles in. | `dist/`, `build/` |
-| `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests). The release workflow collects the installer, the zip and `SHA256SUMS.txt` in `release/`, which is not git-ignored. |
+| `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons. `scripts/` holds the test runner, the icon generator and `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests), `release/` (the release files that `scripts/collect-release.ps1` collects after `npm run make`: the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`). |
 | `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. | Visual Studio output (`x64/`, `*.dll` and the like) |
 | `deploy/windows-server/` | The Windows server kit: the scripts, `lib/` (Node helpers `dr-db.js`, `dr-keys.js`, `verify-game.js`) and `tests/`. | none |
 | `friend-kit/` | The Tailscale-only setup and play scripts for invited friends. | `tools/make-friend-kit.ps1` builds the zip outside the repository |
-| `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js`. | none |
+| `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js`, and in `ci/` what CI uses: `check-repo.js` (the repository check) and `launcher-version.js` (the launcher version rules). | none |
 | `docs/` | This site (GitHub Pages, Jekyll). `docs/fi/` holds the Finnish pages, `docs/_data/faq_en.yml` and `faq_fi.yml` the FAQ entries. | none |
-| `.github/` | Issue and pull request templates, the social images and `workflows/launcher-release.yml`. | none |
+| `.github/` | Issue and pull request templates, the social images, `dependabot.yml`, and the workflows `workflows/ci.yml` and `workflows/launcher-release.yml`. | none |
 
 At the root: `README.md` and `README.fi.md`, `ROADMAP.md` (the live checklist), `CONTRIBUTING.md`,
 `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE.txt` (AGPL-3.0), `.gitignore` and `.gitattributes`. The

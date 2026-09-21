@@ -216,7 +216,7 @@ rekisteröityneet pelaajat osoitteesta `GET /undaunted/api/ServerStatus` (katso
 
 | Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
 |:-----|:-------|:------|:--------------|:-------------|
-| `SERVER_NAME` | `Dauntless Revived` | tulostettavia ASCII-merkkejä, katkaistaan 64 merkkiin | Palvelimen nimi tilavastauksissa. | Paketti: aina, parametrista `-ServerName` (oletus `Dauntless Revived`). Asennusohjelma ei muista sitä: anna `-ServerName` joka ajokerralla, tai nimi palaa oletukseksi. |
+| `SERVER_NAME` | `Dauntless Revived` | tulostettavia ASCII-merkkejä, katkaistaan 64 merkkiin | Palvelimen nimi tilavastauksissa sekä `/dauntless-status`-vastauksen pelissä näkyvässä tervetulotekstissä (`Welcome to <nimi>!`, käännettynä jokaiselle vastauksen kahdeksasta kielestä). | Paketti: aina, parametrista `-ServerName` (oletus `Dauntless Revived`). Asennusohjelma ei muista sitä: anna `-ServerName` joka ajokerralla, tai nimi palaa oletukseksi. |
 | `SERVER_VERSION` | käännöksen aikana kirjattu versio (`dist/build-info.json`), sitten `package.json`, sitten `unknown` | tulostettavia ASCII-merkkejä, enintään 32 merkkiä | Versio tilavastauksissa. | Oletuksena ei kukaan |
 | `GIT_COMMIT` | käännöksen aikana kirjattu commit (perässä `-dirty`, jos metagamen kansiossa oli committoimattomia muutoksia), sitten `unknown` | enintään 64 merkkiä: kirjaimia, numeroita ja merkkejä `._+-`; muunlainen arvo ohitetaan | Commit, josta käynnissä oleva koodi on peräisin. | Paketti: aina (asennettu commit); `Update-DauntlessServer.ps1` kirjoittaa sen uudelleen jokaisessa päivityksessä ja palautuksessa |
 | `SOURCE_URL` | `https://github.com/mixutin/dauntless-revived` | URL, tulostettavia ASCII-merkkejä, enintään 256 merkkiä | Missä käynnissä olevan palvelimen lähdekoodi on, AGPL-lisenssin lähdekooditarjousta varten ([Kiitokset ja lisenssi]({{ legal_page.url | relative_url }})). Jos ajat muokattua koodia muille, osoita se muokattuun lähdekoodiisi. | Paketti: aina repositorion osoite tiedostosta `deploy/windows-server/DauntlessServer.Common.ps1`, joten käsin tehty muutos kirjoitetaan yli seuraavalla asennuskerralla; fork muuttaa osoitteen siellä |
@@ -489,6 +489,24 @@ vakiomuuttujan. Niitä ei tarvitse asettaa itse; taulukko kertoo, mihin kutakin 
 Kun paketti kääntää koodin (`npm ci`, `npm run build`), se asettaa `NODE_ENV=development`, jotta
 TypeScript asentuu, ja hiljentää npm:n päivitys-, rahoitus- ja tarkastusilmoitukset. Tämä koskee vain
 käännösvaihetta: käynnissä olevat osat saavat `.env`-tiedostoistaan arvon `NODE_ENV=production`.
+
+---
+
+## CI:n ja julkaisujen asetukset {#ci-settings}
+
+Mikään palvelimen osa ei lue näitä. Ne ovat GitHub-repositorion asetuksia, joita kansion
+`.github/workflows/` työnkulut lukevat ([Kehittäjän opas]({{ dev_page.url | relative_url }}#ci)).
+Forkilla on omansa.
+
+| Nimi | Laji | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
+|:-----|:-----|:-------|:------|:--------------|:-------------|
+| `LAUNCHER_AUTO_RELEASE` | Repositorion muuttuja (Settings > Secrets and variables > Actions > Variables), jonka `ci.yml` lukee | puuttuu: päällä | `false` pysäyttää automaattiset julkaisut; asettamattomana ne ovat päällä | Käynnistimen automaattiset julkaisut: `dauntless-revived`-haaraan tehty push, joka läpäisee kaikki tarkistukset, on yhä haaran uusin commit ja jonka käynnistinversiolla ei ole vielä `launcher-v<versio>`-julkaisua, julkaisee kyseisen käynnistimen ([Käynnistimen julkaisut]({{ dev_page.url | relative_url }}#launcher-releases)). Vain repositorio `mixutin/dauntless-revived` julkaisee automaattisesti. Kun arvo on `false`, Actions > **Launcher release** > **Run workflow** julkaisee yhä käsin. | Repositorion omistaja |
+
+Työnkulut eivät tarvitse omia salaisuuksia: ne käyttävät tunnistetta (token), jonka GitHub antaa
+jokaiselle ajolle, ja kirjoitusoikeus on vain niillä töillä, jotka tekevät julkaisun. CodeQL-koodiskannaus
+on repositorion oletusasetus (default setup) eli repositorion asetus, ei työnkulkutiedosto. GitHubin
+muuttumattomat julkaisut (immutable releases) on pidettävä pois päältä, koska
+`launcher-updates`-julkaisua, jota asennetut käynnistimet lukevat, päivitetään paikallaan.
 
 ---
 

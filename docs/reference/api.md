@@ -277,7 +277,7 @@ work on the host.
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
-| GET | `/dauntless-status` | none | The status banner the client shows (`show-status` and a fixed welcome line in eight languages), plus `name`, `version`, `commit` and `sourceUrl` (the AGPL source link) unless `STATUS_EXTRA=0`. No player data. Host scripts use it as a health check. |
+| GET | `/dauntless-status` | none | The status banner the client shows (`show-status` and a welcome to the server by its name, `Welcome to <SERVER_NAME>!`, translated into eight languages), plus `name`, `version`, `commit` and `sourceUrl` (the AGPL source link) unless `STATUS_EXTRA=0`. No player data. Host scripts use it as a health check. |
 | POST | `/heartbeat` | token | Body `{map, state?}`, every 20 seconds. Marks the player online for 90 seconds and keeps them in their party. Answers the text `20000`. A game server's heartbeat without a player token records nothing. Through the gateway, a 2xx answer to a request with a bearer token opens the game ports for the player's address. |
 | POST | `/event` | none | Telemetry sink. Answers `{}`. |
 | POST | `/account/migrate` | token | Answers `{migration_failed: false, migration_finished: true}`. |

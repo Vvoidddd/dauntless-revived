@@ -41,13 +41,13 @@ fake max ranks). Before you update a server that already has players, read the
 
 | Page | What it covers |
 |:-----|:---------------|
-| [Configuration]({{ config_page.url | relative_url }}) | Every environment variable of the metagame, deploy server, gateway, allowlist helper and content server, plus the launcher's overrides: default, allowed values, what it does, who sets it, and which ones are secret. Also what the Windows server kit writes into its `.env` files and which switches are on by default. |
+| [Configuration]({{ config_page.url | relative_url }}) | Every environment variable of the metagame, deploy server, gateway, allowlist helper and content server, plus the launcher's overrides: default, allowed values, what it does, who sets it, and which ones are secret. Also what the Windows server kit writes into its `.env` files, which switches are on by default, and the repository variable that pauses automatic launcher releases. |
 | [Ports and network]({{ ports_page.url | relative_url }}) | Every TCP and UDP port, which address each component binds in private and public mode, the path a request takes, what must never be exposed, and the firewall rules the kit creates. |
 | [HTTP API]({{ api_page.url | relative_url }}) | Every route of the metagame (the game routes and the management API under `/undaunted/api`), the deploy server, the content server, the gateway, the allowlist helper and the launcher's relay: who may call it, the headers it needs, and what it answers. |
 | [Files and data]({{ files_page.url | relative_url }}) | The repository layout, a hand-built host's folders, the kit's install root, the SQLite database table by table, logs, backups, and the files on a friend's PC. Which files hold secrets. |
 | [Game settings]({{ gamesettings_page.url | relative_url }}) | What changes on the 1.4.4 client and its game servers: the user `Engine.ini`, `Game.ini` and `GameUserSettings.ini` lines and who writes them, the client and game-server command lines, the two DLLs and the pinned build. |
-| [Scripts and parameters]({{ scripts_page.url | relative_url }}) | Every script of the Windows server kit, the friend kit and `tools/`, and every npm script, with each parameter, its default and examples. |
-| [Developer guide]({{ dev_page.url | relative_url }}) | Working on the code: prerequisites, building and testing each package, running the stack and the launcher on one PC, CI, keeping generated files current, and where the code lives. |
+| [Scripts and parameters]({{ scripts_page.url | relative_url }}) | Every script of the Windows server kit, the friend kit and `tools/`, every npm script, and the CI workflows and their tools, with each parameter, its default and examples. |
+| [Developer guide]({{ dev_page.url | relative_url }}) | Working on the code: prerequisites, building and testing each package, running the stack and the launcher on one PC, CI and launcher releases, keeping generated files current, and where the code lives. |
 
 ## The components
 

@@ -296,7 +296,7 @@ toimivat vain palvelinkoneella.
 
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
-| GET | `/dauntless-status` | ei mitään | Tilailmoitus, jonka peliohjelma näyttää (`show-status` ja kiinteä tervehdysrivi kahdeksalla kielellä), sekä `name`, `version`, `commit` ja `sourceUrl` (AGPL-lähdekoodilinkki), ellei `STATUS_EXTRA=0`. Ei pelaajatietoja. Palvelimen skriptit käyttävät sitä terveystarkistuksena. |
+| GET | `/dauntless-status` | ei mitään | Tilailmoitus, jonka peliohjelma näyttää (`show-status` ja tervetulotoivotus palvelimen nimellä, `Welcome to <SERVER_NAME>!`, kahdeksalle kielelle käännettynä), sekä `name`, `version`, `commit` ja `sourceUrl` (AGPL-lähdekoodilinkki), ellei `STATUS_EXTRA=0`. Ei pelaajatietoja. Palvelimen skriptit käyttävät sitä terveystarkistuksena. |
 | POST | `/heartbeat` | tunniste | Runko `{map, state?}`, 20 sekunnin välein. Merkitsee pelaajan paikalla olevaksi 90 sekunniksi ja pitää hänet ryhmässään. Vastaa tekstillä `20000`. Pelipalvelimen elonmerkki ilman pelaajan tunnistetta ei kirjaa mitään. Yhdyskäytävän kautta 2xx-vastaus pyyntöön, jossa on bearer-tunniste, avaa peliportit pelaajan osoitteelle. |
 | POST | `/event` | ei mitään | Telemetrian nielu. Vastaa `{}`. |
 | POST | `/account/migrate` | tunniste | Vastaa `{migration_failed: false, migration_finished: true}`. |

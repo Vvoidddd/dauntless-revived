@@ -67,7 +67,9 @@ from its `docs/` folder. Keep the clone at a short path: the server DLL's genera
 
 ### What is in the repository {#layout}
 
-The `Undaunted*` folder names come from upstream Undaunted and are kept as they are.
+The `Undaunted*` folder names come from upstream Undaunted and are kept as they are. The npm packages
+inside them are named `dauntless-revived-metagame`, `dauntless-revived-deploy-server`,
+`dauntless-revived-content`, `dauntless-revived-gateway` and `dauntless-revived-launcher`.
 
 | Folder | What it is | Language and tools |
 |---|---|---|
@@ -79,9 +81,9 @@ The `Undaunted*` folder names come from upstream Undaunted and are kept as they 
 | `UndauntedInternalServer/` | The C++ source of the server DLL, from upstream, with a generated SDK. | C++, Visual Studio 2022 |
 | `deploy/windows-server/` | The Windows Server kit: install, update, backup, invites, the stack supervisor, and its tests in `tests/`. | Windows PowerShell 5.1, Node helpers in `lib/` |
 | `friend-kit/` | The manual scripts for friends without the launcher (`setup.ps1`, `play.ps1`). | PowerShell |
-| `tools/` | The docs generators, the content manifest generator and the friend kit builder ([Scripts and parameters]({{ scripts_page.url | relative_url }})), and in `tools/ci/` the repository check CI runs ([below](#ci)). | Node, PowerShell |
+| `tools/` | The docs generators, the content manifest generator and the friend kit builder ([Scripts and parameters]({{ scripts_page.url | relative_url }})), and in `tools/ci/` the repository check and the launcher version rules CI uses ([below](#ci)). | Node, PowerShell |
 | `docs/` | This site. Finnish pages are in `docs/fi/`. | Jekyll with the just-the-docs theme |
-| `.github/` | Issue and pull request templates, the GitHub Actions workflows (CI and launcher releases). | YAML |
+| `.github/` | Issue and pull request templates, the GitHub Actions workflows (CI and launcher releases) and the Dependabot settings. | YAML |
 
 ---
 
@@ -418,27 +420,53 @@ change. The DLL works only with the 1.4.4 exe
 
 ## What CI checks {#ci}
 
-The workflow `.github/workflows/ci.yml` runs on every push, every pull request and by hand. Its jobs run
-the same commands you can run yourself from this page:
+The workflow `.github/workflows/ci.yml` runs on every push to any branch, on every pull request and by
+hand (Actions > **CI** > **Run workflow**). Its jobs run the same commands you can run yourself from
+this page:
 
 | Job | What it runs | Runner |
 |---|---|---|
 | Server packages | `npm ci`, `npm run build` and `npm test` in each of the four packages | Windows, Node 24 |
-| Launcher | `npm ci`, `npm run typecheck`, `npm test` and `npm run make`. The installer, the zip and `SHA256SUMS.txt` stay downloadable from the run for 7 days (not for pull requests from forks). | Windows, Node 24 |
+| Launcher | `npm ci`, `npm run typecheck`, `npm test` and `npm run make`, then `scripts/collect-release.ps1`. The release files (the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`) stay downloadable from the run's **Artifacts** for 7 days (not for pull requests from forks). | Windows, Node 24 |
 | Server kit | Every tracked `.ps1` must parse in Windows PowerShell 5.1, PSScriptAnalyzer must find no errors (when the runner has it), then the three kit tests | Windows PowerShell 5.1 |
-| Docs | `sync-roadmap.js` and `build-llms.js` must change nothing, and the site must build with the builder GitHub Pages uses | Linux |
-| Repository hygiene | `tools/ci/check-repo.js`: no secrets, keys, databases, logs or game files in the tracked files or in any commit the push brings, the two DLLs match their pins, and the launcher version is valid | Linux |
+| Docs | `sync-roadmap.js` and `build-llms.js` must change nothing, the site must build with the builder GitHub Pages uses, and the built site must have its main pages | Linux |
+| Repository hygiene | `tools/ci/check-repo.js`: no secrets, keys, databases, logs or game files in the tracked files or in any commit the push or pull request brings, no tracked file that a `.gitignore` rule excludes, the two DLLs match their pins, and the launcher version is valid | Linux |
 
 The content server's integration test is the exception: it needs a real game install, so CI does
 not run it. To run the hygiene check yourself before a push:
 `node tools/ci/check-repo.js --history origin/dauntless-revived..HEAD` (without `--history` it checks
-the files only). It never prints what it found inside a file.
+the files only). It never prints what it found inside a file. Its arguments are in
+[Scripts and parameters]({{ scripts_page.url | relative_url }}#ci-workflows-and-tools).
 
-When every check passes on a push to `dauntless-revived` and the launcher version in
-`UndauntedLauncher/package.json` has no release yet, CI publishes that installer as a launcher
-release. The repository variable `LAUNCHER_AUTO_RELEASE=false` pauses this. The details are in the
-"Checks" section of
-[CONTRIBUTING.md]({{ site.github.repository_url }}/blob/dauntless-revived/CONTRIBUTING.md).
+Two more checks run outside this workflow. CodeQL scans the code for security problems through the
+repository's code scanning default setup, so there is no CodeQL workflow file in the repository.
+Dependabot (`.github/dependabot.yml`) proposes dependency updates: for the GitHub Actions weekly, for
+each npm package monthly.
+
+### Launcher releases {#launcher-releases}
+
+A launcher release is the GitHub release `launcher-v<version>` for the version in
+`UndauntedLauncher/package.json`, published from `dauntless-revived` only. Installed launchers update
+to it. To release, raise that version. Then:
+
+- **Automatically (on by default).** When a push to `dauntless-revived` passes every job above, is
+  still the head of the branch, and its launcher version has no `launcher-v<version>` release yet, CI
+  publishes the installer it built and tested in that run, through
+  `.github/workflows/launcher-release.yml`. This happens only in the repository
+  `mixutin/dauntless-revived`, never in a fork. To pause it, set the repository variable
+  `LAUNCHER_AUTO_RELEASE` to `false`
+  ([Configuration]({{ config_page.url | relative_url }}#ci-settings)).
+- **By hand.** Actions > **Launcher release** > **Run workflow** on `dauntless-revived` builds that
+  commit and publishes its version. This works while automatic releases are paused too. For a version
+  that is published already, it only brings the self-update feed (the `launcher-updates` release) up
+  to it.
+
+A version is published only if it is newer than every earlier one, and it is never replaced. A
+prerelease version (such as `0.2.0-beta.1`) becomes a GitHub prerelease that installed launchers do
+not update to. The details are in the "Checks" section of
+[CONTRIBUTING.md]({{ site.github.repository_url }}/blob/dauntless-revived/CONTRIBUTING.md) and in
+"Releases and updates" in
+[UndauntedLauncher/README.md]({{ site.github.repository_url }}/blob/dauntless-revived/UndauntedLauncher/README.md).
 
 ---
 
@@ -594,4 +622,4 @@ Paths in each table are relative to the folder named above it.
 | Server kit | `deploy/windows-server/*.ps1`; shared pins, paths, the component table and the start order in `DauntlessServer.Common.ps1`; database, key and game-folder helpers in `lib/` |
 | Friend kit | `friend-kit/`, zipped by `tools/make-friend-kit.ps1` |
 | Docs tools | `tools/sync-roadmap.js`, `tools/build-llms.js` |
-| CI | `.github/workflows/ci.yml`, `.github/workflows/launcher-release.yml`, `tools/ci/` |
+| CI | `.github/workflows/ci.yml`, `.github/workflows/launcher-release.yml`, `.github/dependabot.yml`, `tools/ci/`, `UndauntedLauncher/scripts/collect-release.ps1` |

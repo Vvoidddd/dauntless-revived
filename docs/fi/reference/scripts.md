@@ -30,6 +30,7 @@ tyyppi, oletusarvo ja esimerkki:
 - Windows-palvelinpaketti kansiossa `deploy/windows-server/`,
 - kaveripaketti kansiossa `friend-kit/`,
 - ylläpitoskriptit kansiossa `tools/`,
+- CI-työnkulut kansiossa `.github/workflows/` ja niiden työkalut kansiossa `tools/ci/`,
 - jokaisen npm-paketin npm-skriptit.
 
 Sivu on hakutaulukko. Vaiheittaiset ohjeet ovat sivuilla
@@ -811,6 +812,79 @@ pyörii matalalla prioriteetilla, lukee zipin kahdesti (noin 21 Gt luettavaa), p
 `UndauntedContent` tai `UndauntedLauncher`. Kun olet tuottanut luettelon uudelleen, käännä
 käynnistin uudelleen.
 
+## CI-työnkulut ja -työkalut {#ci-workflows-and-tools}
+
+GitHub Actions ajaa kaksi työnkulkua. Käsin ne käynnistetään repositorion **Actions**-välilehdeltä, ja
+työkalut ajetaan omassa checkoutissa. Mitä kukin CI:n työ tarkistaa ja miten käynnistimen julkaisut
+toimivat, kerrotaan sivulla [Kehittäjän opas]({{ dev_page.url | relative_url }}#ci). Repositorion
+muuttuja `LAUNCHER_AUTO_RELEASE`, joka pysäyttää automaattiset julkaisut, on sivulla
+[Asetukset]({{ config_page.url | relative_url }}#ci-settings).
+
+| Työnkulku | Milloin se ajetaan | Syötteet | Mitä se tekee |
+|:----------|:-------------------|:---------|:--------------|
+| `.github/workflows/ci.yml` (**CI**) | Jokaisella pushilla mihin tahansa haaraan, jokaisella pull requestilla ja Actions > **CI** > **Run workflow** | ei mitään | Kääntää ja testaa neljä palvelinohjelmaa, käynnistimen ja Windows-palvelinpaketin, tarkistaa dokumentaation ja repositorion sekä säilyttää käynnistimen julkaisutiedostot 7 päivää (ei forkeista tulevissa pull requesteissa). Kun `mixutin/dauntless-revived`-repositorion `dauntless-revived`-haaraan tehty push on läpäissyt kaikki tarkistukset, se julkaisee sen jälkeen käynnistimen version, jos versiolla ei ole vielä julkaisua, paitsi jos `LAUNCHER_AUTO_RELEASE` on `false`. |
+| `.github/workflows/launcher-release.yml` (**Launcher release**) | Actions > **Launcher release** > **Run workflow** `dauntless-revived`-haaralle; `ci.yml` kutsuu sitä | Käsin ei mitään. `ci.yml` antaa `version`-arvon (sen on oltava sama kuin `UndauntedLauncher/package.json`-tiedoston versio kyseisessä commitissa) ja `artifact`-arvon (sen kääntämät julkaisutiedostot). | Julkaisee käynnistimen version julkaisuna `launcher-v<versio>`, luo sen tagin, tekee jokaiselle tiedostolle allekirjoitetun käännöksen alkuperätodistuksen (build provenance attestation) ja osoittaa `launcher-updates`-kanavan siihen. Käsin ajettuna se kääntää ja testaa commitin itse; jo julkaistulla versiolla se vain päivittää kanavan siihen. Se kieltäytyy toimimasta muussa haarassa kuin `dauntless-revived`, joka on oletushaara. |
+
+### tools/ci/check-repo.js {#check-repojs}
+
+```text
+node tools/ci/check-repo.js [--history <revision range>]
+```
+
+Repositorion siisteystarkistus. Ilman argumentteja se tarkistaa jokaisen versionhallinnassa olevan
+tiedoston:
+
+- ei salaisuus- eikä pelitiedostoa nimen perusteella: muita `.env`-tiedostoja kuin `.env.example`,
+  avaimia ja varmenteita, tietokantoja, lokeja, pelin arkistoja ja resursseja, ohjelmatiedostoja,
+  pakattuja arkistoja, muita DLL-tiedostoja kuin kaksi kiinnitettyä, eikä mitään kansioissa `data/` tai
+  `BaseGame144/`;
+- ei versionhallinnassa olevaa tiedostoa, jonka jokin `.gitignore`-sääntö sulkee pois;
+- ei tiedostoa, joka on sama kuin jokin 1.4.4-pelin tiedosto (pelin tiedostoluettelon tiivisteiden
+  perusteella);
+- ei tiedostojen sisällä mitään salaisuuden näköistä: tiliavainta, JWT:tä, yksityistä avainta (myös
+  base64-koodattuna), Tailscale-avainta eikä GitHub-tunnistetta;
+- kansion `UndauntedLauncher/assets/` kaksi DLL-tiedostoa vastaavat kiinnityksiään käynnistimessä ja
+  palvelinpaketissa, ja `UndauntedLauncher/package.json`-tiedoston käynnistinversio on kelvollinen.
+
+| Argumentti | Mitä se tekee |
+|:-----------|:--------------|
+| `--history <revision range>` | Tarkistaa lisäksi jokaisen tiedostoversion, jonka välin commitit lisäsivät tai muuttivat, esimerkiksi `origin/dauntless-revived..HEAD` ennen pushia. `--history HEAD` tarkistaa koko historian. Commitoitu ja taas poistettu salaisuus on yhä historiassa, joten avain on vaihdettava. |
+
+Se ei koskaan tulosta osuman sisältöä, vain tiedoston, rivin ja osuman lajin. Paluukoodi `0` tarkoittaa,
+ettei mitään löytynyt, `1` ongelmaa ja `2` käyttövirhettä. Sillä ei ole riippuvuuksia, joten se ei
+tarvitse `npm ci`:tä.
+
+### tools/ci/launcher-version.js {#launcher-versionjs}
+
+Käynnistimen versiosäännöt, jotka `check-repo.js` ja julkaisutyönkulku jakavat. Käynnistimen versio on
+semanttinen versio ilman build-metatietoja (`x.y.z` tai `x.y.z-prerelease`), ja se nimeää
+julkaisutagin `launcher-v<versio>`.
+
+| Komento | Mitä se tekee |
+|:--------|:--------------|
+| `node tools/ci/launcher-version.js valid <version>` | Paluukoodi `0`, jos se on käynnistimen versio, muuten `1`. |
+| `node tools/ci/launcher-version.js compare <a> <b>` | Tulostaa `-1`, `0` tai `1` (semanttisten versioiden järjestys). |
+| `node tools/ci/launcher-version.js newest <version> [<other>...]` | Paluukoodi `0`, jos `<version>` on uudempi kuin jokainen muu huomioon otettava: julkaisua verrataan vain muihin julkaisuihin, esiversiota kaikkiin. Muuten se tulostaa uudemman tai yhtä uuden version ja päättyy paluukoodilla `1`. Muut, jotka eivät ole käynnistimen versioita, ohitetaan varoituksen kera. |
+| `node tools/ci/launcher-version.js nuget <version>` | Tulostaa version siinä muodossa, jossa se on Squirrelin pakettien nimissä. |
+| `node tools/ci/launcher-version.js from-nupkg <file name>` | Tulostaa `*-full.nupkg`-tiedostonimessä olevan version, tai päättyy paluukoodilla `1`, jos siinä ei ole versiota. |
+
+Käyttövirhe tai `<version>`, joka ei ole käynnistimen versio siellä, missä sellainen vaaditaan,
+päättyy paluukoodilla `2`.
+
+### collect-release.ps1 {#collect-releaseps1}
+
+Kansiossa `UndauntedLauncher`, komennon `npm run make` jälkeen:
+
+```powershell
+pwsh -NoProfile -File scripts\collect-release.ps1
+```
+
+Sillä ei ole parametreja. Se tyhjentää kansion `release\` ja kopioi sinne sen, minkä käynnistimen
+julkaisu julkaisee: `DauntlessRevivedLauncher-Setup.exe`, Squirrelin päivitystiedostot (`RELEASES` ja
+täysi `.nupkg`) sekä siirrettävän zip-version nimellä `DauntlessRevivedLauncher-<versio>-win32-x64.zip`.
+Sitten se kirjoittaa niistä kaikista `SHA256SUMS.txt`-tiedoston ja tulostaa sen. Se pysähtyy, jos jokin
+tiedostoista puuttuu. CI ja julkaisutyönkulku ajavat sen; git ohittaa kansion `release\`.
+
 ## npm-skriptit {#npm-scripts}
 
 Aja kukin npm-paketin kansiossa `npm ci`:n jälkeen. Skriptin omat argumentit tulevat `--`:n jälkeen,
@@ -896,6 +970,7 @@ Palvelinpaketti asentaa palvelimelle Node.js:n version 24.19.0.
 | `UndauntedMetagame/scripts/make-hunt-titles.js` | `node scripts/make-hunt-titles.js` kansiossa `UndauntedMetagame` | Rakentaa uudelleen tiedoston `src/vendor/hunt_titles.json`, eli metsästysten nimet, jotka `ServerStatus` näyttää, deploy-palvelimen metsästystaulukoista kansiossa `UndauntedDeployServer/src/vendor`. Aja se uudelleen, kun ne taulukot muuttuvat. |
 | `UndauntedGateway/tools/make-cert.js` | `npm run make-cert -- ...` | Katso yllä. |
 | `UndauntedLauncher/scripts/run-tests.mjs`, `make-icon.mjs` | `npm test`, `npm run icon` | Katso yllä. |
+| `UndauntedLauncher/scripts/collect-release.ps1` | `pwsh -NoProfile -File scripts\collect-release.ps1` kansiossa `UndauntedLauncher`, komennon `npm run make` jälkeen | Kokoaa julkaisutiedostot kansioon `release\`; katso [collect-release.ps1](#collect-releaseps1). |
 
 ## Ohjeissa olevat skriptit {#scripts-printed-in-the-guides}
 

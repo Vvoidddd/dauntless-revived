@@ -71,7 +71,9 @@ long" ([Vianetsintä]({{ trouble_page.url | relative_url }}#git-filename-too-lon
 ### Mitä repositoriossa on {#layout}
 
 `Undaunted*`-kansioiden nimet tulevat alkuperäisestä Undaunted-projektista (upstream), ja ne on pidetty
-ennallaan.
+ennallaan. Kansioiden npm-pakettien nimet ovat `dauntless-revived-metagame`,
+`dauntless-revived-deploy-server`, `dauntless-revived-content`, `dauntless-revived-gateway` ja
+`dauntless-revived-launcher`.
 
 | Kansio | Mikä se on | Kieli ja työkalut |
 |---|---|---|
@@ -83,9 +85,9 @@ ennallaan.
 | `UndauntedInternalServer/` | Palvelin-DLL:n C++-lähdekoodi upstreamista, generoidun SDK:n kanssa. | C++, Visual Studio 2022 |
 | `deploy/windows-server/` | Windows Server -palvelinpaketti: asennus, päivitys, varmuuskopiointi, kutsut, palvelinkokonaisuuden valvoja ja paketin testit kansiossa `tests/`. | Windows PowerShell 5.1, Node-apuohjelmat kansiossa `lib/` |
 | `friend-kit/` | Käsin ajettavat skriptit kavereille, jotka eivät käytä käynnistintä (`setup.ps1`, `play.ps1`). | PowerShell |
-| `tools/` | Dokumentaation generaattorit, sisältömanifestin generaattori ja kaveripaketin kokoaja ([Skriptit ja parametrit]({{ scripts_page.url | relative_url }})) sekä kansiossa `tools/ci/` CI:n ajama repositorion tarkistus ([alla](#ci)). | Node, PowerShell |
+| `tools/` | Dokumentaation generaattorit, sisältömanifestin generaattori ja kaveripaketin kokoaja ([Skriptit ja parametrit]({{ scripts_page.url | relative_url }})) sekä kansiossa `tools/ci/` CI:n käyttämät repositorion tarkistus ja käynnistimen versiosäännöt ([alla](#ci)). | Node, PowerShell |
 | `docs/` | Tämä sivusto. Suomenkieliset sivut ovat kansiossa `docs/fi/`. | Jekyll ja just-the-docs-teema |
-| `.github/` | Issue- ja pull request -pohjat sekä GitHub Actions -työnkulut (CI ja käynnistimen julkaisut). | YAML |
+| `.github/` | Issue- ja pull request -pohjat, GitHub Actions -työnkulut (CI ja käynnistimen julkaisut) sekä Dependabotin asetukset. | YAML |
 
 ---
 
@@ -440,28 +442,55 @@ jokainen kiinnitys muutetaan samassa muutoksessa. DLL toimii vain 1.4.4-version 
 
 ## Mitä CI tarkistaa {#ci}
 
-Työnkulku `.github/workflows/ci.yml` ajetaan jokaiselle pushille ja pull requestille sekä käsin
-käynnistettynä. Sen työt ajavat samat komennot, jotka voit ajaa itse tämän sivun ohjeilla:
+Työnkulku `.github/workflows/ci.yml` ajetaan jokaiselle pushille mihin tahansa haaraan, jokaiselle pull
+requestille sekä käsin (Actions > **CI** > **Run workflow**). Sen työt ajavat samat komennot, jotka voit
+ajaa itse tämän sivun ohjeilla:
 
 | Työ | Mitä se ajaa | Ajoympäristö |
 |---|---|---|
 | Palvelinpaketit | `npm ci`, `npm run build` ja `npm test` jokaisessa neljästä paketista | Windows, Node 24 |
-| Käynnistin | `npm ci`, `npm run typecheck`, `npm test` ja `npm run make`. Asennusohjelma, zip ja `SHA256SUMS.txt` ovat ladattavissa ajon sivulta 7 päivän ajan (ei forkeista tulevissa pull requesteissa). | Windows, Node 24 |
+| Käynnistin | `npm ci`, `npm run typecheck`, `npm test` ja `npm run make`, sitten `scripts/collect-release.ps1`. Julkaisutiedostot (asennusohjelma, Squirrelin päivitystiedostot, zip ja `SHA256SUMS.txt`) ovat ladattavissa ajon kohdasta **Artifacts** 7 päivän ajan (ei forkeista tulevissa pull requesteissa). | Windows, Node 24 |
 | Palvelinpaketti | Jokaisen versionhallinnassa olevan `.ps1`-tiedoston on jäsennyttävä Windows PowerShell 5.1:ssä, PSScriptAnalyzer ei saa löytää virheitä (kun se on ajoympäristössä), sitten paketin kolme testiä | Windows PowerShell 5.1 |
-| Dokumentaatio | `sync-roadmap.js` ja `build-llms.js` eivät saa muuttaa mitään, ja sivuston on käännyttävä samalla työkalulla, jota GitHub Pages käyttää | Linux |
-| Repositorion siisteys | `tools/ci/check-repo.js`: versionhallinnassa olevissa tiedostoissa tai pushin tuomissa commiteissa ei saa olla salaisuuksia, avaimia, tietokantoja, lokeja eikä pelin tiedostoja, kahden DLL:n on vastattava kiinnityksiään, ja käynnistimen versionumeron on oltava kelvollinen | Linux |
+| Dokumentaatio | `sync-roadmap.js` ja `build-llms.js` eivät saa muuttaa mitään, sivuston on käännyttävä samalla työkalulla, jota GitHub Pages käyttää, ja käännetyssä sivustossa on oltava sen pääsivut | Linux |
+| Repositorion siisteys | `tools/ci/check-repo.js`: versionhallinnassa olevissa tiedostoissa tai pushin tai pull requestin tuomissa commiteissa ei saa olla salaisuuksia, avaimia, tietokantoja, lokeja eikä pelin tiedostoja, versionhallinnassa ei saa olla tiedostoa, jonka jokin `.gitignore`-sääntö sulkee pois, kahden DLL:n on vastattava kiinnityksiään, ja käynnistimen versionumeron on oltava kelvollinen | Linux |
 
 Poikkeus on sisältöpalvelimen integraatiotesti: se tarvitsee oikean peliasennuksen, joten CI ei aja
 sitä. Siisteystarkistuksen voit ajaa itse ennen pushia:
 `node tools/ci/check-repo.js --history origin/dauntless-revived..HEAD` (ilman valitsinta `--history`
-se tarkistaa vain tiedostot). Se ei koskaan tulosta sitä, mitä se löysi tiedoston sisältä.
+se tarkistaa vain tiedostot). Se ei koskaan tulosta sitä, mitä se löysi tiedoston sisältä. Sen
+parametrit ovat sivulla
+[Skriptit ja parametrit]({{ scripts_page.url | relative_url }}#ci-workflows-and-tools).
 
-Kun kaikki tarkistukset menevät läpi `dauntless-revived`-haaraan tehdyssä pushissa eikä
-`UndauntedLauncher/package.json`-tiedoston käynnistinversiolla ole vielä julkaisua, CI julkaisee
-kyseisen asennusohjelman käynnistimen julkaisuna. Repositorion muuttuja `LAUNCHER_AUTO_RELEASE=false`
-pitää tämän tauolla. Tarkemmin asiasta kerrotaan tiedoston
+Kaksi muuta tarkistusta ajetaan tämän työnkulun ulkopuolella. CodeQL etsii koodista tietoturvaongelmia
+repositorion koodiskannauksen oletusasetuksen (default setup) kautta, joten repositoriossa ei ole
+CodeQL-työnkulkutiedostoa. Dependabot (`.github/dependabot.yml`) ehdottaa riippuvuuksien päivityksiä:
+GitHub Actionsille viikoittain, jokaiselle npm-paketille kuukausittain.
+
+### Käynnistimen julkaisut {#launcher-releases}
+
+Käynnistimen julkaisu on GitHub-julkaisu `launcher-v<versio>` sille versiolle, joka on
+`UndauntedLauncher/package.json`-tiedostossa, ja se julkaistaan vain `dauntless-revived`-haarasta.
+Asennetut käynnistimet päivittyvät siihen. Julkaistaksesi nosta tuota versiota. Sitten:
+
+- **Automaattisesti (oletuksena päällä).** Kun `dauntless-revived`-haaraan tehty push läpäisee kaikki
+  yllä olevat työt, on yhä haaran uusin commit eikä sen käynnistinversiolla ole vielä
+  `launcher-v<versio>`-julkaisua, CI julkaisee samassa ajossa kääntämänsä ja testaamansa
+  asennusohjelman työnkulun `.github/workflows/launcher-release.yml` kautta. Näin tapahtuu vain
+  repositoriossa `mixutin/dauntless-revived`, ei koskaan forkissa. Tauon saat asettamalla repositorion
+  muuttujan `LAUNCHER_AUTO_RELEASE` arvoon `false`
+  ([Asetukset]({{ config_page.url | relative_url }}#ci-settings)).
+- **Käsin.** Actions > **Launcher release** > **Run workflow** `dauntless-revived`-haaralle kääntää
+  kyseisen commitin ja julkaisee sen version. Tämä toimii myös silloin, kun automaattiset julkaisut on
+  pysäytetty. Jo julkaistulla versiolla se vain päivittää itsepäivityskanavan (`launcher-updates`-julkaisun)
+  siihen.
+
+Versio julkaistaan vain, jos se on uudempi kuin kaikki aiemmat, eikä julkaistua versiota koskaan
+korvata. Esiversio (kuten `0.2.0-beta.1`) julkaistaan GitHubin esijulkaisuna, johon asennetut
+käynnistimet eivät päivity. Tarkemmin asiasta kerrotaan tiedoston
 [CONTRIBUTING.md]({{ site.github.repository_url }}/blob/dauntless-revived/CONTRIBUTING.md)
-kohdassa "Tarkistukset".
+kohdassa "Tarkistukset" ja tiedoston
+[UndauntedLauncher/README.fi.md]({{ site.github.repository_url }}/blob/dauntless-revived/UndauntedLauncher/README.fi.md)
+kohdassa "Julkaisut ja päivitykset".
 
 ---
 
@@ -626,4 +655,4 @@ Kunkin taulukon polut ovat suhteessa taulukon yläpuolella mainittuun kansioon.
 | Palvelinpaketti | `deploy/windows-server/*.ps1`; yhteiset kiinnitykset, polut, osien taulukko ja käynnistysjärjestys tiedostossa `DauntlessServer.Common.ps1`; tietokanta-, avain- ja pelikansioapurit kansiossa `lib/` |
 | Kaveripaketti | `friend-kit/`, jonka `tools/make-friend-kit.ps1` pakkaa zip-tiedostoksi |
 | Dokumentaatiotyökalut | `tools/sync-roadmap.js`, `tools/build-llms.js` |
-| CI | `.github/workflows/ci.yml`, `.github/workflows/launcher-release.yml`, `tools/ci/` |
+| CI | `.github/workflows/ci.yml`, `.github/workflows/launcher-release.yml`, `.github/dependabot.yml`, `tools/ci/`, `UndauntedLauncher/scripts/collect-release.ps1` |
