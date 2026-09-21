@@ -34,7 +34,7 @@ Dauntless Revived on olemassa, koska muut tekivät vaikeat osat ensin ja julkais
 
 | Projekti | Tekijä | Mitä olemme sille velkaa |
 |---|---|---|
-| [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford, [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) ja [sen muut tekijät](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Haaramme (fork, eli oma muokattu kopiomme) on rakennettu sen päälle, alkaen upstream-muutoksesta (commit) `7f692aa`. Undauntedista tulevat palvelintilan DLL, joka tekee 1.4.4-peliohjelman toisesta kopiosta pelipalvelimen, deploy-palvelin, joka pyörittää noita prosesseja, metagame-taustapalvelu ja käynnistin, ja kaikki ne on tehnyt gwog. EisigesEis kehitti metagamea: inventaario ja varustelut, eteneminen ja mastery-tasot, kutsukoodit ja ylläpidon rajapinta. Moninpeli-Ramsgate ja metsästykset versiossa 1.4.4 ovat Undauntedin saavutus. |
+| [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford, [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) ja [sen muut tekijät](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Haaramme (fork, eli oma muokattu kopiomme) on rakennettu sen päälle, alkaen upstream-muutoksesta (commit) `7f692aa`. Undauntedista tulevat palvelintilan DLL, joka tekee 1.4.4-peliohjelman toisesta kopiosta pelipalvelimen, deploy-palvelin, joka pyörittää noita prosesseja, metagame-taustapalvelu ja käynnistin, ja kaikki ne on tehnyt gwog. EisigesEis kehitti metagamea: inventaario ja varustelut, eteneminen ja mestaruus, kutsukoodit ja ylläpidon rajapinta. Moninpeli-Ramsgate ja metsästykset versiossa 1.4.4 ovat Undauntedin saavutus. |
 | [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | sen tekijät | Sukulaisprojekti, joka siirtää saman lähestymistavan Dauntlessin 1.12.0-peliohjelmaan, jotta mukana olisi myös 1.4.4:n jälkeen julkaistu sisältö. Haarassamme ei ole sen koodia, emmekä ole testanneet sitä. Mainitsemme sen, jotta myöhempää sisältöä etsivät löytävät sen. |
 | [ooz](https://github.com/powzix/ooz) | powzix | Avoimen lähdekoodin Oodle (Kraken) -purkaja. 2.1.1-peliohjelma linkittää Oodlen staattisesti eikä toimita Oodle-DLL:ää, joten tavalliset pak-työkalut eivät pystyneet lukemaan sen asetuksia. Käänsimme ooz:n paikalliseksi kirjastoksi, jotta saimme purettua asetukset analyysiä varten. Se on vain analyysityökalu eikä osa haaraa. |
 | [Dumper-7](https://github.com/Encryqed/Dumper-7) | Encryqed ja muut tekijät | Unreal Engine -SDK:n generaattori. Undauntedin palvelin-DLL on käännetty Dumper-7-SDK:ta vasten, joka on generoitu 1.4.4-peliohjelmasta. |
@@ -47,11 +47,11 @@ heidän peliään.
 ### Dauntless Revivedin osallistujat {#dauntless-revived-contributors}
 
 - **[mixutin](https://github.com/mixutin)** (ylläpitäjä): palvelinpaketti, käynnistin,
-  taustapalvelun korjaukset, oikea hahmon eteneminen ja nämä ohjeet.
-- **[Vvoidddd](https://github.com/Vvoidddd)**: löysi syyn pimeään ilmalaivaan ennen metsästystä
-  (1.4.4:n automaattinen valotus; muutos peruttiin käynnistimen versiossa 0.1.1, koska se pimensi
-  Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi projektin
-  `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+  taustapalvelun korjaukset, oikea eteneminen ja nämä ohjeet.
+- **[Vvoidddd](https://github.com/Vvoidddd)**: löysi syyn siihen, miksi ilmalaiva on pimeä ennen
+  metsästystä (1.4.4:n automaattinen valotus; muutos peruttiin käynnistimen versiossa 0.1.1, koska
+  se pimensi Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi
+  projektin `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
 
 Kaikki osallistujat ovat [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 Käynnistin näyttää samat tiedot **Tekijät**-sivullaan, ja sen mukana tulee tiedosto

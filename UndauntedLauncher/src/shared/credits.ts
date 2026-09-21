@@ -27,15 +27,15 @@ export interface CreditSoftware {
 
 // Dauntless Revived (everyone: the "project_contributors" link).
 export const PROJECT_PEOPLE: readonly CreditPerson[] = [
-  { name: "mixutin", github: "mixutin", role: "maintainer", note: { en: "Maintains the project: the server kit, this launcher, backend fixes, real progression and the docs.", fi: "Ylläpitää projektia: palvelinpaketti, tämä käynnistin, taustapalvelun korjaukset, oikea hahmon eteneminen ja ohjeet." } },
-  { name: "Vvoidddd", github: "Vvoidddd", role: "contributor", note: { en: "Found the cause of the dark pre-hunt airship (the game's automatic exposure), hid the console windows of temporary hunt servers and added the repository's .gitignore.", fi: "Löysi syyn pimeään ilmalaivaan ennen metsästystä (pelin automaattinen valotus), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi projektiin .gitignore-tiedoston." } },
+  { name: "mixutin", github: "mixutin", role: "maintainer", note: { en: "Maintains the project: the server kit, this launcher, backend fixes, real progression and the docs.", fi: "Ylläpitää projektia: palvelinpaketti, tämä käynnistin, taustapalvelun korjaukset, oikea eteneminen ja ohjeet." } },
+  { name: "Vvoidddd", github: "Vvoidddd", role: "contributor", note: { en: "Found the cause of the dark pre-hunt airship (the game's automatic exposure; the change was reverted in launcher 0.1.1 because it made Ramsgate too dark), hid the console windows of temporary hunt servers and added the repository's .gitignore.", fi: "Löysi syyn siihen, miksi ilmalaiva on pimeä ennen metsästystä (pelin automaattinen valotus; muutos peruttiin käynnistimen versiossa 0.1.1, koska se pimensi Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi projektiin .gitignore-tiedoston." } },
 ];
 
 // Undaunted, the project this launcher and the whole fork are a modified version of (everyone: the
 // "upstream_contributors" link).
 export const UPSTREAM_PEOPLE: readonly CreditPerson[] = [
   { name: "gwog (Gregory Morford)", github: "SyST3MDeV", role: "creator", note: { en: "Created Undaunted: the server-mode DLL that turns the ordinary game client into a game server, the deploy server, the metagame and the original launcher.", fi: "Loi Undauntedin: palvelintilan DLL:n, joka tekee tavallisesta peliohjelmasta pelipalvelimen, sekä deploy-palvelimen, metagamen ja alkuperäisen käynnistimen." } },
-  { name: "EisigesEis", github: "EisigesEis", role: "contributor", note: { en: "Metagame work: inventory and loadouts, progression and mastery, invite codes, the admin API and status fixes.", fi: "Metagamen parannuksia: inventaario ja varustelut, eteneminen ja mastery-tasot, kutsukoodit, ylläpidon rajapinta ja tilavastausten korjauksia." } },
+  { name: "EisigesEis", github: "EisigesEis", role: "contributor", note: { en: "Metagame work: inventory and loadouts, progression and mastery, invite codes, the admin API and status fixes.", fi: "Metagamen parannuksia: inventaario ja varustelut, eteneminen ja mestaruus, kutsukoodit, ylläpidon rajapinta ja tilavastausten korjauksia." } },
 ];
 
 // Open-source software in the launcher and in the server DLL it ships. The full license texts are in

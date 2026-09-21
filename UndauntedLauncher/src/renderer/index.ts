@@ -40,6 +40,8 @@ const state = {
   localError: null as LauncherError | null,
   modal: null as Modal | null,
   modalReturnFocus: null as HTMLElement | null,
+  // Where Escape on the Credits page goes back to: the page and the button that opened it.
+  creditsReturn: null as { view: View; focus: HTMLElement | null } | null,
   maximized: false,
   artIndex: -1,
   artTimer: 0 as number,
@@ -1249,6 +1251,10 @@ function renderRail(): void {
 }
 
 function setView(v: View): void {
+  if (v === "credits" && state.view !== "credits") {
+    const from = document.activeElement;
+    state.creditsReturn = { view: state.view, focus: from instanceof HTMLElement && from !== document.body ? from : null };
+  }
   state.view = v;
   if (v === "news") state.newsSeen = true;
   for (const view of VIEWS) $(`#view-${view}`).hidden = view !== v;
@@ -1260,6 +1266,22 @@ function setView(v: View): void {
   const heading = document.querySelector<HTMLElement>(`#view-${v} h1`);
   heading?.setAttribute("tabindex", "-1");
   if (v !== "play") heading?.focus({ preventScroll: true });
+}
+
+// Escape on the Credits page: back to the page it was opened from, with the focus on the button
+// that opened it (found again by its data-fk if that page was redrawn meanwhile), or on the rail's
+// Credits button.
+function leaveCredits(): void {
+  const back = state.creditsReturn ?? { view: "play" as View, focus: null };
+  state.creditsReturn = null;
+  const fk = back.focus?.getAttribute("data-fk") ?? null;
+  setView(back.view);
+  const again = back.focus?.isConnected
+    ? back.focus
+    : fk
+      ? document.querySelector<HTMLElement>(`#view-${back.view} [data-fk="${CSS.escape(fk)}"]`)
+      : null;
+  (again ?? $("#credits-btn")).focus({ preventScroll: true });
 }
 
 function applyStaticI18n(): void {
@@ -1414,7 +1436,13 @@ function renderModal(): void {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (!state.modal) return;
+  if (!state.modal) {
+    if (e.key === "Escape" && state.view === "credits" && !e.defaultPrevented) {
+      e.preventDefault();
+      leaveCredits();
+    }
+    return;
+  }
   if (e.key === "Escape") {
     e.preventDefault();
     closeModal();

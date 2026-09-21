@@ -26,6 +26,10 @@ test("the credits name every contributor, in order, with their role", () => {
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /airship/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /console windows/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /\.gitignore/);
+  // The exposure change was taken back out in 0.1.1 (it darkened Ramsgate); the note must not
+  // suggest the airship is fixed.
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /reverted in launcher 0\.1\.1/);
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /peruttiin käynnistimen versiossa 0\.1\.1/);
 
   assert.equal(UPSTREAM_PEOPLE[0].github, "SyST3MDeV", "Undaunted's creator comes first");
   const gwog = person(UPSTREAM_PEOPLE, "SyST3MDeV");
@@ -150,6 +154,21 @@ test("the page opens links by name only, and the GitHub button and Credits are i
   assert.match(rail, /<button type="button" class="icon-btn" id="github-btn" data-i18n-aria="github_link"><\/button>/);
   assert.match(rail, /<button type="button" class="rail-link" id="credits-btn">/);
   assert.match(html, /<section class="view" id="view-credits" aria-labelledby="credits-title" hidden><\/section>/);
+});
+
+test("Escape on the Credits page goes back to the page and button it was opened from", () => {
+  const src = readFileSync(path.join(ROOT, "src", "renderer", "index.ts"), "utf8");
+  // Opening Credits from another page remembers that page and the focused button.
+  const setView = src.slice(src.indexOf("function setView("), src.indexOf("function leaveCredits("));
+  assert.match(setView, /if \(v === "credits" && state\.view !== "credits"\) \{[^}]*state\.creditsReturn = \{ view: state\.view, focus: /);
+  // Escape with no dialog open, on the Credits page, leaves it.
+  const keydown = src.slice(src.indexOf('document.addEventListener("keydown"'));
+  assert.match(keydown, /^document\.addEventListener\("keydown", \(e\) => \{\s*if \(!state\.modal\) \{\s*if \(e\.key === "Escape" && state\.view === "credits" && !e\.defaultPrevented\) \{\s*e\.preventDefault\(\);\s*leaveCredits\(\);/);
+  // Leaving goes back to that page and puts the focus back, or on the rail's Credits button.
+  const leave = src.slice(src.indexOf("function leaveCredits("), src.indexOf("function applyStaticI18n("));
+  assert.match(leave, /setView\(back\.view\);/);
+  assert.match(leave, /back\.focus\?\.isConnected/);
+  assert.match(leave, /\(again \?\? \$\("#credits-btn"\)\)\.focus\(/);
 });
 
 test("the new text exists in English and Finnish", () => {
