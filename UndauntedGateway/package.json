@@ -1,5 +1,5 @@
 {
-  "name": "undauntedgateway",
+  "name": "dauntless-revived-gateway",
   "version": "0.1.0",
   "description": "Public front door of a Dauntless Revived server: one TLS port in front of the metagame and the content server, plus the helper that opens the game ports only for players who logged in",
   "license": "AGPL-3.0-only",

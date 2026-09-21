@@ -1,7 +1,7 @@
 {
-  "name": "undaunteddeployserver",
+  "name": "dauntless-revived-deploy-server",
   "version": "0.0.5",
-  "description": "The deploy server for Undaunted",
+  "description": "The deploy server for Dauntless Revived",
   "license": "AGPL-3.0-only",
   "author": "gwog :3",
   "scripts": {

@@ -1,5 +1,5 @@
 {
-  "name": "undauntedcontent",
+  "name": "dauntless-revived-content",
   "version": "0.1.0",
   "description": "Content server for Dauntless Revived: serves the verified 1.4.4 game files to registered accounts, plus the host's news and art pack",
   "license": "AGPL-3.0-only",
