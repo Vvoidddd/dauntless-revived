@@ -6,14 +6,16 @@ Inputs (never modified by a normal build):
   emblem.png      the dragon-head emblem
   palette.json    the eight brand colours and the checked contrast pairs
 
-Outputs: web/, icons/, launcher/, social-preview.png, og.png and ../.github/assets/banner.png
-(see README.md for what goes where).
+Outputs: web/, icons/, launcher/, social-preview.png, og.png, ../.github/assets/banner.png and
+copies of the docs site's images in ../docs/assets/ (see README.md for what goes where).
 
 Needs Python 3.10+, Pillow with WebP support, rsvg-convert and the Inter and JetBrains Mono fonts.
 On Debian or Ubuntu (WSL works): apt install python3-pil librsvg2-bin fonts-inter fonts-jetbrains-mono
 
   python3 brand/build.py                  rebuild everything
-  python3 brand/build.py --check          only recompute the contrast ratios in palette.json
+  python3 brand/build.py --check          only check: the contrast ratios in palette.json, the docs
+                                          site's colour tokens and theme colour against palette.json,
+                                          and its image copies against the files here
   python3 brand/build.py --import-masters FULL.png EMBLEM.png
                                           copy new artwork in as the masters (pixels kept exactly,
                                           metadata chunks dropped), then rebuild
@@ -24,6 +26,8 @@ import argparse
 import base64
 import io
 import json
+import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -79,6 +83,57 @@ def check_contrast() -> bool:
         if abs(round(r, 2) - p["ratio"]) > 0.005:
             print(f"avoid list: {p['fg']} on {p['bg']} is {r:.2f}, recorded {p['ratio']}")
             ok = False
+    return ok
+
+
+# ------------------------------------------------------------------ docs site
+
+# The docs site (GitHub Pages serves only docs/) keeps copies of these files: source here -> copy.
+DOCS_COPIES = {
+    "icons/favicon.ico": "docs/assets/favicon.ico",
+    "icons/icon-192.png": "docs/assets/icon-192.png",
+    "icons/apple-touch-icon.png": "docs/assets/apple-touch-icon.png",
+    "og.png": "docs/assets/og.png",
+    "web/emblem-128.png": "docs/assets/brand/emblem-128.png",
+    "web/logo-400.png": "docs/assets/brand/logo-400.png",
+    "web/logo-400.webp": "docs/assets/brand/logo-400.webp",
+    "web/logo-800.png": "docs/assets/brand/logo-800.png",
+    "web/logo-800.webp": "docs/assets/brand/logo-800.webp",
+}
+DOCS_TOKENS = ROOT / "docs/_sass/custom/setup.scss"
+DOCS_HEAD = ROOT / "docs/_includes/head_custom.html"
+
+
+def copy_docs_assets() -> list[Path]:
+    out = []
+    for src, dest in DOCS_COPIES.items():
+        target = ROOT / dest
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(HERE / src, target)
+        out.append(target)
+    return out
+
+
+def check_docs() -> bool:
+    """The docs site's tokens ($dr-ink ...) and <meta name="theme-color"> must equal palette.json, and
+    its image copies must be byte for byte the files built here."""
+    ok = True
+    tokens = {m[1]: m[2].upper() for m in re.finditer(r"^\$dr-([a-z]+):\s*(#[0-9A-Fa-f]{6})\s*;", DOCS_TOKENS.read_text(encoding="utf-8"), re.M)}
+    wanted = {name: hex_.upper() for name, hex_ in C.items()}
+    if tokens != wanted:
+        print(f"{DOCS_TOKENS.relative_to(ROOT).as_posix()}: tokens {tokens} differ from palette.json {wanted}")
+        ok = False
+    theme = re.findall(r'<meta name="theme-color" content="(#[0-9A-Fa-f]{6})">', DOCS_HEAD.read_text(encoding="utf-8"))
+    if [t.upper() for t in theme] != [wanted["ink"]]:
+        print(f"{DOCS_HEAD.relative_to(ROOT).as_posix()}: theme-color {theme} is not ink {wanted['ink']}")
+        ok = False
+    for src, dest in DOCS_COPIES.items():
+        target = ROOT / dest
+        if not target.is_file() or target.read_bytes() != (HERE / src).read_bytes():
+            print(f"{dest}: missing or not a copy of brand/{src}; run python3 brand/build.py")
+            ok = False
+    if ok:
+        print(f"docs site: 8 tokens and the theme colour match palette.json, {len(DOCS_COPIES)} image copies are current")
     return ok
 
 
@@ -352,6 +407,9 @@ def build() -> None:
     out.append(ROOT / ".github/assets/social-preview.png")
     put(card(1200, 630, 410, 38), "og.png")
 
+    # The docs site's copies (it can only serve files under docs/).
+    out += copy_docs_assets()
+
     for p in out:
         with Image.open(p) as im:
             print(f"{p.relative_to(ROOT).as_posix():44} {im.width:>5}x{im.height:<5} {p.stat().st_size:>9,} bytes")
@@ -359,12 +417,13 @@ def build() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--check", action="store_true", help="only verify the contrast ratios in palette.json")
+    ap.add_argument("--check", action="store_true", help="only check palette.json and the docs site's tokens and image copies")
     ap.add_argument("--import-masters", nargs=2, metavar=("FULL", "EMBLEM"), type=Path)
     args = ap.parse_args()
     ok = check_contrast()
     if args.check:
-        sys.exit(0 if ok else 1)
+        docs_ok = check_docs()
+        sys.exit(0 if ok and docs_ok else 1)
     if not ok:
         sys.exit("palette.json contrast table is out of date or a pair fails AA")
     if args.import_masters:
@@ -376,6 +435,8 @@ def main() -> None:
         sys.exit(f"logo-full.png is {LOGO.size}, expected {(LOGO_W, LOGO_H)}; update LOGO_W and LOGO_H")
     EMBLEM_SQ = emblem_square()
     build()
+    if not check_docs():
+        sys.exit("the docs site's colour tokens or theme colour differ from palette.json")
 
 
 if __name__ == "__main__":

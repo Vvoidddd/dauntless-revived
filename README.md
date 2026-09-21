@@ -1,15 +1,15 @@
 <p align="right"><a href="README.fi.md">🇫🇮 Suomeksi</a></p>
 
 <p align="center">
-  <img src=".github/assets/banner.png" width="100%" alt="Dauntless Revived: private server revival of Dauntless 1.4.4. Play the genuine client on a server you host yourself. Fork of Undaunted, AGPL-3.0.">
+  <img src=".github/assets/banner.png" width="100%" alt="Dauntless Revived banner. On the left, the project logo: a dragon's head above the words Dauntless Revived. On the right: Private server revival, Dauntless 1.4.4. Dauntless Revived. Play the genuine Dauntless 1.4.4 client on a server you host yourself. Fork of Undaunted by gwog and contributors, AGPL-3.0. Unofficial fan project, not affiliated with Phoenix Labs.">
 </p>
 
 <p align="center">
-  <a href="LICENSE.txt"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-3b82f6?style=flat-square"></a>
-  <a href="https://mixutin.github.io/dauntless-revived/"><img alt="Documentation site" src="https://img.shields.io/badge/docs-mixutin.github.io-f59e0b?style=flat-square"></a>
-  <a href="https://github.com/mixutin/dauntless-revived/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/badge/discussions-ask%20%26%20share-8b5cf6?style=flat-square&logo=github"></a>
-  <a href="https://github.com/mixutin/dauntless-revived/commits/dauntless-revived"><img alt="Last commit on the dauntless-revived branch" src="https://img.shields.io/github/last-commit/mixutin/dauntless-revived/dauntless-revived?style=flat-square"></a>
-  <a href="https://github.com/mixutin/dauntless-revived/actions/workflows/ci.yml?query=branch%3Adauntless-revived"><img alt="CI status on the dauntless-revived branch" src="https://img.shields.io/github/actions/workflow/status/mixutin/dauntless-revived/ci.yml?branch=dauntless-revived&event=push&style=flat-square&label=CI"></a>
+  <a href="LICENSE.txt"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-0D669C?style=flat-square&labelColor=031523"></a>
+  <a href="https://mixutin.github.io/dauntless-revived/"><img alt="Documentation site" src="https://img.shields.io/badge/docs-mixutin.github.io-0D669C?style=flat-square&labelColor=031523"></a>
+  <a href="https://github.com/mixutin/dauntless-revived/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/badge/discussions-ask%20%26%20share-0D669C?style=flat-square&labelColor=031523&logo=github"></a>
+  <a href="https://github.com/mixutin/dauntless-revived/commits/dauntless-revived"><img alt="Last commit on the dauntless-revived branch" src="https://img.shields.io/github/last-commit/mixutin/dauntless-revived/dauntless-revived?style=flat-square&labelColor=031523&color=0D669C"></a>
+  <a href="https://github.com/mixutin/dauntless-revived/actions/workflows/ci.yml?query=branch%3Adauntless-revived"><img alt="CI status on the dauntless-revived branch" src="https://img.shields.io/github/actions/workflow/status/mixutin/dauntless-revived/ci.yml?branch=dauntless-revived&event=push&style=flat-square&labelColor=031523&label=CI"></a>
 </p>
 
 # Dauntless Revived

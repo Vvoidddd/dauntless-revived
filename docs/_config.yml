@@ -33,7 +33,9 @@ social:
     - https://github.com/mixutin/dauntless-revived
 
 # Set the layout explicitly. GitHub Pages adds it implicitly, a plain Jekyll build does not.
-# The default social preview image (docs/assets/og.svg rendered to og.png, 1200x630) applies to every page.
+# The default social preview image (docs/assets/og.png, 1200x630: the full logo and one line of text,
+# built by brand/build.py) applies to every page. jekyll-seo-tag turns the path into an absolute URL
+# under url + baseurl.
 defaults:
   - scope:
       path: ""
@@ -46,6 +48,12 @@ defaults:
 include:
   - llms.txt
   - llms-full.txt
+
+# Colours: the brand palette measured from the logo (brand/README.md). The scheme is
+# _sass/color_schemes/revived.scss, the tokens are in _sass/custom/setup.scss and the rest of the
+# look is in _sass/custom/custom.scss. The header shows the emblem and the site name
+# (_includes/title.html), the home pages the full logo (_includes/home_logo.html).
+color_scheme: revived
 
 search_enabled: true
 search:

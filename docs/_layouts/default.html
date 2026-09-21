@@ -3,10 +3,12 @@ layout: table_wrappers
 ---
 {%- comment -%}
   Copy of _layouts/default.html from just-the-docs v0.12.0 (the version pinned in _config.yml; update
-  both together). Two changes from the theme's file:
+  both together). Three changes from the theme's file:
   1. <html lang> comes from the page's own `lang` (fi for the pages under fi/), so crawlers that do not
      run JavaScript see the right language. The theme uses site.lang for every page.
   2. The "Skip to main content" link is in the page's language.
+  3. The home pages (ref "index", English and Finnish) show the full logo above their content
+     (_includes/home_logo.html).
 {%- endcomment -%}
 <!DOCTYPE html>
 
@@ -28,6 +30,7 @@ layout: table_wrappers
       {% include components/breadcrumbs.html %}
       <div id="main-content" class="main-content">
         <main>
+          {% if page.ref == "index" %}{% include home_logo.html %}{% endif %}
           {% if site.heading_anchors != false %}
             {% include vendor/anchor_headings.html html=content beforeHeading="true" anchorBody="<svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><use xlink:href=\"#svg-link\"></use></svg>" anchorClass="anchor-heading" anchorAttrs="aria-labelledby=\"%html_id%\"" %}
           {% else %}

@@ -49,7 +49,8 @@ Pairs that fail, so do not use them:
 - `ice` or `steel` text on an `azure` fill (2.25 and 2.32).
 
 `python3 brand/build.py --check` recomputes every ratio in `palette.json` and fails if one is out of
-date or below its requirement.
+date or below its requirement. It also fails if the docs site's tokens or its image copies (below)
+no longer match.
 
 ## Which file to use where
 
@@ -68,6 +69,27 @@ date or below its requirement.
 | `social-preview.png` | 1280x640 | GitHub repository settings, Social preview. The same image is kept at `.github/assets/social-preview.png`. |
 | `og.png` | 1200x630 | The docs site's default `og:image`. |
 | `../.github/assets/banner.png` | 2560x640 | The banner at the top of `README.md` and `README.fi.md`. |
+
+### The docs site
+
+GitHub Pages serves only `docs/`, so `build.py` copies what the site uses into `docs/assets/`:
+`favicon.ico`, `icon-192.png`, `apple-touch-icon.png` and `og.png` there, and `emblem-128.png` and
+`logo-400` and `logo-800` (PNG and WebP) in `docs/assets/brand/`. Never edit those copies by hand.
+
+The site's theme uses the palette like this:
+
+- `docs/_sass/custom/setup.scss` defines the eight tokens (`$dr-ink` to `$dr-frost`), the only place
+  the site sets a brand colour. `docs/_includes/head_custom.html` repeats `ink` once, as the browser's
+  `theme-color`; `--check` compares both with `palette.json`.
+- `docs/_sass/color_schemes/revived.scss` is the just-the-docs colour scheme (`color_scheme: revived`
+  in `docs/_config.yml`) and the code highlighting, in frost, glow, steel and ice only.
+- `docs/_sass/custom/custom.scss` covers what the scheme variables do not: button text, focus rings,
+  the current page in the navigation, the header emblem and the home page logo.
+- The header shows the emblem and the site name (`docs/_includes/title.html`). The English and Finnish
+  home pages show the full logo above their text (`docs/_includes/home_logo.html`).
+
+README badges use `azure` (`0D669C`) with a `navy` (`031523`) label: shields.io draws white text,
+which fails on `ice` (2.75) but passes on `azure` (6.18).
 
 Small sizes: at 16 and 24 px the spikes of the emblem merge, and what remains is its outline, the
 white skull and the cyan eye. Those sizes are resampled from the master with a light sharpen and an
