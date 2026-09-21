@@ -106,7 +106,7 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
 | `UndauntedMetagame/` | The backend the game talks to: accounts, characters, inventory, loadouts, progression, matchmaking |
 | `UndauntedDeployServer/` | Starts and supervises game-server processes (Ramsgate, hunts, the Training Dojo) |
 | `UndauntedInternalServer/` | The DLL that lets the retail client run as a game server, and points clients at the backend |
-| `UndauntedLauncher/` | The Dauntless Revived Launcher: the Windows app for invited friends, based on upstream's launcher |
+| `UndauntedLauncher/` | The Dauntless Revived Launcher: the Windows app for invited friends, based on Undaunted's launcher |
 | `friend-kit/` | Setup and launcher scripts for invited friends' PCs |
 | `tools/` | `make-friend-kit.ps1` builds the friend kit zip; `sync-roadmap.js` copies the roadmap into the docs |
 | `docs/` | The documentation site (GitHub Pages) |
