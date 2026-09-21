@@ -34,7 +34,9 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 > **Update, 2026-09-21 afternoon:**
 > - The owner played two real hunts (a Lesser Boreus hunt and a pursuit). The loot was saved: `CURRENCY_NOTES` went from 1,260 to 1,460 and `ORB_FROST` ×20 arrived.
 > - Saves survive a full restart of everything (0.3), and the game no longer contacts Epic's chat server (0.5).
-> - `backup.ps1` works (2 backups taken) but isn't scheduled yet (0.1).
+> - Backups are automatic: hourly, plus around every server start and stop, and a restore test passed (0.1).
+> - The docs site is live at https://mixutin.github.io/dauntless-revived/.
+> - The friend kit is built (1.14). It waits for Tailscale and invite codes.
 > - Body capture is switched on (0.4). It fills on the next play session.
 > - M2 work has started on a test copy of the database, behind a per-account switch, so nothing changes for anyone until it's tested.
 > - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
@@ -87,7 +89,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | Guild | No | |
 | Party, friends list | No, being built elsewhere | |
 | Trials times, leaderboards, event stats | No | |
-| Backups | By hand | *Update: `backup.ps1` takes a checked online backup. It isn't scheduled yet (0.1).* |
+| Backups | Yes, on this PC | *Update: hourly, plus around every start and stop, with a restore test passed (0.1). There are no copies off this PC yet (0.2).* |
 
 ### What to tell friends right now
 
