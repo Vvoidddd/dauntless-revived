@@ -116,7 +116,11 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
         ExpectedPlayers != undefined ? TransformExpectedPlayerArgs(ExpectedPlayers) : "NO_EXPECTED_PLAYERS",
         MY_IP + ":" + Port.toString(),
         ...STANDARD_GAMESERVER_ARGS
-    ]);
+    ], {
+        // Keep the long-running Ramsgate and Dojo diagnostic windows visible,
+        // but do not flash a new command window for every temporary hunt.
+        windowsHide: !IsRamsgate && !IsTrainingDojo
+    });
 
     Child.unref();
 
