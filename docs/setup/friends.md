@@ -17,6 +17,15 @@ This page is for someone the host has invited. You play with **your own copy of 
 client** (October 2020, UE4) against the host's server. You do not need an Epic account, hosts-file
 edits or certificates. All traffic goes over a private Tailscale connection to the host's PC.
 
+**Public-mode servers use the launcher, not this page.** If the host sent you a
+`dauntless-revived://join?...` line (a public server on a rented machine), you do not need Tailscale or
+the manual steps below. Install the launcher from
+[github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
+(`DauntlessRevivedLauncher-Setup.exe`; it is unsigned, so Windows SmartScreen warns the first time:
+**More info > Run anyway**), paste the invite line, and it does everything. If you already have an
+account key, choose **"I already have an account key"** and paste your `account.key` instead of
+registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale path.
+
 Everything on this page is about **build 1.4.4**. The final client, 2.1.1 ("Awakening", UE5), does not
 work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 executable, so it only
 works with that exact build. That is also why every step below checks a hash.

@@ -14,6 +14,7 @@ locale: fi_FI
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
+{% assign winserver_page = site.pages | where: "path", "fi/setup/windows-server.md" | first %}
 {% assign verification_page = site.pages | where: "path", "fi/findings/verification.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 
@@ -43,6 +44,7 @@ merkitystä.
 | [Pystytä palvelin]({{ host_page.url | relative_url }}) | Palvelinta pyörittävälle | Version tarkistus, asennus lyhyeen polkuun, kahden DLL-tiedoston asennus kiinnitettyjä tiivisteitä vasten, asetustiedostot, metagamen ja deploy-palvelimen käynnistys, ensimmäisen käynnistyksen tarkistukset, peliohjelman käynnistys ja kaiken pysäyttäminen. Lopussa on yhden sivun käynnistyslista. |
 | [Liity kaverina]({{ friends_page.url | relative_url }}) | Kutsutulle pelaajalle | Tailscale, pelitiedostojen tarkistus, kahden DLL-tiedoston kopiointi, rekisteröityminen henkilökohtaista tiliavainta varten, käynnistys ja se, mikä toimii juuri nyt. |
 | [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) | Isännälle, kun kokonaisuus toimii jo paikallisesti | Tailscale-jako, Tailscale-liitäntään rajatut palomuurisäännöt, osoitteiden vaihtaminen, kutsukoodit ja tilit, ylläpitorajapinta, kapasiteetti ja tietokannan varmuuskopiot. Tavoitekokoonpano, jota ei ole vielä testattu alusta loppuun. |
+| [Windows-palvelin]({{ winserver_page.url | relative_url }}) | Isännälle, jatkuvasti päällä olevaa vuokrapalvelinta varten | Yksi komento omalta koneelta asentaa kaiken Windows Server 2019 -virtuaalipalvelimelle SSH-avaimella. Julkinen tila: yksi salattu portti kiinnitetyllä varmenteella, ja peliportit auki vain kirjautuneille pelaajille. Kutsut, päivitykset paluumahdollisuudella, varmuuskopiot ja poistaminen. Testattu hiekkalaatikkotilassa, ei vielä oikealla palvelimella. |
 | [Vianetsintä]({{ trouble_page.url | relative_url }}) | Kaikille | Ongelmat, joihin oikeasti törmäsimme, syineen ja korjauksineen. Muutama kohta on peräisin koodin lukemisesta, ja ne on merkitty sellaisiksi. |
 
 ## Suositeltu järjestys {#suggested-order}

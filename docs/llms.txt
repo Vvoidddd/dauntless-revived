@@ -20,6 +20,7 @@
 - [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html): How an invited friend joins a Dauntless Revived server: Tailscale, a hash-checked Dauntless 1.4.4 install, the two DLLs, an invite code and the friend kit.
 - [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html): Opening a Dauntless Revived server to a few friends: Tailscale sharing, firewall rules, invite codes, admin accounts, capacity figures and database backups.
 - [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html): Problems we hit running the Dauntless 1.4.4 client against an Undaunted server, with causes and fixes: port clashes, login, blurry graphics, Defender and git.
+- [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html): Install a Dauntless Revived server on a rented Windows Server 2019 VPS in public mode: one TLS gateway port with a pinned certificate, game ports opened only for logged-in players, key-only SSH deployment, invites, updates and backups.
 
 ## Findings
 
@@ -49,6 +50,7 @@
 - [Liity kaverina](https://mixutin.github.io/dauntless-revived/fi/setup/friends.html): Näin kutsuttu kaveri liittyy Dauntless Revived -palvelimelle: Tailscale, tarkistettu Dauntless 1.4.4, kaksi DLL-tiedostoa, kutsukoodi ja kaveripaketti.
 - [Palvelin ryhmälle](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html): Dauntless Revived -palvelin kavereille: Tailscale-jako, palomuurisäännöt, kutsukoodit, ylläpitäjän tilit, kapasiteetti ja tietokannan varmuuskopiot.
 - [Vianetsintä](https://mixutin.github.io/dauntless-revived/fi/setup/troubleshooting.html): Dauntless 1.4.4 ja Undaunted-palvelin: ongelmat, joihin törmäsimme, syineen ja korjauksineen. Varatut portit, kirjautuminen, sumea grafiikka, Defender ja git.
+- [Windows-palvelin](https://mixutin.github.io/dauntless-revived/fi/setup/windows-server.html): Dauntless Revived -palvelin vuokratulle Windows Server 2019 -koneelle julkisessa tilassa: yksi salattu portti, kiinnitetty varmenne, peliportit auki vain kirjautuneille, asennus SSH:lla, kutsut ja varmuuskopiot.
 - [Löydökset](https://mixutin.github.io/dauntless-revived/fi/findings/): Mitä Dauntlessin verkkopuolesta on saatu selville kahdesta peliversiosta: tiedostojen tarkistus, asetukset, taustapalvelun rajapinta, moninpeli ja kaatumiset.
 - [Pelitiedostojen tarkistaminen](https://mixutin.github.io/dauntless-revived/fi/findings/verification.html): Miten varmistimme, että yhteisön arkistoimat Dauntless-versiot 2.1.1 ja 1.4.4 ovat aitoja, ehjiä ja puhtaita: allekirjoitukset, manifestit ja virustarkistus.
 - [Pelin sisältö ja asetukset](https://mixutin.github.io/dauntless-revived/fi/findings/assets.html): Miten Dauntlessin versiot 2.1.1 ja 1.4.4 tallentavat sisältönsä ja asetuksensa, miten niitä luetaan ja mitä käyttäjän asetustiedostolla voi muuttaa.

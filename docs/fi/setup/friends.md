@@ -20,6 +20,16 @@ Tämä sivu on sinulle, jos isäntä (se, joka pyörittää palvelinta) on kutsu
 tietokone, joka pyörittää peliä verkossa. Et tarvitse Epic-tiliä, hosts-tiedoston muutoksia etkä
 varmenteita. Kaikki liikenne kulkee yksityisen Tailscale-yhteyden kautta isännän koneelle.
 
+**Julkisen tilan palvelimet käyttävät käynnistintä, eivät tätä sivua.** Jos isäntä lähetti sinulle
+`dauntless-revived://join?...`-rivin (julkinen palvelin vuokrakoneella), et tarvitse Tailscalea etkä alla
+olevia käsivaiheita. Asenna käynnistin osoitteesta
+[github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
+(`DauntlessRevivedLauncher-Setup.exe`; sitä ei ole allekirjoitettu, joten Windows SmartScreen varoittaa
+ensimmäisellä kerralla: **Lisätietoja > Suorita silti**), liitä kutsurivi, niin se hoitaa kaiken. Jos
+sinulla on jo tiliavain, valitse **"Minulla on jo tiliavain"** ja liitä `account.key`-tiedostosi
+rekisteröitymisen sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaiheinen
+Tailscale-polku.
+
 Kaikki tällä sivulla koskee **versiota 1.4.4**. Pelin viimeinen versio, 2.1.1 (”Awakening”, UE5), ei
 toimi tässä: `UndauntedInternalServer.dll` muokkaa kiinteitä muistiosoitteita 1.4.4:n
 ohjelmatiedoston sisällä, joten se toimii vain juuri sen version kanssa. Siksi jokainen alla oleva
