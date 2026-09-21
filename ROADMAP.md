@@ -332,6 +332,21 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.3 and 1.4 (Tailscale), 1.5 (invite codes), 1.6 (usernames for the register screen), 1.13 (source link, which the AGPL needs anyway).
   - **Done when:** a friend with only Tailscale and the launcher installer goes from nothing to Ramsgate through Register, Download and Launch. Also: the key never appears on screen or in a plain file; a deliberately corrupted game file is detected and repaired; and the content server refuses downloads without a valid account and can't be reached from outside Tailscale.
 
+- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode".*
+  - **Problem 1, no encryption:** the 1.4.4 client talks plain HTTP (the DLL builds `http://<address>/…`), so keys and login tokens would cross the internet readable.
+    - **Fix:** a **local TLS relay inside the launcher**. The game talks to `http://127.0.0.1:61000` on the friend's own PC. The launcher forwards everything, including the chat WebSocket later, over **HTTPS** to the server.
+    - **Certificate:** the server makes a self-signed one at install, and **its SHA-256 fingerprint travels in the invite link**. The relay only accepts that exact certificate, so no domain or CA is needed. With a domain, Let's Encrypt works too.
+    - **The server-side QoS URL** points at `127.0.0.1:61000`, which is each friend's own relay.
+  - **Problem 2, one front door:** a small gateway process is the only public TCP port (for example 443). Behind it, on 127.0.0.1: the metagame and the content server under `/content/`. The deploy server is never reachable.
+    - **Blocked from outside:** admin routes, and any request carrying the game-server key header, so nobody outside can grant items.
+    - **Limits:** request size limits, and rate limits on register and login.
+  - **Problem 3, game ports:** UDP 8770–8777 must be public, and the game servers are 2020 Unreal netcode never built to face the internet.
+    - **Fix: a dynamic allowlist.** A small privileged helper opens the game ports only for the public IP of a player who logged in over the gateway, and closes them when their heartbeats stop. Everyone else is dropped by the firewall.
+  - **Invite v2:** `dauntless-revived://join?v=2&mode=public&host=<public IP or name>&port=<gateway port>&fp=<cert sha256>&code=…&name=…`. The launcher skips the Tailscale step in public mode.
+  - **Deployment:** the Windows Server 2019 kit gets `-Mode Public`. It creates the certificate, installs the gateway and allowlist helper, adds firewall rules (TCP gateway port open; UDP game ports closed by default, with the allowlist opening them), and prints the fingerprint for invites.
+  - **Needs:** 1.16 (launcher + content server), 4.10 (a host with a public IP, and port forwarding if it sits behind a router).
+  - **Done when:** a friend with no Tailscale joins from another network through the launcher and plays a hunt. Also: a packet capture shows no key or token in clear text; a direct request to an admin route or with the game-server key from outside is refused; and a UDP probe from an address that hasn't logged in gets no answer.
+
 ### M2: Everything you earn is saved
 
 Before starting M2, 0.1 must be running and 0.4 must be done.
