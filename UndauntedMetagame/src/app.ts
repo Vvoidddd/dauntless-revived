@@ -20,6 +20,16 @@ app.use(express.json({ limit: "50mb" }));
 
 app.use(express.urlencoded({ extended: true }));
 
+// Request trace. Upstream only logged unstubbed routes, which left no way to
+// see how far a client got before it stalled. `gs=1` marks calls made by a
+// game-server process (they carry the gameserver API key) rather than a player.
+if (process.env.LOG_REQUESTS !== "0") {
+    app.use((req, _res, next) => {
+        logger.info(`${req.method} ${req.path} gs=${req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0}`);
+        next();
+    });
+}
+
 app.use("/", loginRouter);
 app.use("/", eosRouter);
 app.use("/", systemRouter);
