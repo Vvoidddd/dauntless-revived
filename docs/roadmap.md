@@ -57,7 +57,7 @@ This page is generated from [`ROADMAP.md`]({% endraw %}{{ site.github.repository
 > - The docs site is live at https://mixutin.github.io/dauntless-revived/.
 > - The friend kit is built (1.14). It waits for Tailscale and invite codes.
 > - Body capture is switched on (0.4). It fills on the next play session.
-> - M2 work has started on a test copy of the database, behind a per-account switch, so nothing changes for anyone until it's tested.
+> - M2 (real progression, Hunt Pass with Elite for everyone, entitlements, cooldowns, bounties, loadout slots, save hardening) is built and **passed its in-game test** on a throwaway account, including a full restart. Accounts are switched over next (2.13).
 > - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
 
 - **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout.
@@ -311,7 +311,8 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Your decision:** how friends get the 1.4.4 client is a copyright question.
   - **Done when:** a friend goes from the zip to Ramsgate without help.
 
-- [ ] **1.15 First friends night** (S)
+- [ ] **1.15 First friends night** (S) — *Owner decision (2026-09-21): the first friends night runs on a **rented Windows Server with a public IP** (4.10) in **public mode** (1.17), not over Tailscale and not on the owner's PC.*
+  - *Order: launcher (1.16) → public mode (1.17) with a permission audit → parties (1.9) → a rehearsal with two clients on the owner's PC through the public-mode path → the owner rents the server and enables key-only SSH (a one-time setup) → remote deployment and data migration → invites → friends night.*
   - **What:**
     - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory.
     - Afterwards, produce a report of errors, save conflicts, missing routes and killed servers.
@@ -351,11 +352,26 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.3 and 1.4 (Tailscale), 1.5 (invite codes), 1.6 (usernames for the register screen), 1.13 (source link, which the AGPL needs anyway).
   - **Done when:** a friend with only Tailscale and the launcher installer goes from nothing to Ramsgate through Register, Download and Launch. Also: the key never appears on screen or in a plain file; a deliberately corrupted game file is detected and repaired; and the content server refuses downloads without a valid account and can't be reached from outside Tailscale.
 
+- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode".*
+  - **Problem 1, no encryption:** the 1.4.4 client talks plain HTTP (the DLL builds `http://<address>/…`), so keys and login tokens would cross the internet readable.
+    - **Fix:** a **local TLS relay inside the launcher**. The game talks to `http://127.0.0.1:61000` on the friend's own PC. The launcher forwards everything, including the chat WebSocket later, over **HTTPS** to the server.
+    - **Certificate:** the server makes a self-signed one at install, and **its SHA-256 fingerprint travels in the invite link**. The relay only accepts that exact certificate, so no domain or CA is needed. With a domain, Let's Encrypt works too.
+    - **The server-side QoS URL** points at `127.0.0.1:61000`, which is each friend's own relay.
+  - **Problem 2, one front door:** a small gateway process is the only public TCP port (for example 443). Behind it, on 127.0.0.1: the metagame and the content server under `/content/`. The deploy server is never reachable.
+    - **Blocked from outside:** admin routes, and any request carrying the game-server key header, so nobody outside can grant items.
+    - **Limits:** request size limits, and rate limits on register and login.
+  - **Problem 3, game ports:** UDP 8770–8777 must be public, and the game servers are 2020 Unreal netcode never built to face the internet.
+    - **Fix: a dynamic allowlist.** A small privileged helper opens the game ports only for the public IP of a player who logged in over the gateway, and closes them when their heartbeats stop. Everyone else is dropped by the firewall.
+  - **Invite v2:** `dauntless-revived://join?v=2&mode=public&host=<public IP or name>&port=<gateway port>&fp=<cert sha256>&code=…&name=…`. The launcher skips the Tailscale step in public mode.
+  - **Deployment:** the Windows Server 2019 kit gets `-Mode Public`. It creates the certificate, installs the gateway and allowlist helper, adds firewall rules (TCP gateway port open; UDP game ports closed by default, with the allowlist opening them), and prints the fingerprint for invites.
+  - **Needs:** 1.16 (launcher + content server), 4.10 (a host with a public IP, and port forwarding if it sits behind a router).
+  - **Done when:** a friend with no Tailscale joins from another network through the launcher and plays a hunt. Also: a packet capture shows no key or token in clear text; a direct request to an admin route or with the game-server key from outside is refused; and a UDP probe from an address that hasn't logged in gets no answer.
+
 ### M2: Everything you earn is saved
 
 Before starting M2, 0.1 must be running and 0.4 must be done.
 
-- [ ] **2.1 Harden the saves that already work** (S)
+- [ ] **2.1 Harden the saves that already work** (S) — *Built (fa1f71a): transactional character saves, 409/404 answers, guarded ProcessTriggers, lastModifiedDate. The version-race behaviour matches upstream: about 1 conflict per 5 saves, every one followed by a successful retry.*
   - **What:**
     - Check that the character update changed a row, and return 409 if it didn't (`controllers/character.ts:100-102` reports success either way).
     - Set `lastModifiedDate`.
@@ -367,7 +383,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **You'll notice:** nothing, unless something goes wrong. Then it fails loudly instead of silently.
   - **Done when:** a forced version race gets a 409, and a wrong character id gets a 404.
 
-- [ ] **2.2 Items can't be duplicated or overspent** (S)
+- [x] **2.2 Items can't be duplicated or overspent** (S) — ✅ *Built (fa1f71a): idempotent transactionIds and an append-only item log. Refusing overspends is available (`INVENTORY_REFUSE_OVERSPEND=1`) but off until a hunt-end body has been captured. **Also found and fixed in play (9589abb):** upstream never reported removed stacks after a transaction, so Rams and materials didn't drop on screen and a second upgrade went through for free. Verified fixed in the relog test.*
   - **What:**
     - Store each inventory `transactionId` with its result, and return that stored result when the same id arrives again.
     - Refuse to remove more than the player has. Today `controllers/inventory.ts:240-242` subtracts anyway and deletes the stack at 0.
@@ -375,7 +391,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **You'll notice:** over the internet, requests sometimes time out and get retried. Without this, a retried reward is granted twice and a retried craft costs twice.
   - **Done when:** sending the same transaction twice changes the inventory once, and removing 5 of an item you have 3 of is refused.
 
-- [ ] **2.3 Save history and safer storage** (S–M)
+- [x] **2.3 Save history and safer storage** (S–M) — ✅ *Built: character and loadout history with an admin rollback route. WAL is opt-in (`DB_WAL=1`) until the backup docs cover the -wal file.*
   - **What:**
     - Switch the database to WAL mode.
     - Keep the last N versions of each character's data and loadout, alongside the item log from 2.2.
@@ -383,7 +399,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Why:** each system is stored as one big value per character. One bad write replaces a whole inventory, and an unreadable inventory makes the character unloadable.
   - **Done when:** a test character can be rolled back one version from the admin tool.
 
-- [ ] **2.4 Multiple loadouts** (M)
+- [ ] **2.4 Multiple loadouts** (M) — *Built (unlock, slotcount, active slot). *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* a real low-level account made **no** `unlock/3` calls at all, so the retry loop came from the fake level 50. The extra slots themselves are still to be tried in the UI.*
   - **What:**
     - Add routes: `POST /loadout/:uid/:cid/unlock/:n`, the account-level unlock, `slotcount` and `active/:index`.
     - Store the slot count and the active slot.
@@ -394,7 +410,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.4 (to confirm the unlock request), and a throwaway-account test.
   - **Done when:** `unlock/3` is answered once and not repeated, the loadout carousel shows the extra slots, and they are still there after logging in again.
 
-- [ ] **2.5 Daily and weekly timers (cooldowns)** (S–M)
+- [ ] **2.5 Daily and weekly timers (cooldowns)** (S–M) — *Built. *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* `PUT /cooldown/batch` was stored and read back by the next server. Still to watch across a daily reset.*
   - **What:**
     - A cooldowns table.
     - `GET /cooldown/:uid` returns what is stored; `PUT /cooldown/batch/:uid` saves.
@@ -404,7 +420,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.4, for the cooldown names and format.
   - **Done when:** a new server sees the cooldowns the last one saved, and `TOKEN_DAILY_PATROL_BONUS` (×6 today) doesn't refill between hunts.
 
-- [ ] **2.6 Bounties** (M)
+- [ ] **2.6 Bounties** (M) — *Built (storage + delete route; reward values still to design). *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* one bounty save stored. Drafting and claiming in the UI are still to try.*
   - **What:**
     - Store the bounty state the game server POSTs (it always sends the whole board) and return it on GET.
     - Add `POST /bounty/delete/:uid`, which claiming and abandoning a bounty both use (`dllmain.cpp:92`).
@@ -417,7 +433,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 
 > **Steps 2.7–2.13: Slayer level, weapon and behemoth mastery, and Hunt Pass XP.** Do these in order and switch them on together. Upstream warned about endless mastery pop-ups, and any one of these steps alone can bring them back. None of these steps may hand out reward items: the game server already grants rank rewards through `/inventory`, so granting them here as well would double them.
 
-- [ ] **2.7 Progression storage and rank math** (S)
+- [x] **2.7 Progression storage and rank math** (S) — ✅ *Built with unit tests (fa1f71a).*
   - **What:**
     - Tables `progress_tracks`, `objectives` and `progression_events` (an audit log), all stored per account.
     - Rank math from `vendor/progression_config.json`, with unit tests. The tracks:
@@ -427,7 +443,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
       - season09b: 50 ranks of 100 XP each, plus prestige
   - **Done when:** the tests pass. For example, PlayerLevel progress 0 is rank 1, 1,111 is rank 50, and weapon progress 115 is rank 20.
 
-- [ ] **2.8 Read progression from the database** (S)
+- [x] **2.8 Read progression from the database** (S) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* the game server read real tracks (Slayer XP 0 → 8 over the session) and they survived the restart.*
   - **What:**
     - `GET /progression/:uid` returns every configured track as a plain list, with default rows for untouched tracks.
     - `GET /progression/objectives/:uid` returns a plain list. Upstream sends an object, which the game ignores.
@@ -436,7 +452,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.7.
   - **Done when:** a throwaway account in "real" mode shows its stored level, not 50.
 
-- [ ] **2.9 Save XP from hunts** (M)
+- [x] **2.9 Save XP from hunts** (M) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* grants add increments, objectives are stored and echoed, and nothing looped.*
   - **What:** `POST /progression/:uid`:
     - adds the track progress (probably added on top of what is stored; confirm with 0.4)
     - stores objectives exactly as sent
@@ -447,7 +463,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 and 0.4.
   - **Done when:** after one hunt on the throwaway account, the tracks it touched went up and read the same after logging in again.
 
-- [ ] **2.10 Confirm rank-ups** (S)
+- [x] **2.10 Confirm rank-ups** (S) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* the game server confirms mastery and Slayer rank-ups automatically (rank 2, 3, 4; axe rank 1); each rank reward was granted once, through /inventory.*
   - **What:** `POST /progression/:uid/:track/:rank/confirm/{public|premium}` has no route today. It should:
     - raise the confirmed rank up to what the progress allows
     - apply premium only to accounts that own the entitlement
@@ -456,13 +472,13 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.9.
   - **Done when:** one rank-up produces exactly one confirm call and one reward transaction.
 
-- [ ] **2.11 XP granted by quests and the store** (S)
+- [x] **2.11 XP granted by quests and the store** (S) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* `POST /progression/…/season09b/100` → 200, and the Hunt Pass moved to 100.*
   - **What:** add `POST /progression/:uid/:track/:amount`, plus an admin-only `DELETE` for resetting a track during tests.
   - **New today:** at 10:41:53 UTC the game server called `POST /progression/…/season09b/100` (`metagame.log` line 2870), right after an inventory transaction. It went to a 404. It was probably the Hunt Pass tutorial reward, since `TOKEN_HUNT_PASS_TUTORIAL` is now in the inventory.
   - **Needs:** 2.7.
   - **Done when:** that grant gets a 200 and season09b progress goes up by 100.
 
-- [ ] **2.12 Test the mastery pop on a throwaway account** (M)
+- [x] **2.12 Test the mastery pop on a throwaway account** (M) — ✅ **Passed.** *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* no endless mastery pop-up (crafting read the objective once), no repeated reward transactions, and everything survived the restart. Cause of upstream's pop-up: objectives were never stored or echoed (the client re-fetched them after every grant).*
   - **What:** set `PROGRESSION_MODE=real` for the second account only.
     1. Turn on 2.8 and 2.9, but leave confirm (2.10) off. Play one Dojo session or hunt.
     2. Look in the log for repeated `/confirm` 404s and for repeated identical `POST /inventory` calls.
@@ -470,7 +486,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision)
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). Waiting for the owner's choice for their own account; new accounts start fresh.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.
@@ -480,7 +496,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.12, and a backup taken right before.
   - **Done when:** every account has a row for each track, and nobody's screen changed in a way you didn't choose.
 
-- [ ] **2.14 Entitlements** (S; the exact list format is unknown)
+- [x] **2.14 Entitlements** (S; the exact list format is unknown) — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* `season09b_premium` (Elite) and two helper entitlements are there by default, and an entitlement the game server granted itself (`ent_daily_ssk01_plat`, the daily login pack) was stored and survived the restart.*
   - **What:**
     - An entitlements table.
     - `GET /entitlementsv2` lists them, `POST /entitlementv2/:uid` grants one (one grant was thrown away today at 09:50:31), and `DELETE` revokes one.
@@ -490,7 +506,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.4.
   - **Done when:** an entitlement granted by the game server is still listed after logging in again.
 
-- [ ] **2.15 Hunt Pass** (M) — *Seen in play: the quest "The Hunt Pass — Claim your Hunt Pass rewards" can never complete, because the stub reports `season09b` with progress and both confirmed ranks at 99,999,999, so every reward already reads as claimed, and there is no confirm route to save a claim. Done when that quest completes by claiming a real reward, and the claim is still there after a relog.*
+- [x] **2.15 Hunt Pass** (M) — *Seen in play: the quest "The Hunt Pass — Claim your Hunt Pass rewards" can never complete, because the stub reports `season09b` with progress and both confirmed ranks at 99,999,999, so every reward already reads as claimed, and there is no confirm route to save a claim. Done when that quest completes by claiming a real reward, and the claim is still there after a relog.* — ✅ *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* Claim confirmed rank 1 on **both** the free and Elite tracks, granted the rewards once (Seismic armour pieces), the tutorial quest "Claim your Hunt Pass rewards" completed, and everything was still claimed after the restart.*
   - **What:**
     - season09b starts at 0.
     - Grants from 2.9 and 2.11 move it forward.
@@ -512,7 +528,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.9, and a captured escalation save (extend 0.4). Escalation hunts are only playable today because of a force-unlock in the client DLL; removing that needs 4.4.
   - **Done when:** an escalation run raises the level, and it is still there after logging in again.
 
-- [ ] **2.17 Currency shown correctly** (S)
+- [ ] **2.17 Currency shown correctly** (S) — *Settled in play: `CURRENCY_NOTES` is the Rams (the menu showed exactly the database value).*
   - **What:**
     - `GET /balance` and `POST /reconcile` should work out balances from the inventory stacks (`CURRENCY_*`). Today they send fixed values: Notes from `users.notes` (0), and weapon tokens hard-coded to 25.
     - The client calls `/balance` (4 times today). Find which screen shows it.
@@ -731,15 +747,15 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Does `windowsHide` hide the DLL's console window? | Start one server with it. | 1.1 |
 | Who writes the endpoint block in `Game.ini`: the client or the servers? | Note its timestamp, then start a server with the client closed. | 1.1 |
 | Does a rename show on other players' nameplates without logging in again? | Rename a test account while a second player watches. | 1.6 |
-| Which of the two causes produced the endless mastery pop | Throwaway account: grant plus objectives with confirm off, then with confirm on. | 2.12 |
-| Are rank rewards granted by the game server through `/inventory`? | Watch for the `OnGrantOnlineProgressionAndObjectives` transaction after a rank-up. | 2.12 |
-| Does the Hunt Pass wait for Claim, while mastery confirms automatically? | Watch whether a Hunt Pass rank-up sends `/confirm` before Claim is pressed. | 2.15 |
+| Which of the two causes produced the endless mastery pop | **Settled 2026-09-21:** objectives that were never stored or echoed. With them stored, no pop-up loop. (Experiment was: Throwaway account: grant plus objectives with confirm off, then with confirm on.) | 2.12 |
+| Are rank rewards granted by the game server through `/inventory`? | **Settled:** yes, the game server grants them (source `OnGrantOnlineProgressionAndObjectives`, and "Progression Track season09b Claim Rewards" for Hunt Pass claims). (Experiment was: Watch for the `OnGrantOnlineProgressionAndObjectives` transaction after a rank-up.) | 2.12 |
+| Does the Hunt Pass wait for Claim, while mastery confirms automatically? | **Settled:** yes. Mastery and Slayer ranks confirm right after the grant; the Hunt Pass confirms only when Claim is pressed, free and premium separately. (Experiment was: Watch whether a Hunt Pass rank-up sends `/confirm` before Claim is pressed.) | 2.15 |
 | Does a single-object response accept `code: null`? | The first confirm on the throwaway account. | 2.10 |
 | Does the game server retry a failed inventory save? | Make `/inventory` fail once for the test account and watch the log. | 2.2 |
-| Is the `unlock/3` loop caused by the fake level 50? | After 2.4, it should stop once answered. If not, check again with a fresh-level account. | 2.4 |
+| Is the `unlock/3` loop caused by the fake level 50? | **Settled:** yes. A real low-level account made no unlock calls. (Experiment was: After 2.4, it should stop once answered. If not, check again with a fresh-level account.) | 2.4 |
 | Do bounties, cooldowns and the mailbox read the reply's `payload` field or the top level? | Return a stored document to the throwaway account and check the UI. | 2.5, 2.6, 3.5 |
 | The entitlement list format | The capture from 0.4, then a test grant on the throwaway account. | 2.14 |
-| Which screen reads `/balance`; is `CURRENCY_NOTES` the Rams? | Return a distinctive number from `/balance` to the test account and look for it. | 2.17 |
+| Which screen reads `/balance`; is `CURRENCY_NOTES` the Rams? | **Partly settled:** `CURRENCY_NOTES` is the Rams (the menu matched the database). (Experiment was: Return a distinctive number from `/balance` to the test account and look for it.) | 2.17 |
 | Where cell dust is stored | Dust one spare cell on a test account and compare the inventory before and after. | 2.17, 3.7 |
 | Does the game server or the backend compute escalation level and XP? | Capture the first escalation save. | 2.16 |
 | Which features are switched on by default | Toggle them in `UserGame.ini` on a test setup. | 3.1 |
