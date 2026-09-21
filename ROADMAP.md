@@ -292,7 +292,8 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Your decision:** how friends get the 1.4.4 client is a copyright question.
   - **Done when:** a friend goes from the zip to Ramsgate without help.
 
-- [ ] **1.15 First friends night** (S)
+- [ ] **1.15 First friends night** (S) — *Owner decision (2026-09-21): the first friends night runs on a **rented Windows Server with a public IP** (4.10) in **public mode** (1.17), not over Tailscale and not on the owner's PC.*
+  - *Order: launcher (1.16) → public mode (1.17) with a permission audit → parties (1.9) → a rehearsal with two clients on the owner's PC through the public-mode path → the owner rents the server and enables key-only SSH (a one-time setup) → remote deployment and data migration → invites → friends night.*
   - **What:**
     - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory.
     - Afterwards, produce a report of errors, save conflicts, missing routes and killed servers.
