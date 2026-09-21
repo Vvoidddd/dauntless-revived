@@ -173,6 +173,15 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
   Engine SDK generator the server DLL is built against.
 - **Phoenix Labs**, who made Dauntless.
 
+### Contributors
+
+- **[Vvoidddd](https://github.com/Vvoidddd)**: the fix for the dark pre-hunt airship (1.4.4's
+  automatic exposure), hidden console windows for hunt servers, and the repository's `.gitignore`
+  ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+
+Everyone who has contributed is listed on the
+[contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors).
+
 The full list is on the docs site's
 [Credits and license](https://mixutin.github.io/dauntless-revived/legal.html) page.
 

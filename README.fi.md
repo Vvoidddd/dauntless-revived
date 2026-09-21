@@ -189,6 +189,14 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
   avulla DLL-tiedosto on rakennettu Unreal Engine -pelimoottoria varten.
 - **Phoenix Labs**, joka teki Dauntlessin.
 
+### Osallistujat
+
+- **[Vvoidddd](https://github.com/Vvoidddd)**: korjaus pimeään ilmalaivaan ennen metsästystä
+  (1.4.4:n automaattinen valotus), piilotetut konsoli-ikkunat metsästyspalvelimille ja projektin
+  `.gitignore`-tiedosto ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+
+Kaikki osallistujat näkyvät [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
+
 Koko luettelo on ohjesivuston sivulla
 [Kiitokset ja lisenssi](https://mixutin.github.io/dauntless-revived/fi/legal.html).
 
