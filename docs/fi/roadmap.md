@@ -21,8 +21,8 @@ on englanniksi:
 [Avaa päivittyvä tarkistuslista (englanniksi)]({{ roadmap_en.url | relative_url }}){: .btn .btn-primary .mr-2 }
 [ROADMAP.md GitHubissa]({{ site.github.repository_url }}/blob/dauntless-revived/ROADMAP.md){: .btn }
 
-Yhteenveto kuvaa tilannetta 21.9.2026; oikean etenemisen tiedot on päivitetty 22.9.2026. Jos tämä
-sivu ja englanninkielinen lista eroavat toisistaan, englanninkielinen lista on ajan tasalla.
+Yhteenveto kuvaa tilannetta 22.9.2026. Jos tämä sivu ja englanninkielinen lista eroavat toisistaan,
+englanninkielinen lista on ajan tasalla.
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -45,17 +45,57 @@ rakennetaan M2:n rinnalla, ja niitä testataan toisella tilillä ja toisella pel
 koneella. Muu yhdessä pelaamiseen tarvittava (M1) valmistellaan samaan aikaan. Ensimmäinen yhteinen
 peli-ilta odottaa, kunnes M2 on valmis.
 
+Tilanne 22.9.2026: M2:sta oikea eteneminen on valmis ja oletuksena päällä, ja ensimmäinen testi
+kaverin kanssa on käynnissä vuokratulla palvelimella julkisessa tilassa, ei Tailscalen kautta. Suorituskyvyn
+mittaamisen (4.12) on tarkoitus ottaa ensimmäiset mittauksensa ensimmäisissä kaveritesteissä.
+Nimenvaihdon toinen osa (4.15) tehdään ensimmäisen kaveritestin jälkeen. PostgreSQL (4.14) tarvitaan
+ennen mitään julkista julkaisua, ei kaveripalvelinta varten.
+
 ---
 
 ## Missä mennään nyt {#where-we-are}
 
-Toistaiseksi palvelimella on pelannut yksi pelaaja, omistaja, ja kaikki pyörii omistajan koneella.
-Nämä toimivat: kirjautuminen, opetusjakso, Ramsgate (pelin keskuskaupunki), Training Dojo
-(harjoitussali), oikeat metsästykset, esineiden valmistus (crafting), tavarat ja käytössä oleva
-varustesarja.
+Itse peliä on toistaiseksi pelannut yksi pelaaja, omistaja, omalla koneellaan. Nämä toimivat:
+kirjautuminen, opetusjakso, Ramsgate (pelin keskuskaupunki), Training Dojo (harjoitussali), oikeat
+metsästykset, esineiden valmistus (crafting), tavarat ja käytössä oleva varustesarja.
 
-Kaverit eivät vielä pääse mukaan. Kaikki kuuntelee vain omistajan koneella, eivätkä ryhmät ja
-kaverilista vielä oikeasti toimi.
+**Palvelin vuokratulla koneella (21.–22.9.2026).** Windows-palvelinpaketti asennettiin oikealle
+vuokratulle Windows Server 2019 -virtuaalipalvelimelle julkiseen tilaan. Palvelimella on tarkistettu:
+palvelinkokonaisuus käynnistyy koneen käynnistyessä palvelutilillä (istunnossa 0 eli ilman
+työpöytää), Ramsgate pyörii ja lähettää elonmerkkejä (heartbeat), yhdyskäytävä vastaa internetistä
+kiinnitetyllä varmenteella, ja tunnin välein ajettava varmuuskopiotehtävä toimii. Oikea palvelin
+paljasti kolme asiaa, joita hiekkalaatikkotestit eivät voineet löytää, ja ne kaikki on korjattu
+paketissa:
+
+- Windows sallii paikallisen käyttäjätilin kuvaukseen enintään 48 merkkiä.
+- Se levykuva ei hyväksy ilman tallennettua salasanaa ajettavia ajastettuja tehtäviä (”S4U”) muille
+  kuin ylläpitäjille, joten palvelutilin tehtävät käyttävät nyt tallennettua satunnaista salasanaa.
+- Palveluntarjoajan levykuva piti Windowsin palomuurin pois päältä käytäntöarvoilla (`EnableFirewall=0`
+  avaimen `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall` alla). Asennusohjelma poistaa ne nyt ja
+  tarkistaa, mikä palomuuriasetus oikeasti on voimassa; muutos vaatii uudelleenkäynnistyksen.
+
+**Kaverikäynnistin 0.1.0 on julkaistu.** CI julkaisi sen GitHubin julkaisuihin (ensimmäinen
+automaattinen julkaisu) `SHA256SUMS.txt`-tiedoston ja käännöksen alkuperätodistuksen (build provenance
+attestation) kanssa. Asennetut käynnistimet päivittyvät `launcher-updates`-kanavasta. Käynnistintä ei
+ole vielä allekirjoitettu.
+
+**Ensimmäinen oikea testi on käynnissä.** Omistaja rekisteröityi käynnistimellä vuokratulle
+palvelimelle ja latasi pelin yhdyskäytävän kautta. Kahden pelaajan testi kaverin kanssa (moninpeli ja
+ryhmät) on alkamassa. Ennen kuin se on tehty, emme väitä, että Ramsgate kahdella pelaajalla, ryhmät tai
+metsästykset toimivat internetin yli.
+
+**Ryhmät ja kaverilista on rakennettu palvelimen puolelle:** ryhmäkutsut, hyväksyminen ja
+hylkääminen, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle
+metsästyspalvelimelle, yhdessä takaisin Ramsgateen, pelaajan haku nimellä sekä SQLiteen tallentuva
+kaverilista ja estolista. Ne läpäisevät integraatiotestit simuloiduilla pelaajilla, mutta niitä ei ole
+vielä kokeiltu kahdella oikealla peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita.
+Kavereiden näkyminen paikalla vaatii chat-palvelimen, jota ei ole rakennettu. Tekstichattia ei ole
+vielä rakennettu (suunnitelma: XMPP).
+
+Käynnissä olevien pelaajien lista näytetään vain rekisteröityneille pelaajille, eikä
+`/dauntless-status` enää kerro pelaajamäärää. Kaikessa, mitä pelaaja näkee, lukee nyt Dauntless
+Revived (nimenvaihdon ensimmäinen osa); kansiot, rajapinnan reitit ja otsakkeet pitävät toistaiseksi
+Undaunted-nimet.
 
 Osa pelissä ansaitusta tallentuu jo, osa ei:
 
@@ -104,22 +144,41 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Oikea eteneminen (M2) on valmis ja oletuksena päällä:** Slayer-taso, mestaruus ja Hunt Pass
   (Elite-passi kaikille) tallentuvat. Se läpäisi pelitestin kertakäyttöisellä testitilillä, myös koko
   palvelinkokonaisuuden uudelleenkäynnistyksen yli.
+- **Windows-palvelinpaketti pyörii oikealla vuokratulla palvelimella** julkisessa tilassa
+  (21.–22.9.2026), ja palvelimella tarkistetut asiat on lueteltu yllä.
+- **Kaverikäynnistin 0.1.0** on julkaistu GitHubin julkaisuihin CI:n ensimmäisenä automaattisena
+  julkaisuna, ja asennetut käynnistimet päivittävät itsensä.
+- **CI** tarkistaa jokaisen muutoksen: jokaisen paketin käännöksen ja testit, palvelinpaketin testit,
+  ohjesivuston käännöksen ja sen, ettei projektiin ole lisätty salaisuuksia, avaimia, tietokantoja tai
+  pelitiedostoja.
+- **Nimenvaihdon ensimmäinen osa:** kaikessa, mitä pelaaja näkee, lukee Dauntless Revived.
 
 ## Työn alla {#in-progress}
 
+- **Ensimmäinen kaveritesti (1.15)** on käynnissä vuokratulla palvelimella julkisessa tilassa, kuten
+  yllä kerrotaan. Samassa testissä kokeillaan ensimmäistä kertaa ryhmiä (1.9) ja sitä, että kummankin
+  pelaajan tallennukset menevät omalle tilille (1.12).
+- **Käyttäjänimet ja kutsukoodit (1.5, 1.6)** on rakennettu: nimessä on 3–16 kirjainta, numeroa tai
+  alaviivaa, nimi on yksilöllinen isoista ja pienistä kirjaimista riippumatta, ja ylläpitäjä voi
+  vaihtaa nimen. Windows-palvelinpaketti vaatii kutsukoodin, ja omistaja rekisteröityi kutsulla.
+  Uuden nimen näkymistä pelissä ei ole vielä kokeiltu.
 - **Pelaajien siirto oikeaan etenemiseen (2.13).** Mitään ei siirretä automaattisesti: palvelimella,
   jolla oli jo pelaajia, he aloittavat Slayer-tasolta 1, ellei ylläpitäjä anna heille maksimitasoja
   tai valitse vanhaa tynkää (`PROGRESSION_MODE=stub`). Omalla palvelimellamme kaikki aloittavat
-  alusta. Tynkäaikana pelanneen tilin siirtoa tasolle 1 ei ole vielä kokeiltu pelissä.
-- **Pelin lähettämien tietojen tallennus (0.4)** on kytketty päälle. Se kerää seuraavalla
-  pelikerralla, millaisia tallennuksia peli lähettää niille järjestelmille, jotka eivät vielä
-  tallenna mitään. Näin tallennukset voidaan rakentaa oikeassa muodossa eikä arvailemalla.
+  alusta: omistaja on rekisteröinyt uuden tilinsä käynnistimellä vuokratulle palvelimelle.
+  Tynkäaikana pelanneen tilin siirtoa tasolle 1 ei ole vielä kokeiltu pelissä.
+- **Pelin lähettämien tietojen tallennus (0.4)** on kytketty päälle omistajan koneella. Se kerää
+  seuraavalla pelikerralla, millaisia tallennuksia peli lähettää niille järjestelmille, jotka eivät
+  vielä tallenna mitään. Näin tallennukset voidaan rakentaa oikeassa muodossa eikä arvailemalla.
+  Windows-palvelinpaketti pitää tallennuksen pois päältä julkisessa tilassa, joten vuokrattu palvelin
+  ei tallenna pelaajien lähettämää sisältöä.
 - **Kaveripaketti (1.14)** on koottu: se tarkistaa tiedostot, asentaa DLL-tiedostot, rekisteröi
-  kaverin ja käynnistää pelin. Sitä on testattu koepalvelinta vasten, mutta oikea kaveri ei ole vielä
-  kokeillut sitä. Se odottaa Tailscalea ja kutsukoodeja. Sivulla
+  kaverin ja käynnistää pelin. Se on vain Tailscalea käyttävä varavaihtoehto käynnistimelle. Sitä on
+  testattu koepalvelinta vasten, mutta oikea kaveri ei ole vielä kokeillut sitä. Sivulla
   [Liity kaverina]({{ friends_page.url | relative_url }}) kerrotaan, mitä paketti tekee.
-- **Yhden komennon käynnistys, pysäytys ja tilannekatsaus** (`stack.ps1`) toimii jo omistajan
-  koneella, mutta sitä ei ole vielä paketoitu.
+- **Yhden komennon käynnistys, pysäytys ja tilannekatsaus** (`stack.ps1`) toimii omistajan koneella,
+  ja Windows-palvelinpaketin `Stack.ps1` tekee saman vuokratulla palvelimella: se käynnistää kaiken
+  koneen käynnistyessä ja käynnistää kaatuneen osan uudelleen.
 
 ---
 
@@ -142,15 +201,20 @@ pelin lähettämien tietojen tallennus ovat vielä kesken.
 
 ### M1: Pelataan yhdessä {#m1-play-together}
 
-Tämä välitavoite tuo kaverit mukaan. Isännän kone jaetaan kavereille turvallisesti Tailscalella
-(ohjelma, joka tekee salatun, yksityisen yhteyden koneiden välille), ja tilin voi luoda vain
-kutsukoodilla. Jokainen saa oman käyttäjänimen, jota kukaan muu ei voi ottaa, ja kadonneen avaimen voi
-korvata uudella. Ryhmät ja kaverilista rakennetaan, jotta kaverin voi kutsua samaan metsästykseen
-tarkoituksella, ja muiden pelaajien nimet näkyvät oikein. Jokaisen kaverin saaliit tallentuvat hänen
+Tämä välitavoite tuo kaverit mukaan. Alkuperäinen suunnitelma oli jakaa isännän kone kavereille
+turvallisesti Tailscalella (ohjelma, joka tekee salatun, yksityisen yhteyden koneiden välille). Omistaja
+päätti kuitenkin, että ensimmäinen kaveri-ilta pidetään vuokratulla Windows-palvelimella julkisessa
+tilassa: kaverit tarvitsevat vain käynnistimen ja kutsun, yksi salattu portti on auki maailmalle, ja
+pelin portit avautuvat vain kirjautuneille pelaajille. Tämä on rakennettu ja asennettu, ja ensimmäinen
+testi on käynnissä. Tilin voi luoda vain kutsukoodilla. Jokainen saa oman käyttäjänimen, jota kukaan
+muu ei voi ottaa, ja kadonneen avaimen voi korvata uudella. Ryhmät ja kaverilista rakennetaan, jotta
+kaverin voi kutsua samaan metsästykseen tarkoituksella (palvelimen puoli on jo rakennettu), ja muiden
+pelaajien nimet näkyvät oikein. Jokaisen kaverin saaliit tallentuvat hänen
 omalle tililleen, haun peruminen toimii, ja tallennukset toimivat myös hyvin pitkissä pelikerroissa.
-Kaverit saavat linkin palvelimen lähdekoodiin, kuten AGPL-lisenssi edellyttää, ja kaveripaketti tekee
-liittymisestä helppoa. Lopuksi pidetään ensimmäinen yhteinen peli-ilta, jonka aikana palvelimen kuormaa
-seurataan. Arvioitu koko on 1–2 viikkoa omaa työtä sekä ryhmien (parties) parissa muualla tehtävä työ.
+Kaverit saavat linkin palvelimen lähdekoodiin, kuten AGPL-lisenssi edellyttää, ja kaverikäynnistin
+tekee liittymisestä helppoa (kaveripaketti jää Tailscale-varavaihtoehdoksi). Lopuksi pidetään
+ensimmäinen yhteinen peli-ilta, jonka aikana palvelimen kuormaa seurataan. Arvioitu koko on 1–2 viikkoa
+omaa työtä sekä ryhmien (parties) parissa muualla tehtävä työ.
 
 ### M2: Kaikki ansaittu tallentuu {#m2-everything-you-earn-is-saved}
 
@@ -185,8 +249,62 @@ Palvelimen DLL-tiedostot käännetään itse lähdekoodista, eikä konsoli-ikkun
 kaataa palvelinta. Päivitykset tehdään yhdellä turvallisella komennolla. Pidemmällä aikavälillä
 selvitetään aina päällä olevaa palvelinkonetta, jotta kaverit voisivat pelata silloinkin, kun
 omistajan kone on sammuksissa, ja kokeillaan, voisivatko pelipalvelimet pyöriä halvemmalla
-Linux-koneella Wine-ohjelman avulla. Arvioitu koko on 1–2 viikkoa; aina päällä oleva kone on
-valinnainen, isompi työ.
+Linux-koneella Wine-ohjelman avulla. Arvioitu koko on 1–2 viikkoa; aina päällä oleva kone,
+Wine-kokeilu ja PostgreSQL ovat isompia töitä.
+
+Aina päällä oleva kone on nyt olemassa: vuokrattu Windows Server 2019 -virtuaalipalvelin, jolle
+Windows-palvelinpaketti käynnistää kaiken koneen käynnistyessä ja jolla kaatunut osa käynnistyy
+itsestään uudelleen. Se on valmis vasta, kun kaverit ovat pelanneet sillä omistajan koneen ollessa
+sammuksissa.
+
+M4:ään lisättiin 22.9.2026 viisi uutta kohtaa:
+
+- **4.12 Suorituskyvyn kirjaaminen ja kapasiteetin mittaus.** *Mitä:* 30–60 sekunnin välein
+  ajettava mittari kirjaa jokaisesta pelipalvelimesta suorittimen käytön (prosentteina yhdestä
+  ytimestä), muistin, tyypin (Ramsgate, Dojo tai metsästys), pelaajamäärän ja käynnistysajan;
+  palvelinkoneesta suorittimen, muistin, verkon, levyn ja pelipalvelinten määrän; ja metagamesta
+  pyyntöjen vasteajat (p50 ja p95), tapahtumasilmukan viiveen ja tietokantaan kuluvan ajan. Tiedostot
+  vaihtuvat päivittäin palvelimen lokikansiossa, ja niihin kirjataan vain lukuja, ei pelaajien nimiä.
+  Yhteenvetotyökalu kertoo, paljonko yksi metsästys ja yksi Ramsgaten pelaaja maksavat, ja arvioi,
+  montako pelaajaa tietty kone jaksaa. Omistajan syy: palvelimen rajoja ei tarvitse enää arvata.
+  Ensimmäiset mittaukset tehdään ensimmäisissä kaveritesteissä. *Valmis, kun:* kaveri-illan lokeista
+  saadaan yhteenvetotyökalulla mitattu hinta metsästystä ja Ramsgaten pelaajaa kohden sekä arvio
+  siitä, montako pelaajaa vuokrattu palvelin jaksaa.
+- **4.13 Lisää peliportteja.** *Mitä:* pelipalvelinten UDP-porttialue laajennetaan yli 8770–8777:n.
+  Nyt Ramsgate on portissa 8777, harjoitussali portissa 8776 ja metsästykset porteissa 8770–8775, eli
+  kerralla voi olla enintään 6 metsästystä ja 24 metsästävää pelaajaa, oli kone miten iso tahansa.
+  Tämä ohjelmiston raja tulee vastaan ennen laitteiston rajaa. Kaikki alueen mainitsevat kohdat
+  muutetaan yhdessä (deploy-palvelin, palvelinpaketin palomuurisäännöt ja sallittujen lista,
+  palveluntarjoajan palomuuri ja ohjeet), ja uudet metsästysportit tulevat 8770:n alapuolelle, kunnes
+  oma DLL osaa erottaa pysyvät palvelimet. *Valmis, kun:* palvelimella pyörii yli 6 metsästystä
+  kerralla, ja sallittujen lista avaa uudet portit vain kirjautuneille pelaajille.
+- **4.14 PostgreSQL ennen mitään julkista julkaisua.** *Mitä:* metagame siirretään SQLitestä
+  hallinnoituun PostgreSQL-tietokantaan samalla alueella kuin pelipalvelin, eikä siihen pääse
+  internetistä. SQLite ei riitä isommalle joukolle: siihen voi kirjoittaa vain yksi kerrallaan,
+  `better-sqlite3` on synkroninen ja pysäyttää Noden tapahtumasilmukan jokaisen kyselyn ajaksi, ja
+  tietokanta on yksi tiedosto yhdellä koneella. Mukana ovat Drizzlen `pg`-murre, asynkroniset
+  transaktiot, vain lisäyksen sallivat laukaisimet (triggers), JSON-sarakkeet `jsonb`-muotoon,
+  kertaluonteinen kopiointityökalu sekä palveluntarjoajan päivittäiset varmuuskopiot ja oma
+  öinen salattu kopio toisaalle. Ei aloitettu, eikä sitä tarvita kaveripalvelinta varten.
+  *Valmis, kun:* kopiointityökalulla siirretty oikea tietokanta antaa samat tilit, hahmot, tavarat ja
+  etenemisen, koko pelikerta (kirjautuminen, Ramsgate, metsästys, tallennus) toimii PostgreSQL:llä,
+  tietokanta ei ota yhteyksiä internetistä, ja öinen kopio palautuu toiselle koneelle.
+- **4.15 Nimenvaihdon toinen osa**, ensimmäisen kaveritestin jälkeen. *Mitä:* kansioiden nimet,
+  `/undaunted/api`-reitit ja `x-undaunted-*`-otsakkeet (vanhat nimet jäävät rinnakkaisnimiksi),
+  asetusten ja datatiedostojen Undaunted-nimet (esimerkiksi tietokantatiedosto `undaunted.db`),
+  JWT-tunnisteiden myöntäjä (issuer) ja palvelinpaketin asennuskansiot. Alkuperäisen projektin valmiisiin
+  DLL-tiedostoihin kiinteästi kirjoitetut nimet jäävät, ellemme käännä omia DLL-tiedostoja, ja kiitokset
+  Undauntedille jäävät aina. *Valmis, kun:* uusi asennus ja päivitetty palvelin toimivat uusilla
+  nimillä, ennen muutosta tehty käynnistin toimii yhä rinnakkaisnimien kautta, ja jäljelle jäävät vain
+  kiitokset ja valmiiden DLL-tiedostojen tarvitsemat nimet.
+- **4.16 Käynnistimen allekirjoitus** (esimerkiksi Azure Trusted Signing). *Mitä:* julkaisutyönkulku
+  allekirjoittaa asennusohjelman ja sovelluksen. Allekirjoittamattoman asennusohjelman SmartScreen
+  estää kokonaan koneilla, joilla tunnistamattomat sovellukset on asetettu estettäviksi: Suorita
+  silti -vaihtoehtoa ei ole. Siihen asti ohjeena on tarkistaa ladatun tiedoston SHA-256
+  `SHA256SUMS.txt`-tiedostoa vasten ja poistaa esto (Ominaisuudet > Poista esto, tai `Unblock-File`),
+  kuten sivulla [Liity kaverina]({{ friends_page.url | relative_url }}) kerrotaan. *Valmis, kun:*
+  julkaistu asennusohjelma näyttää vahvistetun julkaisijan ja asentuu koneelle, joka estää
+  tunnistamattomat sovellukset, ja asennetut käynnistimet päivittyvät yhä allekirjoitettuun versioon.
 
 ---
 
@@ -200,6 +318,10 @@ valinnainen, isompi työ.
   tarkistanut, säilyykö pöly.
 - Sulje peli vähintään kerran päivässä. Kirjautuminen vanhenee 24 tunnissa, ja sen jälkeen
   tallennukset voivat epäonnistua.
+- Ryhmät on rakennettu palvelimelle, mutta niitä kokeillaan ensimmäistä kertaa nyt alkavassa
+  testissä. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä näy paikalla
+  olevina.
+- Tekstichattia ei vielä ole. Käytä Discordia.
 
 ## Mitä ei voi palauttaa {#cant-come-back}
 

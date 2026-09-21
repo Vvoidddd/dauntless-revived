@@ -29,8 +29,25 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] First pursuit hunt played on our server (the tutorial pursuit, `CR19_PlayerHunt_FTUE_Pursuit_Beta_LeRawr`, 10:36 UTC). Its loot, Rams, quest steps and hunt counter were saved.
 - [x] Saved-data audit of every system (the table below), checked against the live database and the request log
 - [x] Real progression (Slayer level, mastery, the Hunt Pass with Elite for everyone) passed its in-game test on a throwaway account and is the default (2.8–2.12, 2.14, 2.15). Moving existing players over (2.13) is still open.
+- [x] The Windows Server 2019 kit runs on a real rented VPS in public mode (deployed 2026-09-21/22). Checked on the server: the stack starts at boot as the service account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup task runs.
+- [x] Launcher 0.1.0 published on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed.
+- [x] CI on every push: builds and tests of every package, the server kit's tests, the docs build, and a check that no secrets, keys, databases or game files are committed.
+- [x] Rebrand, part 1: everything players see says Dauntless Revived. Folders, API routes and headers keep the Undaunted names for now (part 2 is 4.15).
 
-## Where we are (2026-09-21, 10:50 UTC)
+## Where we are (updated 2026-09-22)
+
+> **Update, 2026-09-22:**
+> - **The Windows Server 2019 kit runs on a real rented VPS in public mode** (deployed 2026-09-21/22). Checked on the server: the stack starts at boot as the service account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup task runs.
+> - The real server found three things the sandbox tests couldn't, all fixed in the kit:
+>   - Windows limits a local account's description to 48 characters.
+>   - That image refuses S4U scheduled tasks for accounts that aren't administrators, so the service account's tasks now run with a stored random password.
+>   - The provider's image kept Windows Firewall off through policy values (`EnableFirewall=0` under `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`). The installer now removes them and checks the firewall store that is actually in effect; the change needs a restart.
+> - **Launcher 0.1.0 is published** on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed. It is not code-signed yet (4.16).
+> - **The first real test is in progress.** The owner registered through the launcher on the rented server and downloaded the game through the gateway. A two-player test with a friend (multiplayer and parties) is starting. Until it is done, nothing here claims that Ramsgate with two players, parties or hunts work over the internet.
+> - **Parties and the friends list (1.9): the server side is built** and passes the integration harness with simulated players. It has not been tried with two real game clients yet. Party invites don't require being friends. Showing friends as online needs the chat server (3.10), which isn't built.
+> - The live player list (`/undaunted/api/ServerStatus`) is shown to registered players only, and `/dauntless-status` no longer carries a player count.
+> - Rebrand, part 1: everything players see says Dauntless Revived. Folders, API routes and headers keep the Undaunted names for now (4.15).
+> - New items: performance logging and capacity measurement (4.12), more game-server ports (4.13), PostgreSQL before any public release (4.14), rebrand part 2 (4.15) and a code-signed launcher (4.16).
 
 > **Update, 2026-09-21 afternoon:**
 > - The owner played two real hunts (a Lesser Boreus hunt and a pursuit). The loot was saved: `CURRENCY_NOTES` went from 1,260 to 1,460 and `ORB_FROST` ×20 arrived.
@@ -43,14 +60,16 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 > - **Real progression is now the default.** `PROGRESSION_MODE` unset or empty means real for every account; `stub` keeps upstream's fake max ranks, and `PROGRESSION_REAL_ACCOUNTS` only matters in stub mode. Nothing is migrated: on a server that already had players, they start at Slayer level 1, and the metagame warns about them at startup. Self-hosters choose per account with the admin seed (grandfather or fresh) or stay on `stub`; see the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html).
 > - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
 
-- **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout.
-- **Friends can't connect yet.** Everything listens on this PC only, and parties and the friends list are fakes.
+The snapshot below is from 2026-09-21, 10:50 UTC. Where the updates above differ, they are newer.
+
+- **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout. *Update 2026-09-22: still the only player who has played; the first two-player test, on the rented server, is starting.*
+- **Friends can't connect yet.** Everything listens on this PC only, and parties and the friends list are fakes. *Update 2026-09-22: the rented server in public mode answers from the internet through its gateway, and parties and the friends list are built on the server side (1.9). No friend has played yet.*
 - **Some of what you earn is saved and some isn't.**
   - Saved: items, Rams, quests and gear.
   - Not saved: Slayer level, mastery, the Hunt Pass, bounties, daily timers and escalation. These are fakes that throw every save away. *Update: Slayer level, mastery and the Hunt Pass are saved with real progression, now the default (2.8–2.12, 2.14, 2.15, tested in game). Bounties and daily timers are stored too but not yet tried in the game (2.5, 2.6). Escalation is still a fake.*
-- **There is no backup.** Every save lives in one 140 KB file (`C:\dr\data\undaunted.db`). Database changes (migrations) run automatically each time the server starts, with no copy taken first.
+- **There is no backup.** Every save lives in one 140 KB file (`C:\dr\data\undaunted.db`). Database changes (migrations) run automatically each time the server starts, with no copy taken first. *Update: backups are automatic on this PC (0.1) and on the rented server (the kit's hourly task).*
 
-What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
+What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 | Kept | Thrown away |
 |---|---|
@@ -67,7 +86,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | System | Saves? | Notes |
 |---|---|---|
 | Account, login key, admin flag | Yes | Stored on disk. It survives a full restart: tested (0.3). A lost key can't be recovered (1.7). |
-| Username | Partly | It is saved but can't be changed, and two players can take the same name. Some responses send the name as `{}`. |
+| Username | Partly | It is saved but can't be changed, and two players can take the same name. Some responses send the name as `{}`. *Update: built (1.6): names are unique regardless of case, the admin can rename a player (account and characters together), and the display name is the stored name. Not yet seen by a second player in game.* |
 | Quests, story, tutorial, flags, appearance (character data) | Yes, solo | There were 14 save conflicts today. After each one the client read the data again and its retry succeeded within about a second, so the last write is in the database. *Checker: not proven lossless if the client and a server change the same value at the same moment. Not tested with two players.* |
 | Recent players; daily and weekly rotations (heroic queue, weekly challenges, cell offerings) | Probably | Stored inside the character data (the `RecentPlayers` key exists and is empty). Not checked in play. |
 | Materials, Rams (`CURRENCY_NOTES`), tokens | Yes | 39 stacks, including `CURRENCY_NOTES` ×1,260. A retried request could grant twice, and spending more than you own isn't refused (2.2). |
@@ -89,9 +108,9 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | Store | Broken | The item list returns 400 (15 times today). |
 | Mailbox | Always empty | |
 | Guild | No | |
-| Party, friends list | No, being built elsewhere | |
+| Party, friends list | No, being built elsewhere | *Update 2026-09-22: built on the server side (1.9). Friendships and blocks are saved in SQLite; parties and invites live in memory, so a metagame restart leaves everyone in a party of one. Tested with simulated players only.* |
 | Trials times, leaderboards, event stats | No | |
-| Backups | Yes, on this PC | *Update: hourly, plus around every start and stop, with a restore test passed (0.1). There are no copies off this PC yet (0.2).* |
+| Backups | Yes, on this PC | *Update: hourly, plus around every start and stop, with a restore test passed (0.1). There are no copies off this PC yet (0.2). The rented server takes its own hourly backups with the kit's task, which is running there.* |
 
 ### What to tell friends right now
 
@@ -99,6 +118,8 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 - Slayer level, weapon mastery and the Hunt Pass are saved (real progression is the default). Everyone starts at level 1 and owns the Elite Hunt Pass. Bounties are stored, but drafting and claiming them hasn't been tried in the game yet.
 - Don't break cells down into dust yet. Nobody has checked whether the dust is kept.
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
+- Parties are built on the server but are being tried for the first time in the test that is starting. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
+- There is no text chat yet. Use Discord.
 
 ---
 
@@ -110,11 +131,13 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | **M1** | Play together | 1–2 weeks of our own work, plus the parties work happening elsewhere |
 | **M2** | Everything you earn is saved | 3–5 weeks |
 | **M3** | The full game loop | many weeks; some parts are XL |
-| **M4** | Solid to run | 1–2 weeks |
+| **M4** | Solid to run | 1–2 weeks, plus the larger 4.10, 4.11 and 4.14 |
 
 **Order of work (after decision 2):** friends are invited only once M2 lands, so after M0 we build **M2 (everything you earn is saved)** first. That can be built and tested with the owner alone.
 **Parties (1.9)** are built alongside M2 and tested with a second account in a second game window on this PC. The rest of M1 (Tailscale, invite codes, usernames, the friend package) is prepared in parallel.
 **1.15 First friends night** waits until M2 is done.
+
+**Where the order stands (2026-09-22):** the first friends test runs on a rented Windows server in public mode (1.15, 1.17) and is in progress. Performance logging (4.12) is meant to take its first measurements during the first friends tests. Rebrand part 2 (4.15) comes after the first friends test. PostgreSQL (4.14) is needed before any public release, not for the friends server.
 
 **Rules for all milestones:**
 - Take the steps in order within a milestone. Steps from different milestones can overlap where their "Needs" allow it.
@@ -145,7 +168,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 0.1.
   - **Done when:** login works after the restart and the character version hasn't changed.
 
-- [ ] **0.4 Record what the game sends to the fake systems** (S) — *The capture is built (`LOG_BODIES=1`, `BODY_LOG_FILE`; bodies capped at 8 KB, tokens removed) and has been switched on since 2026-09-21. It fills during the next play session. Meanwhile the formats are being read from the binary.*
+- [ ] **0.4 Record what the game sends to the fake systems** (S) — *The capture is built (`LOG_BODIES=1`, `BODY_LOG_FILE`; bodies capped at 8 KB, 64 KB for `/inventory`, tokens removed) and has been switched on since 2026-09-21 on the owner's PC. It fills during the next play session. Meanwhile the formats are being read from the binary. It also records the party, friends and account-lookup calls. The Windows server kit keeps it off in public mode, so the rented server records nothing.*
   - **What:**
     - Behind a switch in `.env`, write the JSON body (up to 8 KB) of every request to the stubbed or missing save routes into a separate log. That covers `POST /progression*`, `POST /bounty*`, `PUT /cooldown*`, `POST /entitlementv2*`, `/escalation*` and `/loadout/*/unlock/*`.
     - Also log the query string of `GET /product/skus/public`.
@@ -161,7 +184,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 ### M1: Play together
 
-- [ ] **1.1 One-command start / stop / status** (S) — *`stack.ps1 status|start|stop|restart` works locally and keeps old logs; not yet packaged.*
+- [ ] **1.1 One-command start / stop / status** (S) — *`stack.ps1 status|start|stop|restart` works locally and keeps old logs; not yet packaged. **Update 2026-09-22:** the Windows server kit packages the same idea as `Stack.ps1` (start, stop, restart, status, with a backup before each start). On the rented server it starts the stack at boot as the service account, and Ramsgate comes up and sends heartbeats. The owner's PC still uses `C:\dr\tools\stack.ps1`.*
   - **What:** `C:\dr\tools\stack.ps1 start|stop|restart|status`.
     - **start:**
       1. Take a backup (0.1).
@@ -184,7 +207,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** no surprise reboot that drops everyone mid-hunt.
   - **Done when:** active hours cover your usual play time.
 
-- [ ] **1.3 Share the PC with friends over Tailscale** (S)
+- [ ] **1.3 Share the PC with friends over Tailscale** (S) — *Update 2026-09-22: not needed for the first friends test, which runs on the rented server in public mode (1.15, 1.17). Tailscale stays as the private mode; the kit's `-Mode Private` has not been run on a real server.*
   - **What:**
     - Install Tailscale. Share only this machine with each friend's own Tailscale account; don't add them to your tailnet.
     - Add inbound firewall rules limited to 100.64.0.0/10 on the Tailscale adapter: UDP 8770–8777 for the game exe and TCP 61000 for node. Today there are no inbound rules at all.
@@ -201,7 +224,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.3, and 1.5 must be done first.
   - **Done when:** a friend's client matchmakes into Ramsgate and the log shows their requests.
 
-- [ ] **1.5 Invite codes on** (S)
+- [ ] **1.5 Invite codes on** (S) — *Update 2026-09-22: built. The Windows server kit sets `REGISTRATION_MODE=INVITECODE`, and `New-Invite.ps1` creates, lists and revokes codes and prints the invite line. The username and the code are checked and spent in one transaction, and the unit tests cover a spent code and a taken name. The owner registered through the launcher with an invite on the rented server. A refused registration without a code has not been tried against that server.*
   - **What:**
     - Set `REGISTRATION_MODE=INVITECODE` in `.env`. Changing it through the admin API only lasts until restart (`undauntedapi.ts:13`).
     - Write `invite.ps1` to create single-use codes, list them and revoke them.
@@ -210,7 +233,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** only people you invite can make accounts.
   - **Done when:** registering without a valid code is refused, and a used code can't be used again.
 
-- [ ] **1.6 Usernames** (M) — *Owner request (2026-09-21): confirmed wanted before friends join.*
+- [ ] **1.6 Usernames** (M) — *Owner request (2026-09-21): confirmed wanted before friends join. **Update 2026-09-22:** built: 3–16 letters, digits and underscores, unique regardless of case, a "name available?" route, an admin rename that changes the account and its characters together, and the display name no longer sent as `{}`. The launcher's register screen uses these rules. Still to see: a renamed player's new name in game.*
   - **What:**
     - Names are 3–16 characters: letters, numbers and underscore.
     - Names are unique regardless of upper or lower case (a migration adds a unique index on the lowercase name).
@@ -236,13 +259,13 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** a friend who leaves the game open overnight in Ramsgate keeps what they earn afterwards.
   - **Done when:** on a test account with a 5-minute token, a save after 6 minutes either succeeds or fails with a logged 401. It must never be a silent 500.
 
-- [ ] **1.9 Parties and friends list** (L — contract fully mapped)
+- [ ] **1.9 Parties and friends list** (L — contract fully mapped) — *Update 2026-09-22: **the server side is built** and passes the integration harness with simulated players: party invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server, returning to Ramsgate together, account lookup by name, and the friends list and blocklist in SQLite. Party invites don't require being friends (a block in either direction stops them). **Not yet tried with two real game clients:** that is the two-player test starting now on the rented server. Friends' online status still needs the XMPP server (3.10), which isn't built.*
   - **What:** real parties (today a party is always "you, alone"), a friends list and blocklist (`GET /friends/api/public/{friends,blocklist}` return 404 today), and presence. The contract is mapped from the 1.4.4 client: parties, invites and the friends list are plain HTTP routes (party and invite state in memory, friendships and blocks in SQLite). Showing friends as **online** needs a small XMPP presence server (optional, 3.10). Build order: account-lookup fixes, the party and invite loop, putting the whole party on one hunt server, then friends. Test with a second account and a second client on this PC.
   - **You'll notice:** you can invite a friend and go into a hunt together on purpose.
   - **Stopgap until then:** friends who queue the same hunt within 20 seconds land on the same server, up to 4 players (`controllers/matchmaking.ts:72-108`).
   - **Done when:** at minimum, two friends form a party in Ramsgate and land in the same hunt.
 
-- [ ] **1.10 Cancelling matchmaking works** (S) — *Seen in play: "Unable to cancel matchmaking. A match has already been found." — the client sent `DELETE /candidate` and got 404.*
+- [ ] **1.10 Cancelling matchmaking works** (S) — *Seen in play: "Unable to cancel matchmaking. A match has already been found." — the client sent `DELETE /candidate` and got 404. **Update:** the cancel is built but off unless `MATCHMAKING_CANCEL=1`. In the logs the client sends `DELETE /candidate` 0.2–2.1 s after every queued join, also for hunts that were played to the end, so the upstream 404 stays the default until a session shows when the client really means it. `POST /candidate/player/alive` is answered.*
   - **What:**
     - `DELETE /candidate` should remove the player from the queue. It returned 404 once today.
     - Accept and track `POST /candidate/player/alive`, the game server's check on which expected players are still connected. It returned 404 3 times today.
@@ -250,7 +273,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** agree the design with 1.9. In live Dauntless, a matchmaking entry belonged to the party.
   - **Done when:** you queue, cancel within 20 seconds, and no hunt server starts.
 
-- [ ] **1.11 Other players show up correctly** (S–M)
+- [ ] **1.11 Other players show up correctly** (S–M) — *Update 2026-09-22: the lookups are built: `GET /account/api/public/account?accountId=…` returns a list, `/account/api/public/account/:id` returns the display name, and `/account/api/public/account/displayName/:name` finds a player by name. `/account/mapping` and `/character/batch/account` are not added. Not yet seen with two players in game.*
   - **What:**
     - `GET /account/api/public/account?accountId=…` looks up several players at once and returns a list.
     - `/account/api/public/account/:id` returns a display name.
@@ -259,7 +282,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.6. Overlaps 1.9.
   - **Done when:** two players in Ramsgate see each other's names and can inspect each other.
 
-- [ ] **1.12 Each friend's saves land on their own account** (S to test, M if it needs a fix)
+- [ ] **1.12 Each friend's saves land on their own account** (S to test, M if it needs a fix) — *Update 2026-09-22: to be checked in the two-player test starting on the rented server.*
   - **What:**
     - Several routes work out which player a save belongs to from the login token the game server passes along. These are `POST /character`, breadcrumbs, encountered content and progression.
     - With two players on one server, each player's own token has to reach the server. If it doesn't, that player's saves fail: `controllers/character.ts:91` crashes when the player is missing.
@@ -268,7 +291,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.4, and 1.9 (or two people queueing the same hunt).
   - **Done when:** two accounts play one hunt together. Both inventories get their loot, both characters' versions go up, and there are no 500 errors in the log.
 
-- [ ] **1.13 Source link for friends (AGPL)** (S) — *The repository is public today (GitHub makes forks of public repositories public).*
+- [ ] **1.13 Source link for friends (AGPL)** (S) — *The repository is public today (GitHub makes forks of public repositories public). **Update:** built: `/dauntless-status` carries `sourceUrl` and `commit` (the Windows server kit sets both at install), the launcher links the server's source from its server panel, and the friend kit's `SOURCE.txt` names the repository and commit. The `friends-v1` tag is not made yet.*
   - **What:**
     - The fork is pushed to github.com/mixutin/dauntless-revived. Make sure friends can see it, either by making it public or by inviting them.
     - Tag the version you run (`friends-v1`).
@@ -296,18 +319,19 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 - [ ] **1.15 First friends night** (S) — *Owner decision (2026-09-21): the first friends night runs on a **rented Windows Server with a public IP** (4.10) in **public mode** (1.17), not over Tailscale and not on the owner's PC.*
   - *Order: launcher (1.16) → public mode (1.17) with a permission audit → parties (1.9) → a rehearsal with two clients on the owner's PC through the public-mode path → the owner rents the server and enables key-only SSH (a one-time setup) → remote deployment and data migration → invites → friends night.*
+  - ***In progress, 2026-09-22:*** *the kit is deployed on a rented Windows Server 2019 VPS in public mode, the owner registered through the launcher there and downloaded the game through the gateway, and a two-player test with a friend (multiplayer and parties) is starting. Nothing is claimed about two players in Ramsgate, parties or hunts over the internet until that test is done.*
   - **What:**
-    - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory.
+    - Log `stack.ps1 status` into a CSV every minute: memory and CPU per server, and free memory. *Replaced by 4.12, which logs more and keeps the files under the server's logs folder.*
     - Afterwards, produce a report of errors, save conflicts, missing routes and killed servers.
     - Close WSL and other heavy programs while hosting.
   - **Watch out for:**
     - A hunt server shuts itself down after 50 seconds with nobody connected. A friend with a slow disk can arrive after it's gone (fixed in 4.6).
     - Don't close the black server console windows.
-  - **Capacity:** one Ramsgate plus up to 6 hunts of 4 players. About 8–12 friends online is comfortable on this PC.
+  - **Capacity:** one Ramsgate plus up to 6 hunts of 4 players (the port range, 4.13). About 8–12 friends online is comfortable on this PC; the rented server's limits are not measured yet (4.12).
   - **Needs:** 1.1 through 1.14 (1.9 is optional), and 1.16 for the friends test.
   - **Done when:** two or more friends played a hunt together and the report shows no lost saves.
 
-- [ ] **1.16 Friend launcher: a Windows app that installs everything and connects** (L) — *Owner request (2026-09-21): wanted for the friends test. Public source, no game files in it; the game files come from our own server.*
+- [ ] **1.16 Friend launcher: a Windows app that installs everything and connects** (L) — *Owner request (2026-09-21): wanted for the friends test. Public source, no game files in it; the game files come from our own server. **Update 2026-09-22:** built (`UndauntedLauncher/`, `UndauntedContent/`) and released: launcher 0.1.0 is on GitHub Releases, published by CI with `SHA256SUMS.txt` and a build provenance attestation, and installed launchers update from the `launcher-updates` feed. On the rented server the owner registered with it and downloaded the game through the gateway. Not yet: a friend going from nothing to Ramsgate with it. It is not code-signed (4.16).*
   - **Goal:** a friend installs one Windows app and presses **Register**, then **Download**, then **Launch**, and lands in Ramsgate with the graphics fix and everything else set up. The friend kit (1.14) stays as a fallback.
   - **Base:** fork upstream's `UndauntedLauncher/`, an Electron Windows app (AGPL) that already downloads the game, hash-checks it, extracts it and handles invite codes. It is hard-wired to Undaunted's CDN and `api.stayundaunted.com`. Replace those with our server, and add the parts below.
   - **What the launcher does:**
@@ -328,14 +352,14 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
     - It limits downloads per account and logs each one (account, file, bytes).
     - **Game files never go into the repository, GitHub Releases or any public URL.**
   - **Things to know:**
-    - An unsigned Windows app triggers SmartScreen ("Windows protected your PC" → More info → Run anyway). A code-signing certificate costs money; that's optional, for later.
+    - An unsigned Windows app triggers SmartScreen ("Windows protected your PC" → More info → Run anyway). A code-signing certificate costs money; that's optional, for later. *Update: on a PC set to block unrecognised apps, SmartScreen blocks the unsigned installer outright, with no Run anyway. Until the launcher is signed (4.16), check the file against `SHA256SUMS.txt` and unblock it (Properties > Unblock, or `Unblock-File`).*
     - Antivirus may flag the DLL proxy, as it can today.
     - Each friend's first download is about 10.9 GB, limited by the host's upload speed (about 30 minutes at 50 Mbit/s).
     - Sharing the files from our server is the same private-sharing choice as decision 9. It only replaces Google Drive.
   - **Needs:** 1.3 and 1.4 (Tailscale), 1.5 (invite codes), 1.6 (usernames for the register screen), 1.13 (source link, which the AGPL needs anyway).
   - **Done when:** a friend with only Tailscale and the launcher installer goes from nothing to Ramsgate through Register, Download and Launch. Also: the key never appears on screen or in a plain file; a deliberately corrupted game file is detected and repaired; and the content server refuses downloads without a valid account and can't be reached from outside Tailscale.
 
-- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode".*
+- [ ] **1.17 Public-IP mode: friends connect without Tailscale** (L) — *Owner request (2026-09-21): run the server on a public IP so friends need only the launcher and an invite. Tailscale stays as the "private mode". **Update 2026-09-22:** built (the launcher's relay, `UndauntedGateway/`, the allowlist helper and the kit's `-Mode Public`) and deployed on a rented Windows Server 2019 VPS. Checked there: the gateway answers from the internet with the pinned certificate, and the owner's launcher registered and downloaded the game through it. The deployment found three problems the sandbox couldn't, all fixed in the kit (the 48-character account description, S4U tasks refused for non-administrators, and the firewall kept off by policy values; see "Where we are"). Not yet verified on the rented server: a friend from another network playing a hunt, the packet capture, the refusal of admin and game-server-key requests from outside, and the UDP probe from an address that hasn't logged in.*
   - **Problem 1, no encryption:** the 1.4.4 client talks plain HTTP (the DLL builds `http://<address>/…`), so keys and login tokens would cross the internet readable.
     - **Fix:** a **local TLS relay inside the launcher**. The game talks to `http://127.0.0.1:61000` on the friend's own PC. The launcher forwards everything, including the chat WebSocket later, over **HTTPS** to the server.
     - **Certificate:** the server makes a self-signed one at install, and **its SHA-256 fingerprint travels in the invite link**. The relay only accepts that exact certificate, so no domain or CA is needed. With a domain, Let's Encrypt works too.
@@ -469,7 +493,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account.*
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account. **Update 2026-09-22:** the owner has registered that new account through the launcher on the rented server.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.
@@ -595,7 +619,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.5, 3.7.
   - **Done when:** one event runs start to finish and its currency and rewards are saved.
 
-- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.*
+- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — ***Status 2026-09-22: not built.** The first friends test runs without it; use Discord meanwhile. The friends list's online status waits for the same server.* *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.*
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
@@ -622,7 +646,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 
 ### M4: Solid to run
 
-- [ ] **4.1 Auto-restart and start at logon** (S)
+- [ ] **4.1 Auto-restart and start at logon** (S) — *Update 2026-09-22: the Windows server kit does this on the rented server. Its stack task starts everything at boot as the service account (session 0, checked there), and `Stack.ps1 supervise` restarts a crashed part after 5–60 seconds and gives up after 5 crashes in 10 minutes. The nightly Ramsgate restart is not built.*
   - **What:** `stack.ps1 supervise` restarts a crashed node process, waiting 5–60 seconds between tries and giving up after 5 crashes in 10 minutes. It runs from a hidden Task Scheduler task at logon. Also restart Ramsgate each night when nobody is online.
   - **Needs:** 1.1.
   - **Done when:** killing the metagame brings it back without you, and a reboot brings the stack back after logon.
@@ -676,10 +700,10 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Done when:** an upstream update is applied with one command and the smoke test passes.
 
 - [ ] **4.9 Capacity tuning** (S)
-  - **What:** from the friends-night CSVs, decide whether to allow more hunts, adding ports downwards and at most about 8 on this PC.
+  - **What:** from the friends-night CSVs, decide whether to allow more hunts, adding ports downwards and at most about 8 on this PC. *Update: the measurements now come from 4.12, and more ports are 4.13.*
   - **Done when:** there is a measured memory figure for a hunt server with 4 players fighting.
 
-- [ ] **4.10 Always-on host** (L, optional)
+- [ ] **4.10 Always-on host** (L, optional) — *Update 2026-09-22: a rented Windows Server 2019 VPS runs the stack in public mode, installed with the Windows server kit (`deploy/windows-server/`), not the Tailscale setup below. Done when friends have played on it while the owner's PC was off; that waits for the first real test (1.15).*
   - **What:** a Windows mini-PC or VPS with at least 8 GB RAM, 4 cores and about 15 GB of disk; no GPU needed. Same Tailscale sharing setup, so friends only change one address. A cheaper Linux host depends on 4.11.
   - **Why Windows:** the metagame and deploy server are Node.js and run anywhere. The game servers (Ramsgate and each hunt) are the Windows 1.4.4 client exe switched into server mode by the injected DLL. There is no Linux server build.
   - **Moving:** copy the latest backup (database, `.env` signing keys, `gameserver.key`) to the new host and install the hash-checked 1.4.4 files. Accounts, keys and saves come along. The owner then joins like a friend, with the friend kit and the owner key.
@@ -699,6 +723,56 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** nothing for step 1. It never touches the live server.
   - **Done when:** a client plays Ramsgate and one hunt on a Wine-hosted game server with loot saved, using no more than about 20% more RAM and CPU than on Windows. Or we have a written reason it can't work, and 4.10 stays Windows.
 
+- [ ] **4.12 Performance logging and capacity measurement** (M) — *Added 2026-09-22 at the owner's request, to stop guessing the server's limits. First measurements during the first friends tests.*
+  - **What:**
+    - A sampler that runs every 30–60 seconds and logs:
+      - for each game server: CPU (as a percentage of one core), memory, its type (Ramsgate, Dojo or hunt), its player count and when it started
+      - for the host: CPU, RAM, network, disk and the number of game-server instances
+      - for the metagame: request latency (p50 and p95), event-loop lag and time spent in the database
+    - Files rotated daily, under the server's logs folder. Counts only: no player names.
+    - A summary tool that reports what one hunt and one player in Ramsgate cost, and estimates how many players a given machine can host.
+  - **Why:** the only figures today are one player's, on the owner's PC (Ramsgate about 1.1 GB and 0.2 of a core, a hunt server about 0.9 GB). How many friends the rented server can carry is a guess.
+  - **You'll notice:** nothing in game. The host sees a machine filling up before the players do.
+  - **Needs:** nothing. It replaces the CSV in 1.15 and feeds 4.3, 4.9, 4.13 and 4.14.
+  - **Done when:** the logs from a friends session, run through the summary tool, give a measured cost per hunt and per Ramsgate player, and an estimate of how many players the rented server can host.
+
+- [ ] **4.13 More game-server ports** (S–M) — *Added 2026-09-22. This limit comes before the hardware one.*
+  - **What:** widen the game-server UDP range beyond 8770–8777. Today Ramsgate has 8777, the Training Dojo 8776, and hunts 8770–8775: at most 6 hunts at once, which is 24 hunting players however big the machine is.
+    - Everything that names the range moves together: the deploy server's `PORT_RANGE_BEGIN` and `PORT_RANGE_END`, the kit's firewall rules and the allowlist helper's `ALLOWLIST_PORTS`, the provider's firewall, and the docs.
+    - The prebuilt DLL treats every port from 8776 up as a persistent server with no idle shutdown (4.6), so until our own DLL has an explicit flag, new hunt ports go below 8770.
+  - **You'll notice:** a busy evening no longer stops at 6 hunts.
+  - **Needs:** 4.12, to know how many hunts the machine can actually carry.
+  - **Done when:** a server runs more than 6 hunts at once, and the allowlist opens the new ports only for players who logged in.
+
+- [ ] **4.14 PostgreSQL before any public release** (L) — *Added 2026-09-22. Not started, and not needed for the friends server.*
+  - **What:** move the metagame off SQLite to a managed PostgreSQL in the same region as the game server, never reachable from the internet.
+    - **Why SQLite stops scaling:** one writer at a time; `better-sqlite3` is synchronous, so every query blocks Node's event loop; and the database is one file on one machine.
+    - Drizzle's `pg` dialect, with async transactions.
+    - Keep the append-only triggers (the item log and the progression events).
+    - JSON columns become `jsonb`.
+    - A one-time copy tool from the SQLite file.
+    - Backups: the provider's daily backups plus our own nightly encrypted dump kept off-site.
+  - **You'll notice:** nothing, if it goes right.
+  - **Needs:** 0.1 (a backup right before the copy). 4.12 shows how much time goes to the database.
+  - **Done when:** a copy of a real database, moved with the copy tool, gives the same accounts, characters, inventories and progression; a full session (login, Ramsgate, a hunt, a save) works against PostgreSQL; the database refuses connections from the internet; and a nightly dump restores on another machine.
+
+- [ ] **4.15 Rebrand, part 2** (M) — *Added 2026-09-22. After the first friends test. Part 1 is done: everything players see says Dauntless Revived.*
+  - **What:** rename what still says Undaunted:
+    - the folder names (`UndauntedMetagame/` and the others)
+    - the `/undaunted/api` routes and the `x-undaunted-*` headers, keeping the old names as aliases so older launchers and servers keep working
+    - the Undaunted names in environment settings and data files (for example the database file `undaunted.db`)
+    - the JWT issuer (`undaunted-metagame`)
+    - the server kit's install layout
+  - **Stays:** names baked into upstream's prebuilt DLLs, unless we build our own DLLs (4.4, 4.5). The credits to Undaunted always stay.
+  - **Needs:** 1.15 done. A migration path for installed servers (the kit's update and restore) and for installed launchers.
+  - **Done when:** a fresh install and an updated server both run with the new names, a launcher from before the change still connects through the aliases, and the only Undaunted names left are the credits and what the prebuilt DLLs need.
+
+- [ ] **4.16 Code-sign the launcher** (S, plus a paid signing service) — *Added 2026-09-22.*
+  - **What:** sign the installer and the app in the release workflow, for example with Azure Trusted Signing.
+  - **Why:** SmartScreen blocks unsigned installers outright on PCs set to block unrecognised apps: there is no "Run anyway". On other PCs it asks first (More info > Run anyway).
+  - **Until then:** check the download's SHA-256 against `SHA256SUMS.txt` from the same release, then unblock the file (right-click > Properties > Unblock, or `Unblock-File` in PowerShell). [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html) and the launcher's README describe it.
+  - **Done when:** a released installer shows a verified publisher and installs on a PC that blocks unrecognised apps, and installed launchers still update to the signed version.
+
 ---
 
 ## Decisions only you can make
@@ -712,10 +786,10 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 5. **Hunt Pass season.** Stay on season09b, or research rebuilding 11b (XL). (2.15)
 6. **Store.** Items free, or priced in in-game currency. (3.7)
 7. **Our own reward values.** Bounty payouts, prices and other seasons' Hunt Pass rewards are lost. Anything we set is our design, not a restoration.
-8. **Repository.** Public, or private with friends invited. (1.13)
+8. **Repository.** Public, or private with friends invited. (1.13) ✅ **Public:** github.com/mixutin/dauntless-revived.
 9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). *Update, 2026-09-21: the owner wants the friend launcher (1.16) to download the files from our own server instead, behind Tailscale and an account. Drive stays as a fallback.* The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
 10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished.
-11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10) The game servers need Windows unless the Wine experiment (4.11) works.
+11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10) The game servers need Windows unless the Wine experiment (4.11) works. ✅ **Decided (1.15):** a rented Windows Server 2019 VPS in public mode, running since 2026-09-21/22.
 
 ## Unknowns, and the experiment that settles each
 
@@ -746,7 +820,8 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Does the event schedule use the UI event id or the hunt-table event id? | Try both on a test setup. | 3.9 |
 | Can the Trials schedule be overridden without the DLL hack? | Research `UTuningDataProvider.TableTuningJson`. | 3.8 |
 | How the client rejoins a hunt after a crash | Kill a test client mid-hunt and watch the log. | 3.12 |
-| Server memory with 4 players fighting; Ramsgate growth over long uptime | The friends-night CSV. | 1.15, 4.9 |
+| Server memory with 4 players fighting; Ramsgate growth over long uptime | The performance log from the first friends sessions. | 1.15, 4.9, 4.12 |
+| How many players the rented server can host | The summary tool, run over the performance log. | 4.12 |
 | Direct Tailscale path or relay, per friend | `tailscale ping` from each friend. | 1.3 |
 | Was the prebuilt DLL built from the published source? | Rebuild it and compare. | 4.4 |
 | Can the game servers run on Linux under Wine? | Start one game server in WSL with Wine against a test metagame, then connect a client. | 4.11 |
