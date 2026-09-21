@@ -650,9 +650,24 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Done when:** there is a measured memory figure for a hunt server with 4 players fighting.
 
 - [ ] **4.10 Always-on host** (L, optional)
-  - **What:** a Windows mini-PC or VPS with at least 8 GB RAM, 4 cores and about 15 GB of disk; no GPU needed. Same Tailscale sharing setup, so friends only change one address. Running it on Linux with Wine is XL research.
-  - **Needs:** 4.6 (endpoint hook) or a seeded `Game.ini`, plus 1.1 and 0.1.
+  - **What:** a Windows mini-PC or VPS with at least 8 GB RAM, 4 cores and about 15 GB of disk; no GPU needed. Same Tailscale sharing setup, so friends only change one address. A cheaper Linux host depends on 4.11.
+  - **Why Windows:** the metagame and deploy server are Node.js and run anywhere. The game servers (Ramsgate and each hunt) are the Windows 1.4.4 client exe switched into server mode by the injected DLL. There is no Linux server build.
+  - **Moving:** copy the latest backup (database, `.env` signing keys, `gameserver.key`) to the new host and install the hash-checked 1.4.4 files. Accounts, keys and saves come along. The owner then joins like a friend, with the friend kit and the owner key.
+  - **Needs:** 4.6 (endpoint hook) or a seeded `Game.ini`, plus 1.1 and 0.1. Size the machine from 4.9's measured 4-player figures.
   - **Done when:** friends can play while the owner's PC is off.
+
+- [ ] **4.11 Experiment: game servers on Linux with Wine** (M for the first test; XL if Wine misbehaves) — *Owner request (2026-09-21): check whether a cheaper Linux host could work.*
+  - **Why:** Linux VPSes are cheaper and have no Windows licence. Only the game servers are the problem; the Node services already run on Linux.
+  - **Step 1, free, on this PC:** in WSL Ubuntu, install Wine (64-bit). Copy the hash-checked 1.4.4 files to the Linux filesystem, not `/mnt/c`, which is slow. Start one game server by hand with the deploy server's arguments on a spare port, against a test metagame (never the live one), with `WINEDLLOVERRIDES="dxgi=n,b"` so the game folder's proxy `dxgi.dll` loads.
+    - Check that the DLL loads (its log output).
+    - Check that the UDP port is bound.
+    - Check for game-server calls (`gs=1`) and heartbeats in the test metagame's log.
+    - Compare RAM and CPU with Windows (Ramsgate: about 1.1 GB and 0.2 of a core).
+  - **Step 2:** a real client joins that server. From Windows into WSL2, UDP needs WSL's mirrored networking; otherwise use a small Linux VM or VPS on Tailscale. Load into Ramsgate and play one hunt.
+  - **Step 3, if it works:** a deploy-server option to start game servers through `wine`, for example a `GAMESERVER_LAUNCHER` setting. Then a full session: tutorial, Ramsgate, a hunt with loot saved.
+  - **Risks:** `UndauntedInternalServer.dll` hooks fixed addresses in the exe and overwrites engine globals. That doesn't depend on the OS, but it assumes Windows loader behaviour that Wine may not match. UE4 under Wine with `-nullrhi` is usually fine, but unproven for this build.
+  - **Needs:** nothing for step 1. It never touches the live server.
+  - **Done when:** a client plays Ramsgate and one hunt on a Wine-hosted game server with loot saved, using no more than about 20% more RAM and CPU than on Windows. Or we have a written reason it can't work, and 4.10 stays Windows.
 
 ---
 
@@ -670,7 +685,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 8. **Repository.** Public, or private with friends invited. (1.13)
 9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
 10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished.
-11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10)
+11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10) The game servers need Windows unless the Wine experiment (4.11) works.
 
 ## Unknowns, and the experiment that settles each
 
@@ -704,6 +719,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Server memory with 4 players fighting; Ramsgate growth over long uptime | The friends-night CSV. | 1.15, 4.9 |
 | Direct Tailscale path or relay, per friend | `tailscale ping` from each friend. | 1.3 |
 | Was the prebuilt DLL built from the published source? | Rebuild it and compare. | 4.4 |
+| Can the game servers run on Linux under Wine? | Start one game server in WSL with Wine against a test metagame, then connect a client. | 4.11 |
 | Which season was live for 1.4.4 | Search archived configs and community data. | 2.15 |
 | Can we recover if this PC's disk dies? | Restore the off-PC copy from 0.1 onto another machine and log in. (The server runs on the owner's own PC. Port 60000 is taken by the Shadow client app installed there, which is why we use 61000.) | 0.1 |
 
