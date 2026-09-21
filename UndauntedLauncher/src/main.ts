@@ -513,6 +513,8 @@ async function DownloadAndInstallUndaunted(){
 }
 
 function RunUndaunted(){
+  ApplyLegacyAirshipRenderingFix();
+
   const DauntlessProcess = spawn(
     path.join(DauntlessWin64Path!, "Dauntless-Win64-Shipping.exe"),
     [METAGAME_BASE_URL, `-AUTH_PASSWORD=${UndauntedUserAPIKey!}`, ...CONST_LAUNCH_ARGS],
@@ -520,6 +522,47 @@ function RunUndaunted(){
   );
 
   DauntlessPID = DauntlessProcess.pid!;
+}
+
+function ApplyLegacyAirshipRenderingFix(){
+  const LocalAppData = process.env.LOCALAPPDATA;
+  if(!LocalAppData){
+    return;
+  }
+
+  const ConfigDirectory = path.join(LocalAppData, "Archon", "Saved", "Config", "WindowsClient");
+  const EngineConfigPath = path.join(ConfigDirectory, "Engine.ini");
+  mkdirSync(ConfigDirectory, {recursive: true});
+
+  let EngineConfig = existsSync(EngineConfigPath) ? readFileSync(EngineConfigPath, "utf8") : "";
+  const Lines = EngineConfig.replace(/\r\n/g, "\n").split("\n");
+  const SystemSettingsStart = Lines.findIndex((Line) => Line.trim().toLowerCase() === "[systemsettings]");
+
+  if(SystemSettingsStart === -1){
+    if(EngineConfig.length > 0 && !EngineConfig.endsWith("\n")){
+      EngineConfig += "\n";
+    }
+    EngineConfig += "\n[SystemSettings]\nr.EyeAdaptationQuality=0\n";
+  }
+  else{
+    let SystemSettingsEnd = Lines.findIndex((Line, Index) => Index > SystemSettingsStart && /^\s*\[.+\]\s*$/.test(Line));
+    if(SystemSettingsEnd === -1){
+      SystemSettingsEnd = Lines.length;
+    }
+
+    const ExistingSetting = Lines.findIndex((Line, Index) =>
+      Index > SystemSettingsStart && Index < SystemSettingsEnd && /^\s*r\.EyeAdaptationQuality\s*=/i.test(Line)
+    );
+    if(ExistingSetting === -1){
+      Lines.splice(SystemSettingsStart + 1, 0, "r.EyeAdaptationQuality=0");
+    }
+    else{
+      Lines[ExistingSetting] = "r.EyeAdaptationQuality=0";
+    }
+    EngineConfig = Lines.join("\n");
+  }
+
+  writeFileSync(EngineConfigPath, EngineConfig, "utf8");
 }
 
 function StopUndaunted(){

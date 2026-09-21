@@ -188,6 +188,20 @@ temporal anti-aliasing softens the image a little at any setting.
 `-Graphics -1` keeps only the memory lines and lets the menu decide. At Cinematic and 1920x1080, the
 client uses 1.9-2.3 GB of RAM, so the low caps were never needed for 1.4.4.
 
+### Airship is extremely dark with blown-out windows
+
+**Symptom.** The hunt UI looks normal, but the pre-hunt airship cabin is nearly black while its
+windows are solid white. It can vary between hunts because the lobby previews the hunt atmosphere.
+
+**Cause.** Dauntless 1.4.4's histogram eye adaptation can react badly to the airship's unusually
+large brightness range on current graphics drivers. This is a post-processing problem, not missing
+textures or an incorrect hunt definition.
+
+**Fix.** The launcher and `tools/play-local.ps1` now set `r.EyeAdaptationQuality=0` in the user's
+`Engine.ini`. Close every Dauntless client and launch it again for the setting to take effect. This
+only disables automatic exposure; resolution, texture quality, lighting assets, and hunt atmosphere
+selection remain unchanged.
+
 To see what is really being forced:
 
 ```powershell

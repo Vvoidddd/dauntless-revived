@@ -14,7 +14,11 @@ $systemSettings = @(
     'r.Streaming.PoolSize=3000',
     'r.Streaming.LimitPoolSizeToVRAM=1',
     'gc.TimeBetweenPurgingPendingKillObjects=10',
-    's.ForceGCAfterLevelStreamedOut=1'
+    's.ForceGCAfterLevelStreamedOut=1',
+    # The 1.4.4 airship mixes a dark interior with a very bright sky. Its
+    # histogram exposure can crush the cabin and blow out the windows on
+    # modern drivers at High/Epic post-process quality.
+    'r.EyeAdaptationQuality=0'
 )
 $qualityGroups = 'ViewDistance','AntiAliasing','Shadow','PostProcess','Texture','Effects','Foliage','Shading'
 if ($Graphics -ge 0) {
