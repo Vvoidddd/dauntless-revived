@@ -513,7 +513,7 @@ async function DownloadAndInstallUndaunted(){
 }
 
 function RunUndaunted(){
-  ApplyLegacyAirshipRenderingFix();
+  RestoreAutomaticExposureAndRedirectChat();
 
   const DauntlessProcess = spawn(
     path.join(DauntlessWin64Path!, "Dauntless-Win64-Shipping.exe"),
@@ -524,7 +524,7 @@ function RunUndaunted(){
   DauntlessPID = DauntlessProcess.pid!;
 }
 
-function ApplyLegacyAirshipRenderingFix(){
+function RestoreAutomaticExposureAndRedirectChat(){
   const LocalAppData = process.env.LOCALAPPDATA;
   if(!LocalAppData){
     return;
@@ -534,33 +534,12 @@ function ApplyLegacyAirshipRenderingFix(){
   const EngineConfigPath = path.join(ConfigDirectory, "Engine.ini");
   mkdirSync(ConfigDirectory, {recursive: true});
 
-  let EngineConfig = existsSync(EngineConfigPath) ? readFileSync(EngineConfigPath, "utf8") : "";
-  const Lines = EngineConfig.replace(/\r\n/g, "\n").split("\n");
-  const SystemSettingsStart = Lines.findIndex((Line) => Line.trim().toLowerCase() === "[systemsettings]");
-
-  if(SystemSettingsStart === -1){
-    if(EngineConfig.length > 0 && !EngineConfig.endsWith("\n")){
-      EngineConfig += "\n";
-    }
-    EngineConfig += "\n[SystemSettings]\nr.EyeAdaptationQuality=0\n";
-  }
-  else{
-    let SystemSettingsEnd = Lines.findIndex((Line, Index) => Index > SystemSettingsStart && /^\s*\[.+\]\s*$/.test(Line));
-    if(SystemSettingsEnd === -1){
-      SystemSettingsEnd = Lines.length;
-    }
-
-    const ExistingSetting = Lines.findIndex((Line, Index) =>
-      Index > SystemSettingsStart && Index < SystemSettingsEnd && /^\s*r\.EyeAdaptationQuality\s*=/i.test(Line)
-    );
-    if(ExistingSetting === -1){
-      Lines.splice(SystemSettingsStart + 1, 0, "r.EyeAdaptationQuality=0");
-    }
-    else{
-      Lines[ExistingSetting] = "r.EyeAdaptationQuality=0";
-    }
-    EngineConfig = Lines.join("\n");
-  }
+  const RawConfig = existsSync(EngineConfigPath) ? readFileSync(EngineConfigPath) : Buffer.alloc(0);
+  const IsUtf16 = RawConfig.length >= 2 && RawConfig[0] === 0xff && RawConfig[1] === 0xfe;
+  let EngineConfig = IsUtf16 ? RawConfig.subarray(2).toString("utf16le") : RawConfig.toString("utf8");
+  // The old airship workaround disabled exposure in every map, making Ramsgate
+  // and night hunts too dark. Remove its old line instead of writing it again.
+  EngineConfig = EngineConfig.replace(/^[ \t]*r\.EyeAdaptationQuality[ \t]*=[ \t]*0[ \t]*$/gim, "").trimEnd();
 
   // Keep XMPP on the same private host as metagame. Even before a chat service
   // exists there, this prevents the 1.4.4 client from reconnecting to Epic.
@@ -568,7 +547,9 @@ function ApplyLegacyAirshipRenderingFix(){
   const WithoutOldXmpp = EngineConfig.replace(/^\[OnlineSubsystemMcp\.XMPP\][^\r\n]*(?:\r?\n(?!\[)[^\r\n]*)*/im, "").trimEnd();
   EngineConfig = `${WithoutOldXmpp}\n\n[OnlineSubsystemMcp.XMPP]\nServerAddr="ws://${ChatHost}"\nServerPort=61099\nbUseSSL=false\n`;
 
-  writeFileSync(EngineConfigPath, EngineConfig, "utf8");
+  writeFileSync(EngineConfigPath, IsUtf16
+    ? Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(EngineConfig, "utf16le")])
+    : EngineConfig, IsUtf16 ? undefined : "utf8");
 }
 
 function StopUndaunted(){

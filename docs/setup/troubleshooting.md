@@ -197,10 +197,11 @@ windows are solid white. It can vary between hunts because the lobby previews th
 large brightness range on current graphics drivers. This is a post-processing problem, not missing
 textures or an incorrect hunt definition.
 
-**Fix.** The launcher and `tools/play-local.ps1` now set `r.EyeAdaptationQuality=0` in the user's
-`Engine.ini`. Close every Dauntless client and launch it again for the setting to take effect. This
-only disables automatic exposure; resolution, texture quality, lighting assets, and hunt atmosphere
-selection remain unchanged.
+**Status.** The previous `r.EyeAdaptationQuality=0` workaround fixed the airship but made Ramsgate
+and night maps too dark. The launcher and `tools/play-local.ps1` now remove that global override on
+the next launch. Automatic exposure remains on. An opt-in Basic adaptive metering experiment is in
+[upstream PR #7](https://github.com/mixutin/dauntless-revived/pull/7); it still needs an in-game
+comparison of the airship, Ramsgate and a night hunt before it can be called a fix.
 
 To see what is really being forced:
 
