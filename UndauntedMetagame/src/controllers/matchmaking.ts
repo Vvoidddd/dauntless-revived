@@ -157,6 +157,32 @@ async function QueuePlayer(HuntId: string, PlayerId: string){
     return true;
 }
 
+// DELETE /candidate, only with MATCHMAKING_CANCEL=1 (see routes/matchmaking.ts). Upstream
+// had no route, so a cancel failed and the queue popped ~20 s later anyway. Takes the
+// player out of an unresolved queue (dropping it when empty) and forgets their result,
+// so /candidate/status can no longer answer IN_PROGRESS for them.
+export function CancelMatchmaking(PlayerId: string){
+    const PlayerMatchmakingResult = MatchmakingResultMap.get(PlayerId);
+
+    if(PlayerMatchmakingResult == undefined){
+        return undefined;
+    }
+
+    const MatchmakingQueue = MatchmakingQueueMap.get(PlayerMatchmakingResult.HuntId);
+
+    if(MatchmakingQueue != undefined && !MatchmakingQueue.Resolved){
+        MatchmakingQueue.Players = MatchmakingQueue.Players.filter((Player) => Player !== PlayerId);
+
+        if(MatchmakingQueue.Players.length === 0){
+            MatchmakingQueueMap.delete(PlayerMatchmakingResult.HuntId);
+        }
+    }
+
+    MatchmakingResultMap.delete(PlayerId);
+
+    return PlayerMatchmakingResult;
+}
+
 export async function HandlePlayerMatchmaking(GameMode: string, GameArgs: string, HuntId: string, PlayerId: string){
     if(MATCHMAKING_MODE === "DISABLED"){
         logger.warn("Matchmaking is disabled, refusing MM!");

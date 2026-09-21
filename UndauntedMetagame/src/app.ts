@@ -40,16 +40,18 @@ if (process.env.LOG_REQUESTS !== "0") {
 // request formats are only inferred from the client binary, and a wrong
 // response shape can crash the client, so we record what the game actually
 // sends before building on it. Off unless LOG_BODIES=1; one JSON object per
-// line in BODY_LOG_FILE (default ./bodies.log), bodies capped at 8 KB, with any
+// line in BODY_LOG_FILE (default ./bodies.log), bodies capped at 8 KB (64 KB for
+// /inventory, whose hunt-end batches decide INVENTORY_REFUSE_OVERSPEND), with any
 // token-shaped string removed from both the URL and the body.
-const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|balance|store)/;
+const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|balance|store|inventory)/;
 if (process.env.LOG_BODIES === "1") {
     const bodyLog = process.env.BODY_LOG_FILE || "bodies.log";
     app.use((req, _res, next) => {
         if (BODY_ROUTES.test(req.path)) {
             let body = "";
             try { body = redact(JSON.stringify(req.body ?? null)); } catch { body = "<unserialisable>"; }
-            if (body.length > 8192) body = body.slice(0, 8192) + "…<truncated>";
+            const cap = req.path.startsWith("/inventory") ? 65536 : 8192;
+            if (body.length > cap) body = body.slice(0, cap) + "…<truncated>";
             const line = JSON.stringify({
                 t: new Date().toISOString(),
                 method: req.method,

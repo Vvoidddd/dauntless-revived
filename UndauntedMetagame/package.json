@@ -8,7 +8,8 @@
     "dev": "tsx watch --env-file=.env src/server.ts",
     "build": "tsc",
     "start": "node --env-file=.env dist/server.js",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "test": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node --test \"build/test/**/*.test.js\""
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

@@ -3,6 +3,11 @@ import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth
 import { logger } from "../logger";
 import { AddEncounteredContent, GetBreadcrumbsForCharacterIdAndUserId, ProgressionError, QueryEncounteredContent, SetBreadcrumbsForCharacterIdAndUserId } from "../controllers/progression";
 import progressionConfig from "../vendor/progression_config.json";
+import { IsRealProgressionAccount } from "../controllers/progressionmode";
+import { ConfirmRank, GetObjectiveRecord, GetObjectiveRecords, GetTrackRecord, GetTrackRecords, GrantProgression, GrantProgressionInTrack, ResetTrack } from "../controllers/realprogression";
+import { CallerOf } from "../controllers/progressionevents";
+import { RealProgressionOnly, RefuseForeignPlayer, SendRealReply } from "../middleware/RealProgressionOnly";
+import { HasUndauntedAdminApiKey } from "../middleware/HasUndauntedAdminApiKey";
 
 // TODO: We will be gaining progression support very soon, but for now just a stub
 
@@ -149,6 +154,26 @@ progressionRouter.post("/encountered-content/:characterId", HasUndauntedMetagame
 progressionRouter.get("/progression/objectives/:userId", HasUndauntedMetagameAuth, (req: any, res) => {
     const RequestorAccountId = req.AuthData.userId;
 
+    // Real mode: every stored objective as a payload ARRAY (int code). The stub's
+    // payload object fails the client's array check, so it never had any objectives.
+    if(IsRealProgressionAccount(req.params.userId)){
+        if(RefuseForeignPlayer(req, res)){
+            return;
+        }
+
+        const Objectives = GetObjectiveRecords(req.params.userId);
+
+        logger.info(`Objective progression fetched for userId ${req.params.userId}: ${Objectives.length} objective(s)`);
+
+        res.status(200);
+        res.json({
+            code: 200,
+            message: "OK",
+            payload: Objectives
+        });
+        return;
+    }
+
     logger.info(`Objective progression fetched for userId ${RequestorAccountId}`);
     
     res.status(200);
@@ -166,6 +191,24 @@ progressionRouter.get("/progression/objectives/:userId", HasUndauntedMetagameAut
 
 progressionRouter.get("/progression/objectives/:userId/:objectiveId", HasUndauntedMetagameAuth, (req: any, res) => {
     const RequestorAccountId = req.AuthData.userId;
+
+    // Real mode: the stored objective, or zeros. The client asks for each objective of
+    // a grant and raises the "objective updated" event for every answer it gets.
+    if(IsRealProgressionAccount(req.params.userId)){
+        if(RefuseForeignPlayer(req, res)){
+            return;
+        }
+
+        logger.info(`Objective ${req.params.objectiveId} fetched for userId ${req.params.userId}`);
+
+        res.status(200);
+        res.json({
+            code: "OK",
+            message: "OK",
+            payload: GetObjectiveRecord(req.params.userId, req.params.objectiveId)
+        });
+        return;
+    }
 
     logger.info(`Objective progression fetched for userId ${RequestorAccountId}`);
     
@@ -233,14 +276,119 @@ progressionRouter.post("/breadcrumbs/:characterId", HasUndauntedMetagameAuth, as
 progressionRouter.post("/progression/:userId", HasUndauntedMetagameAuth, (req: any, res) => {
     const RequestorAccountId = req.params.userId;
     
+    // Real mode: store the grant and objectives, answer with the new totals. The pop
+    // that made upstream answer 400 came from never storing objectives: every
+    // successful grant made the client re-read unchanged zeros and notify again.
+    if(IsRealProgressionAccount(RequestorAccountId)){
+        if(!req.AuthData.IsGameserver){
+            logger.warn(`Refusing progression grant for ${RequestorAccountId} from a player client`);
+            res.status(403);
+            res.send();
+            return;
+        }
+
+        SendRealReply(res, GrantProgression(RequestorAccountId, req.body, CallerOf(req)));
+        return;
+    }
+
     logger.info(`Progression set for userId ${RequestorAccountId} (stubbed)`);
     
     res.status(400); // TODO: Figure out how to properly grant progression. If this returns anything other than 400, we get the infinite mastery pop issue
     res.send();
 });
 
+// The routes below only exist for real-mode accounts (RealProgressionOnly); for
+// everyone else they fall through to the 404 they always got.
+
+// PROGRESSION_CONFIRM=off gives real-mode accounts the old 404 here (roadmap 2.12 runs
+// one session with confirm off to tell the two causes of the mastery pop apart)
+function ConfirmOn(req: any, res: any, next: any){
+    next(process.env.PROGRESSION_CONFIRM === "off" ? "route" : undefined);
+}
+
+progressionRouter.post("/progression/:userId/:progressionId/:rank/confirm/:kind", RealProgressionOnly, ConfirmOn, HasUndauntedMetagameAuth, (req: any, res) => {
+    if(!req.AuthData.IsGameserver){
+        logger.warn(`Refusing rank confirm for ${req.params.userId} from a player client`);
+        res.status(403);
+        res.send();
+        return;
+    }
+
+    SendRealReply(res, ConfirmRank(req.params.userId, req.params.progressionId, req.params.rank, req.params.kind, CallerOf(req)));
+});
+
+progressionRouter.post("/progression/:userId/:progressionId/:amount", RealProgressionOnly, HasUndauntedMetagameAuth, (req: any, res) => {
+    if(!req.AuthData.IsGameserver){
+        logger.warn(`Refusing progression grant in ${req.params.progressionId} for ${req.params.userId} from a player client`);
+        res.status(403);
+        res.send();
+        return;
+    }
+
+    SendRealReply(res, GrantProgressionInTrack(req.params.userId, req.params.progressionId, req.params.amount, CallerOf(req)));
+});
+
+progressionRouter.get("/progression/:userId/:progressionId", RealProgressionOnly, HasUndauntedMetagameAuth, (req: any, res) => {
+    if(RefuseForeignPlayer(req, res)){
+        return;
+    }
+
+    const Track = GetTrackRecord(req.params.userId, req.params.progressionId);
+
+    if(Track == undefined){
+        res.status(404);
+        res.send();
+        return;
+    }
+
+    res.status(200);
+    res.json({
+        code: "OK",
+        message: "OK",
+        payload: Track
+    });
+});
+
+// Resets one track. The game server only sends it from a debug command, so it needs
+// an admin key (x-undaunted-user-api-key), or PROGRESSION_ALLOW_DELETE=1 for game servers.
+progressionRouter.delete("/progression/:userId/:progressionId", RealProgressionOnly, async (req: any, res) => {
+    if(req.headers["x-undaunted-user-api-key"] !== undefined){
+        await HasUndauntedAdminApiKey(req, res, () => SendRealReply(res, ResetTrack(req.params.userId, req.params.progressionId, "admin")));
+        return;
+    }
+
+    await HasUndauntedMetagameAuth(req, res, () => {
+        if(!req.AuthData.IsGameserver || process.env.PROGRESSION_ALLOW_DELETE !== "1"){
+            logger.warn(`Refusing reset of track ${req.params.progressionId} of ${req.params.userId}: needs an admin key, or PROGRESSION_ALLOW_DELETE=1 for game servers`);
+            res.status(403);
+            res.send();
+            return;
+        }
+
+        SendRealReply(res, ResetTrack(req.params.userId, req.params.progressionId, CallerOf(req)));
+    });
+});
+
 progressionRouter.get("/progression/:userId", HasUndauntedMetagameAuth, (req: any, res) => {
     const RequestorAccountId = req.AuthData.userId;
+
+    // Real mode: every configured track, stored or at 0, with phx_account_id = the URL
+    // account (the stub uses the token's user, which a game server may not carry)
+    if(IsRealProgressionAccount(req.params.userId)){
+        if(RefuseForeignPlayer(req, res)){
+            return;
+        }
+
+        logger.info(`Progression fetched for userId ${req.params.userId}`);
+
+        res.status(200);
+        res.json({
+            code: 200,
+            message: "OK",
+            payload: GetTrackRecords(req.params.userId)
+        });
+        return;
+    }
 
     // TODO: Impl proper progression. Right now this is the minimum to not block the Boreal crafting reqs
 

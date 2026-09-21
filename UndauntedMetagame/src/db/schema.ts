@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
     userId: text("userId").notNull().primaryKey(),
@@ -66,4 +66,171 @@ export const invitecodes = sqliteTable("invitecodes", {
     inviteCode: text("invitecode").notNull().primaryKey(),
     usesRemaining: integer("usesRemaining").notNull(),
     infiniteUses: integer("infiniteUses", {mode: "boolean"}).notNull()
+});
+
+// Result of every applied inventory transaction, so a retried request gets the
+// stored answer instead of running twice. Keyed by the request body as well as
+// the id: only an identical request is a retry.
+export const inventorytransactions = sqliteTable("inventorytransactions", {
+    id: integer("id").notNull().primaryKey({autoIncrement: true}),
+    transactionId: text("transactionId").notNull(),
+    characterId: text("characterId").notNull(),
+    userId: text("userId").notNull(),
+    requestHash: text("requestHash").notNull(),
+    status: integer("status").notNull(),
+    response: text("response").notNull(),
+    createdDate: text("createdDate").notNull()
+}, (table) => [
+    uniqueIndex("inventorytransactions_character_transaction_request").on(table.characterId, table.transactionId, table.requestHash)
+]);
+
+// Append-only log of every item change (triggers in the migration refuse UPDATE and DELETE)
+export const inventorylog = sqliteTable("inventorylog", {
+    id: integer("id").notNull().primaryKey({autoIncrement: true}),
+    time: text("time").notNull(),
+    userId: text("userId").notNull(),
+    characterId: text("characterId").notNull(),
+    transactionId: text("transactionId"),
+    source: text("source"),
+    caller: text("caller").notNull(),
+    operation: text("operation").notNull(),
+    catalogId: text("catalogId"),
+    instanceId: text("instanceId"),
+    quantityChange: integer("quantityChange"),
+    quantityAfter: integer("quantityAfter"),
+    updateVersion: integer("updateVersion")
+}, (table) => [
+    index("inventorylog_character").on(table.characterId, table.id)
+]);
+
+// Saved versions of each character's data blob (what is kept: controllers/savehistory.ts)
+export const characterhistory = sqliteTable("characterhistory", {
+    id: integer("id").notNull().primaryKey({autoIncrement: true}),
+    characterId: text("characterId").notNull(),
+    userId: text("userId").notNull(),
+    updateVersion: integer("updateVersion").notNull(),
+    name: text("name").notNull(),
+    data: text("data").notNull(),
+    savedDate: text("savedDate").notNull(),
+    reason: text("reason").notNull()
+}, (table) => [
+    index("characterhistory_character").on(table.characterId, table.id)
+]);
+
+// Saved versions of each character's loadouts, kept like characterhistory. Loadouts carry no
+// row version of their own, so version is a per-character counter.
+export const loadouthistory = sqliteTable("loadouthistory", {
+    id: integer("id").notNull().primaryKey({autoIncrement: true}),
+    characterId: text("characterId").notNull(),
+    userId: text("userId").notNull(),
+    version: integer("version").notNull(),
+    loadouts: text("loadouts").notNull(),
+    persistent: text("persistent").notNull(),
+    savedDate: text("savedDate").notNull(),
+    reason: text("reason").notNull()
+}, (table) => [
+    index("loadouthistory_character").on(table.characterId, table.id)
+]);
+
+// Real progression. Only accounts in real mode (PROGRESSION_MODE /
+// PROGRESSION_REAL_ACCOUNTS) read or write the tables below; everyone else
+// keeps the upstream stubs.
+
+// One row per account and track. progress is the total XP; the earned ranks are
+// worked out from vendor/progression_config.json exactly like the client does.
+export const progresstracks = sqliteTable("progress_tracks", {
+    accountId: text("accountId").notNull(),
+    progressionId: text("progressionId").notNull(),
+    progress: integer("progress").notNull(),
+    confirmedFreeRank: integer("confirmedFreeRank").notNull(),
+    confirmedPremiumRank: integer("confirmedPremiumRank").notNull(),
+    confirmedDate: text("confirmedDate").notNull(),
+    updatedDate: text("updatedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.progressionId]})
+]);
+
+// Objective state exactly as the game server last sent it
+export const objectives = sqliteTable("objectives", {
+    accountId: text("accountId").notNull(),
+    objectiveId: text("objectiveId").notNull(),
+    progress: integer("progress").notNull(),
+    completedCount: integer("completedCount").notNull(),
+    createdDate: text("createdDate").notNull(),
+    lastModifiedDate: text("lastModifiedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.objectiveId]})
+]);
+
+// Append-only audit of every real-mode write: the raw request body and our reply
+// (triggers in the migration refuse UPDATE and DELETE)
+export const progressionevents = sqliteTable("progression_events", {
+    id: integer("id").notNull().primaryKey({autoIncrement: true}),
+    time: text("time").notNull(),
+    accountId: text("accountId").notNull(),
+    caller: text("caller").notNull(),
+    route: text("route").notNull(),
+    body: text("body"),
+    status: integer("status").notNull(),
+    reply: text("reply"),
+    note: text("note")
+}, (table) => [
+    index("progression_events_account").on(table.accountId, table.id)
+]);
+
+export const huntpassselection = sqliteTable("huntpassselection", {
+    accountId: text("accountId").notNull().primaryKey(),
+    progressionId: text("progressionId").notNull(),
+    updatedDate: text("updatedDate").notNull()
+});
+
+// duration is in hours, 0 = permanent. A revoked row is kept (revokedDate set) so
+// a revoked default entitlement is not handed out again.
+export const entitlements = sqliteTable("entitlements", {
+    accountId: text("accountId").notNull(),
+    name: text("name").notNull(),
+    activatedDate: text("activatedDate").notNull(),
+    duration: integer("duration").notNull(),
+    source: text("source").notNull(),
+    grantedDate: text("grantedDate").notNull(),
+    revokedDate: text("revokedDate")
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.name]})
+]);
+
+// startedDate is the ISO-8601 string exactly as the game server sent it
+export const cooldowns = sqliteTable("cooldowns", {
+    accountId: text("accountId").notNull(),
+    cooldownId: text("cooldownId").notNull(),
+    startedDate: text("startedDate").notNull(),
+    updatedDate: text("updatedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.cooldownId]})
+]);
+
+// data is the bounty element JSON as the game server sent it
+export const bounties = sqliteTable("bounties", {
+    accountId: text("accountId").notNull(),
+    bountyId: text("bountyId").notNull(),
+    slotIndex: integer("slotIndex"),
+    updateVersion: integer("updateVersion").notNull(),
+    data: text("data").notNull(),
+    updatedDate: text("updatedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.bountyId]})
+]);
+
+export const bountydraft = sqliteTable("bountydraft", {
+    accountId: text("accountId").notNull().primaryKey(),
+    data: text("data").notNull(),
+    updatedDate: text("updatedDate").notNull()
+});
+
+// Unlocked character loadout slots and the active slot. No row = 1 slot, slot 0.
+export const loadoutslots = sqliteTable("loadoutslots", {
+    characterId: text("characterId").notNull().primaryKey(),
+    userId: text("userId").notNull(),
+    numCharacterSlots: integer("numCharacterSlots").notNull(),
+    activeIndex: integer("activeIndex").notNull(),
+    updatedDate: text("updatedDate").notNull()
 });

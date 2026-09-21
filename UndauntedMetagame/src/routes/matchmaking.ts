@@ -1,9 +1,44 @@
 import { Router } from "express";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import { logger } from "../logger";
-import { CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } from "../controllers/matchmaking";
+import { CancelMatchmaking, CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } from "../controllers/matchmaking";
 
 export const matchmakingRouter = Router();
+
+// MISC_ROUTES=0 puts back the 404 /candidate/player/alive had since upstream
+function MiscRoutesOn(req: any, res: any, next: any){
+    next(process.env.MISC_ROUTES === "0" ? "route" : undefined);
+}
+
+// Off unless MATCHMAKING_CANCEL=1: the client sends DELETE /candidate 0.2-2.1 s after
+// every queued /candidate/join in the logs (4 of 4 hunts, all played to the end), and
+// those hunts only started because the cancel 404'd and the queue popped anyway.
+// Until a session shows when the client really means it, it keeps the upstream 404.
+function CancelOn(req: any, res: any, next: any){
+    next(process.env.MATCHMAKING_CANCEL === "1" ? undefined : "route");
+}
+
+// The client's cancel. Its reply is only logged by the client; any JSON object works.
+matchmakingRouter.delete("/candidate", CancelOn, HasUndauntedMetagameAuth, (req: any, res) => {
+    const UserId = req.AuthData.userId;
+    const Cancelled = typeof UserId === "string" ? CancelMatchmaking(UserId) : undefined;
+
+    logger.info(Cancelled != undefined ? `userId ${UserId} cancelled matchmaking for ${Cancelled.HuntId}${Cancelled.Ready ? " (a server was already assigned)" : ""}` : `userId ${UserId} cancelled matchmaking but was not queued`);
+
+    res.status(200);
+    res.json({});
+});
+
+// A hunt server waiting for its players asks which ones it should still expect.
+// Echoing its own list changes nothing (a same-length list is ignored).
+matchmakingRouter.post("/candidate/player/alive", MiscRoutesOn, HasUndauntedMetagameAuth, (req: any, res) => {
+    const PlayerIds = Array.isArray(req.body?.playerIds) ? req.body.playerIds.filter((Id: unknown) => typeof Id === "string") : [];
+
+    res.status(200);
+    res.json({
+        expectedPlayerIds: PlayerIds
+    });
+});
 
 const QOS_TARGET_URL = process.env.QOS_TARGET_URL;
 const TARGET_CHANGELIST = process.env.TARGET_CHANGELIST;

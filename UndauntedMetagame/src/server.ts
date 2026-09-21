@@ -3,6 +3,7 @@ import { DrainAndRegisterAPIKeys } from "./controllers/apikeys";
 import { DrainAndRegisterUserAPIKeys } from "./controllers/auth";
 import { GetDb } from "./db";
 import { logger } from "./logger";
+import { DescribeProgressionMode } from "./controllers/progressionmode";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -18,15 +19,16 @@ DrainAndRegisterAPIKeys().then(async () => {
 
   // Express 5 hands bind failures to this callback. Upstream ignored the
   // argument and announced success anyway, so a port already taken by another
-  // program (on a Shadow PC, ShadowUSB owns 127.0.0.1:60000) printed "Clear
-  // Skies" and then the process quietly exited, leaving clients connected to
-  // the wrong program and hanging forever.
+  // program (ShadowUSB, part of the Shadow client app on the host PC, listens
+  // on 127.0.0.1:60000) printed "Clear Skies" and then the process quietly
+  // exited, leaving clients connected to the wrong program and hanging forever.
   app.listen(PORT, BIND_HOST, (err?: Error) => {
     if (err) {
       logger.fatal(`Could not listen on ${BIND_HOST}:${PORT}: ${err.message}`);
       process.exit(1);
     }
     logger.info(`Undaunted Metagame on ${BIND_HOST}:${PORT}`);
+    logger.info(`Progression mode: ${DescribeProgressionMode()}`);
     logger.info(`Clear Skies, Slayer.`);
   });
 });

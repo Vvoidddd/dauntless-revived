@@ -71,6 +71,20 @@
       "when": 1783299942758,
       "tag": "0009_nice_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1789991294333,
+      "tag": "0010_save_history_and_item_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1789993643640,
+      "tag": "0011_real_progression",
+      "breakpoints": true
     }
   ]
 }
