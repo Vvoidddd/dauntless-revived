@@ -91,10 +91,10 @@
     eteneminen tallentuvat tietokantaan. Ne säilyvät, vaikka palvelin käynnistetään uudelleen, ja niistä
     otetaan varmuuskopio tunnin välein. Myös Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja
     Hunt Pass (Elite-passi kaikille) tallentuvat: oikea eteneminen on oletuksena päällä, ja se läpäisi
-    pelitestin kertakäyttöisellä testitilillä. Palkkiotehtävät (bounties) ja päivittäiset rajoitukset
-    tallentuvat, mutta niitä ei ole vielä kokeiltu pelissä kokonaan, eikä Escalation tallennu. Loput
-    kaiken ansaitun tallentamisesta on välitavoite M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista
-    töistä).
+    pelitestin kertakäyttöisellä testitilillä (hirviöiden mestaruutta ei ole vielä nähty pelissä).
+    Palkkiotehtävät (bounties) ja päivittäiset rajoitukset tallentuvat, mutta niitä ei ole vielä
+    kokeiltu pelissä kokonaan, eikä Escalation tallennu. Muiden asioiden tallentaminen kuuluu
+    välitavoitteeseen M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista töistä).
 
 - id: mika-on-undaunted
   q: "Mikä on Undaunted, ja miten Dauntless Revived eroaa siitä?"

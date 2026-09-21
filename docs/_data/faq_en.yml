@@ -90,7 +90,7 @@
     Mostly. Items, materials, Rams, crafted gear, quests and story progress are saved in a database, survive
     restarts and are backed up every hour. Slayer level, weapon and behemoth mastery and the Hunt Pass
     (with the Elite pass for everyone) are saved too: real progression is on by default and passed an
-    in-game test on a throwaway account. Bounties and daily limits are stored but not fully tried in the
+    in-game test on a throwaway account (behemoth mastery has not been seen in the game yet). Bounties and daily limits are stored but not fully tried in the
     game yet, and escalation is not saved. The rest of "everything you earn is saved" is milestone M2 on
     the [roadmap](roadmap.md).
 

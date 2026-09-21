@@ -64,7 +64,7 @@ sitä on testattu yhdellä tietokoneella: omistaja on pelannut yksin.
 | Ramsgate | Toimii | Pysyvä Ramsgate-palvelin pyörii taustapalvelun rinnalla. Ramsgate on pelin keskuskaupunki. Opetusjakson jälkeen ja jokaisella myöhemmällä kirjautumisella pelaaja menee suoraan sinne. |
 | Metsästyspalvelimet | Toimii (yksin) | Deploy-palvelin käynnistää yhden pelipalvelimen jokaista metsästystä varten. Meidän kokoonpanossamme yksi pelaaja on pelannut opetusjakson metsästyksen, tavallisen metsästyksen (Lesser Boreus) ja takaa-ajon (pursuit). Undauntedin historian mukaan neljän pelaajan metsästykset ovat toimineet samalla peliversiolla, mutta me **emme ole vielä testanneet** metsästyksiä useamman kuin yhden pelaajan kanssa. |
 | Tavaroiden ja varustesarjojen tallennus | Toimii (yksin) | Materiaalit, Ramsit (pelin raha, todennäköisesti `CURRENCY_NOTES`-pino), valmistetut ja saadut varusteet, ensimmäinen varustesarja (loadout) sekä hahmon tiedot (tehtävien eteneminen, opetusjakson tila, liput, ulkonäkö) tallennetaan SQLite-tietokantaan. Metsästyksistä saatu saalis tallentuu. Tiedot säilyvät, vaikka peliohjelma tai koko palvelin käynnistetään uudelleen. Toistaiseksi tätä on testannut vain yksi pelaaja. |
-| Slayer-taso, mestaruus ja Hunt Pass | Toimii (yksin), oletuksena päällä | Oikea eteneminen (progression): Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (kauden palkintorata) alkavat nollasta ja tallentuvat. Jokaisella tilillä on Elite Hunt Pass, ja tasopalkinnot annetaan kerran. Testattu pelissä kertakäyttöisellä testitilillä, myös koko palvelimen uudelleenkäynnistyksen yli. `PROGRESSION_MODE=stub` palauttaa alkuperäisen projektin kiinteän tason 50. |
+| Slayer-taso, mestaruus ja Hunt Pass | Toimii (yksin), oletuksena päällä | Oikea eteneminen (progression): Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (kauden palkintorata) alkavat alusta (Slayer-taso 1) ja tallentuvat. Jokaisella tilillä on Elite Hunt Pass, ja tasopalkinnot annetaan kerran. Slayer-tasoa, aseiden mestaruutta ja Hunt Passia on testattu pelissä kertakäyttöisellä testitilillä, myös koko palvelimen uudelleenkäynnistyksen yli; hirviöiden mestaruus käyttää samaa tallennusta, mutta sitä ei ole vielä nähty pelissä. `PROGRESSION_MODE=stub` palauttaa alkuperäisen projektin kiinteän tason 50. |
 
 Palvelinkoneella (tietokone, jolla palvelin pyörii) mitattu kulutus oli: Ramsgate-palvelin noin 1,1 Gt
 keskusmuistia (RAM) ja noin 0,2 suoritinydintä, jokainen metsästyspalvelin noin 0,9 Gt, ja pelaajan
@@ -84,7 +84,8 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
   on yhä vain tynkä (paikanpitäjä, joka ei oikeasti tallenna mitään), joten sen eteneminen ei siirry
   pelikerrasta toiseen.
 - **Useat varustesarjat, oman käyttäjänimen valitseminen, tervetuloviesti ja postilaatikko,
-  kausitapahtumat sekä kauppa.**
+  kausitapahtumat sekä kauppa.** Oikean etenemisen kanssa varustesarjojen paikkojen avaukset
+  tallentuvat, mutta lisäpaikkoja ei ole vielä kokeiltu pelissä.
 
 [Tiekartassa]({{ roadmap_page.url | relative_url }}) on järjestys, jossa aiomme edetä, sekä oikeissa
 pelikerroissa nähdyt virheet. Kaikki ei voi palata. Äänichat toimi Vivoxilla, joka on maksullinen
@@ -120,7 +121,7 @@ ole versiossa 1.4.4.
 Tähänastiset muutoksemme Undauntediin ovat pieniä ja käytännöllisiä. Molemmat palvelut kuuntelevat
 nyt oletuksena vain koneen sisäisessä osoitteessa. Päällekkäinen portti on nyt selvä virhe, kun se
 ennen johti hiljaiseen sulkeutumiseen. Jokainen pyyntö kirjataan lokiin. Training Dojo (harjoitussali)
-käynnistyy vain silloin, kun sitä tarvitaan. Eteneminen on oletuksena oikeaa, kun alkuperäinen
+käynnistyy vain silloin, kun sitä tarvitaan. Eteneminen on oletuksena oikeaa, kun taas alkuperäinen
 projekti vastasi kiinteällä mallilla eikä tallentanut mitään. [Tiekartassa]({{ roadmap_page.url | relative_url }})
 luetellaan ne kaikki.
 

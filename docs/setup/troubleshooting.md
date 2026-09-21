@@ -384,7 +384,7 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 
 | Line | Seen | What it is |
 |---|---|---|
-| `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | 40+ | Upstream has no handler for unlocking a loadout slot. The game server (`gs=1`) sends it in bursts of retries, several within a few seconds, then again minutes later. Harmless; on the roadmap. |
+| `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | 40+ | Upstream has no handler for unlocking a loadout slot. The game server (`gs=1`) sends it in bursts of retries, several within a few seconds, then again minutes later. Harmless. Handled since real progression became the default (roadmap 2.4); a low-level account sends none, so you only see this line with `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14x | The client and the game server both save the character, with version numbers, and reject each other's writes. Each time, the side whose write was rejected (sometimes the client, sometimes the game server) re-read the character and wrote again within about a second, so the last write reached the database. Not yet proven lossless when both change the same value at once; on the roadmap. |
 | `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | No friends list yet; the game shows "0 ONLINE FRIENDS". |
 | `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |

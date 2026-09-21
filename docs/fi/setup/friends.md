@@ -358,10 +358,10 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit). Alkuperäinen Undaunted kertoo,
   että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman
   kuin yhden pelaajan kanssa.
-- Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat nollasta ja tallentuvat,
-  kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt Pass. Jos
-  palvelimella oli aiemmin vanhempi versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä:
-  kysy isännältä.
+- Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat alusta (Slayer-taso 1)
+  ja tallentuvat, kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt
+  Pass. Hirviöiden mestaruutta ei ole vielä nähty pelissä. Jos palvelimella oli aiemmin vanhempi
+  versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä: kysy isännältä.
 - Ryhmät (parties) ja kaverilista eivät vielä toimi: peli näyttää ”0 ONLINE FRIENDS”. Jos haluatte
   päästä samaan metsästykseen, jonottakaa siihen suunnilleen samaan aikaan. Matchmaker
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja

@@ -62,7 +62,8 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Tallentuu:** tavarat, materiaalit, Ramsit (pelin raha), valmistetut varusteet, tehtävät ja tarinan
   eteneminen. Oikean etenemisen myötä, joka on nyt oletuksena päällä, tallentuvat myös Slayer-taso,
   aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (Elite-passi kaikille). Se läpäisi
-  pelitestin kertakäyttöisellä testitilillä, myös uudelleenkäynnistyksen yli.
+  pelitestin kertakäyttöisellä testitilillä, myös uudelleenkäynnistyksen yli (hirviöiden mestaruutta
+  ei ole vielä nähty pelissä).
 - **Tallentuu, mutta ei vielä kokeiltu kokonaan pelissä:** palkkiotehtävät (bounties), päivittäiset
   ajastimet ja lisävarustesarjojen paikat.
 - **Ei vielä tallennu:** Escalation. Sille on toistaiseksi vain tynkä, joka heittää jokaisen
@@ -100,13 +101,16 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Epicin chat-palvelimen esto (0.5):** peli ei enää ota yhteyttä Epicin vanhaan chat-palvelimeen.
   90 sekuntia käynnistyksen jälkeen koneen ulkopuolelle ei ollut yhtään yhteyttä.
 - Tämä dokumentaatiosivusto on julkaistu.
+- **Oikea eteneminen (M2) on valmis ja oletuksena päällä:** Slayer-taso, mestaruus ja Hunt Pass
+  (Elite-passi kaikille) tallentuvat. Se läpäisi pelitestin kertakäyttöisellä testitilillä, myös koko
+  palvelinkokonaisuuden uudelleenkäynnistyksen yli.
 
 ## Työn alla {#in-progress}
 
-- **M2:n oikea eteneminen on valmis ja oletuksena päällä.** Se läpäisi pelitestin kertakäyttöisellä
-  testitilillä. Mitään ei siirretä automaattisesti: palvelimella, jolla oli jo pelaajia, he aloittavat
-  Slayer-tasolta 1, ellei ylläpitäjä anna heille maksimitasoja tai valitse vanhaa tynkää
-  (`PROGRESSION_MODE=stub`). Omalla palvelimellamme kaikki aloittavat alusta.
+- **Pelaajien siirto oikeaan etenemiseen (2.13).** Mitään ei siirretä automaattisesti: palvelimella,
+  jolla oli jo pelaajia, he aloittavat Slayer-tasolta 1, ellei ylläpitäjä anna heille maksimitasoja
+  tai valitse vanhaa tynkää (`PROGRESSION_MODE=stub`). Omalla palvelimellamme kaikki aloittavat
+  alusta. Tynkäaikana pelanneen tilin siirtoa tasolle 1 ei ole vielä kokeiltu pelissä.
 - **Pelin lähettämien tietojen tallennus (0.4)** on kytketty päälle. Se kerää seuraavalla
   pelikerralla, millaisia tallennuksia peli lähettää niille järjestelmille, jotka eivät vielä
   tallenna mitään. Näin tallennukset voidaan rakentaa oikeassa muodossa eikä arvailemalla.

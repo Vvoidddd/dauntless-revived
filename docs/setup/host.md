@@ -490,7 +490,7 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` or `NONE`. `OPEN` is fine while the metagame listens on loopback only. Switch to `INVITECODE` in this file before anyone else can reach it. Changing it through the admin API lasts only until the next restart. |
 | `NODE_ENV` | `production`. The logs are then plain JSON lines. |
 | `LOG_REQUESTS` | **Fork only**, optional. Every request is logged as `METHOD /path gs=0/1` unless this is `0`. It is our main diagnostic. |
-| `PROGRESSION_MODE` | **Fork only**, optional. Unset (the default) or `real`: every account keeps its own Slayer level, mastery, Hunt Pass (with the Elite pass for everyone), loadout slots, cooldowns and bounties. `stub`: upstream's fake max ranks, nothing stored. Updating a server that already has players? Read the [upgrade notes]({{ upgrade_page.url | relative_url }}) first. |
+| `PROGRESSION_MODE` | **Fork only**, optional. Unset (the default) or `real`: every account keeps its own Slayer level, mastery, Hunt Pass (with the Elite pass for everyone), loadout slots, cooldowns and bounties. `stub`: upstream's fake max ranks, nothing stored. Any other value is logged and treated as real. Updating a server that already has players? Read the [upgrade notes]({{ upgrade_page.url | relative_url }}) first. |
 | `PROGRESSION_REAL_ACCOUNTS` | **Fork only**, optional. Only with `PROGRESSION_MODE=stub`: comma-separated account ids that get real progression anyway. |
 
 **Other optional switches (fork only).** Leave them out to get the default.

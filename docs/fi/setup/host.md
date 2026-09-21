@@ -532,7 +532,7 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `REGISTRATION_MODE` | `OPEN`, `INVITECODE` tai `NONE`. `OPEN` on kunnossa niin kauan kuin metagame kuuntelee vain koneen sisäisessä osoitteessa (loopback). Vaihda tässä tiedostossa arvoksi `INVITECODE` ennen kuin kukaan muu voi tavoittaa sen. Ylläpitorajapinnan kautta tehty muutos kestää vain seuraavaan uudelleenkäynnistykseen. |
 | `NODE_ENV` | `production`. Lokit ovat silloin pelkkiä JSON-rivejä. |
 | `LOG_REQUESTS` | **Vain forkissa**, valinnainen. Jokainen pyyntö kirjataan muodossa `METHOD /path gs=0/1`, ellei arvo ole `0`. Se on tärkein vianetsintävälineemme. |
-| `PROGRESSION_MODE` | **Vain forkissa**, valinnainen. Tyhjä (oletus) tai `real`: jokainen tili säilyttää oman Slayer-tasonsa, mestaruutensa (mastery), Hunt Passinsa (Elite-passi kaikille), varustesarjojen paikkansa, odotusaikansa (cooldowns) ja palkkiotehtävänsä (bounties). `stub`: alkuperäisen projektin valemaksimitasot, mitään ei tallenneta. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin [päivitysohjeet]({{ upgrade_page.url | relative_url }}). |
+| `PROGRESSION_MODE` | **Vain forkissa**, valinnainen. Puuttuva tai tyhjä (oletus) tai `real`: jokainen tili säilyttää oman Slayer-tasonsa, mestaruutensa (mastery), Hunt Passinsa (Elite-passi kaikille), varustesarjojen paikkansa, odotusaikansa (cooldowns) ja palkkiotehtävänsä (bounties). `stub`: alkuperäisen projektin valemaksimitasot, mitään ei tallenneta. Muu arvo kirjataan lokiin ja tulkitaan arvoksi `real`. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin [päivitysohjeet]({{ upgrade_page.url | relative_url }}). |
 | `PROGRESSION_REAL_ACCOUNTS` | **Vain forkissa**, valinnainen. Vain asetuksen `PROGRESSION_MODE=stub` kanssa: pilkuilla erotetut tilitunnukset, jotka saavat silti oikean etenemisen. |
 
 **Muut valinnaiset kytkimet (vain forkissa).** Jätä ne pois, niin saat oletuksen.
@@ -547,7 +547,7 @@ node -e "const c=require('crypto');const k=c.generateKeyPairSync('rsa',{modulusL
 | `PROGRESSION_ALLOW_DELETE` | pois | `1` antaa pelipalvelimien nollata etenemisradan (vianetsintäkomento). Ylläpitäjän avaimella se onnistuu aina. |
 | `PROGRESSION_GRANT_CAP` | `5000` | Suurin kokemuspistemäärä (XP), jonka yksi pyyntö voi lisätä yhdelle radalle. |
 | `SAVE_HISTORY_KEEP`, `SAVE_HISTORY_HOURLY`, `SAVE_HISTORY_DAILY` | `100`, `48`, `30` | Hahmon ja varustesarjojen versiot, jotka säilytetään palautuksia varten: uusimmat, sitten yksi tunnissa, sitten yksi päivässä. |
-| `INVENTORY_REPORT_REMOVALS`, `MISC_ROUTES`, `STATUS_EXTRA`, `ACCOUNT_DISPLAY_NAME` (`0`), `PROGRESSION_CONFIRM` (`off`) | päällä | Sulkeissa oleva arvo palauttaa yhden palan alkuperäisen projektin vanhaa toimintaa vertailuja varten. Jätä ne asettamatta. |
+| `INVENTORY_REPORT_REMOVALS`, `MISC_ROUTES`, `STATUS_EXTRA`, `ACCOUNT_DISPLAY_NAME` (`0`), `PROGRESSION_CONFIRM` (`off`) | päällä | Sulkeissa oleva arvo palauttaa yhden osan alkuperäisen projektin vanhasta toiminnasta vertailuja varten. Jätä ne asettamatta. |
 
 **Miksi portit 61000/61001 eikä 60000.** Alkuperäisen projektin käynnistin käyttää kehitystilassa
 osoitetta `127.0.0.1:60000`, ja ensimmäinen suunnitelmamme käytti portteja 60000/60001. Meidän

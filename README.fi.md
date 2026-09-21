@@ -79,12 +79,12 @@ Syyskuu 2026. Kaikkea alla olevaa on kokeillut yksi pelaaja palvelinkoneella.
 | Tavarat, varusteet ja tehtävät | Toimii (yksin) | Tallentuvat tietokantaan ja säilyvät, vaikka peli ja palvelin käynnistetään uudelleen |
 | Varmuuskopiot | Toimii meidän palvelinkoneellamme | Joka tunti sekä aina palvelimen käynnistyessä ja sammuessa. Palautus on kokeiltu. Varmuuskopio-ohjelmat eivät ole vielä tässä koodivarastossa ([ohje oman varmuuskopion tekemiseen](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html#back-up-the-database)). |
 | Kavereiden asennuspaketti | Valmis | Tarkistaa tiedostot ja käynnistää pelin. Odottaa Tailscalea ja kutsukoodeja. |
-| Pelaajan taso, mestaruus ja Hunt Pass (palkintojärjestelmä) | Toimii (yksin), oletuksena päällä | Alkavat nollasta ja tallentuvat; jokaisella tilillä on Elite Hunt Pass. Kokeiltu pelissä testitilillä, myös palvelimen uudelleenkäynnistyksen yli. `PROGRESSION_MODE=stub` palauttaa alkuperäisen kiinteän tason 50 ([päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html)) |
+| Pelaajan taso, mestaruus ja Hunt Pass (palkintojärjestelmä) | Toimii (yksin), oletuksena päällä | Alkavat alusta (Slayer-taso 1, ei mestaruutta, tyhjä Hunt Pass) ja tallentuvat; jokaisella tilillä on Elite Hunt Pass. Kokeiltu pelissä testitilillä, myös palvelimen uudelleenkäynnistyksen yli. `PROGRESSION_MODE=stub` palauttaa alkuperäisen kiinteän tason 50 ([päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html)) |
 | Pelaaminen kavereiden kanssa internetin yli | Ei vielä (M1) | Suunnitelma: Tailscale (ohjelma, joka yhdistää kavereiden koneet yksityiseen verkkoon) |
 | Pelaajaryhmät ja kaverilista | Ei vielä | |
-| Bounty-tehtävät (lisätehtävät, joista saa palkintoja) | Ei vielä | |
+| Bounty-tehtävät (lisätehtävät, joista saa palkintoja) | Ei vielä | Tallentuvat oikean etenemisen kanssa; valintaa ja lunastusta ei ole vielä kokeiltu pelissä |
 | Tekstichat | Ei vielä | Suunniteltu: pieni oma viestipalvelin (XMPP) |
-| Useampi varustesarja | Ei vielä | |
+| Useampi varustesarja | Ei vielä | Paikkojen avaukset tallentuvat oikean etenemisen kanssa; lisäpaikkoja ei ole vielä kokeiltu pelissä |
 
 Tarkka tehtävälista on tiedostossa [ROADMAP.md](ROADMAP.md) (englanniksi). Lyhyempi selitys suomeksi on
 ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/roadmap.html).
@@ -136,7 +136,7 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
   tunnisteet poistetaan.
 - **Oikea eteneminen oletuksena.** Alkuperäinen versio vastasi etenemistä koskeviin kyselyihin
   kiinteällä mallilla (jokainen tili tasolla 50, Hunt Passissa ei mitään lunastettavaa ja Elite-rata
-  lukittuna) eikä tallentanut mitään. Meidän metagamemme tallentaa Slayer-tason, mestaruuden
+  todennäköisesti lukittuna) eikä tallentanut mitään. Meidän metagamemme tallentaa Slayer-tason, mestaruuden
   (mastery), Hunt Passin, oikeudet (Elite-passi kaikille), varustesarjojen paikat, odotusajat ja
   palkkiotehtävät jokaiselle tilille erikseen. `PROGRESSION_MODE=stub` palauttaa alkuperäisen
   toiminnan. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin

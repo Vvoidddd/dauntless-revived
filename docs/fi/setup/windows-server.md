@@ -333,11 +333,15 @@ sisältävä käynnistin on julkaistu, tai kerro kavereille, että luku on vää
 käynnistimensä on päivittynyt.
 
 **Oikea eteneminen on nyt oletus: päätä ennen päivitystä.** Palvelin, jonka `metagame.env`-tiedostossa
-ei ole `PROGRESSION_MODE`-riviä, vaihtaa alkuperäisen projektin valemaksimitasoista oikeaan
-etenemiseen, ja aiemmin pelanneet aloittavat Slayer-tasolta 1. Päivitys ei siirrä mitään. Pidä
-valittujen pelaajien maksimitasot antamalla heille lähtötaso `grandfather`, tai lisää ensin
-`PROGRESSION_MODE=stub` tiedostoon `C:\DauntlessRevived\data\config\metagame.env`, jos haluat jatkaa
-tyngällä. [Päivitysohjeissa]({{ upgrade_page.url | relative_url }}) on yksityiskohdat ja skripti.
+ei ole `PROGRESSION_MODE`-riviä (tai rivi on tyhjä tai sen arvo on muu kuin `real` tai `stub`),
+vaihtaa alkuperäisen projektin valemaksimitasoista oikeaan etenemiseen, ja aiemmin pelanneet
+aloittavat Slayer-tasolta 1. Päivitys ei siirrä mitään. Pidä valittujen pelaajien maksimitasot
+antamalla heille lähtötaso `grandfather`, tai lisää ensin `PROGRESSION_MODE=stub` tiedostoon
+`C:\DauntlessRevived\data\config\metagame.env`, jos haluat jatkaa tyngällä. Ellei tiedostossa lue
+`real` tai `stub`, päivitysohjelma toistaa onnistuneen päivityksen jälkeen metagamen varoituksen
+pelaajista, joilla ei ole tallennettua etenemistä. Paluu edelliseen versioon ja palautus
+varmuuskopiosta noudattavat samaa sääntöä, joten erikseen asetettu rivi pitää tilan samana.
+[Päivitysohjeissa]({{ upgrade_page.url | relative_url }}) on yksityiskohdat ja skripti.
 
 ### Varmuuskopiot
 

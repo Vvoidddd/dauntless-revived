@@ -337,9 +337,10 @@ This is a small private revival and a work in progress. As of this writing:
 - On our own server, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
   and a pursuit. Upstream Undaunted reports hunts in groups of up to 4 working. We have not yet
   tested that with more than one player.
-- Slayer level, weapon and behemoth mastery and the Hunt Pass start at 0 and are saved, on a server
-  that runs the current code with its default settings. Every account owns the Elite Hunt Pass. On a
-  server that ran an older version, your level may start over at 1 after the update: ask your host.
+- Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
+  1) and are saved, on a server that runs the current code with its default settings. Every account
+  owns the Elite Hunt Pass. Behemoth mastery has not been seen in the game yet. On a server that ran
+  an older version, your level may start over at 1 after the update: ask your host.
 - Parties and the friends list do not work yet: the game shows "0 ONLINE FRIENDS". To end up in the
   same hunt, queue for the same hunt at about the same time. The matchmaker collects players who queue
   for the same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with

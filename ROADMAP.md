@@ -28,6 +28,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] Fork committed and pushed: 3 commits on top of upstream `7f692aa`, remote `origin` = github.com/mixutin/dauntless-revived
 - [x] First pursuit hunt played on our server (the tutorial pursuit, `CR19_PlayerHunt_FTUE_Pursuit_Beta_LeRawr`, 10:36 UTC). Its loot, Rams, quest steps and hunt counter were saved.
 - [x] Saved-data audit of every system (the table below), checked against the live database and the request log
+- [x] Real progression (Slayer level, mastery, the Hunt Pass with Elite for everyone) passed its in-game test on a throwaway account and is the default (2.8–2.12, 2.14, 2.15). Moving existing players over (2.13) is still open.
 
 ## Where we are (2026-09-21, 10:50 UTC)
 
@@ -39,14 +40,14 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 > - The friend kit is built (1.14). It waits for Tailscale and invite codes.
 > - Body capture is switched on (0.4). It fills on the next play session.
 > - M2 (real progression, Hunt Pass with Elite for everyone, entitlements, cooldowns, bounties, loadout slots, save hardening) is built and **passed its in-game test** on a throwaway account, including a full restart. Accounts are switched over next (2.13).
-> - **Real progression is now the default.** `PROGRESSION_MODE` unset or empty means real for every account; `stub` keeps upstream's fake max ranks, and `PROGRESSION_REAL_ACCOUNTS` only matters in stub mode. Nothing is migrated: on a server that already had players, they start at Slayer level 1, and the metagame warns about them at startup. Self-hosters choose per account with the admin seed (grandfather or fresh) or stay on `stub`; see the upgrade notes (`docs/setup/upgrading.md`).
+> - **Real progression is now the default.** `PROGRESSION_MODE` unset or empty means real for every account; `stub` keeps upstream's fake max ranks, and `PROGRESSION_REAL_ACCOUNTS` only matters in stub mode. Nothing is migrated: on a server that already had players, they start at Slayer level 1, and the metagame warns about them at startup. Self-hosters choose per account with the admin seed (grandfather or fresh) or stay on `stub`; see the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html).
 > - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
 
 - **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout.
 - **Friends can't connect yet.** Everything listens on this PC only, and parties and the friends list are fakes.
 - **Some of what you earn is saved and some isn't.**
   - Saved: items, Rams, quests and gear.
-  - Not saved: Slayer level, mastery, the Hunt Pass, bounties, daily timers and escalation. These are fakes that throw every save away.
+  - Not saved: Slayer level, mastery, the Hunt Pass, bounties, daily timers and escalation. These are fakes that throw every save away. *Update: Slayer level, mastery and the Hunt Pass are saved with real progression, now the default (2.8–2.12, 2.14, 2.15, tested in game). Bounties and daily timers are stored too but not yet tried in the game (2.5, 2.6). Escalation is still a fake.*
 - **There is no backup.** Every save lives in one 140 KB file (`C:\dr\data\undaunted.db`). Database changes (migrations) run automatically each time the server starts, with no copy taken first.
 
 What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
@@ -77,7 +78,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | "Seen" markers (NPCs, tutorial slates) | Yes | All 12 from today are in the database. |
 | "New" markers (breadcrumbs) | Yes, untested | The client hasn't written one yet. |
 | Slayer level | No, faked at 50 | 7 XP grants were refused (400) today. *Update: yes with real progression, now the default (2.8–2.10, tested in game).* |
-| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* *Update: yes with real progression, now the default (2.9, 2.10).* |
+| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* *Update: yes with real progression, now the default (2.9, 2.10). Weapon mastery was tested in game (axe rank 1); behemoth mastery uses the same storage but has not been seen in game yet.* |
 | Mastery objectives, achievements | No | *Update: mastery objectives are stored and echoed with real progression, now the default (2.9, 2.12). Achievements not checked.* |
 | Hunt Pass | No, faked | The rank is sent as 99,999,999 (the real cap is 50). A 100-XP Hunt Pass grant at 10:41 hit a missing route. *Checker: nobody has seen what the Hunt Pass screen actually shows. The Elite track is probably locked.* *Update: yes with real progression, now the default: starts at 0, free and Elite claims stored (2.15, tested in game).* |
 | Bounties | No | The board is empty every time a server loads you. *Checker: claiming a bounty fails even within one session, because the route `/bounty/delete` is missing.* *Update: stored with real progression, now the default, and the delete route exists (2.6); drafting and claiming in the UI are still to try.* |
@@ -461,14 +462,14 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Done when:** that grant gets a 200 and season09b progress goes up by 100.
 
 - [x] **2.12 Test the mastery pop on a throwaway account** (M) — ✅ **Passed.** *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* no endless mastery pop-up (crafting read the objective once), no repeated reward transactions, and everything survived the restart. Cause of upstream's pop-up: objectives were never stored or echoed (the client re-fetched them after every grant).*
-  - **What:** set `PROGRESSION_MODE=real` for the second account only.
+  - **What:** real progression for the second account only (then `PROGRESSION_REAL_ACCOUNTS`; now the default for every account).
     1. Turn on 2.8 and 2.9, but leave confirm (2.10) off. Play one Dojo session or hunt.
     2. Look in the log for repeated `/confirm` 404s and for repeated identical `POST /inventory` calls.
     3. Turn confirm on and repeat. Whatever still repeats is the second cause.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the upgrade notes (`docs/setup/upgrading.md`). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account.*
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.

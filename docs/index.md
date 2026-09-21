@@ -52,7 +52,7 @@ tested on one PC, by the owner, playing alone.
 | Ramsgate | Works | A permanent Ramsgate server runs next to the backend. After the tutorial, and on every later login, the player goes straight there. |
 | Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
 | Saved inventory and loadouts | Works (solo) | Materials, Rams (most likely the `CURRENCY_NOTES` stack), crafted and granted gear, the first loadout slot, and character data (quest progress, tutorial state, flags, appearance) are stored in a SQLite database. Hunt loot is saved. The data survives a client restart and a full server restart. So far only one player has tested this. |
-| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start at 0 and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Tested in game on a throwaway account, including a full restart. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
+| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level 1) and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Slayer level, weapon mastery and the Hunt Pass were tested in game on a throwaway account, including a full restart; behemoth mastery uses the same storage but has not been seen in game yet. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
 
 The measured cost on the host PC was about 1.1 GB of RAM and roughly 0.2 of a CPU core for the
 Ramsgate server, about 0.9 GB per hunt server, and 1.5 to 2.3 GB for the player's own client (the
@@ -70,7 +70,8 @@ higher figure at Cinematic settings).
   not been tried yet. Escalation is still stubbed, so its progress does not carry over between
   sessions.
 - **Multiple loadouts, choosing your own username, the welcome message and mailbox, seasonal events,
-  and the store.**
+  and the store.** With real progression, loadout slot unlocks are stored, but the extra slots have
+  not been tried in the game yet.
 
 The [roadmap]({{ roadmap_page.url | relative_url }}) has the order we plan to work in, plus the bugs
 we have seen in real sessions. Some things cannot come back. Voice chat ran on Vivox, a paid

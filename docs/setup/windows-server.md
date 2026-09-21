@@ -321,10 +321,13 @@ update a server from an older version, do it only after the launcher release wit
 out, or tell your friends that the count is wrong until their launcher has updated.
 
 **Real progression is now the default: decide before you update.** A server whose `metagame.env`
-has no `PROGRESSION_MODE` line switches from upstream's fake max ranks to real progression, and
-players who played before start at Slayer level 1. Nothing is migrated by the update. Keep max ranks
-for chosen players with a `grandfather` seed, or add `PROGRESSION_MODE=stub` to
-`C:\DauntlessRevived\data\config\metagame.env` first to stay on the stub. The
+has no `PROGRESSION_MODE` line (or an empty one, or a value other than `real` or `stub`) switches
+from upstream's fake max ranks to real progression, and players who played before start at Slayer
+level 1. Nothing is migrated by the update. Keep max ranks for chosen players with a `grandfather`
+seed, or add `PROGRESSION_MODE=stub` to `C:\DauntlessRevived\data\config\metagame.env` first to stay
+on the stub. Unless that file says `real` or `stub`, the updater repeats the metagame's warning about
+players without stored progression after a successful update. A rollback or a restore follows the
+same rule, so an explicit line keeps the mode fixed. The
 [upgrade notes]({{ upgrade_page.url | relative_url }}) have the details and a script.
 
 ### Backups
