@@ -38,6 +38,8 @@ varmenteella ei koskaan saa avainta: käynnistin näyttää molemmat sormenjälj
 siirtyy uudelle varmenteelle vain, jos vahvistat sen (tee niin vain, kun ylläpitäjä kertoo
 asentaneensa palvelimen uudelleen). Yksityiset (v1) kutsut toimivat vain Tailscale-osoitteilla
 (100.64.0.0/10) ja `*.ts.net`-nimillä, koska se yhteys on salaamatonta HTTP:tä tailnetin sisällä.
+(Myös koneen omat loopback-osoitteet, kuten `127.0.0.1`, hyväksytään, jotta käynnistintä voi kokeilla
+samalla koneella olevaa palvelinta vasten.)
 
 Dauntless 1.4.4 osaa vain salaamatonta HTTP:tä, joten julkisessa tilassa käynnistin pitää pelin ajan
 käynnissä **paikallista välitintä**: peli puhuu omalla koneellasi osoitteeseen
@@ -75,7 +77,7 @@ Vaatimukset: Windows ja Node.js 24.
 ```powershell
 npm ci
 npm run typecheck
-npm test            # yksikkötestit (node:test), paikalliset testipalvelimet vain porteissa 624xx
+npm test            # yksikkötestit (node:test), paikalliset testipalvelimet vain porteissa 62012-62013 ja 624xx
 npm run make        # asennusohjelma ja zip kansioon out/make/
 ```
 

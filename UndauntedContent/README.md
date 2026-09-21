@@ -154,9 +154,9 @@ Generated on 2026-09-21: **410 files, 10,893,512,875 bytes**. The install at `C:
 matches it: 410/410 sizes and 14/14 sampled hashes at generation, and 410/410 full hashes with
 `npm run verify` (11.5 s).
 
-The friend launcher compiles in a copy of this file and refuses any file whose path, size or hash is
-not in it, so a compromised content server can't push different files. If you regenerate it, update
-the launcher's copy too.
+The friend launcher compiles this same file in (its Vite alias `@game-manifest` points here) and
+refuses any file whose path, size or hash is not in it, so a compromised content server can't push
+different files. If you regenerate it, rebuild the launcher.
 
 ## Tests
 

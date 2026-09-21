@@ -43,7 +43,7 @@ and no servers, `"limited": true`). Like every header, the key is never logged.
 | Answer | When |
 |---|---|
 | `403 {"error":"forbidden"}` | the request carries an `x-undaunted-gameserver-apikey` header, whatever its value, on any route (game servers run on the server itself and talk to the metagame directly) |
-| `403 {"error":"forbidden"}` | any `/undaunted/api/*` route except `POST Register`, `GET GetUserInfo`, `GET ServerStatus` and `GET RegistrationStatus` (and `HEAD` of those three). Everything else there is an admin route: invites, renames, rollbacks, entitlements, JWTs for any account, `POST RegistrationStatus`. `UsernameAvailable` is blocked too; `Register` answers `409 username_taken` instead |
+| `403 {"error":"forbidden"}` | any `/undaunted/api/*` route except `POST Register`, `GET GetUserInfo`, `GET ServerStatus` and `GET RegistrationStatus` (and `HEAD` of those three). Most of the rest are admin routes: invites, renames, rollbacks, entitlements, JWTs for any account, `POST RegistrationStatus`. The account-key routes `PublicOnlineStats`, `PartyInvite` and `Friends` are blocked as well (they are used on the server itself), and so is `UsernameAvailable`; `Register` answers `409 username_taken` instead |
 | `400 {"error":"bad_path"}` | `.` or `..` segments, backslashes, control characters or whitespace, percent-encoded `/` `\` `.` or NUL, or broken percent-encoding. The 1.4.4 client never sends any of these (checked against every path in the metagame logs) |
 | `400 {"error":"bad_request"}` | a request target that is not a plain path (`http://host/...`, `*`), or an upgrade that is not a WebSocket `GET` |
 | `405 {"error":"method_not_allowed"}` | methods other than GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS |

@@ -1,7 +1,8 @@
 # Windows Server kit
 
 Installs and runs a Dauntless Revived server on Windows Server 2019 or newer (Desktop Experience).
-Full guide: `docs/setup/windows-server.md` (on the site: Setup > Windows server kit).
+Full guide: `docs/setup/windows-server.md` (on the site: Setup > Windows server kit). Every parameter
+of every script: `docs/reference/scripts.md` (on the site: Reference > Scripts and parameters).
 
 | Script | Runs on | What it does |
 |:-------|:--------|:-------------|

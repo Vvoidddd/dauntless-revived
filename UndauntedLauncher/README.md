@@ -36,7 +36,8 @@ The account key for a public server is tied to that fingerprint. An invite for t
 a different certificate never gets the key: the launcher shows both fingerprints and asks first, and
 the key moves to the new certificate only if you confirm (do that only when your host tells you they
 set the server up again). Private (v1) invites work only with Tailscale addresses (100.64.0.0/10) and
-`*.ts.net` names, because that connection is plain HTTP inside the tailnet.
+`*.ts.net` names, because that connection is plain HTTP inside the tailnet. (Loopback addresses such as
+`127.0.0.1` are accepted too, for testing against a server on the same PC.)
 
 The 1.4.4 game only speaks plain HTTP, so in public mode the launcher runs a **local relay** while the
 game runs: the game talks to `http://127.0.0.1:61000` on your own PC, and the relay carries every
@@ -72,7 +73,7 @@ Requirements: Windows, Node.js 24.
 ```powershell
 npm ci
 npm run typecheck
-npm test            # unit tests (node:test), local test servers on ports 624xx only
+npm test            # unit tests (node:test), local test servers on ports 62012-62013 and 624xx only
 npm run make        # installer and zip in out/make/
 ```
 
