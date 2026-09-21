@@ -91,5 +91,8 @@ typings/
 # Electron-Forge
 out/
 
+# Release files collected by scripts/collect-release.ps1
+release/
+
 # Unit test build output
 .test-build/

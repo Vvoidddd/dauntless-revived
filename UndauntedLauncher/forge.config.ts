@@ -6,7 +6,8 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 // Windows only. The Squirrel installer is what friends run; the ZIP is for people who prefer a
-// portable copy. Releases are built by .github/workflows/launcher-release.yml.
+// portable copy. CI (.github/workflows/ci.yml) builds both on every push; .github/workflows/
+// launcher-release.yml publishes them.
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
