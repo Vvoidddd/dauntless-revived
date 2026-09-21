@@ -198,7 +198,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **You'll notice:** only people you invite can make accounts.
   - **Done when:** registering without a valid code is refused, and a used code can't be used again.
 
-- [ ] **1.6 Usernames** (M)
+- [ ] **1.6 Usernames** (M) — *Owner request (2026-09-21): confirmed wanted before friends join.*
   - **What:**
     - Names are 3–16 characters: letters, numbers and underscore.
     - Names are unique regardless of upper or lower case (a migration adds a unique index on the lowercase name).
@@ -535,7 +535,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.5, 3.7.
   - **Done when:** one event runs start to finish and its currency and rewards are saved.
 
-- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise)
+- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.*
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
