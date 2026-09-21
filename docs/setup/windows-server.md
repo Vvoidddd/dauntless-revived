@@ -182,8 +182,10 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
 4. **Game files:** the zip's SHA-256 is checked, it is extracted with Windows' own `tar.exe`, every
    file is checked against the content manifest, and the two server DLLs are installed with their
    pinned hashes.
-5. **Service account:** a local user `dauntless` with a random password that is never stored or shown.
-   The stack runs as this account, never as an administrator.
+5. **Service account:** a local user `dauntless` with a random password that is never shown. The stack
+   runs as this account, never as an administrator. Task Scheduler keeps the password, encrypted, for
+   the account's tasks, and every run of the installer sets a new one: some Server 2019 images refuse
+   tasks that run without a stored password ("S4U") for any account that is not an administrator.
 6. **Certificate:** a self-signed certificate for the gateway (10 years, the public address as its
    name), made by the gateway's own tool. No Windows certificate store is touched. The fingerprint is
    printed; it goes into every invite.
@@ -193,7 +195,12 @@ Desktop). Every step is safe to repeat, and `-WhatIf` lists every change without
    only by Administrators and SYSTEM. Nothing secret is ever printed.
 8. **Database and owner account:** the owner (admin) account is created, its key saved to
    `data\keys\owner.key`; or the database and keys come from the backup.
-9. **Firewall** as in the table above.
+9. **Firewall** as in the table above. The installer checks the firewall that is actually in effect,
+   not only its normal settings: some VPS images keep Windows Firewall off with a policy value
+   (`EnableFirewall = 0` under `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`) while the normal
+   settings say it is on, which leaves every port open to the internet. The installer removes such
+   values. Windows applies the change only after a restart, so the installer then prints **RESTART
+   THIS SERVER NOW** in red.
 10. **Scheduled tasks:** the stack at startup as `dauntless` (supervised: a crashed part is restarted),
     the allowlist helper at startup as SYSTEM (it changes only its one firewall rule), and an hourly
     backup.

@@ -191,8 +191,11 @@ tekemättä niitä.
 4. **Pelitiedostot:** zipin SHA-256 tarkistetaan, se puretaan Windowsin omalla `tar.exe`:llä,
    jokainen tiedosto tarkistetaan sisältöluetteloa vasten, ja kaksi palvelimen DLL-tiedostoa
    asennetaan kiinnitetyillä tiivisteillä.
-5. **Palvelutili:** paikallinen käyttäjä `dauntless` satunnaisella salasanalla, jota ei tallenneta
-   eikä näytetä. Palvelin pyörii tällä tilillä, ei koskaan ylläpitäjänä.
+5. **Palvelutili:** paikallinen käyttäjä `dauntless` satunnaisella salasanalla, jota ei koskaan
+   näytetä. Palvelin pyörii tällä tilillä, ei koskaan ylläpitäjänä. Tehtävien ajoitus (Task Scheduler)
+   säilyttää salasanan salattuna tilin ajastettuja tehtäviä varten, ja asennusohjelma vaihtaa sen joka
+   ajokerralla: jotkin Server 2019 -levykuvat eivät salli ilman tallennettua salasanaa ajettavia
+   tehtäviä ("S4U") muille kuin ylläpitäjille.
 6. **Varmenne:** itse allekirjoitettu varmenne yhdyskäytävälle (10 vuotta, nimenä julkinen osoite),
    yhdyskäytävän omalla työkalulla. Windowsin varmennesäilöihin ei kosketa. Sormenjälki tulostetaan,
    ja se kulkee jokaisessa kutsussa.
@@ -202,7 +205,13 @@ tekemättä niitä.
    apurin asetukset vain ylläpitäjien ja SYSTEMin. Mitään salaista ei tulosteta koskaan.
 8. **Tietokanta ja omistajan tili:** omistajan (ylläpitäjän) tili luodaan ja sen avain tallennetaan
    tiedostoon `data\keys\owner.key`; tai tietokanta ja avaimet tulevat varmuuskopiosta.
-9. **Palomuuri** yllä olevan taulukon mukaan.
+9. **Palomuuri** yllä olevan taulukon mukaan. Asennusohjelma tarkistaa palomuurin, joka on oikeasti
+   voimassa, eikä vain sen tavallisia asetuksia: jotkin VPS-levykuvat pitävät Windowsin palomuurin
+   pois päältä käytäntöarvolla (`EnableFirewall = 0` avaimen `HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall`
+   alla), vaikka tavalliset asetukset näyttävät sen olevan päällä. Silloin kaikki portit ovat auki
+   internetiin. Asennusohjelma poistaa tällaiset arvot. Windows ottaa muutoksen käyttöön vasta
+   uudelleenkäynnistyksessä, joten asennusohjelma tulostaa silloin punaisella **RESTART THIS SERVER
+   NOW** (käynnistä palvelin uudelleen nyt).
 10. **Ajastetut tehtävät:** palvelin käynnistyksessä tilillä `dauntless` (valvottu: kaatunut osa
     käynnistetään uudelleen), apuri käynnistyksessä SYSTEM-tilillä (se muuttaa vain omaa
     palomuurisääntöään), ja varmuuskopio kerran tunnissa.
