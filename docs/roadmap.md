@@ -135,7 +135,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 
 ### M0: Safety net
 
-- [ ] **0.1 Automatic database backups** (S) — *Backup script done (online SQLite backup, integrity check, keys and config, keeps 30). The automatic schedule is still to set up.*
+- [x] **0.1 Automatic database backups** (S) — ✅ **Done 2026-09-21.** The hidden hourly scheduled task "Dauntless Revived backup" keeps the newest 48 plus the newest of each of the last 30 days. `stack.ps1` also backs up after every stop and before every start, and won't start the metagame if that backup fails, so migrations never run without a copy. Restore test passed: a backup copied to a scratch folder passed `integrity_check` and held the owner's character at the live version (114) with an identical inventory. *Still open: copies off this PC. They contain the keys, so they belong with 0.2 (encrypted).*
   - **What:**
     - A script that copies the save file with SQLite's online backup. That is safe while the server runs. Never copy the live file by hand.
     - It checks each copy with `PRAGMA integrity_check`.
