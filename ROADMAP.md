@@ -230,7 +230,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Stopgap until then:** friends who queue the same hunt within 20 seconds land on the same server, up to 4 players (`controllers/matchmaking.ts:72-108`).
   - **Done when:** at minimum, two friends form a party in Ramsgate and land in the same hunt.
 
-- [ ] **1.10 Cancelling matchmaking works** (S)
+- [ ] **1.10 Cancelling matchmaking works** (S) — *Seen in play: "Unable to cancel matchmaking. A match has already been found." — the client sent `DELETE /candidate` and got 404.*
   - **What:**
     - `DELETE /candidate` should remove the player from the queue. It returned 404 once today.
     - Accept and track `POST /candidate/player/alive`, the game server's check on which expected players are still connected. It returned 404 3 times today.
@@ -429,7 +429,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.4.
   - **Done when:** an entitlement granted by the game server is still listed after logging in again.
 
-- [ ] **2.15 Hunt Pass** (M)
+- [ ] **2.15 Hunt Pass** (M) — *Seen in play: the quest "The Hunt Pass — Claim your Hunt Pass rewards" can never complete, because the stub reports `season09b` with progress and both confirmed ranks at 99,999,999, so every reward already reads as claimed, and there is no confirm route to save a claim. Done when that quest completes by claiming a real reward, and the claim is still there after a relog.*
   - **What:**
     - season09b starts at 0.
     - Grants from 2.9 and 2.11 move it forward.
