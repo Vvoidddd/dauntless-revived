@@ -10,7 +10,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - **L**: a week or more
 - **XL**: research with no known end
 
-`docs/roadmap.md` is a copy of this file. Update it whenever this file changes.
+`docs/roadmap.md` is a copy of this file. After changing this file, regenerate it with `node tools/sync-roadmap.js`.
 
 ## Done
 
@@ -30,6 +30,14 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] Saved-data audit of every system (the table below), checked against the live database and the request log
 
 ## Where we are (2026-09-21, 10:50 UTC)
+
+> **Update, 2026-09-21 afternoon:**
+> - The owner played two real hunts (a Lesser Boreus hunt and a pursuit). The loot was saved: `CURRENCY_NOTES` went from 1,260 to 1,460 and `ORB_FROST` ×20 arrived.
+> - Saves survive a full restart of everything (0.3), and the game no longer contacts Epic's chat server (0.5).
+> - `backup.ps1` works (2 backups taken) but isn't scheduled yet (0.1).
+> - Body capture is switched on (0.4). It fills on the next play session.
+> - M2 work has started on a test copy of the database, behind a per-account switch, so nothing changes for anyone until it's tested.
+> - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
 
 - **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout.
 - **Friends can't connect yet.** Everything listens on this PC only, and parties and the friends list are fakes.
@@ -79,7 +87,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | Guild | No | |
 | Party, friends list | No, being built elsewhere | |
 | Trials times, leaderboards, event stats | No | |
-| Backups | None | |
+| Backups | By hand | *Update: `backup.ps1` takes a checked online backup. It isn't scheduled yet (0.1).* |
 
 ### What to tell friends right now
 
@@ -133,7 +141,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 0.1.
   - **Done when:** login works after the restart and the character version hasn't changed.
 
-- [ ] **0.4 Record what the game sends to the fake systems** (S)
+- [ ] **0.4 Record what the game sends to the fake systems** (S) — *The capture is built (`LOG_BODIES=1`, `BODY_LOG_FILE`; bodies capped at 8 KB, tokens removed) and has been switched on since 2026-09-21. It fills during the next play session. Meanwhile the formats are being read from the binary.*
   - **What:**
     - Behind a switch in `.env`, write the JSON body (up to 8 KB) of every request to the stubbed or missing save routes into a separate log. That covers `POST /progression*`, `POST /bounty*`, `PUT /cooldown*`, `POST /entitlementv2*`, `/escalation*` and `/loadout/*/unlock/*`.
     - Also log the query string of `GET /product/skus/public`.
@@ -256,7 +264,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
   - **Needs:** 1.4, and 1.9 (or two people queueing the same hunt).
   - **Done when:** two accounts play one hunt together. Both inventories get their loot, both characters' versions go up, and there are no 500 errors in the log.
 
-- [ ] **1.13 Source link for friends (AGPL)** (S)
+- [ ] **1.13 Source link for friends (AGPL)** (S) — *The repository is public today (GitHub makes forks of public repositories public).*
   - **What:**
     - The fork is pushed to github.com/mixutin/dauntless-revived. Make sure friends can see it, either by making it public or by inviting them.
     - Tag the version you run (`friends-v1`).
@@ -675,7 +683,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Direct Tailscale path or relay, per friend | `tailscale ping` from each friend. | 1.3 |
 | Was the prebuilt DLL built from the published source? | Rebuild it and compare. | 4.4 |
 | Which season was live for 1.4.4 | Search archived configs and community data. | 2.15 |
-| Will the Shadow PC disk survive subscription changes? | Ask Shadow. Until then, the off-PC backups from 0.1 cover it. | 0.1 |
+| Can we recover if this PC's disk dies? | Restore the off-PC copy from 0.1 onto another machine and log in. (The server runs on the owner's own PC. Port 60000 is taken by the Shadow client app installed there, which is why we use 61000.) | 0.1 |
 
 ## Can't come back
 
