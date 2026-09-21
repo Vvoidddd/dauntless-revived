@@ -1,6 +1,6 @@
 ---
 title: Tools
-nav_order: 6
+nav_order: 7
 description: "Three small Python scripts behind our Dauntless analysis: xref.py for PE string cross-references, utocdir.py for IoStore, pak9.py for pak v9, plus libooz."
 lang: en
 ref: tools

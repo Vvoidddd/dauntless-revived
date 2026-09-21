@@ -1,6 +1,6 @@
 ---
 title: Findings
-nav_order: 3
+nav_order: 4
 has_children: true
 has_toc: false
 description: "What we learned about how the online side of Dauntless worked, from the 1.4.4 and 2.1.1 clients: backend contract, client internals, multiplayer and crashes."

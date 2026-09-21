@@ -1,7 +1,7 @@
 ---
 title: Usein kysyttyä
 parent: Dauntless Revived suomeksi
-nav_order: 5
+nav_order: 6
 description: "Voiko Dauntlessia vielä pelata? Onko sille yksityistä palvelinta? Lyhyet vastaukset Dauntless Revivedistä: versio, Epic-tili, liittyminen ja oma palvelin."
 lang: fi
 ref: faq

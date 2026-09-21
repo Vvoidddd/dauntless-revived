@@ -1,6 +1,6 @@
 ---
 title: FAQ
-nav_order: 5
+nav_order: 6
 description: "Can you still play Dauntless? Is there a private server? Short answers about Dauntless Revived: versions, Epic accounts, joining, hosting, legality and Linux."
 lang: en
 ref: faq

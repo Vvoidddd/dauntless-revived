@@ -1,7 +1,7 @@
 ---
 title: Työkalut
 parent: Dauntless Revived suomeksi
-nav_order: 6
+nav_order: 7
 lang: fi
 ref: tools
 locale: fi_FI

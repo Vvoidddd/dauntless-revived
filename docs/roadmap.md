@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-nav_order: 4
+nav_order: 5
 description: "The Dauntless Revived roadmap: what already works, and milestones M0 to M4, from a safety net and playing together to saved progression and the full game loop."
 lang: en
 ref: roadmap

@@ -1,7 +1,7 @@
 ---
 title: Tiekartta
 parent: Dauntless Revived suomeksi
-nav_order: 4
+nav_order: 5
 description: "Dauntless Revivedin tiekartta selkokielellä: tavoite, välitavoitteet M0–M4, mitä on jo tehty ja mitä on työn alla. Päivittyvä lista on englanniksi."
 lang: fi
 ref: roadmap
