@@ -486,7 +486,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). Waiting for the owner's choice for their own account; new accounts start fresh.*
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.
@@ -720,7 +720,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 
 ## Decisions only you can make
 
-1. **Owner's progression when it becomes real (2.13).** Keep today's max, or start over. Recommended: keep the max.
+1. **Owner's progression when it becomes real (2.13).** ✅ **Decided: fresh start.** A new player account with the owner's own username, registered through the launcher on the rented server, and a separate admin account for administration.
 2. **Friends' progression.** ✅ **Decided: Option B.** Friends are invited after M2, so their first hunt already counts.
    - Option A: friends start at level 1 once M2 lands. The XP they earn before then is lost.
    - Option B: invite friends only after M2, so their first hunt counts.
