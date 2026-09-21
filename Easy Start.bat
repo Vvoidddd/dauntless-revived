@@ -1,6 +1,11 @@
 @echo off
 setlocal
 title Undaunted Launcher
+
+echo Starting the local Dauntless server stack...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\start-local.ps1" -ServerOnly
+if errorlevel 1 goto :failed
+
 cd /d "%~dp0UndauntedLauncher"
 
 if not exist "node_modules\.bin\electron-forge.cmd" (

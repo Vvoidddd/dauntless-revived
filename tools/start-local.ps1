@@ -1,5 +1,6 @@
 param(
     [switch]$Windowed,
+    [switch]$ServerOnly,
     [ValidateRange(-1, 4)]
     [int]$Graphics = 3
 )
@@ -65,6 +66,11 @@ if (-not (Get-NetUDPEndpoint -LocalPort 8777 -ErrorAction SilentlyContinue)) {
     throw 'The Ramsgate server did not bind UDP 8777 within 20 seconds.'
 }
 Write-Host 'Ramsgate is ready on UDP 8777.'
+
+if ($ServerOnly) {
+    Write-Host 'Local server stack is ready; leaving game launch to the launcher.'
+    return
+}
 
 $arguments = @('-Graphics', $Graphics)
 if ($Windowed) { $arguments += '-Windowed' }
