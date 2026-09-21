@@ -97,6 +97,7 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 | [Ohjeet suomeksi](https://mixutin.github.io/dauntless-revived/fi/) | Projektin ohjesivut suomeksi |
 | [Ohjesivusto englanniksi](https://mixutin.github.io/dauntless-revived/) | Samat ohjesivut englanniksi (in English) |
 | [Asennusohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/) | Oman palvelimen pystytys, kaverina liittyminen, palvelin ryhmälle ja ongelmien ratkaisu |
+| [Tekninen viite](https://mixutin.github.io/dauntless-revived/fi/reference/) | Jokainen asetus, portti, HTTP-reitti, tiedosto ja skripti oletusarvoineen palvelimen ylläpitäjille ja kehittäjille |
 | [Kavereiden asennuspaketti](friend-kit/) | Kertaluonteinen asennus ja pelin käynnistin kutsutuille pelaajille ([ohje](https://mixutin.github.io/dauntless-revived/fi/setup/friends.html)) |
 | [Tehtävälista](ROADMAP.md) | Välitavoitteet M0–M4 ja mitä on jo tehty |
 | [Usein kysytyt kysymykset](https://mixutin.github.io/dauntless-revived/fi/faq.html) | Lyhyet vastaukset yleisiin kysymyksiin |

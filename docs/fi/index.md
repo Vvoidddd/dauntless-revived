@@ -12,6 +12,7 @@ locale: fi_FI
 
 {% assign setup_page = site.pages | where: "path", "fi/setup/index.md" | first %}
 {% assign findings_page = site.pages | where: "path", "fi/findings/index.md" | first %}
+{% assign reference_page = site.pages | where: "path", "fi/reference/index.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
 
@@ -46,6 +47,7 @@ molemmista versioista, on kirjoitettu tälle sivustolle.
 
 [Asennusohjeet]({{ setup_page.url | relative_url }}){: .btn .btn-primary .mr-2 }
 [Lue löydökset]({{ findings_page.url | relative_url }}){: .btn .mr-2 }
+[Tekninen viite]({{ reference_page.url | relative_url }}){: .btn .mr-2 }
 [Tiekartta]({{ roadmap_page.url | relative_url }}){: .btn }
 
 ---
@@ -106,6 +108,10 @@ ole versiossa 1.4.4.
   se, millaisia viestejä peli ja palvelin vaihtavat), miten Undauntedin palvelintilan DLL toimii ja
   mitä opimme 2.1.1-peliohjelmasta. Kerromme, mistä versiosta kukin tieto on peräisin, ja merkitsemme
   kaiken varmistamattoman.
+- **Palvelimen ylläpitäjille ja kehittäjille, jotka tarvitsevat tarkat tiedot.**
+  [Tekninen viite]({{ reference_page.url | relative_url }}) -osiossa on jokainen asetus, portti,
+  HTTP-reitti, tiedosto ja skripti oletusarvoineen ja tieto siitä, kuka sen asettaa. Kaikki on
+  tarkistettu koodia vasten.
 
 ---
 
@@ -117,6 +123,10 @@ ole versiossa 1.4.4.
 | Metagame | Undauntedin TypeScriptillä kirjoitettu taustapalvelu: tilit, hahmot, tavarat, varustesarjat ja pelaajien yhteen sovittaminen (matchmaking) | Palvelinkone, TCP 61000 |
 | Deploy-palvelin | Käynnistää pelipalvelinprosessit ja valvoo niitä | Palvelinkone, TCP 61001, vain koneen sisäinen osoite eli loopback (siinä ei ole tunnistautumista) |
 | Pelipalvelimet | Lisää kopioita samasta peliohjelmasta, jotka DLL kääntää palvelintilaan: yksi pysyvä Ramsgate-palvelin ja lisäksi yksi jokaista metsästystä varten | Palvelinkone, UDP 8770–8777 |
+
+Windows-palvelinpaketilla asennettu palvelin ajaa lisäksi sisältöpalvelinta käynnistimen latauksia
+varten ja julkisessa tilassa salattua yhdyskäytävää, joka on sen ainoa julkinen portti. Jokainen osa
+on kuvattu [Tekninen viite]({{ reference_page.url | relative_url }}) -osiossa.
 
 Tähänastiset muutoksemme Undauntediin ovat pieniä ja käytännöllisiä. Molemmat palvelut kuuntelevat
 nyt oletuksena vain koneen sisäisessä osoitteessa. Päällekkäinen portti on nyt selvä virhe, kun se

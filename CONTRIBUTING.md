@@ -18,7 +18,9 @@ are short.
    any key it exposed.
 4. **Keep pull requests small and focused.** Say what you changed, how you tested it, and which
    roadmap step it belongs to. If you change `ROADMAP.md`, run `node tools/sync-roadmap.js` so the
-   docs site copy matches. Update the docs when behaviour changes.
+   docs site copy matches. Update the docs when behaviour changes. A new or changed setting, route,
+   port or script belongs in the [Reference](https://mixutin.github.io/dauntless-revived/reference/)
+   pages (`docs/reference/`, English and Finnish) and in the component's `.env.example`.
 5. **License.** This project is AGPL-3.0-only, like upstream Undaunted. By contributing, you agree
    that your contribution is licensed under the same terms. Keep existing copyright and license
    notices.
@@ -78,7 +80,10 @@ Kiitos, että haluat auttaa pitämään Dauntlessin pelattavana. Säännöt ovat
    tietokannasta ennen muutoksia.
 3. **Älä koskaan lisää projektiin salaisuuksia tai pelin tiedostoja.** Ei avaimia, ei
    `.env`-tiedostoja, ei tietokantoja, varmuuskopioita tai lokeja, eikä mitään pelistä.
-4. **Tee pieniä muutoksia kerrallaan.** Kerro, mitä muutit ja miten kokeilit sitä.
+4. **Tee pieniä muutoksia kerrallaan.** Kerro, mitä muutit ja miten kokeilit sitä. Päivitä ohjeet,
+   kun toiminta muuttuu. Uusi tai muuttunut asetus, reitti, portti tai skripti kuuluu
+   [teknisen viitteen](https://mixutin.github.io/dauntless-revived/fi/reference/) sivuille
+   (`docs/reference/`, englanniksi ja suomeksi) ja osan `.env.example`-tiedostoon.
 5. **Lisenssi.** Projekti käyttää AGPL-3.0-only-lisenssiä. Kun lähetät muutoksen, se julkaistaan
    samalla lisenssillä.
 6. **Tietoturva-aukoista** ilmoitetaan yksityisesti, ks. [SECURITY.md](SECURITY.md).

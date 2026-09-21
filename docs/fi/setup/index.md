@@ -18,6 +18,7 @@ locale: fi_FI
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 {% assign verification_page = site.pages | where: "path", "fi/findings/verification.md" | first %}
 {% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
+{% assign reference_page = site.pages | where: "path", "fi/reference/index.md" | first %}
 
 # Asennus
 
@@ -56,6 +57,9 @@ merkitystä.
 2. Isäntä: seuraa sivua [Palvelin ryhmälle]({{ admin_page.url | relative_url }}) päästääksesi
    kaverit sisään.
 3. Jokainen kaveri: seuraa sivua [Liity kaverina]({{ friends_page.url | relative_url }}).
+
+Näiden ohjeiden taustalla olevat tarkat tiedot (jokainen asetus, portti, HTTP-reitti, tiedosto ja
+skriptin parametri oletusarvoineen) ovat [Tekninen viite]({{ reference_page.url | relative_url }}) -osiossa.
 
 Sivulla [Pelitiedostojen tarkistaminen]({{ verification_page.url | relative_url }}) kerrotaan
 yksityiskohtaisesti, miten tarkistimme, että oma pelikopiomme on aito, täydellinen ja puhdas. Jos

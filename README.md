@@ -86,6 +86,7 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
 |---|---|
 | [Documentation site](https://mixutin.github.io/dauntless-revived/) | Status, setup, findings and credits |
 | [Setup guide](https://mixutin.github.io/dauntless-revived/setup/) | Hosting a server, joining as a friend, running it for a group, troubleshooting |
+| [Reference](https://mixutin.github.io/dauntless-revived/reference/) | Every setting, port, HTTP route, file and script, with defaults, for self-hosters and developers |
 | [Friend kit](friend-kit/) | One-time setup and launcher for invited players ([guide](https://mixutin.github.io/dauntless-revived/setup/friends.html)) |
 | [Roadmap](ROADMAP.md) | Milestones M0 to M4 and the live checklist |
 | [FAQ](https://mixutin.github.io/dauntless-revived/faq.html) | Short answers to common questions |

@@ -34,6 +34,7 @@ is written up here.
 
 [Set it up]({{ '/setup/' | relative_url }}){: .btn .btn-primary .mr-2 }
 [Read the findings]({{ '/findings/' | relative_url }}){: .btn .mr-2 }
+[Reference]({{ '/reference/' | relative_url }}){: .btn .mr-2 }
 [Roadmap]({{ roadmap_page.url | relative_url }}){: .btn }
 
 ---
@@ -91,6 +92,9 @@ third-party service, so use Discord instead. Content released after November 202
   [Findings]({{ '/findings/' | relative_url }}) section records the backend contract, how
   Undaunted's server-mode DLL works, and what we learned from the 2.1.1 client. We say which build
   each fact comes from, and we mark anything unverified.
+- **Self-hosters and developers who need the exact facts.** The
+  [Reference]({{ '/reference/' | relative_url }}) section lists every setting, port, HTTP route, file
+  and script, with its default and who sets it, checked against the code.
 
 ---
 
@@ -102,6 +106,10 @@ third-party service, so use Discord instead. Content released after November 202
 | Metagame | Undaunted's TypeScript backend: accounts, characters, inventory, loadouts, matchmaking | Host PC, TCP 61000 |
 | Deploy server | Starts and supervises the game-server processes | Host PC, TCP 61001, loopback only (it has no authentication) |
 | Game servers | More copies of the same client executable, switched into server mode by the DLL: one permanent Ramsgate server, plus one per hunt | Host PC, UDP 8770 to 8777 |
+
+A server installed with the Windows server kit also runs a content server for the launcher's
+downloads and, in public mode, a TLS gateway as its only public port. Every part is described in the
+[Reference]({{ '/reference/' | relative_url }}) section.
 
 Our changes to Undaunted so far are small and practical. Both services now bind to loopback by
 default. A port clash is now a hard error, where it used to be a silent exit. Every request is

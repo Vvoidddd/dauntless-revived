@@ -16,6 +16,7 @@ ref: setup/index
 {% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
 {% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
 {% assign legal_page = site.pages | where: "path", "legal.md" | first %}
+{% assign reference_page = site.pages | where: "path", "reference/index.md" | first %}
 
 # Setup
 
@@ -48,6 +49,9 @@ been run end to end yet, and those pages say so where it matters.
    Ramsgate on your own PC.
 2. Host: follow [Run it for a group]({{ admin_page.url | relative_url }}) to let friends in.
 3. Each friend: follow [Join as a friend]({{ friends_page.url | relative_url }}).
+
+The exact facts behind these guides (every setting, port, HTTP route, file and script parameter,
+with its default) are in the [Reference]({{ reference_page.url | relative_url }}) section.
 
 How we checked that our copy of the game is genuine, complete and clean is described in detail on
 [Verifying game files]({{ verification_page.url | relative_url }}). If you host a modified version
