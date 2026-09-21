@@ -301,8 +301,36 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
     - A hunt server shuts itself down after 50 seconds with nobody connected. A friend with a slow disk can arrive after it's gone (fixed in 4.6).
     - Don't close the black server console windows.
   - **Capacity:** one Ramsgate plus up to 6 hunts of 4 players. About 8–12 friends online is comfortable on this PC.
-  - **Needs:** 1.1 through 1.14 (1.9 is optional).
+  - **Needs:** 1.1 through 1.14 (1.9 is optional), and 1.16 for the friends test.
   - **Done when:** two or more friends played a hunt together and the report shows no lost saves.
+
+- [ ] **1.16 Friend launcher: a Windows app that installs everything and connects** (L) — *Owner request (2026-09-21): wanted for the friends test. Public source, no game files in it; the game files come from our own server.*
+  - **Goal:** a friend installs one Windows app and presses **Register**, then **Download**, then **Launch**, and lands in Ramsgate with the graphics fix and everything else set up. The friend kit (1.14) stays as a fallback.
+  - **Base:** fork upstream's `UndauntedLauncher/`, an Electron Windows app (AGPL) that already downloads the game, hash-checks it, extracts it and handles invite codes. It is hard-wired to Undaunted's CDN and `api.stayundaunted.com`. Replace those with our server, and add the parts below.
+  - **What the launcher does:**
+    1. **Join:** the friend pastes one invite string from the host: the server's Tailscale address plus an invite code. The launcher checks that Tailscale is installed and that the server answers (`/dauntless-status`), and explains how to fix it if not.
+    2. **Register:** username (the 1.6 rules) plus the invite code. The account key is stored with Windows DPAPI (Electron `safeStorage`). It is never shown on screen or written to a plain file. An "export key" backup is offered once.
+    3. **Download:** the 1.4.4 files come from our content server over Tailscale, file by file:
+       - each file is checked against a **manifest of SHA-256 hashes that is compiled into the launcher's public source** (our verified 406/406 install), so even a compromised server can't push different files
+       - interrupted downloads resume (HTTP Range)
+       - several files download at once
+       - **Repair** re-checks everything and fetches only broken files
+    4. **Install:** the two DLLs (pinned hashes), the VC++ runtime check, and the user config: graphics preset (Cinematic by default, with a menu), chat (XMPP) pointed at the host instead of Epic, and the memory settings from `play.ps1`.
+    5. **Launch:** starts `Dauntless-Win64-Shipping.exe` directly with the key passed as today. It shows whether the server is up.
+    6. **Updates:** builds come from GitHub Actions using the public source and are published as GitHub Releases with SHA-256 sums. The launcher updates itself from there.
+  - **Server side, the content server** (a small separate process such as `UndauntedContent/`, so big transfers never slow the game backend):
+    - It serves only the files listed in the manifest, read-only, with no directory listing.
+    - It serves **only to registered accounts**: every request carries the account's token, checked against the metagame. An invite code alone can register, not download.
+    - It listens only on the Tailscale address, like everything else, so it can't be reached from the internet.
+    - It limits downloads per account and logs each one (account, file, bytes).
+    - **Game files never go into the repository, GitHub Releases or any public URL.**
+  - **Things to know:**
+    - An unsigned Windows app triggers SmartScreen ("Windows protected your PC" → More info → Run anyway). A code-signing certificate costs money; that's optional, for later.
+    - Antivirus may flag the DLL proxy, as it can today.
+    - Each friend's first download is about 10.9 GB, limited by the host's upload speed (about 30 minutes at 50 Mbit/s).
+    - Sharing the files from our server is the same private-sharing choice as decision 9. It only replaces Google Drive.
+  - **Needs:** 1.3 and 1.4 (Tailscale), 1.5 (invite codes), 1.6 (usernames for the register screen), 1.13 (source link, which the AGPL needs anyway).
+  - **Done when:** a friend with only Tailscale and the launcher installer goes from nothing to Ramsgate through Register, Download and Launch. Also: the key never appears on screen or in a plain file; a deliberately corrupted game file is detected and repaired; and the content server refuses downloads without a valid account and can't be reached from outside Tailscale.
 
 ### M2: Everything you earn is saved
 
@@ -667,7 +695,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 6. **Store.** Items free, or priced in in-game currency. (3.7)
 7. **Our own reward values.** Bounty payouts, prices and other seasons' Hunt Pass rewards are lost. Anything we set is our design, not a restoration.
 8. **Repository.** Public, or private with friends invited. (1.13)
-9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
+9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). *Update, 2026-09-21: the owner wants the friend launcher (1.16) to download the files from our own server instead, behind Tailscale and an account. Drive stays as a fallback.* The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
 10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished.
 11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10) The game servers need Windows unless the Wine experiment (4.11) works.
 
