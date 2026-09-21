@@ -70,7 +70,7 @@ As of September 2026. Everything below was tested by one player on the host PC.
 | Inventory, gear and quests | Works (solo) | Saved to SQLite; survives a client restart and a full server restart |
 | Backups | Works on our host | Hourly, plus one around every server start and stop; restore tested. The scripts are not in this repository yet ([do-it-yourself version](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database)) |
 | Friend kit | Built | Hash-checked setup and launcher; waits for Tailscale and invite codes |
-| Real progression and the Hunt Pass | In progress (M2) | Slayer level and mastery still come from a fixed template, and progression is not saved yet |
+| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Start at 0 and are saved; every account owns the Elite Hunt Pass. Tested in game on a throwaway account, including a full restart. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50 ([upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html)) |
 | Playing with friends over the internet | Not yet (M1) | Planned over Tailscale |
 | Parties and the friends list | Not yet | |
 | Bounties | Not yet | |
@@ -122,6 +122,12 @@ The live checklist, with every step and what "done" means for it, is [ROADMAP.md
 - Tokens are removed from the request log. An optional capture of request bodies for the save
   routes that are not finished yet (`LOG_BODIES=1`) records what the game sends, capped at 8 KB per
   request and with tokens removed.
+- **Real progression by default.** Upstream answered progression with a fixed template (every
+  account at level 50, a Hunt Pass with nothing to claim and the Elite track locked) and saved
+  nothing. Our metagame stores Slayer level, mastery, the Hunt Pass, entitlements (the Elite pass
+  for everyone), loadout slots, cooldowns and bounties per account. `PROGRESSION_MODE=stub` restores
+  upstream's behaviour. Updating a server that already has players? Read the
+  [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html) first.
 - A **friend kit** (`friend-kit/`, packaged by `tools/make-friend-kit.ps1`): a one-time setup and a
   launcher for invited players. It checks the two Undaunted DLLs against pinned SHA-256 hashes,
   registers the player, points the game's chat connection at the host so it never contacts Epic's

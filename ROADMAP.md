@@ -39,6 +39,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 > - The friend kit is built (1.14). It waits for Tailscale and invite codes.
 > - Body capture is switched on (0.4). It fills on the next play session.
 > - M2 (real progression, Hunt Pass with Elite for everyone, entitlements, cooldowns, bounties, loadout slots, save hardening) is built and **passed its in-game test** on a throwaway account, including a full restart. Accounts are switched over next (2.13).
+> - **Real progression is now the default.** `PROGRESSION_MODE` unset or empty means real for every account; `stub` keeps upstream's fake max ranks, and `PROGRESSION_REAL_ACCOUNTS` only matters in stub mode. Nothing is migrated: on a server that already had players, they start at Slayer level 1, and the metagame warns about them at startup. Self-hosters choose per account with the admin seed (grandfather or fresh) or stay on `stub`; see the upgrade notes (`docs/setup/upgrading.md`).
 > - Once, the Ramsgate server exited at the end of a hunt, and the deploy server's watchdog restarted it within a minute ("RAMSGATE HAS FALLEN! Restarting!"). It was a clean exit: no crash dump and no error in the Windows event log. The likely cause is its console window being closed. For ports 8776 and up (Ramsgate, Dojo) the DLL turns off its idle exit and opens a console for logging (`dllmain.cpp`, `AllocConsole`). Closing that window ends the server. Hiding the window is part of 1.1.
 
 - **One player (the owner), on this PC.** These all work: login, the tutorial, Ramsgate, the Training Dojo, the first pursuit hunt, crafting, the inventory and the equipped loadout.
@@ -72,17 +73,17 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 | Weapons, armour, parts, cosmetic items | Yes | 36 items. Upgrades are version-checked. |
 | Equipped gear, emotes, banner, glider, flare (loadout slot 0) | Yes | The database shows `WP_MS_BEGINNER` equipped, not the default. |
 | Titles, pets, dyes, transmog, other cosmetics | Probably | Stored in the same records, but not verified (3.4). |
-| Extra loadout slots | No | The route is missing: 43 failed unlock attempts today. |
+| Extra loadout slots | No | The route is missing: 43 failed unlock attempts today. *Update: with real progression (now the default) the unlock, slot count and active slot are stored (2.4); the extra slots are still to be tried in the UI.* |
 | "Seen" markers (NPCs, tutorial slates) | Yes | All 12 from today are in the database. |
 | "New" markers (breadcrumbs) | Yes, untested | The client hasn't written one yet. |
-| Slayer level | No, faked at 50 | 7 XP grants were refused (400) today. |
-| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* |
-| Mastery objectives, achievements | No | |
-| Hunt Pass | No, faked | The rank is sent as 99,999,999 (the real cap is 50). A 100-XP Hunt Pass grant at 10:41 hit a missing route. *Checker: nobody has seen what the Hunt Pass screen actually shows. The Elite track is probably locked.* |
-| Bounties | No | The board is empty every time a server loads you. *Checker: claiming a bounty fails even within one session, because the route `/bounty/delete` is missing.* |
-| Daily and weekly limits (cooldowns) | No | They reset each time a new server loads you, which means every hunt and every Ramsgate visit. |
+| Slayer level | No, faked at 50 | 7 XP grants were refused (400) today. *Update: yes with real progression, now the default (2.8–2.10, tested in game).* |
+| Weapon and behemoth mastery | No, faked at max | *Checker: only the overall behemoth track shows max. The individual behemoth mastery cards probably show nothing completed, because the objectives list is empty.* *Update: yes with real progression, now the default (2.9, 2.10).* |
+| Mastery objectives, achievements | No | *Update: mastery objectives are stored and echoed with real progression, now the default (2.9, 2.12). Achievements not checked.* |
+| Hunt Pass | No, faked | The rank is sent as 99,999,999 (the real cap is 50). A 100-XP Hunt Pass grant at 10:41 hit a missing route. *Checker: nobody has seen what the Hunt Pass screen actually shows. The Elite track is probably locked.* *Update: yes with real progression, now the default: starts at 0, free and Elite claims stored (2.15, tested in game).* |
+| Bounties | No | The board is empty every time a server loads you. *Checker: claiming a bounty fails even within one session, because the route `/bounty/delete` is missing.* *Update: stored with real progression, now the default, and the delete route exists (2.6); drafting and claiming in the UI are still to try.* |
+| Daily and weekly limits (cooldowns) | No | They reset each time a new server loads you, which means every hunt and every Ramsgate visit. *Update: stored with real progression, now the default (2.5); still to watch across a daily reset.* |
 | Escalation | No, faked at 99,999 | There is no save route. |
-| Entitlements (Elite pass, packs) | No | One grant was thrown away today (09:50:31). |
+| Entitlements (Elite pass, packs) | No | One grant was thrown away today (09:50:31). *Update: yes with real progression, now the default; every account owns the Elite pass (2.14, tested in game).* |
 | Currency balance (`/balance`) | Wrong | Reports 0 Notes, 25 weapon tokens and 0 of everything else. Your real Rams are in the inventory. |
 | Store | Broken | The item list returns 400 (15 times today). |
 | Mailbox | Always empty | |
@@ -94,7 +95,7 @@ What today's session sent to the server (`metagame.log`, 09:38–10:50 UTC):
 ### What to tell friends right now
 
 - Items, materials, Rams, crafted gear, quests and story progress are saved.
-- Slayer level, weapon mastery, the Hunt Pass and bounties are not saved yet. Everyone shows as max level for now.
+- Slayer level, weapon mastery and the Hunt Pass are saved (real progression is the default). Everyone starts at level 1 and owns the Elite Hunt Pass. Bounties are stored, but drafting and claiming them hasn't been tried in the game yet.
 - Don't break cells down into dust yet. Nobody has checked whether the dust is kept.
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
 
@@ -467,7 +468,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.8 to 2.11, and a second account (a friend, or a second client on this PC if that works; untested).
   - **Done when:** a full hunt on the test account shows no repeated pop-ups and no repeated reward transactions, and the values are the same after logging in again.
 
-- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC.*
+- [ ] **2.13 Move existing players onto real progression** (S, plus your decision) — *Admin seed tool built (grandfather / fresh). **Owner decision 2026-09-21: fresh start for everyone.** On the rented server the owner registers a new player account with their own username through the launcher. A separate admin account, created by the installer and kept on the server, does the administration. The old test accounts stay on the owner's PC. **Real progression is now the default** (`PROGRESSION_MODE` unset = real). Nothing migrates anyone: other self-hosters' earlier players start at level 1 unless the host seeds them (grandfather) or sets `PROGRESSION_MODE=stub`, and the metagame logs a warning with their count at startup. The choice is written up in the upgrade notes (`docs/setup/upgrading.md`). Not tried in game yet: an account that played under the fake level 50 going down to level 1, and a grandfathered account.*
   - **What:** an admin seed command with two modes.
     - **Grandfather:** every track at its maximum and confirmed at max. It looks exactly like today and grants nothing.
     - **Fresh:** progress starts at 0.

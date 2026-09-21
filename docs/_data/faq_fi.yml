@@ -87,11 +87,14 @@
 - id: tallentuuko-edistymiseni
   q: "Tallentuuko edistymiseni?"
   a: >-
-    Osittain. Esineet, materiaalit, Rams-raha, valmistetut varusteet, tehtävät ja tarinan eteneminen
-    tallentuvat tietokantaan. Ne säilyvät, vaikka palvelin käynnistetään uudelleen, ja niistä otetaan
-    varmuuskopio tunnin välein. Slayer-taso, aseiden mestaruus (mastery), Hunt Pass ja palkkiotehtävät
-    (bounties) eivät vielä tallennu, joten kaikilla näkyy toistaiseksi taso 50. Kaiken ansaitun
-    tallentaminen on välitavoite M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista töistä).
+    Suurimmaksi osaksi. Esineet, materiaalit, Rams-raha, valmistetut varusteet, tehtävät ja tarinan
+    eteneminen tallentuvat tietokantaan. Ne säilyvät, vaikka palvelin käynnistetään uudelleen, ja niistä
+    otetaan varmuuskopio tunnin välein. Myös Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja
+    Hunt Pass (Elite-passi kaikille) tallentuvat: oikea eteneminen on oletuksena päällä, ja se läpäisi
+    pelitestin kertakäyttöisellä testitilillä. Palkkiotehtävät (bounties) ja päivittäiset rajoitukset
+    tallentuvat, mutta niitä ei ole vielä kokeiltu pelissä kokonaan, eikä Escalation tallennu. Loput
+    kaiken ansaitun tallentamisesta on välitavoite M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista
+    töistä).
 
 - id: mika-on-undaunted
   q: "Mikä on Undaunted, ja miten Dauntless Revived eroaa siitä?"

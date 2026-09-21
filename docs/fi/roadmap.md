@@ -21,8 +21,8 @@ on englanniksi:
 [Avaa päivittyvä tarkistuslista (englanniksi)]({{ roadmap_en.url | relative_url }}){: .btn .btn-primary .mr-2 }
 [ROADMAP.md GitHubissa]({{ site.github.repository_url }}/blob/dauntless-revived/ROADMAP.md){: .btn }
 
-Yhteenveto kuvaa tilannetta 21.9.2026. Jos tämä sivu ja englanninkielinen lista eroavat toisistaan,
-englanninkielinen lista on ajan tasalla.
+Yhteenveto kuvaa tilannetta 21.9.2026; oikean etenemisen tiedot on päivitetty 22.9.2026. Jos tämä
+sivu ja englanninkielinen lista eroavat toisistaan, englanninkielinen lista on ajan tasalla.
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -60,10 +60,13 @@ kaverilista vielä oikeasti toimi.
 Osa pelissä ansaitusta tallentuu jo, osa ei:
 
 - **Tallentuu:** tavarat, materiaalit, Ramsit (pelin raha), valmistetut varusteet, tehtävät ja tarinan
-  eteneminen.
-- **Ei vielä tallennu:** Slayer-taso, aseiden ja hirviöiden mestaruus (mastery), Hunt Pass,
-  palkkiotehtävät (bounties), päivittäiset ajastimet ja Escalation. Näille on toistaiseksi vain
-  tyngät, jotka heittävät jokaisen tallennuksen pois.
+  eteneminen. Oikean etenemisen myötä, joka on nyt oletuksena päällä, tallentuvat myös Slayer-taso,
+  aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass (Elite-passi kaikille). Se läpäisi
+  pelitestin kertakäyttöisellä testitilillä, myös uudelleenkäynnistyksen yli.
+- **Tallentuu, mutta ei vielä kokeiltu kokonaan pelissä:** palkkiotehtävät (bounties), päivittäiset
+  ajastimet ja lisävarustesarjojen paikat.
+- **Ei vielä tallennu:** Escalation. Sille on toistaiseksi vain tynkä, joka heittää jokaisen
+  tallennuksen pois.
 
 ---
 
@@ -100,8 +103,10 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 
 ## Työn alla {#in-progress}
 
-- **M2-työ on alkanut** tietokannan testikopiolla ja tilikohtaisen kytkimen takana, joten kenenkään
-  pelissä ei muutu mitään ennen kuin se on testattu.
+- **M2:n oikea eteneminen on valmis ja oletuksena päällä.** Se läpäisi pelitestin kertakäyttöisellä
+  testitilillä. Mitään ei siirretä automaattisesti: palvelimella, jolla oli jo pelaajia, he aloittavat
+  Slayer-tasolta 1, ellei ylläpitäjä anna heille maksimitasoja tai valitse vanhaa tynkää
+  (`PROGRESSION_MODE=stub`). Omalla palvelimellamme kaikki aloittavat alusta.
 - **Pelin lähettämien tietojen tallennus (0.4)** on kytketty päälle. Se kerää seuraavalla
   pelikerralla, millaisia tallennuksia peli lähettää niille järjestelmille, jotka eivät vielä
   tallenna mitään. Näin tallennukset voidaan rakentaa oikeassa muodossa eikä arvailemalla.
@@ -152,8 +157,9 @@ monistaa eikä kuluttaa enemmän kuin omistaa, tallennuksille tulee historia, jo
 palauttaa aiempaan versioon, ja ylläpitäjä saa työkalut rikkoutuneen tallennuksen korjaamiseen
 minuuteissa. Ruudulla näkyvä rahamäärä korjataan vastaamaan sitä, mitä pelaajalla oikeasti on. Jokainen
 uusi palvelimen vastaus testataan ensin koetilillä, koska väärin muotoiltu vastaus voi kaataa pelin. On
-myös päätetty, että jokainen tili saa Elite Hunt Passin. Arvioitu koko on 3–5 viikkoa, ja työ on jo
-alkanut.
+myös päätetty, että jokainen tili saa Elite Hunt Passin. Arvioitu koko on 3–5 viikkoa. Slayer-taso,
+mestaruus, Hunt Pass ja oikeudet on jo tehty, testattu pelissä ja otettu oletuksena käyttöön; loput ovat
+työn alla.
 
 ### M3: Koko peli toimii {#m3-the-full-game-loop}
 
@@ -183,8 +189,9 @@ valinnainen, isompi työ.
 ## Mitä pelaajan kannattaa tietää nyt {#what-to-tell-friends-right-now}
 
 - Tavarat, materiaalit, Ramsit, valmistetut varusteet, tehtävät ja tarinan eteneminen tallentuvat.
-- Slayer-taso, aseiden mestaruus, Hunt Pass ja palkkiotehtävät eivät vielä tallennu. Kaikilla näkyy
-  toistaiseksi korkein taso.
+- Slayer-taso, aseiden mestaruus ja Hunt Pass tallentuvat (oikea eteneminen on oletuksena päällä).
+  Kaikki aloittavat tasolta 1, ja jokaisella on Elite Hunt Pass. Palkkiotehtävät tallentuvat, mutta
+  niiden valitsemista ja lunastamista ei ole vielä kokeiltu pelissä.
 - Älä vielä hajota cellejä (varusteisiin liitettäviä kykyesineitä) pölyksi. Kukaan ei ole
   tarkistanut, säilyykö pöly.
 - Sulje peli vähintään kerran päivässä. Kirjautuminen vanhenee 24 tunnissa, ja sen jälkeen

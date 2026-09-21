@@ -31,9 +31,10 @@ const FACTS = [
         `can host the same thing from the source code (${REPO}).`,
     "Status as of September 2026: it works for one player on the host PC. That covers login with a personal " +
         "account key (no Epic account needed), the tutorial, Ramsgate, the Training Dojo, hunts and crafting. " +
-        "Items, gear and quests are saved and backed up hourly. Not yet working: playing with friends over the " +
-        "internet, parties and the friends list, saved progression and the Hunt Pass, bounties. The home page " +
-        "and the roadmap have the current state.",
+        "Items, gear and quests are saved and backed up hourly. Slayer level, mastery and the Hunt Pass (with the " +
+        "Elite pass for every account) are saved too: real progression is on by default and passed an in-game " +
+        "test on a throwaway account. Not yet working: playing with friends over the internet, parties and the " +
+        "friends list, bounties. The home page and the roadmap have the current state.",
     "No game files are distributed by the site or the repository. Every player needs their own copy of the client.",
     "Not affiliated with, endorsed by or supported by Phoenix Labs or Epic Games. \"Dauntless\" is a trademark " +
         "of its owners.",

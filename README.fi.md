@@ -79,7 +79,7 @@ Syyskuu 2026. Kaikkea alla olevaa on kokeillut yksi pelaaja palvelinkoneella.
 | Tavarat, varusteet ja tehtävät | Toimii (yksin) | Tallentuvat tietokantaan ja säilyvät, vaikka peli ja palvelin käynnistetään uudelleen |
 | Varmuuskopiot | Toimii meidän palvelinkoneellamme | Joka tunti sekä aina palvelimen käynnistyessä ja sammuessa. Palautus on kokeiltu. Varmuuskopio-ohjelmat eivät ole vielä tässä koodivarastossa ([ohje oman varmuuskopion tekemiseen](https://mixutin.github.io/dauntless-revived/fi/setup/admin.html#back-up-the-database)). |
 | Kavereiden asennuspaketti | Valmis | Tarkistaa tiedostot ja käynnistää pelin. Odottaa Tailscalea ja kutsukoodeja. |
-| Pelaajan taso ja Hunt Pass (palkintojärjestelmä) | Työn alla (M2) | Taso ja taitotasot ovat vielä kiinteitä, eikä edistyminen vielä tallennu |
+| Pelaajan taso, mestaruus ja Hunt Pass (palkintojärjestelmä) | Toimii (yksin), oletuksena päällä | Alkavat nollasta ja tallentuvat; jokaisella tilillä on Elite Hunt Pass. Kokeiltu pelissä testitilillä, myös palvelimen uudelleenkäynnistyksen yli. `PROGRESSION_MODE=stub` palauttaa alkuperäisen kiinteän tason 50 ([päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html)) |
 | Pelaaminen kavereiden kanssa internetin yli | Ei vielä (M1) | Suunnitelma: Tailscale (ohjelma, joka yhdistää kavereiden koneet yksityiseen verkkoon) |
 | Pelaajaryhmät ja kaverilista | Ei vielä | |
 | Bounty-tehtävät (lisätehtävät, joista saa palkintoja) | Ei vielä | |
@@ -134,6 +134,13 @@ ohjesivuston sivulla [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/
 - Kirjautumistunnisteet poistetaan lokista. Valinnainen tallennus (`LOG_BODIES=1`) kirjaa, mitä peli
   lähettää niihin tallennuksiin, jotka eivät vielä toimi. Kustakin pyynnöstä tallennetaan enintään 8 kt, ja
   tunnisteet poistetaan.
+- **Oikea eteneminen oletuksena.** Alkuperäinen versio vastasi etenemistä koskeviin kyselyihin
+  kiinteällä mallilla (jokainen tili tasolla 50, Hunt Passissa ei mitään lunastettavaa ja Elite-rata
+  lukittuna) eikä tallentanut mitään. Meidän metagamemme tallentaa Slayer-tason, mestaruuden
+  (mastery), Hunt Passin, oikeudet (Elite-passi kaikille), varustesarjojen paikat, odotusajat ja
+  palkkiotehtävät jokaiselle tilille erikseen. `PROGRESSION_MODE=stub` palauttaa alkuperäisen
+  toiminnan. Päivitätkö palvelinta, jolla on jo pelaajia? Lue ensin
+  [päivitysohjeet](https://mixutin.github.io/dauntless-revived/fi/setup/upgrading.html).
 - **Kavereiden asennuspaketti** (`friend-kit/`, kootaan ohjelmalla `tools/make-friend-kit.ps1`).
   Se tarkistaa Undauntedin kaksi DLL-tiedostoa tarkistussummilla (tiedoston ”sormenjäljillä”),
   rekisteröi pelaajan ja ohjaa pelin chat-yhteyden palvelinkoneelle, jotta peli ei ota yhteyttä

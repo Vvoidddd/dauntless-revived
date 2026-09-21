@@ -52,6 +52,7 @@ tested on one PC, by the owner, playing alone.
 | Ramsgate | Works | A permanent Ramsgate server runs next to the backend. After the tutorial, and on every later login, the player goes straight there. |
 | Hunt servers | Works (solo) | The deploy server starts one game server per hunt. On our setup, one player has played the tutorial hunt, a normal hunt (a Lesser Boreus) and a pursuit. Undaunted's history reports 4-player hunts on the same client, but we have **not yet tested** hunts with more than one player. |
 | Saved inventory and loadouts | Works (solo) | Materials, Rams (most likely the `CURRENCY_NOTES` stack), crafted and granted gear, the first loadout slot, and character data (quest progress, tutorial state, flags, appearance) are stored in a SQLite database. Hunt loot is saved. The data survives a client restart and a full server restart. So far only one player has tested this. |
+| Slayer level, mastery and the Hunt Pass | Works (solo), on by default | Real progression: Slayer level, weapon and behemoth mastery and the Hunt Pass start at 0 and are saved. Every account owns the Elite Hunt Pass, and rank rewards are granted once. Tested in game on a throwaway account, including a full restart. `PROGRESSION_MODE=stub` brings back upstream's fixed level 50. |
 
 The measured cost on the host PC was about 1.1 GB of RAM and roughly 0.2 of a CPU core for the
 Ramsgate server, about 0.9 GB per hunt server, and 1.5 to 2.3 GB for the player's own client (the
@@ -64,10 +65,10 @@ higher figure at Cinematic settings).
   is to connect friends over Tailscale and turn on invite codes.
 - **Parties and the friends list.** Parties are faked as "you, alone", and the friends list shows
   0 online.
-- **Progression.** Slayer level and weapon mastery come from a fixed template, which is why every
-  account shows level 50. Progression writes are rejected and are not saved.
-- **Bounties, Hunt Pass, cooldowns and escalation.** These are stubbed, and nothing carries over
-  between sessions.
+- **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
+  per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
+  not been tried yet. Escalation is still stubbed, so its progress does not carry over between
+  sessions.
 - **Multiple loadouts, choosing your own username, the welcome message and mailbox, seasonal events,
   and the store.**
 
@@ -103,7 +104,8 @@ third-party service, so use Discord instead. Content released after November 202
 
 Our changes to Undaunted so far are small and practical. Both services now bind to loopback by
 default. A port clash is now a hard error, where it used to be a silent exit. Every request is
-logged. The Training Dojo starts only when it is needed. The [roadmap]({{ roadmap_page.url | relative_url }})
+logged. The Training Dojo starts only when it is needed. Progression is real by default, where
+upstream answered with a fixed template and saved nothing. The [roadmap]({{ roadmap_page.url | relative_url }})
 lists all of them.
 
 ---

@@ -358,15 +358,18 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit). Alkuperäinen Undaunted kertoo,
   että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman
   kuin yhden pelaajan kanssa.
-- Kaikki näkyvät tasolla 50. Slayer-taso ja mestaruus (mastery) tulevat kiinteästä mallista, eikä niitä
-  vielä tallenneta.
+- Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat nollasta ja tallentuvat,
+  kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt Pass. Jos
+  palvelimella oli aiemmin vanhempi versio, tasosi voi päivityksen jälkeen alkaa uudelleen 1:stä:
+  kysy isännältä.
 - Ryhmät (parties) ja kaverilista eivät vielä toimi: peli näyttää ”0 ONLINE FRIENDS”. Jos haluatte
   päästä samaan metsästykseen, jonottakaa siihen suunnilleen samaan aikaan. Matchmaker
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja
   käynnistää heille yhden palvelimen, kun neljä on liittynyt tai kun 20 sekuntia kuluu ilman, että
   kukaan uusi liittyy.
-- Palkkiotehtävät (bounties), Hunt Pass, odotusajat (cooldowns) ja Escalation-sarjat ovat vain
-  tynkiä, jotka eivät oikeasti tallenna mitään. Mikään niistä ei säily pelikerrasta toiseen.
+- Palkkiotehtävät (bounties) ja odotusajat (cooldowns) tallentuvat, mutta palkkiotehtävän valitsemista
+  ja lunastamista sekä vuorokauden vaihdetta ei ole vielä kokeiltu pelissä. Escalation-sarjat ovat
+  vain tynkiä, jotka eivät oikeasti tallenna mitään, eivätkä ne säily pelikerrasta toiseen.
 - Äänichat toimi Vivoxilla, joka on maksullinen ulkopuolinen palvelu, eikä se voi palata. Käytä
   Discordia.
 - Kun isännän kone on sammutettu, palvelinkin on poissa päältä.
