@@ -2,6 +2,9 @@
 title: Verifying game files
 parent: Findings
 nav_order: 1
+description: "How we checked that community-shared Dauntless builds are genuine, complete and clean: Authenticode signatures, Phoenix Labs' install manifest and ClamAV."
+lang: en
+ref: findings/verification
 ---
 
 {% assign ci_page = site.pages | where: "path", "findings/client-internals.md" | first %}

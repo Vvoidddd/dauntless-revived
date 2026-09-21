@@ -2,6 +2,9 @@
 title: Game assets and config
 parent: Findings
 nav_order: 2
+description: "How the Dauntless 1.4.4 and 2.1.1 builds store content: pak v9 and IoStore containers, Oodle, the cooked config, key map paths and the user config folder."
+lang: en
+ref: findings/assets
 ---
 
 {% assign ci_page = site.pages | where: "path", "findings/client-internals.md" | first %}
@@ -18,7 +21,7 @@ user config file can override. We never modify the files the game shipped with. 
 here is read out of those files, or done through the per-user config folder or a loose file placed
 beside them (such as the CA bundle described below).
 
-We distribute no game files, and this page reproduces only short excerpts needed to explain a point.
+This site and the repository contain no game files, and this page reproduces only short excerpts needed to explain a point.
 Both builds' cooked config contains credentials that should never have shipped. See
 [Secrets in the cooked config](#secrets-in-the-cooked-config).
 

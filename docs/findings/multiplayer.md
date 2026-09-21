@@ -2,6 +2,9 @@
 title: How multiplayer works
 parent: Findings
 nav_order: 6
+description: "How Undaunted runs multiplayer on the client-only Dauntless 1.4.4 build: an injected DLL turns extra client copies into game servers for Ramsgate and hunts."
+lang: en
+ref: findings/multiplayer
 ---
 
 {% assign ci_page = site.pages | where: "path", "findings/client-internals.md" | first %}

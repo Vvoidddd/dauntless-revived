@@ -2,6 +2,9 @@
 title: The 2.1.1 standalone attempt
 parent: Findings
 nav_order: 8
+description: "Our first attempt on the final Dauntless 2.1.1 client: a full login chain against our own backend, Ramsgate rendered, and why no controllable player appeared."
+lang: en
+ref: findings/awakening-2-1-1
 ---
 
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}

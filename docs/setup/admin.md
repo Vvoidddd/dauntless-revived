@@ -2,6 +2,9 @@
 title: Run it for a group
 parent: Setup
 nav_order: 3
+description: "Opening a Dauntless Revived server to a few friends: Tailscale sharing, firewall rules, invite codes, admin accounts, capacity figures and database backups."
+lang: en
+ref: setup/admin
 ---
 
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
@@ -398,9 +401,12 @@ The server is up only while the host PC is on, awake and signed in.
 - **Stay signed in.** Lock the screen instead of signing out. The game servers run in your session and
   read your account's `Game.ini`. Running them as a Windows service (session 0) is untested.
 - **Start Tailscale before the stack**, because the metagame binds to the Tailscale address.
-- **After a reboot nothing restarts on its own yet.** Planned: a `stack.ps1` script with start, stop
-  and status commands, started by a scheduled task at logon, plus a supervisor that restarts a crashed
-  metagame or deploy server with backoff.
+- **One command starts and stops the stack, but after a reboot nothing restarts on its own yet.** On
+  our host, a `stack.ps1` script with `start`, `stop`, `restart` and `status` already runs the whole
+  stack and backs up the database before every start and after every stop. It works locally but is
+  not in the repository yet (item 1.1 on the [roadmap]({{ roadmap_page.url | relative_url }})). Still
+  planned for milestone M4: starting it from a scheduled task at logon, and a supervisor that restarts
+  a crashed metagame or deploy server with backoff.
 
 ## Back up the database
 
@@ -410,6 +416,13 @@ with one player or about 25 KB per character, so keeping many copies costs nothi
 
 **The metagame runs any pending database migrations on every start, and takes no backup first.** Always
 back up before updating the fork or pulling upstream changes.
+
+**What our host does.** A hidden scheduled task backs the database up every hour and keeps the newest
+48 copies plus the newest copy of each of the last 30 days. `stack.ps1` also takes a backup before
+every start and after every stop, and it won't start the metagame if that backup fails. A restore test
+passed. These scripts work on our host but are not in the repository yet (items 0.1 and 1.1 on the
+[roadmap]({{ roadmap_page.url | relative_url }})). Copies off the PC are still open. On any other host,
+use one of the two options below.
 
 **Option 1: stopped copy.** Stop the metagame and copy the file. The database uses SQLite's default
 rollback journal, so there is no separate `-wal` file to forget.

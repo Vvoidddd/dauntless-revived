@@ -1,0 +1,393 @@
+---
+title: Liity kaverina
+parent: Asennus
+grand_parent: Dauntless Revived suomeksi
+nav_order: 2
+description: "Näin kutsuttu kaveri liittyy Dauntless Revived -palvelimelle: Tailscale, tarkistettu Dauntless 1.4.4, kaksi DLL-tiedostoa, kutsukoodi ja kaveripaketti."
+lang: fi
+ref: setup/friends
+locale: fi_FI
+---
+
+{% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
+{% assign legal_page = site.pages | where: "path", "fi/legal.md" | first %}
+
+# Liity kaverina
+{: .no_toc }
+
+Tämä sivu on sinulle, jos isäntä (se, joka pyörittää palvelinta) on kutsunut sinut mukaan. Pelaat
+**omalla Dauntless 1.4.4 -peliohjelmallasi** (lokakuu 2020, UE4) isännän palvelimella. Palvelin on
+tietokone, joka pyörittää peliä verkossa. Et tarvitse Epic-tiliä, hosts-tiedoston muutoksia etkä
+varmenteita. Kaikki liikenne kulkee yksityisen Tailscale-yhteyden kautta isännän koneelle.
+
+Kaikki tällä sivulla koskee **versiota 1.4.4**. Pelin viimeinen versio, 2.1.1 (”Awakening”, UE5), ei
+toimi tässä: `UndauntedInternalServer.dll` muokkaa kiinteitä muistiosoitteita 1.4.4:n
+ohjelmatiedoston sisällä, joten se toimii vain juuri sen version kanssa. Siksi jokainen alla oleva
+vaihe myös tarkistaa tiivisteen (hash). Tiiviste on tiedoston sisällöstä laskettu sormenjälki: jos
+tiedostosta muuttuu yksikin tavu, tiiviste muuttuu.
+
+**Tilanne.** Tätä kirjoitettaessa yksikään kaveri ei ole vielä liittynyt palvelimelle. Isännän puolta ollaan
+vielä siirtämässä Tailscaleen (katso [Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Alla
+olevat vaiheet ovat se, mitä tulemme pyytämään kavereita tekemään. Kirjautumista, opetusjaksoa ja
+Ramsgatea on toistaiseksi testattu vain isännän omalla koneella ja isännän omalla tilillä.
+
+**Lyhyt tapa: kaveripaketti.** Isäntä voi antaa sinulle pienen zip-tiedoston, joka on koottu
+repositorion [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit)-kansiosta.
+Tee ensin vaihe 1 ja kaksoisnapsauta sitten `Setup.cmd`-tiedostoa: se tekee vaiheet 2–4 puolestasi ja
+tarkistaa jokaisen tiivisteen. Sen jälkeen `Play Dauntless.cmd` tekee vaiheen 5 jokaisella
+käynnistyskerralla. Alla olevat käsin tehtävät vaiheet näyttävät tarkalleen, mitä paketti tekee.
+
+<details open markdown="block">
+  <summary>Sisältö</summary>
+  {: .text-delta }
+1. TOC
+{:toc}
+</details>
+
+## Mitä tarvitset {#what-you-need}
+
+| Tarvike | Tiedot |
+|:-----|:--------|
+| Windows-tietokone | 64-bittinen Windows 10 tai 11. Peli vie levyltä noin 10,9 Gt (10,1 GiB). |
+| Oma Dauntless 1.4.4 -asennus | Shipping-versio `dauntless_rel-1.4.4_Shipping_2020-10-28_20-11-15_239827`, joka tarkistetaan tiivisteellä vaiheessa 2. |
+| Tailscale | Oma ilmainen tili sekä isännän jakaman koneen hyväksyminen. |
+| Kaksi DLL-tiedostoa | `dxgi.dll` ja `UndauntedInternalServer.dll`, jotka tarkistetaan tiivisteellä vaiheessa 3. |
+| Microsoft Visual C++ 2015-2022 Redistributable (x64) | `UndauntedInternalServer.dll` tarvitsee tiedostot `MSVCP140.dll` ja `VCRUNTIME140_1.dll`. Monessa koneessa ne ovat jo valmiina. |
+| Kutsukoodi | Isännältä. Koodit ovat yleensä kertakäyttöisiä. |
+| Käynnistysskripti | Annetaan vaiheessa 5. |
+
+**Tämä sivusto ja repositorio eivät jaa peliä eivätkä linkitä sen latauksiin.** Mitä kopiota
+käytätkin, vaihe 2 tarkistaa sen. Jos omasi tuli `BaseGame144.zip`-arkistona, josta alkuperäisen
+Undauntedin käynnistin asentaa pelin, vaihe 2 kertoo myös arkiston tiivisteen. Sivulta
+[Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}) näet, miksi toimimme näin.
+
+## Vaihe 1: Asenna Tailscale ja hyväksy isännän jako {#step-1-install-tailscale-and-accept-the-hosts-share}
+
+Isännän palvelimella ei ole julkista osoitetta. Sen tavoittaa vain Tailscalen kautta, ja vain ne
+ihmiset, joille isäntä on jakanut juuri sen yhden koneen. Tailscale on ohjelma, joka tekee salatun,
+yksityisen yhteyden koneiden välille. Sivu [Palvelin ryhmälle]({{ admin_page.url | relative_url }})
+kertoo, miksi näin on tehty.
+
+1. Asenna Tailscale for Windows osoitteesta [tailscale.com/download](https://tailscale.com/download)
+   ja kirjaudu sisään omalla tililläsi.
+2. Avaa isännän jakokutsu (linkki tai sähköposti) ja hyväksy se. Isännän kone näkyy sen jälkeen
+   Tailscalen konelistassasi. Et liity isännän verkkoon. Näet vain sen yhden koneen.
+3. Ota isännän osoite talteen. `tailscale status` näyttää sen muodossa `100.x.y.z`. Sen pitäisi olla
+   sama osoite, jonka isäntä antoi sinulle.
+4. Testaa yhteys PowerShellissä:
+
+```powershell
+$Server = "100.x.y.z"   # the host's Tailscale address
+tailscale ping $Server
+Invoke-RestMethod "http://${Server}:61000/undaunted/api/RegistrationStatus"
+```
+
+`tailscale ping` -komennon pitäisi vastata `pong`. Jos vastauksessa lukee `via DERP(...)`, liikenteesi
+kulkee Tailscalen välityspalvelimen (relay) kautta. Se toimii, mutta viive on suurempi. Toisen
+komennon pitäisi tulostaa `RegistrationMode : INVITECODE`. Jos se aikakatkaistaan, Tailscale on pois
+päältä, jakoa ei ole vielä hyväksytty tai isännän palvelin ei ole käynnissä.
+
+## Vaihe 2: Tarkista pelitiedostosi {#step-2-verify-your-game-files}
+
+Osoita `$Game` asennuskansioosi, siihen, jossa ovat kansiot `Archon`, `Engine` ja `EasyAntiCheat`:
+
+```powershell
+$Game = "C:\D144\Dauntless"
+Get-Content "$Game\Version.txt"
+(Get-FileHash "$Game\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe" -Algorithm SHA256).Hash
+```
+
+| Mitä | Odotettu arvo |
+|:-----|:---------|
+| `Version.txt` | `dauntless_rel-1.4.4_Shipping_2020-10-28_20-11-15_239827` |
+| `Dauntless-Win64-Shipping.exe` SHA-256 | `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` |
+| `Dauntless-Win64-Shipping.exe` koko | 103 673 520 tavua |
+| `BaseGame144.zip` SHA-256, jos sinulla on arkisto | `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` (10,48 Gt) |
+
+Exe-tiedoston tiiviste on sama arvo, jonka alkuperäinen Undaunted-käynnistin tarkistaa. Jos se ei
+täsmää, lopeta tähän: DLL-tiedostot eivät toimi eri version kanssa.
+
+Isännän koneella tarkistimme vertailukopiomme perusteellisemmin. Kaikki 406 tiedostoa vastaavat
+`Manifest.bin.json`-luetteloa, jonka Phoenix Labs toimitti asennuksen mukana, kaikkien 39
+allekirjoitetun ohjelmatiedoston Authenticode-tiivisteet ovat yhä ehjiä, ja haittaohjelmatarkistus oli
+puhdas. Löydökset-osiossa on yksityiskohdat. Sinulle riittää exe-tiedoston tiiviste.
+
+## Vaihe 3: Kopioi kaksi DLL-tiedostoa {#step-3-copy-the-two-dlls}
+
+Molemmat tiedostot menevät kansioon `<game folder>\Archon\Binaries\Win64\` eli pelikansiosi alle,
+`Dauntless-Win64-Shipping.exe`-tiedoston viereen.
+
+| Tiedosto | Koko | SHA-256 |
+|:-----|-----:|:--------|
+| `dxgi.dll` | 11 264 tavua | `9A431D7B6FD20C43FA92BEBD91C3BC023EC7A3FCBC52871C41F4DF293D4B0D1F` |
+| `UndauntedInternalServer.dll` | 123 392 tavua | `520EC588A0554E374B2B0D084CD7F7F08D59A9CB80362679845719D64A0D0933` |
+
+Saat ne isännältä, helpoimmin kaveripaketissa (katso yllä), tai
+alkuperäisestä repositoriosta kansiosta
+[`UndauntedLauncher/assets/`](https://github.com/SyST3MDeV/Undaunted/tree/main/UndauntedLauncher/assets).
+Ne ovat samat tiedostot. Kopioinnin jälkeen tarkista ne ja poista niistä ”ladattu internetistä”
+-merkintä:
+
+```powershell
+$W = "$Game\Archon\Binaries\Win64"
+Get-FileHash "$W\dxgi.dll", "$W\UndauntedInternalServer.dll" -Algorithm SHA256 | Format-Table Hash, Path
+Unblock-File "$W\dxgi.dll", "$W\UndauntedInternalServer.dll"
+```
+
+**Mitä ne tekevät.** Kun peli käynnistyy, Windows lataa `dxgi.dll`-tiedoston pelikansiosta ennen
+järjestelmän omaa kopiota. Tämä välittäjä (proxy) lataa oikean järjestelmän `dxgi.dll`-tiedoston,
+välittää sen kolme funktiota (exports) eteenpäin ja lataa `UndauntedInternalServer.dll`-tiedoston.
+Tavallisessa käynnistyksessä (client-tilassa) tämä DLL lukee ensimmäisen komentoriviparametrin
+palvelimen osoitteeksi. Sen jälkeen se kirjoittaa uudelleen taustapalvelun osoitteet, jotka peli lukee
+asetuksistaan (165 avaimen taulukko sekä tilipalvelun asetukset): kuolleista `steelyard.ca`-palvelimista
+osoitteeseen `http://<that address>/...` eli annettuun palvelinosoitteeseen. Kun sama DLL ladataan
+prosessiin, joka on käynnistetty valitsimella `-server`, se muuttaa kyseisen peliohjelman
+pelipalvelimeksi. Näin isäntä pyörittää Ramsgatea ja metsästyksiä.
+
+**Mistä voimme mennä takuuseen ja mistä emme:**
+
+- Nämä ovat alkuperäisen projektin valmiiksi käännetyt tiedostot. Kiinnitämme niiden tiivisteet. Emme
+  ole vielä kääntäneet `UndauntedInternalServer.dll`-tiedostoa itse lähdekoodista todistaaksemme, että
+  se vastaa julkaistua koodia. Versiomerkkijonot täsmäävät (0.0.3), mutta se ei ole todiste.
+- `dxgi.dll`-tiedoston lähdekoodia ei ole koskaan julkaistu. Purimme sen konekielen luettavaan muotoon
+  (disassembly): se tekee vain yllä kuvatut kolme asiaa eikä käytä mitään muuta kuin `KERNEL32`-kirjastoa
+  ja C-kielen ajonaikaista kirjastoa. Aiomme korvata sen omalla pienellä välittäjällämme, joka
+  käännetään lähdekoodista forkissamme.
+- Virustorjunta voi merkitä DLL-välittäjän epäilyttäväksi, koska samaa tekniikkaa käytetään myös
+  haittaohjelmissa. Tarkista tiivisteet ja päätä itse.
+
+Jos haluat poistaa asennuksen, poista kaksi DLL-tiedostoa. Mitään muuta pelikansiossa ei muuteta.
+
+Jos peli ei käynnisty ja näyttää viestin tiedostosta `MSVCP140.dll` tai `VCRUNTIME140_1.dll`, asenna
+Microsoftilta Microsoft Visual C++ 2015-2022 Redistributable (x64).
+
+## Vaihe 4: Rekisteröidy ja hanki henkilökohtainen avaimesi {#step-4-register-and-get-your-personal-key}
+
+Rekisteröidyt kerran käyttäjänimellä ja kutsukoodilla. Palvelin vastaa **henkilökohtaisella
+tiliavaimella**, merkkijonolla, joka alkaa `UUK_`. Avain on salasanasi. Peli kirjautuu sillä
+puolestasi.
+
+- **Kukaan ei voi palauttaa sitä, ei edes isäntä.** Palvelin tallentaa siitä vain SHA-256-tiivisteen.
+  Jos kadotat sen, isännän on annettava sinulle uusi käsin.
+- **Pidä se omana tietonasi.** Kuka tahansa, jolla on avaimesi, voi pelata sinuna.
+
+**Käyttäjänimen valinta.** Tällä hetkellä palvelin hyväksyy minkä tahansa nimen, joka ei ole tyhjä.
+Se ei estä kahta pelaajaa valitsemasta samaa nimeä, eikä nimeä voi vaihtaa. Hahmosi saa myös saman
+nimen ensimmäisellä kirjautumisella. Olemme lisäämässä sääntöjä: 3–16 merkkiä, vain kirjaimia,
+numeroita ja alaviivoja, ja nimen on oltava ainutlaatuinen isoista ja pienistä kirjaimista
+riippumatta. Valitse nimi, joka sopii jo näihin sääntöihin.
+
+Tämä skripti rekisteröi sinut ja tallentaa avaimen profiilikansioosi tulostamatta sitä. Se kieltäytyy
+toimimasta toista kertaa, koska uusi rekisteröinti loisi toisen, tyhjän tilin.
+
+```powershell
+$Server   = "100.x.y.z"             # the host's Tailscale address
+$Username = "YourName"              # 3-16 letters, digits or _
+$Invite   = "code-from-the-host"
+
+$dir = "$env:APPDATA\DauntlessRevived"
+if (Test-Path "$dir\account.key") { throw "You already have a key in $dir. Registering again would create a second account." }
+$body = @{ Username = $Username; InviteCode = $Invite } | ConvertTo-Json
+$r = Invoke-RestMethod -Method Post -Uri "http://${Server}:61000/undaunted/api/Register" -ContentType "application/json" -Body $body
+New-Item -ItemType Directory -Force $dir | Out-Null
+Set-Content -Path "$dir\account.key" -Value $r.UUK -NoNewline -Encoding ASCII
+"Registered. Key saved to $dir\account.key"
+```
+
+| Palvelimen vastaus | Merkitys |
+|:--------------|:--------|
+| 200 | Rekisteröity. Avain on tiedostossa `account.key`. |
+| 401 | Kutsukoodi on väärä tai jo käytetty. |
+| 400 | Rekisteröinti on suljettu tai käyttäjänimi on tyhjä. |
+| Ei vastausta | Tailscale on pois päältä tai isännän palvelin ei ole käynnissä. |
+
+Tarkista, että avain toimii. Tämä tulostaa käyttäjätunnisteesi (user id), käyttäjänimesi ja sen,
+oletko ylläpitäjä:
+
+```powershell
+$key = (Get-Content "$env:APPDATA\DauntlessRevived\account.key" -Raw).Trim()
+Invoke-RestMethod "http://${Server}:61000/undaunted/api/GetUserInfo" -Headers @{ "x-undaunted-user-api-key" = $key }
+```
+
+Säilytä kopio `account.key`-tiedostosta turvallisessa paikassa, esimerkiksi salasanojen
+hallintaohjelmassa.
+
+Palvelin käyttää tavallista, salaamatonta HTTP:tä, joten avain kulkee verkossa salaamattomana
+Tailscale-tunnelin sisällä. Tailscale salaa tuon tunnelin päästä päähän. Älä koskaan lähetä avainta
+tälle palvelimelle avoimen internetin yli.
+
+## Vaihe 5: Käynnistä {#step-5-launch}
+
+**Pidä ensin peli erossa Epicin vanhasta chat-palvelimesta.** Dauntless 1.4.4:n chat- ja
+paikallaoloyhteys (XMPP, eli tieto siitä, kuka on paikalla) osoittaa valmiiksi Epicin yhä toiminnassa
+olevaan palvelimeen. Peli yrittää muodostaa siihen yhteyden yhä uudelleen ja lähettää tilisi tunnisteen ja
+kirjautumistunnisteesi. Lisää tämä lohko tiedostoon
+`%LOCALAPPDATA%\Archon\Saved\Config\WindowsClient\Engine.ini` (luo tiedosto, jos sitä ei ole;
+lainausmerkit ovat pakollisia) ja kirjoita isännän osoite kohdan `100.x.y.z` paikalle:
+
+```ini
+[OnlineSubsystemMcp.XMPP]
+ServerAddr="ws://100.x.y.z"
+ServerPort=61099
+bUseSSL=false
+```
+
+Yhteys menee nyt Tailscalen kautta isännälle. Niin kauan kuin isäntä ei pyöritä chat-palvelinta,
+yhteys vain epäonnistuu, täsmälleen kuten se epäonnistuu Epiciä vastaan nykyään, ja peli jatkaa
+normaalisti. Kaveripaketin `play.ps1` kirjoittaa tämän lohkon jokaisella käynnistyksellä.
+
+Tallenna tämä nimellä `play.ps1` mihin tahansa. Se tarkistaa kolme kiinnitettyä tiivistettä ja
+käynnistää sitten pelin isännän palvelinta vasten.
+
+```powershell
+param(
+  [Parameter(Mandatory = $true)] [string]$Server,    # the host's Tailscale address
+  [string]$Game = "C:\D144\Dauntless",
+  [switch]$Windowed
+)
+$W   = Join-Path $Game "Archon\Binaries\Win64"
+$exe = Join-Path $W "Dauntless-Win64-Shipping.exe"
+$pinned = @{
+  "Dauntless-Win64-Shipping.exe" = "D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4"
+  "dxgi.dll"                     = "9A431D7B6FD20C43FA92BEBD91C3BC023EC7A3FCBC52871C41F4DF293D4B0D1F"
+  "UndauntedInternalServer.dll"  = "520EC588A0554E374B2B0D084CD7F7F08D59A9CB80362679845719D64A0D0933"
+}
+foreach ($f in $pinned.Keys) {
+  $p = Join-Path $W $f
+  if (-not (Test-Path $p)) { throw "Missing: $p" }
+  if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $pinned[$f]) { throw "Hash mismatch: $p" }
+}
+$key = (Get-Content "$env:APPDATA\DauntlessRevived\account.key" -Raw).Trim()
+$a = @("${Server}:61000", "-AUTH_PASSWORD=$key", "-AUTH_LOGIN=unused", "-AUTH_TYPE=exchangecode",
+       "-epicapp=appidlol", "-epicenv=Prod", "-EpicPortal", "-epicusername=usernamelol",
+       "-epicuserid=useridlol", "-epiclocale=en-US", "-epicsandboxid=sandboxidlol",
+       "-epicdeploymentid=deploymentidlol")
+if ($Windowed) { $a += @("-windowed", "-ResX=1280", "-ResY=720") }
+Start-Process $exe -WorkingDirectory $W -ArgumentList $a | Out-Null
+"Launched against ${Server}:61000"
+```
+
+Aja se:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\play.ps1 -Server 100.x.y.z
+```
+
+Mitä parametrit tekevät:
+
+- **Ensimmäinen parametri** on palvelimen osoite. DLL ottaa sen siitä.
+- `-AUTH_TYPE=exchangecode` yhdessä parametrin `-AUTH_PASSWORD=<key>` kanssa saa pelin lähettämään
+  avaimesi ”vaihtokoodina” (exchange code) palvelimen reitille `/account/api/oauth/token`. Palvelin
+  vaihtaa sen kirjautumistunnisteeseen, joka on voimassa 24 tuntia.
+- `-epic...`-arvot ovat paikanpitäjiä. Alkuperäinen käynnistin antaa juuri nämä, ja niin mekin. Emme
+  ole testanneet, mitä niistä 1.4.4-peliohjelma oikeasti tarvitsee.
+- Avaimesi on pelin komentorivillä, joten muut omalla koneellasi pyörivät ohjelmat voivat lukea sen.
+  Alkuperäinen käynnistin toimii samalla tavalla.
+
+Skripti käynnistää `Dauntless-Win64-Shipping.exe`-tiedoston suoraan. Älä käynnistä `Dauntless.exe`-tiedostoa
+tai EasyAntiCheatin käynnistysohjelmaa. Suoralla käynnistyksellä EasyAntiCheat ei koskaan käynnisty.
+
+**Mitä ruudulla tapahtuu:**
+
+- Pelin viereen aukeaa konsoli-ikkuna (musta tekstiruutu). Se on DLL:n loki. **Jätä se auki.**
+  Konsoli-ikkunan sulkeminen lopettaa prosessin, johon se kuuluu, eli tässä tapauksessa pelin.
+- Ensimmäisellä kirjautumisellasi palvelin luo hahmosi, jolla on sama nimi kuin käyttäjänimelläsi, ja
+  peli lähettää sinut opetusjaksoon yhdelle isännän metsästyspalvelimista. Sen jälkeen saavut
+  Ramsgateen, pelin keskuskaupunkiin. Olemme testanneet tämän polun isännän omalla tilillä.
+- F2 avaa Unrealin konsolin. DLL ottaa sen käyttöön.
+
+## Vaihe 6: Grafiikka-asetukset {#step-6-graphics-options}
+
+Pelin oma asetusvalikko toimii tavalliseen tapaan. Se tallentaa asetukset tiedostoon
+`%LOCALAPPDATA%\Archon\Saved\Config\WindowsClient\GameUserSettings.ini`.
+
+Voit myös pakottaa asetuksia. Versiossa 1.4.4 käyttäjän `Engine.ini`-tiedoston
+(`%LOCALAPPDATA%\Archon\Saved\Config\WindowsClient\Engine.ini`) `[SystemSettings]`-osio ohittaa
+valikon. Isännän oma käynnistin kirjoittaa tämän lohkon tiedoston alkuun jokaisella käynnistyksellä
+pakottaakseen korkeimman tason:
+
+```ini
+[SystemSettings]
+r.Streaming.PoolSize=3000
+r.Streaming.LimitPoolSizeToVRAM=1
+gc.TimeBetweenPurgingPendingKillObjects=10
+s.ForceGCAfterLevelStreamedOut=1
+sg.ViewDistanceQuality=4
+sg.AntiAliasingQuality=4
+sg.ShadowQuality=4
+sg.PostProcessQuality=4
+sg.TextureQuality=4
+sg.EffectsQuality=4
+sg.FoliageQuality=4
+sg.ShadingQuality=4
+sg.ResolutionQuality=100
+r.ScreenPercentage=100
+r.MipMapLODBias=0
+r.MaxAnisotropy=16
+r.Tonemapper.Sharpen=0.6
+```
+
+- `sg.*`-tasot ovat 0 = Low, 1 = Medium, 2 = High, 3 = Epic, 4 = Cinematic. Käytä heikommalla koneella
+  tasoa 2 tai 3.
+- `r.Streaming.PoolSize=3000` asettaa tekstuurien suoratoistopoolin 3000 megatavuun, ja
+  `LimitPoolSizeToVRAM=1` laskee rajaa vielä, jos näytönohjaimessasi on vähemmän muistia. Kaksi
+  `gc`/`s.`-riviä vaikuttavat vain muistin siivoukseen, eivät kuvanlaatuun.
+- `r.Tonemapper.Sharpen` kumoaa ajallisen reunanpehmennyksen (temporal anti-aliasing) aiheuttamaa
+  pehmeyttä. Poista se, jos pidät alkuperäisestä ulkoasusta.
+- Varmuuskopioi `Engine.ini` ennen muokkaamista. Säilytä muu osa tiedostosta, koska peli tallentaa
+  sinne myös omia asetuksiaan. Poista lohko, jos haluat antaa ohjat takaisin valikolle.
+- Cinematic-tasolla peliohjelma käytti isännän koneella noin 1,8–2,3 Gt keskusmuistia (RAM).
+- `play.ps1 -Windowed` käynnistää pelin 1280x720-kokoiseen ikkunaan tallennetun näyttötilan sijaan.
+
+## Mitä odottaa juuri nyt {#what-to-expect-right-now}
+
+Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaessa:
+
+- Omalla palvelimellamme yksi pelaaja on pelannut opetusjakson, Ramsgaten, Training Dojon
+  (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit). Alkuperäinen Undaunted kertoo,
+  että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä useamman
+  kuin yhden pelaajan kanssa.
+- Kaikki näkyvät tasolla 50. Slayer-taso ja mestaruus (mastery) tulevat kiinteästä mallista, eikä niitä
+  vielä tallenneta.
+- Ryhmät (parties) ja kaverilista eivät vielä toimi: peli näyttää ”0 ONLINE FRIENDS”. Jos haluatte
+  päästä samaan metsästykseen, jonottakaa siihen suunnilleen samaan aikaan. Matchmaker
+  (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja
+  käynnistää heille yhden palvelimen, kun neljä on liittynyt tai kun 20 sekuntia kuluu ilman, että
+  kukaan uusi liittyy.
+- Palkkiotehtävät (bounties), Hunt Pass, odotusajat (cooldowns) ja Escalation-sarjat ovat vain
+  tynkiä, jotka eivät oikeasti tallenna mitään. Mikään niistä ei säily pelikerrasta toiseen.
+- Äänichat toimi Vivoxilla, joka on maksullinen ulkopuolinen palvelu, eikä se voi palata. Käytä
+  Discordia.
+- Kun isännän kone on sammutettu, palvelinkin on poissa päältä.
+
+## Vianetsintä {#troubleshooting}
+
+| Oire | Todennäköinen syy |
+|:--------|:-------------|
+| `Invoke-RestMethod` aikakatkaistaan | Tailscale on pois päältä, jakoa ei ole hyväksytty, tai isännän kone tai palvelin ei ole käynnissä. |
+| Rekisteröinti vastaa 401 | Väärä tai jo käytetty kutsukoodi. Pyydä isännältä uusi. |
+| Rekisteröinti vastaa 400 | Rekisteröinti on suljettu tai käyttäjänimi on tyhjä. |
+| `play.ps1` sanoo `Hash mismatch` | Eri peliversio tai eri DLL-tiedostot. Ne eivät toimi yhdessä. |
+| Peli käynnistyy ilman konsoli-ikkunaa eikä pysty kirjautumaan | `dxgi.dll` ei ole `Win64`-kansiossa, tai virustorjunta poisti sen tai siirsi sen karanteeniin. Tarkista, että molemmat DLL-tiedostot ovat paikallaan ja että tiivisteet täsmäävät. |
+| Virhe tiedostosta `MSVCP140.dll` tai `VCRUNTIME140_1.dll` | Asenna Visual C++ 2015-2022 Redistributable (x64). |
+| Matchmaking tai siirtyminen metsästykseen jumittaa | Kaikki isännän metsästyspaikat voivat olla varattuina (kuusi kerrallaan). Palvelin antaa silloin virheen sijaan tyhjän osoitteen. Kerro isännälle. |
+| Metsästys ei koskaan lataudu, tai sinut lähetetään takaisin | Metsästyspalvelin sulkee itsensä, kun siihen ei ole ollut kukaan yhteydessä yhteensä 50 sekuntiin, ja hidas kentän lataus voi kestää kauemmin. Kerro isännälle. |
+
+## Oikeutesi lähdekoodiin {#your-right-to-the-source}
+
+Palvelin, jolla pelaat, on muokattu versio [Undauntedista](https://github.com/SyST3MDeV/Undaunted),
+jonka lisenssi on GNU AGPL-3.0. Koska käytät muokattua palvelinta verkon yli, sinulla on oikeus saada
+sen koko lähdekoodi (lisenssin kohta 13). Koska isäntä antaa sinulle DLL-ohjelmatiedostoja, sinulla on
+oikeus myös niiden lähdekoodiin (kohta 6).
+
+- Forkimme lähdekoodi on [tämän sivuston repositoriossa]({{ site.github.repository_url }}), haarassa
+  `dauntless-revived`. Kysy isännältä, mitä versiota (commit) hänen palvelimensa ajaa.
+- Alkuperäisen projektin lähdekoodi on osoitteessa
+  [github.com/SyST3MDeV/Undaunted](https://github.com/SyST3MDeV/Undaunted).
+- Tunnettu puute: alkuperäinen projekti ei koskaan julkaissut valmiiksi käännetyn `dxgi.dll`-tiedoston
+  lähdekoodia. Aiomme korjata tämän toimittamalla oman välittäjän, joka on käännetty lähdekoodista
+  (katso vaihe 3).
+- DLL sisältää MinHook-kirjaston, jonka lisenssi on BSD 2-Clause.
+
+Sivulla [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}) on koko kuva. Se ei ole
+oikeudellista neuvontaa.

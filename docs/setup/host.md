@@ -2,6 +2,9 @@
 title: Host a server
 parent: Setup
 nav_order: 1
+description: "Step-by-step guide to hosting a Dauntless 1.4.4 private server on one Windows PC: verify the build, place the two DLLs, set up the metagame and deploy server."
+lang: en
+ref: setup/host
 ---
 
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
@@ -84,8 +87,8 @@ concurrent hunt adds about 1 GB.
 
 ## 2. Get the 1.4.4 build and verify it {#verify-the-build}
 
-We don't host or link game files. Where you get a copy is your decision. Whatever the source, check it
-before you run anything from it. All three checks below are cheap.
+This site and the repository don't host or link game files. Where you get a copy is your decision.
+Whatever the source, check it before you run anything from it. All three checks below are cheap.
 
 **a. Version string.** `Version.txt` in the game root must contain exactly this string:
 
@@ -336,10 +339,9 @@ bUseSSL=false
 This is a recent addition. Nothing listens on port 61099 yet, so the connection fails, the same way
 it already fails against Epic's server, and the game carries on. A local presence server can take
 that port later. The address is quoted for the same reason as the endpoints in step 8. We have
-confirmed that the game keeps this section when it rewrites `Engine.ini`. **Not yet verified:** that
-the client never reaches Epic's server with this override in place. A spot check a few minutes into
-one session found the client connected only to the metagame; the full check (no connection outside
-the PC at any point in the first 90 seconds after launch) is still open on the roadmap.
+confirmed that the game keeps this section when it rewrites `Engine.ini`. **Verified 2026-09-21:** in
+the first 90 seconds after launch there were no connections outside the PC; the client tried local
+port 61099 instead (item 0.5 on the [roadmap]({{ roadmap_page.url | relative_url }})).
 
 Never put map overrides or `[OnlineSubsystemPhoenix]` endpoints in `Engine.ini`. Those endpoints
 belong in `Game.ini`, and they must be quoted (step 8).

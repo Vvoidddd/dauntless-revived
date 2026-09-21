@@ -2,6 +2,9 @@
 title: Backend contract
 parent: Findings
 nav_order: 3
+description: "The Dauntless backend API recovered from the client: steelyard.ca hosts (not PlayFab), the response envelope, login, characters, inventory and matchmaking."
+lang: en
+ref: findings/backend-contract
 ---
 
 {% assign rev_page = site.pages | where: "path", "findings/json-reversing.md" | first %}

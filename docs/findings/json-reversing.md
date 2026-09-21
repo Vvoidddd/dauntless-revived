@@ -2,6 +2,9 @@
 title: Reading the JSON contract from the binary
 parent: Findings
 nav_order: 4
+description: "How we recovered the JSON response shapes of Dauntless from the shipped 2.1.1 binary with no symbols: handlers, Serialize functions, envelopes and mistakes."
+lang: en
+ref: findings/json-reversing
 ---
 
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}

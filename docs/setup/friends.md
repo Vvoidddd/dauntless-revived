@@ -2,6 +2,9 @@
 title: Join as a friend
 parent: Setup
 nav_order: 2
+description: "How an invited friend joins a Dauntless Revived server: Tailscale, a hash-checked Dauntless 1.4.4 install, the two DLLs, an invite code and the friend kit."
+lang: en
+ref: setup/friends
 ---
 
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
@@ -110,8 +113,8 @@ Both files go into `<game folder>\Archon\Binaries\Win64\`, next to `Dauntless-Wi
 | `dxgi.dll` | 11,264 bytes | `9A431D7B6FD20C43FA92BEBD91C3BC023EC7A3FCBC52871C41F4DF293D4B0D1F` |
 | `UndauntedInternalServer.dll` | 123,392 bytes | `520EC588A0554E374B2B0D084CD7F7F08D59A9CB80362679845719D64A0D0933` |
 
-You get them from the host (a ready-made friend package is planned but not built yet), or from the
-upstream repository under
+You get them from the host, most easily in the friend kit (see above), or from the upstream
+repository under
 [`UndauntedLauncher/assets/`](https://github.com/SyST3MDeV/Undaunted/tree/main/UndauntedLauncher/assets).
 They are the same files. After copying, check them and clear the "downloaded from the internet" flag:
 

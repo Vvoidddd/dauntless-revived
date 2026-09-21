@@ -3,6 +3,9 @@ title: Findings
 nav_order: 3
 has_children: true
 has_toc: false
+description: "What we learned about how the online side of Dauntless worked, from the 1.4.4 and 2.1.1 clients: backend contract, client internals, multiplayer and crashes."
+lang: en
+ref: findings/index
 ---
 
 {% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
@@ -26,7 +29,7 @@ Every page says which build a fact is about, and marks anything we have not veri
 | **2.1.1** ("Awakening") | December 2024, the final release | UE5, IoStore containers | Where most of the reverse engineering was done: the backend contract, the login chain, crash forensics |
 | **1.4.4** | October 2020 | UE4, pak v9 | The build we run, with Undaunted |
 
-We distribute no game files. The pages quote endpoint URL templates, field names, function names,
+This site and the repository contain no game files. The pages quote endpoint URL templates, field names, function names,
 addresses and short snippets, and only as much as each explanation needs.
 
 ## Pages

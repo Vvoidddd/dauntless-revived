@@ -2,6 +2,9 @@
 title: Crash forensics
 parent: Findings
 nav_order: 7
+description: "Crash forensics for a Dauntless client with no symbols or log file: turning crash reports into instruction addresses, and what each crash turned out to be."
+lang: en
+ref: findings/crashes
 ---
 
 {% assign internals_page = site.pages | where: "path", "findings/client-internals.md" | first %}

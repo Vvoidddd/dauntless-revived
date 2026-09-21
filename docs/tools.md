@@ -1,6 +1,9 @@
 ---
 title: Tools
-nav_order: 5
+nav_order: 6
+description: "Three small Python scripts behind our Dauntless analysis: xref.py for PE string cross-references, utocdir.py for IoStore, pak9.py for pak v9, plus libooz."
+lang: en
+ref: tools
 ---
 
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}

@@ -3,6 +3,9 @@ title: Setup
 nav_order: 2
 has_children: true
 has_toc: false
+description: "How to run Dauntless Revived: host the Undaunted-based private server on one Windows PC, let invited friends join, run it for a group, and fix common problems."
+lang: en
+ref: setup/index
 ---
 
 {% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
@@ -19,8 +22,8 @@ These pages describe how we run Dauntless Revived: the genuine **Dauntless 1.4.4
 Windows PC. Everything in this section is about **1.4.4**. The final client, 2.1.1, does not work with
 this setup, because Undaunted's server DLL hooks fixed addresses inside the 1.4.4 executable.
 
-You need **your own copy** of the 1.4.4 client. We do not distribute game files and do not link to
-downloads.
+You need **your own copy** of the 1.4.4 client. This site and the repository contain no game files and
+do not link to downloads.
 
 **Status.** The host setup is what we run today, on loopback, for the owner alone. Opening it to
 friends over Tailscale is the configuration we are switching to. It is documented, but it has not

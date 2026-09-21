@@ -2,6 +2,9 @@
 title: Troubleshooting
 parent: Setup
 nav_order: 4
+description: "Problems we hit running the Dauntless 1.4.4 client against an Undaunted server, with causes and fixes: port clashes, login, blurry graphics, Defender and git."
+lang: en
+ref: setup/troubleshooting
 ---
 
 {% assign host_page = site.pages | where: "path", "setup/host.md" | first %}

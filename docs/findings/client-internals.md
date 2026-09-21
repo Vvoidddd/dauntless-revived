@@ -2,6 +2,9 @@
 title: Client internals
 parent: Findings
 nav_order: 5
+description: "What the shipped Dauntless client can and cannot do on its own: a client-only build, launch and login switches, logging, the hang detector and ini overrides."
+lang: en
+ref: findings/client-internals
 ---
 
 {% assign mp_page = site.pages | where: "path", "findings/multiplayer.md" | first %}

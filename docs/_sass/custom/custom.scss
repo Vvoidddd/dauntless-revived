@@ -1,0 +1,22 @@
+// Site-specific styles, imported last by the just-the-docs theme.
+
+// Language switch in the top bar (_includes/header_custom.html).
+.main-header .lang-switch {
+  display: flex;
+  align-items: center;
+  padding: $sp-2 $gutter-spacing-sm;
+  white-space: nowrap;
+
+  @include mq(md) {
+    padding: 0 $sp-4;
+  }
+
+  a {
+    font-weight: 500;
+  }
+}
+
+// The same link at the bottom of every page (_includes/footer_custom.html), for small screens.
+.lang-switch-footer a {
+  font-weight: 500;
+}

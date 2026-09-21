@@ -1,0 +1,134 @@
+# Usein kysyttyä, suomeksi. Sama muoto kuin faq_en.yml (katso sen alussa olevat ohjeet).
+# docs/fi/faq.md näyttää tämän listan, ja _includes/head_custom.html tekee siitä FAQPage-rakennetiedon.
+# Linkit osoittavat suomenkielisiin sivuihin niiden lähdepolulla, esim. [ohje](fi/setup/host.md).
+
+- id: voiko-dauntlessia-viela-pelata
+  q: "Voiko Dauntlessia vielä pelata, kun viralliset palvelimet on suljettu?"
+  a: >-
+    Voi, yksityisellä palvelimella. Pelin viralliset palvelimet (tietokoneet, jotka pyörittivät peliä
+    verkossa) suljettiin 30.5.2025, eikä peliä voi pelata ollenkaan ilman palvelinta. Dauntless Revived
+    korvaa ne. Jos sinulla on oma kopio pelin versiosta 1.4.4, voit pystyttää palvelimen ja pelata.
+    Tällä hetkellä se toimii yhdelle pelaajalle palvelinkoneella: kirjautuminen, opetusjakso,
+    Ramsgaten kaupunki, Training Dojo -harjoitussali, metsästykset ja varusteiden valmistus toimivat.
+    Kavereiden kanssa pelaaminen internetin yli on seuraava iso tavoite. Lue lisää
+    [etusivulta](fi/index.md).
+
+- id: onko-yksityispalvelinta
+  q: "Onko Dauntlessille olemassa yksityistä palvelinta?"
+  a: >-
+    On. Dauntless Revived on yksityinen palvelin, joka perustuu
+    [Undaunted](https://github.com/SyST3MDeV/Undaunted)-projektiin. Undaunted on gwogin ja muiden
+    tekijöiden avoimen lähdekoodin Dauntless-palvelin (avoin lähdekoodi tarkoittaa, että ohjelman koodi
+    on kaikkien luettavissa). Dauntless Revived ei ole julkinen palvelin, jolle kuka tahansa voisi tulla.
+    Sitä pyöritetään muutamalle kaverille. Kuka tahansa voi kuitenkin pystyttää oman palvelimen
+    [lähdekoodin](https://github.com/mixutin/dauntless-revived) avulla. Samaa tekee myös
+    [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) -projekti pelin versiolle 1.12.0.
+
+- id: mika-versio
+  q: "Mitä Dauntlessin versiota se käyttää?"
+  a: >-
+    Se käyttää Dauntlessin aitoa versiota 1.4.4 lokakuulta 2020. Pelin omia tiedostoja ei muuteta.
+    Pelin viereen lisätään vain kaksi DLL-tiedostoa (pieniä apuohjelmia). Undauntedin apuohjelma on tehty
+    juuri tälle versiolle, joten muut versiot eivät toimi. Myöskään pelin viimeinen versio 2.1.1 ei toimi.
+    Marraskuun 2020 jälkeen julkaistua sisältöä versiossa 1.4.4 ei ole. Lue lisää
+    [pelitiedostojen tarkistamisesta](fi/findings/verification.md).
+
+- id: tarvitsenko-epic-tilin
+  q: "Tarvitsenko Epic Games -tilin?"
+  a: >-
+    Et tarvitse. Versio 1.4.4 on vanhempi kuin Epicin kirjautumispalvelu. Jokaisella pelaajalla on oma
+    tili palvelimella, ja sisään kirjaudutaan omalla henkilökohtaisella avaimella (salasanan kaltainen
+    tunnus). Lue lisää siitä, [miten kaveri liittyy mukaan](fi/setup/friends.md).
+
+- id: voinko-liittya-palvelimellenne
+  q: "Voinko liittyä teidän palvelimellenne?"
+  a: >-
+    Valitettavasti et. Palvelin on pienen kaveriporukan yksityinen paikka eikä julkinen palvelu.
+    Palvelimella ei ole julkista osoitetta. Kun kaverit pääsevät mukaan (välitavoite M1), kutsutut
+    kaverit yhdistetään palvelinkoneeseen Tailscalen avulla (ohjelma, joka yhdistää tietokoneet
+    turvallisesti omaksi yksityiseksi verkoksi). Voit kuitenkin pystyttää saman oman porukkasi
+    käyttöön: katso [ohje oman palvelimen pystyttämiseen](fi/setup/host.md).
+
+- id: miten-pystytan-oman-palvelimen
+  q: "Miten pystytän oman Dauntless-palvelimen?"
+  a: >-
+    Tarvitset Windows-tietokoneen, oman kopion pelin versiosta 1.4.4, Node.js-ohjelman ja Dauntless
+    Revivedin lähdekoodin. [Palvelimen pystytysohje](fi/setup/host.md) käy kaiken läpi vaihe vaiheelta.
+    Ensin tarkistetaan pelin tiedostot. Sitten pelin viereen lisätään kaksi DLL-tiedostoa. Lopuksi
+    käynnistetään taustapalvelu (metagame) ja ohjelma, joka käynnistää pelipalvelimet (deploy-palvelin).
+    Kavereiden ottamisesta mukaan kerrotaan [ryhmän ylläpito-ohjeessa](fi/setup/admin.md).
+
+- id: mista-saan-pelin-tiedostot
+  q: "Mistä saan pelin tiedostot?"
+  a: >-
+    Et täältä. Tällä sivustolla ja lähdekoodissa ei ole pelin tiedostoja, emmekä linkitä pelin
+    latauksiin. Jokainen pelaaja tarvitsee oman kopionsa pelin versiosta 1.4.4. Lue lisää
+    [pelitiedostojen tarkistamisesta](fi/findings/verification.md). Siellä kerrotaan, miten voit
+    varmistaa, että kopiosi on aito ja muuttamaton.
+
+- id: liittyyko-phoenix-labsiin
+  q: "Liittyykö Dauntless Revived Phoenix Labsiin tai Epic Gamesiin?"
+  a: >-
+    Ei liity. Se on epävirallinen fanien harrastusprojekti, eikä sillä tavoitella rahaa. Phoenix Labs tai
+    Epic Games eivät ole tehneet, hyväksyneet tai tukeneet sitä. ”Dauntless” on omistajiensa tavaramerkki.
+    Mitään ei myydä, eikä pelissä ole oikealla rahalla toimivaa kauppaa.
+
+- id: onko-tama-laillista
+  q: "Onko tämä laillista?"
+  a: >-
+    Emme voi antaa oikeudellisia neuvoja. Voimme kertoa, mitä projekti tekee. Tällä sivustolla ja
+    lähdekoodissa ei ole pelin tiedostoja eikä linkkejä niiden latauksiin. Projekti ei muuta pelin
+    tiedostoja koneellasi. Se ei tavoittele rahaa. Sen oma koodi on julkaistu
+    AGPL-3.0-lisenssillä (käyttöehdot, joilla koodia saa käyttää ja muokata). Projektin tarkoitus on
+    säilyttää peli, jotta pelin jo omistavat ihmiset voivat jatkaa pelaamista. Lisää tietoa on sivulla
+    [Kiitokset ja lisenssi](fi/legal.md). Siellä kerrotaan myös, mitä AGPL vaatii muokatun palvelimen
+    ylläpitäjältä.
+
+- id: tallentuuko-edistymiseni
+  q: "Tallentuuko edistymiseni?"
+  a: >-
+    Osittain. Esineet, materiaalit, Rams-raha, valmistetut varusteet, tehtävät ja tarinan eteneminen
+    tallentuvat tietokantaan. Ne säilyvät, vaikka palvelin käynnistetään uudelleen, ja niistä otetaan
+    varmuuskopio tunnin välein. Slayer-taso, aseiden mestaruus (mastery), Hunt Pass ja palkkiotehtävät
+    (bounties) eivät vielä tallennu, joten kaikilla näkyy toistaiseksi taso 50. Kaiken ansaitun
+    tallentaminen on välitavoite M2 [tiekartalla](fi/roadmap.md) (suunnitelma tulevista töistä).
+
+- id: mika-on-undaunted
+  q: "Mikä on Undaunted, ja miten Dauntless Revived eroaa siitä?"
+  a: >-
+    [Undaunted](https://github.com/SyST3MDeV/Undaunted) on gwogin (Gregory Morford) ja muiden tekijöiden
+    avoimen lähdekoodin projekti, joka teki tämän kaiken mahdolliseksi. Heidän työtään ovat ne osat,
+    joilla peli ylipäätään toimii ilman virallisia palvelimia: DLL-tiedosto, joka muuttaa pelin kopion
+    pelipalvelimeksi, pelipalvelimet käynnistävä ohjelma, taustapalvelu ja käynnistysohjelma. Dauntless
+    Revived on Undauntedista tehty pieni muokattu versio. Tähän mennessä muutokset ovat pieniä ja
+    käytännöllisiä, esimerkiksi turvallisemmat verkkoasetukset, selvemmät virheilmoitukset ja loki
+    (kirjanpito palvelimen tapahtumista). Lisäksi mukana on ohjeita, kavereille tarkoitettu
+    asennuspaketti ja [tiekartta](fi/roadmap.md) kohti yhteispeliä, jossa kaikki tallentuu.
+
+- id: voiko-kavereiden-kanssa-pelata
+  q: "Voiko kavereiden kanssa pelata yhdessä?"
+  a: >-
+    Ei vielä. Kavereiden yhdistäminen internetin yli Tailscalen avulla, pelaajaryhmät (parties) ja
+    kaverilista ovat välitavoite M1 [tiekartalla](fi/roadmap.md). Undauntedin tekijöiden mukaan
+    neljän pelaajan metsästykset ovat toimineet samalla pelin versiolla. Me emme ole vielä kokeilleet
+    sitä useammalla kuin yhdellä pelaajalla. [Moninpeliä käsittelevä sivu](fi/findings/multiplayer.md)
+    kertoo, miten moninpeli ylipäätään onnistuu.
+
+- id: toimiiko-linuxilla
+  q: "Toimiiko se Linuxilla tai Steam Deckillä?"
+  a: >-
+    Sitä ei ole kokeiltu. Pelipalvelimet ovat pelin Windows-version kopioita, jotka on kytketty
+    palvelintilaan. Siksi oman palvelimen pystyttäminen vaatii tällä hetkellä Windowsin. Taustapalvelu
+    on tehty Node.js:llä, ja se toimii myös muualla. Suunnitelmissa on kokeilla pelipalvelimia Linuxilla
+    (Windowsin vaihtoehtoinen käyttöjärjestelmä) Wine-ohjelman avulla. Wine on ohjelma, jolla
+    Windows-ohjelmia voi käyttää Linuxissa. Kokeilu kuuluu [tiekartan](fi/roadmap.md) välitavoitteeseen
+    M4. [Englanninkielisessä tarkistuslistassa](roadmap.md) se on kohta 4.11.
+    Pelin käyttämistä Linuxilla tai Steam Deckillä (kannettava pelilaite) ei ole vielä kokeiltu.
+
+- id: voinko-auttaa
+  q: "Voinko auttaa?"
+  a: >-
+    Voit. Lähdekoodi, [tiekartta](fi/roadmap.md) ja [löydökset](fi/findings/index.md) ovat kaikkien
+    luettavissa. Voit lukea niitä, kokeilla ja tehdä oman version. Jos huomaat virheen tällä sivustolla
+    tai tiedät, miten jokin alkuperäisen taustapalvelun osa toimi, kerro siitä avaamalla ilmoitus
+    (issue) [GitHubissa](https://github.com/mixutin/dauntless-revived).

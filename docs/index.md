@@ -1,7 +1,13 @@
 ---
-title: Home
+title: Dauntless Revived
 nav_order: 1
 permalink: /
+description: "Dauntless Revived is a private server revival of Dauntless: the genuine 1.4.4 client on a self-hosted fork of Undaunted. What works and how to set it up."
+lang: en
+ref: index
+# The WebSite structured data comes from _includes/head_custom.html; this stops jekyll-seo-tag adding a second one.
+seo:
+  type: WebPage
 ---
 
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
@@ -9,17 +15,22 @@ permalink: /
 
 # Dauntless Revived
 
-Dauntless Revived is a private, non-commercial preservation revival of **Dauntless**, the Phoenix Labs co-op monster-hunting game
-whose official servers shut down on **30 May 2025**. The owner runs it for a few friends. We run the
-genuine **Dauntless 1.4.4** client (October 2020) against a fork of the open-source
-[Undaunted](https://github.com/SyST3MDeV/Undaunted) server (AGPL-3.0). We started out studying the
-final client, **2.1.1** ("Awakening"). What we learned from both builds is written up here.
+**Dauntless**, the Phoenix Labs co-op monster-hunting game, lost its official servers on
+**30 May 2025**, but it can still be played against a private server. Dauntless Revived is one: a
+private, non-commercial preservation revival that runs the genuine **Dauntless 1.4.4** client
+(October 2020) against a fork of the open-source [Undaunted](https://github.com/SyST3MDeV/Undaunted)
+server by gwog and contributors (AGPL-3.0). It is not a public server: the owner runs it for a few
+friends, and anyone with their own copy of the 1.4.4 client can host the same thing from
+[the repository]({{ site.github.repository_url }}).
+
+We started out studying the final client, **2.1.1** ("Awakening"). What we learned from both builds
+is written up here.
 
 > **Disclaimer.** Dauntless Revived is an unofficial fan project. It is **not affiliated with,
 > endorsed by, or supported by Phoenix Labs or Epic Games**. "Dauntless" and related names are
-> trademarks of their owners. We **do not distribute any game files**: no executables, no paks, no
-> assets and no configuration from the game. To use anything here you need **your own copy** of the
-> Dauntless 1.4.4 client. There is no public server to join.
+> trademarks of their owners. This site and the repository **contain no game files**: no executables,
+> no paks, no assets and no configuration from the game, and no links to downloads. To use anything
+> here you need **your own copy** of the Dauntless 1.4.4 client. There is no public server to join.
 
 [Set it up]({{ '/setup/' | relative_url }}){: .btn .btn-primary .mr-2 }
 [Read the findings]({{ '/findings/' | relative_url }}){: .btn .mr-2 }

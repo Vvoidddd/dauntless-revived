@@ -1,6 +1,9 @@
 ---
 title: Credits and license
 nav_order: 90
+description: "Credits for Undaunted by gwog and contributors, what the AGPL-3.0 asks of anyone who hosts a modified server, and why no Dauntless game files are shared here."
+lang: en
+ref: legal
 ---
 
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
@@ -99,9 +102,8 @@ MinHook, reproduce MinHook's copyright notice and disclaimer.
 
 ## No game files
 
-- This site, the fork and anything we hand out contain **no files from Dauntless**: no executables,
-  no paks or IoStore containers, no assets and no game configuration. We do not link to downloads of
-  the game.
+- This site and the repository contain **no files from Dauntless**: no executables, no paks or
+  IoStore containers, no assets and no game configuration. They do not link to downloads of the game.
   - One inherited item to be aware of: upstream Undaunted's metagame includes
     `UndauntedMetagame/src/vendor/progression_config.json` (about 190 KB), which it serves to the
     client as progression and reward data. It has the shape of a recorded Phoenix backend response,
