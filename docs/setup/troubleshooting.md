@@ -210,6 +210,15 @@ Get-Content "$env:LOCALAPPDATA\Archon\Saved\Config\WindowsClient\Engine.ini" -To
 
 ---
 
+## A command window opens for every hunt
+
+The deploy server starts each hunt as a separate, temporary game-server process. Those hunt
+processes now start with their console windows hidden. Ramsgate and the Training Dojo remain visible
+so the host can still inspect their long-running server logs. Restart the deploy server after updating
+for this behavior to take effect.
+
+---
+
 ## Memory spikes and caps {#memory-spikes-and-caps}
 
 **What happened (2.1.1).** A standalone 2.1.1 client booting straight into Ramsgate, with no limits,

@@ -95,9 +95,11 @@ systemRouter.post("/motd/", HasUndauntedMetagameAuth, (req, res) => {
 });
 
 systemRouter.get("/entitlementsv2", HasUndauntedMetagameAuth, (req: any, res) => {
-	// Real mode: the token's account (the game server forwards the player's bearer).
-	// A FLAT list, the only unwrapped reply in this area; expired entitlements left out.
-	if(IsRealProgressionAccount(req.AuthData.userId)){
+	// Entitlements are independent of the progression rollout. Stub-mode accounts
+	// still need the default Elite Hunt Pass; otherwise the client shows every
+	// premium reward as locked even though this server gives the pass to everyone.
+	// The token's account is used (the game server forwards the player's bearer).
+	if(req.AuthData.userId !== undefined){
 		const Entitlements = ListEntitlements(req.AuthData.userId);
 
 		logger.info(`Entitlements of ${req.AuthData.userId}: ${Entitlements.map((Entitlement) => Entitlement.name).join(", ") || "none"}`);
