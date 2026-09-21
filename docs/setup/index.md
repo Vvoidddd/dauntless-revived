@@ -1,0 +1,48 @@
+---
+title: Setup
+nav_order: 2
+has_children: true
+has_toc: false
+---
+
+{% assign host_page = site.pages | where: "path", "setup/host.md" | first %}
+{% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
+{% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
+{% assign verification_page = site.pages | where: "path", "findings/verification.md" | first %}
+{% assign legal_page = site.pages | where: "path", "legal.md" | first %}
+
+# Setup
+
+These pages describe how we run Dauntless Revived: the genuine **Dauntless 1.4.4** client (October
+2020, UE4, pak v9) against our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted), all on one
+Windows PC. Everything in this section is about **1.4.4**. The final client, 2.1.1, does not work with
+this setup, because Undaunted's server DLL hooks fixed addresses inside the 1.4.4 executable.
+
+You need **your own copy** of the 1.4.4 client. We do not distribute game files and do not link to
+downloads.
+
+**Status.** The host setup is what we run today, on loopback, for the owner alone. Opening it to
+friends over Tailscale is the configuration we are switching to. It is documented, but it has not
+been run end to end yet, and those pages say so where it matters.
+
+## Pages
+
+| Page | For | What it covers |
+|---|---|---|
+| [Host a server]({{ host_page.url | relative_url }}) | The person running the server | Verifying the build, installing it at a short path, placing the two DLLs with pinned hashes, the config files, starting the metagame and deploy server, first-boot checks, launching the client, and stopping everything. Ends with a one-page start checklist. |
+| [Join as a friend]({{ friends_page.url | relative_url }}) | An invited player | Tailscale, checking your game files, copying the two DLLs, registering for a personal account key, launching, and what works right now. |
+| [Run it for a group]({{ admin_page.url | relative_url }}) | The host, once the stack runs locally | Tailscale sharing, firewall rules scoped to the Tailscale interface, switching addresses, invite codes and accounts, the admin API, capacity, and database backups. Target configuration, not yet tested end to end. |
+| [Troubleshooting]({{ trouble_page.url | relative_url }}) | Everyone | Problems we actually hit, with causes and fixes. A few entries come from reading the code and are marked as such. |
+
+## Suggested order
+
+1. Host: work through [Host a server]({{ host_page.url | relative_url }}) until you are standing in
+   Ramsgate on your own PC.
+2. Host: follow [Run it for a group]({{ admin_page.url | relative_url }}) to let friends in.
+3. Each friend: follow [Join as a friend]({{ friends_page.url | relative_url }}).
+
+How we checked that our copy of the game is genuine, complete and clean is described in detail on
+[Verifying game files]({{ verification_page.url | relative_url }}). If you host a modified version
+for other people, read [Credits and license]({{ legal_page.url | relative_url }}) first: the AGPL
+requires you to offer them the source.
