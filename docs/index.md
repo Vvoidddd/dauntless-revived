@@ -127,8 +127,9 @@ upstream answered with a fixed template and saved nothing. Saves are safer: a re
 transaction is applied once, and save history can be rolled back. Since then we have added
 usernames and invite codes, a permission check on every route, parties and a friends list on the
 server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
-the Windows server kit. Everything players see is named Dauntless Revived; folders, API routes and
-headers keep the Undaunted names for now. The
+the Windows server kit. The launcher, the in-game welcome text and the server's messages say
+Dauntless Revived; folders, the server DLL's file name, API routes and headers keep the Undaunted
+names for now. The
 [README]({{ site.github.repository_url }}/blob/dauntless-revived/README.md#changes-from-upstream)
 lists every change, and the [roadmap]({{ roadmap_page.url | relative_url }}) what comes next.
 

@@ -32,7 +32,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] The Windows Server 2019 kit runs on a real rented VPS in public mode (deployed 2026-09-21/22). Checked on the server: the stack starts at boot as the service account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup task runs.
 - [x] Launcher 0.1.0 published on GitHub Releases by CI (the first automatic release), with `SHA256SUMS.txt` and a build provenance attestation. Installed launchers update from the `launcher-updates` feed.
 - [x] CI on every push: builds and tests of every package, the server kit's tests, the docs build, and a check that no secrets, keys, databases or game files are committed.
-- [x] Rebrand, part 1: everything players see says Dauntless Revived. Folders, API routes and headers keep the Undaunted names for now (part 2 is 4.15).
+- [x] Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (part 2 is 4.15).
 
 ## Where we are (updated 2026-09-22)
 
@@ -46,7 +46,7 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 > - **The first real test is in progress.** The owner registered through the launcher on the rented server and downloaded the game through the gateway. A two-player test with a friend (multiplayer and parties) is starting. Until it is done, nothing here claims that Ramsgate with two players, parties or hunts work over the internet.
 > - **Parties and the friends list (1.9): the server side is built** and passes the integration harness with simulated players. It has not been tried with two real game clients yet. Party invites don't require being friends. Showing friends as online needs the chat server (3.10), which isn't built.
 > - The live player list (`/undaunted/api/ServerStatus`) is shown to registered players only, and `/dauntless-status` no longer carries a player count.
-> - Rebrand, part 1: everything players see says Dauntless Revived. Folders, API routes and headers keep the Undaunted names for now (4.15).
+> - Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (4.15).
 > - New items: performance logging and capacity measurement (4.12), more game-server ports (4.13), PostgreSQL before any public release (4.14), rebrand part 2 (4.15) and a code-signed launcher (4.16).
 
 > **Update, 2026-09-21 afternoon:**
@@ -756,12 +756,12 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.1 (a backup right before the copy). 4.12 shows how much time goes to the database.
   - **Done when:** a copy of a real database, moved with the copy tool, gives the same accounts, characters, inventories and progression; a full session (login, Ramsgate, a hunt, a save) works against PostgreSQL; the database refuses connections from the internet; and a nightly dump restores on another machine.
 
-- [ ] **4.15 Rebrand, part 2** (M) — *Added 2026-09-22. After the first friends test. Part 1 is done: everything players see says Dauntless Revived.*
+- [ ] **4.15 Rebrand, part 2** (M) — *Added 2026-09-22. After the first friends test. Part 1 is done: the launcher, the in-game welcome text and the server's messages say Dauntless Revived.*
   - **What:** rename what still says Undaunted:
     - the folder names (`UndauntedMetagame/` and the others)
     - the `/undaunted/api` routes and the `x-undaunted-*` headers, keeping the old names as aliases so older launchers and servers keep working
     - the Undaunted names in environment settings and data files (for example the database file `undaunted.db`)
-    - the JWT issuer (`undaunted-metagame`)
+    - the JWT issuer and audience (`undaunted-metagame`)
     - the server kit's install layout
   - **Stays:** names baked into upstream's prebuilt DLLs, unless we build our own DLLs (4.4, 4.5). The credits to Undaunted always stay.
   - **Needs:** 1.15 done. A migration path for installed servers (the kit's update and restore) and for installed launchers.

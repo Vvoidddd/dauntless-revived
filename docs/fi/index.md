@@ -145,9 +145,9 @@ projekti vastasi kiinteällä mallilla eikä tallentanut mitään. Tallennukset 
 toistettu tavaratapahtuma tehdään vain kerran, ja tallennusten historiasta voi palata aiempaan
 versioon. Sen jälkeen olemme lisänneet käyttäjänimet ja kutsukoodit, oikeuksien tarkistuksen jokaiseen
 reittiin, palvelimen puolen ryhmät ja kaverilistan, sisältöpalvelimen, julkisen tilan yhdyskäytävän,
-Undauntedin käynnistimen pohjalta tehdyn kaverikäynnistimen ja Windows-palvelinpaketin. Kaikessa,
-mitä pelaaja näkee, on nimi Dauntless Revived; kansiot, rajapinnan reitit ja otsakkeet pitävät
-toistaiseksi Undaunted-nimet.
+Undauntedin käynnistimen pohjalta tehdyn kaverikäynnistimen ja Windows-palvelinpaketin.
+Käynnistimessä, pelin tervetulotekstissä ja palvelimen viesteissä lukee Dauntless Revived; kansiot,
+palvelin-DLL:n tiedostonimi, rajapinnan reitit ja otsakkeet pitävät toistaiseksi Undaunted-nimet.
 [README]({{ site.github.repository_url }}/blob/dauntless-revived/README.fi.md#muutokset-alkuperäiseen-undauntediin)
 luettelee jokaisen muutoksen, ja [tiekartta]({{ roadmap_page.url | relative_url }}) kertoo, mitä on
 tulossa.

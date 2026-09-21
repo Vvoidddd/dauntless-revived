@@ -202,8 +202,10 @@ tehtävälistan kohta 4.15); niissä olevien npm-pakettien nimet ovat `dauntless
 - **CI** jokaisesta muutoksesta: jokaisen paketin käännös ja testit, palvelinpaketin testit,
   ohjesivuston käännös ja tarkistus, ettei projektiin ole lisätty salaisuuksia, avaimia, tietokantoja
   tai pelitiedostoja.
-- **Oma nimi.** Kaikessa, mitä pelaaja näkee, lukee Dauntless Revived. Kansiot, `/undaunted/api`-reitit
-  ja `x-undaunted-*`-otsakkeet pitävät toistaiseksi Undaunted-nimet (tehtävälistan kohta 4.15).
+- **Oma nimi.** Käynnistimessä, pelin tervetulotekstissä ja palvelimen viesteissä lukee Dauntless
+  Revived, ja kiitoksissa mainitaan Undaunted. Kansiot, palvelin-DLL:n tiedostonimi
+  (`UndauntedInternalServer.dll`), `/undaunted/api`-reitit ja `x-undaunted-*`-otsakkeet pitävät
+  toistaiseksi Undaunted-nimet (tehtävälistan kohta 4.15).
 - **Ohjesivusto** kansiossa `docs/`, osoitteessa
   [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/), englanniksi ja
   suomeksi: asennusohjeet, tekninen viite jokaisesta asetuksesta, portista, reitistä ja tiedostosta,

@@ -93,9 +93,10 @@ Kavereiden näkyminen paikalla vaatii chat-palvelimen, jota ei ole rakennettu. T
 vielä rakennettu (suunnitelma: XMPP).
 
 Käynnissä olevien pelaajien lista näytetään vain rekisteröityneille pelaajille, eikä
-`/dauntless-status` enää kerro pelaajamäärää. Kaikessa, mitä pelaaja näkee, lukee nyt Dauntless
-Revived (nimenvaihdon ensimmäinen osa); kansiot, rajapinnan reitit ja otsakkeet pitävät toistaiseksi
-Undaunted-nimet.
+`/dauntless-status` enää kerro pelaajamäärää. Käynnistimessä, pelin tervetulotekstissä ja palvelimen
+viesteissä lukee nyt Dauntless Revived, ja kiitoksissa mainitaan Undaunted (nimenvaihdon ensimmäinen
+osa); kansiot, palvelin-DLL:n tiedostonimi (`UndauntedInternalServer.dll`), rajapinnan reitit ja
+otsakkeet pitävät toistaiseksi Undaunted-nimet.
 
 Osa pelissä ansaitusta tallentuu jo, osa ei:
 
@@ -151,7 +152,8 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **CI** tarkistaa jokaisen muutoksen: jokaisen paketin käännöksen ja testit, palvelinpaketin testit,
   ohjesivuston käännöksen ja sen, ettei projektiin ole lisätty salaisuuksia, avaimia, tietokantoja tai
   pelitiedostoja.
-- **Nimenvaihdon ensimmäinen osa:** kaikessa, mitä pelaaja näkee, lukee Dauntless Revived.
+- **Nimenvaihdon ensimmäinen osa:** käynnistimessä, pelin tervetulotekstissä ja palvelimen viesteissä
+  lukee Dauntless Revived.
 
 ## Työn alla {#in-progress}
 
@@ -292,7 +294,7 @@ M4:ään lisättiin 22.9.2026 viisi uutta kohtaa:
 - **4.15 Nimenvaihdon toinen osa**, ensimmäisen kaveritestin jälkeen. *Mitä:* kansioiden nimet,
   `/undaunted/api`-reitit ja `x-undaunted-*`-otsakkeet (vanhat nimet jäävät rinnakkaisnimiksi),
   asetusten ja datatiedostojen Undaunted-nimet (esimerkiksi tietokantatiedosto `undaunted.db`),
-  JWT-tunnisteiden myöntäjä (issuer) ja palvelinpaketin asennuskansiot. Alkuperäisen projektin valmiisiin
+  JWT-tunnisteiden myöntäjä ja kohde (issuer ja audience) ja palvelinpaketin asennuskansiot. Alkuperäisen projektin valmiisiin
   DLL-tiedostoihin kiinteästi kirjoitetut nimet jäävät, ellemme käännä omia DLL-tiedostoja, ja kiitokset
   Undauntedille jäävät aina. *Valmis, kun:* uusi asennus ja päivitetty palvelin toimivat uusilla
   nimillä, ennen muutosta tehty käynnistin toimii yhä rinnakkaisnimien kautta, ja jäljelle jäävät vain

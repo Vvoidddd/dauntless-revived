@@ -183,8 +183,10 @@ The component folders keep upstream's `Undaunted...` names for now (renaming the
 - Hunt servers start with their console window hidden.
 - **CI** on every push: the builds and tests of every package, the server kit's tests, the docs
   build, and a check that no secrets, keys, databases or game files are committed.
-- **Our own name.** Everything players see says Dauntless Revived. The folders, the `/undaunted/api`
-  routes and the `x-undaunted-*` headers keep the Undaunted names for now (roadmap item 4.15).
+- **Our own name.** The launcher, the in-game welcome text and the server's messages say Dauntless
+  Revived, and the credits name Undaunted. The folders, the server DLL's file name
+  (`UndauntedInternalServer.dll`), the `/undaunted/api` routes and the `x-undaunted-*` headers keep
+  the Undaunted names for now (roadmap item 4.15).
 - A **documentation site** in `docs/`, published at
   [mixutin.github.io/dauntless-revived](https://mixutin.github.io/dauntless-revived/), in English
   and Finnish: setup guides, a reference of every setting, port, route and file, findings about the
