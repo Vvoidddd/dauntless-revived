@@ -252,10 +252,12 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
 
 ## Kiitokset
 
-- **[Undaunted](https://github.com/SyST3MDeV/Undaunted)**: gwog (Gregory Morford) ja
-  [muut tekijät](https://github.com/SyST3MDeV/Undaunted/graphs/contributors). He tekivät
-  palvelintilan DLL-tiedoston, deploy serverin, metagamen ja käynnistysohjelman. Moninpeli
-  Ramsgatessa ja metsästyksissä 1.4.4-versiolla on heidän saavutuksensa.
+- **[Undaunted](https://github.com/SyST3MDeV/Undaunted)**: gwog (Gregory Morford,
+  [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) ja
+  [muut tekijät](https://github.com/SyST3MDeV/Undaunted/graphs/contributors). gwog teki
+  palvelintilan DLL-tiedoston, deploy serverin, metagamen ja käynnistysohjelman; EisigesEis kehitti
+  metagamea (inventaario ja varustelut, eteneminen ja mastery-tasot, kutsukoodit, ylläpidon
+  rajapinta). Moninpeli Ramsgatessa ja metsästyksissä 1.4.4-versiolla on heidän saavutuksensa.
 - **[MinHook](https://github.com/TsudaKageyu/minhook)**, tekijä Tsuda Kageyu (BSD 2-Clause
   -lisenssi): ohjelmakirjasto, jota palvelimen DLL-tiedosto käyttää.
 - **[Dumper-7](https://github.com/Encryqed/Dumper-7)**, tekijät Encryqed ja muut: työkalu, jonka
@@ -264,9 +266,12 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
 
 ### Osallistujat
 
-- **[Vvoidddd](https://github.com/Vvoidddd)**: korjaus pimeään ilmalaivaan ennen metsästystä
-  (1.4.4:n automaattinen valotus), piilotetut konsoli-ikkunat metsästyspalvelimille ja projektin
-  `.gitignore`-tiedosto ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+- **[mixutin](https://github.com/mixutin)** (ylläpitäjä): palvelinpaketti, käynnistin,
+  taustapalvelun korjaukset, oikea hahmon eteneminen ja ohjeet.
+- **[Vvoidddd](https://github.com/Vvoidddd)**: löysi syyn pimeään ilmalaivaan ennen metsästystä
+  (1.4.4:n automaattinen valotus; muutos peruttiin käynnistimen versiossa 0.1.1, koska se pimensi
+  Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi projektin
+  `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
 
 Kaikki osallistujat näkyvät [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 

@@ -29,6 +29,9 @@ are short.
    not issues or pull requests. See [SECURITY.md](SECURITY.md).
 7. **Be kind.** See the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+The launcher's Credits page reads every name from one file, `UndauntedLauncher/src/shared/credits.ts`,
+so crediting a new contributor there is a one-line change (with the note in English and Finnish).
+
 If a problem is in upstream Undaunted's code and not in a change this fork made, consider
 contributing the fix to [Undaunted](https://github.com/SyST3MDeV/Undaunted) as well.
 
@@ -88,6 +91,10 @@ Kiitos, että haluat auttaa pitämään Dauntlessin pelattavana. Säännöt ovat
    samalla lisenssillä.
 6. **Tietoturva-aukoista** ilmoitetaan yksityisesti, ks. [SECURITY.md](SECURITY.md).
 7. **Ole ystävällinen.** Ks. [käytösohjeet](CODE_OF_CONDUCT.md).
+
+Käynnistimen Tekijät-sivu lukee kaikki nimet yhdestä tiedostosta,
+`UndauntedLauncher/src/shared/credits.ts`, joten uuden osallistujan lisääminen sinne on yhden rivin
+muutos (kuvaus englanniksi ja suomeksi).
 
 ### Tarkistukset
 

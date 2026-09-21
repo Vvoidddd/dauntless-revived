@@ -230,10 +230,12 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
 
 ## Credits
 
-- **[Undaunted](https://github.com/SyST3MDeV/Undaunted)** by gwog (Gregory Morford) and
-  [its contributors](https://github.com/SyST3MDeV/Undaunted/graphs/contributors): the server-mode
-  DLL, the deploy server, the metagame and the launcher. Multiplayer Ramsgate and hunts on 1.4.4
-  are their achievement.
+- **[Undaunted](https://github.com/SyST3MDeV/Undaunted)** by gwog (Gregory Morford,
+  [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) and
+  [its other contributors](https://github.com/SyST3MDeV/Undaunted/graphs/contributors). gwog
+  created the server-mode DLL, the deploy server, the metagame and the launcher; EisigesEis worked
+  on the metagame (inventory and loadouts, progression and mastery, invite codes, the admin API).
+  Multiplayer Ramsgate and hunts on 1.4.4 are their achievement.
 - **[MinHook](https://github.com/TsudaKageyu/minhook)** by Tsuda Kageyu (BSD 2-Clause): the
   function-hooking library in the server DLL.
 - **[Dumper-7](https://github.com/Encryqed/Dumper-7)** by Encryqed and contributors: the Unreal
@@ -242,8 +244,11 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
 
 ### Contributors
 
-- **[Vvoidddd](https://github.com/Vvoidddd)**: the fix for the dark pre-hunt airship (1.4.4's
-  automatic exposure), hidden console windows for hunt servers, and the repository's `.gitignore`
+- **[mixutin](https://github.com/mixutin)** (maintainer): the server kit, the launcher, backend
+  fixes, real progression and the docs.
+- **[Vvoidddd](https://github.com/Vvoidddd)**: found the cause of the dark pre-hunt airship (1.4.4's
+  automatic exposure; the setting was reverted in launcher 0.1.1 because it darkened Ramsgate), hid
+  the console windows of temporary hunt servers, and added the repository's `.gitignore`
   ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
 
 Everyone who has contributed is listed on the

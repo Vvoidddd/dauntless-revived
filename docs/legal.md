@@ -26,13 +26,29 @@ Dauntless Revived exists because other people did the hard parts first and publi
 
 | Project | By | What we owe it |
 |---|---|---|
-| [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford) and [its contributors](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Our fork is built on it, starting from upstream commit `7f692aa`. It supplies the server-mode DLL that turns a second copy of the 1.4.4 client into a game server, the deploy server that runs those processes, the metagame backend, and the launcher. Multiplayer Ramsgate and hunts on 1.4.4 are Undaunted's achievement. |
+| [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford, [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) and [its other contributors](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Our fork is built on it, starting from upstream commit `7f692aa`. It supplies the server-mode DLL that turns a second copy of the 1.4.4 client into a game server, the deploy server that runs those processes, the metagame backend, and the launcher, all created by gwog. EisigesEis worked on the metagame: inventory and loadouts, progression and mastery, invite codes and the admin API. Multiplayer Ramsgate and hunts on 1.4.4 are Undaunted's achievement. |
 | [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | its authors | A related project porting the same approach to the Dauntless 1.12.0 client, for content released after 1.4.4. Our fork contains none of its code, and we have not tested it. We list it so that people looking for later content can find it. |
 | [ooz](https://github.com/powzix/ooz) | powzix | An open-source Oodle (Kraken) decompressor. The 2.1.1 client links Oodle statically and ships no Oodle DLL, so the usual pak tools could not read its config. We built ooz as a local library to extract the config for analysis. It is an analysis tool only and is not part of the fork. |
 | [Dumper-7](https://github.com/Encryqed/Dumper-7) | Encryqed and contributors | An Unreal Engine SDK generator. Undaunted's server DLL is built against a Dumper-7 SDK generated from the 1.4.4 client. |
 | [MinHook](https://github.com/TsudaKageyu/minhook) | Tsuda Kageyu | The function-hooking library the server DLL uses. BSD 2-Clause license. |
+| [GitHub Octicons](https://github.com/primer/octicons) | GitHub | The GitHub mark on the launcher's GitHub button, used unmodified. MIT license. |
 
 And **Phoenix Labs**, who made Dauntless. Nothing here would be worth preserving without their game.
+
+### Dauntless Revived contributors
+
+- **[mixutin](https://github.com/mixutin)** (maintainer): the server kit, the launcher, backend
+  fixes, real progression and these docs.
+- **[Vvoidddd](https://github.com/Vvoidddd)**: found the cause of the dark pre-hunt airship (1.4.4's
+  automatic exposure; the setting was reverted in launcher 0.1.1 because it darkened Ramsgate), hid
+  the console windows of temporary hunt servers, and added the repository's `.gitignore`
+  ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+
+Everyone who has contributed is on the
+[contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors). The launcher
+shows the same credits on its **Credits** page, and ships the license texts of the software it
+includes (Electron, MinHook, the GitHub mark and a few small libraries) in
+`THIRD-PARTY-NOTICES.txt`.
 
 ---
 
