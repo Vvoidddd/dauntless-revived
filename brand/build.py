@@ -9,7 +9,8 @@ Inputs (never modified by a normal build):
 Outputs: web/, icons/, launcher/, social-preview.png, og.png, ../.github/assets/banner.png and
 copies of the docs site's images in ../docs/assets/ (see README.md for what goes where).
 
-Needs Python 3.10+, Pillow with WebP support, rsvg-convert and the Inter and JetBrains Mono fonts.
+Needs Python 3.10+, Pillow 9.1+ with WebP support (and libimagequant for the 256-colour web PNGs),
+rsvg-convert and the Inter and JetBrains Mono fonts.
 On Debian or Ubuntu (WSL works): apt install python3-pil librsvg2-bin fonts-inter fonts-jetbrains-mono
 
   python3 brand/build.py                  rebuild everything
