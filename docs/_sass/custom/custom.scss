@@ -35,7 +35,9 @@ a:not([class]) {
   }
 }
 
-// Header: the emblem and the site name (_includes/title.html), on one line in the sidebar's width.
+// Header: the emblem and the site name (_includes/title.html). The name fits on one line in the
+// sidebar's width with the usual system fonts; with a wider one (DejaVu Sans, the default on some
+// Linux desktops) it wraps to two lines instead of running past the sidebar.
 .site-title {
   gap: $sp-2;
   font-weight: 600;
@@ -47,8 +49,9 @@ a:not([class]) {
 
 // On the span: the theme sets the link's own font size with !important.
 .site-name {
+  min-width: 0;
   font-size: 1.125rem;
-  white-space: nowrap;
+  line-height: 1.15;
 }
 
 .site-emblem {
@@ -179,6 +182,26 @@ blockquote {
 .main-content footer,
 .site-footer {
   color: $dr-steel;
+}
+
+// Printing. On screen the text is light on dark surfaces, but paper is white and browsers leave out
+// background colours by default, so frost text would print almost invisible. Printed pages use ink
+// for all text (20.07:1 on white) and azure for links (6.18:1), with no fills or shadows, whether or
+// not the browser prints backgrounds.
+@media print {
+  *,
+  *::before,
+  *::after {
+    color: $dr-ink !important;
+    background-color: transparent !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  a,
+  a * {
+    color: $dr-azure !important;
+  }
 }
 
 // Language switch in the top bar (_includes/header_custom.html).
