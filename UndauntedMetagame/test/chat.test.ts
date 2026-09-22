@@ -1,6 +1,6 @@
 import { RemoveTestDb } from "./setup";
 import "./authenv";
-import { after, before, describe, it } from "node:test";
+import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
@@ -12,7 +12,9 @@ import path from "node:path";
 import jwt from "jsonwebtoken";
 import WebSocket from "ws";
 import { ChatServer, ReadChatConfig, StartChat } from "../src/realtime/chat";
-import { ParseFrame } from "../src/realtime/xmpp";
+import { UrlEncodeLikeClient } from "../src/realtime/chatnick";
+import { EscapeXml, ParseFrame } from "../src/realtime/xmpp";
+import { ChatClientModel, JOINED, LookupFrom, NOT_JOINED } from "./chatclient";
 import {
     Base64Plain, CaptureLogs, ClientFrame, DOMAIN, FRAMING, GameResource, Login, LoginOptions, LogCapture, RawClosed, RawUpgrade,
     WireClient
@@ -97,37 +99,35 @@ describe("experimental chat", () => {
     it("routes a direct message and a shared room message between two authenticated accounts", async () => {
         const a = await login(A);
         const b = await login(B);
-    const direct = frame(b, "direct message");
+        const direct = frame(b, "direct message");
         a.send(`<message to="${B}@prod.ol.epicgames.com" type="chat" id="m1"><body>Hello &amp; welcome</body></message>`);
         assert.match(await direct, /Hello &amp; welcome/);
-        // Names observed in the 1.4.4 client log, not a fabricated generic room.
-        const city = "City-d147475b-7742-4e7b-8142-6c0f55dda06b@conference.prod.ol.epicgames.com";
+        // Names observed in the 1.4.4 client log, not a fabricated generic room. Rooms live on
+        // muc.<domain>, and the client joins with <name>:<account id>:<resource> (docs/findings/chat.md).
+        const city = "City-d147475b-7742-4e7b-8142-6c0f55dda06b@muc.prod.ol.epicgames.com";
+        const alpha = `Alpha:${A}:game`;
+        const bravo = `Bravo:${B}:game`;
         const joinedA = frame(a);
-        const joinedB = frame(b);
-        a.send(`<presence to="${city}/Alpha"/>`);
-        b.send(`<presence to="${city}/Bravo"/>`);
+        a.send(`<presence to="${city}/${alpha}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
         const joinedAlpha = await joinedA;
-        const joinedBravo = await joinedB;
         assert.match(joinedAlpha, /status code="110"/);
-        assert.match(joinedAlpha, /\/UID-chat-a"/);
+        assert.ok(joinedAlpha.includes(`from="${city}/${alpha}"`), "the nickname is kept as sent");
+        assert.ok(joinedAlpha.includes(`jid="${A}@prod.ol.epicgames.com/game"`), "and the occupant's own JID");
+        const seenByB = frame(b);
+        b.send(`<presence to="${city}/${bravo}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+        const alphaForB = await seenByB;
+        assert.ok(alphaForB.includes(`from="${city}/${alpha}"`) && !alphaForB.includes("110"), "B first hears of A");
+        const joinedBravo = await frame(b);
         assert.match(joinedBravo, /status code="110"/);
-        assert.match(joinedBravo, /\/UID-chat-b"/);
-        const readyA = frame(a);
-        const readyB = frame(b);
-        a.send('<iq type="get" id="ready-a"/>');
-        b.send('<iq type="get" id="ready-b"/>');
-        assert.match(await readyA, /ready-a/);
-        assert.match(await readyB, /ready-b/);
+        assert.ok(joinedBravo.includes(`from="${city}/${bravo}"`));
+        assert.ok((await frame(a)).includes(`from="${city}/${bravo}"`), "A hears of B");
         const room = frame(b, "room message");
         a.send(`<message to="${city}" type="groupchat" id="m2"><body>Ready?</body></message>`);
         const delivered = await room;
         assert.match(delivered, /Ready\?/);
-        assert.match(delivered, /\/UID-chat-a"/);
-        assert.match(delivered, /<nick xmlns="http:\/\/jabber.org\/protocol\/nick">Alpha<\/nick>/);
+        assert.ok(delivered.includes(`from="${city}/${alpha}"`));
+        assert.doesNotMatch(delivered, /<nick /, "no XEP-0172 nickname: the client never reads it");
         assert.match(await frame(a), /Ready\?/);
-        const partyJoin = frame(a);
-        a.send(`<presence to="Party-${A}@conference.prod.ol.epicgames.com/Alpha"/>`);
-        assert.match(await partyJoin, /status code="110"/);
     });
 });
 
@@ -137,6 +137,10 @@ describe("experimental chat", () => {
 const C = "UID-chat-c";
 const D = "UID-chat-d";
 const GONE = "UID-chat-gone"; // signed tokens for it exist, the account does not
+const OLD = "UID-chat-old";
+const OLD_NAME = "Sölve Ö"; // an older name outside today's username rules
+const LOOP = "UID-chat-loop";
+const FLOOD = "UID-chat-flood";
 let Now = Date.parse("2026-09-22T12:00:00Z");
 let Wire: ChatServer;
 let Logs: LogCapture;
@@ -180,7 +184,11 @@ async function Whispered(From: WireClient, To: WireClient, Marker: string){
 
 describe("chat listener", () => {
     before(async () => {
-        GetDb().insert(users).values([{ userId: C, name: "Charlie", notes: 0, isAdmin: false }, { userId: D, name: "Delta", notes: 0, isAdmin: false }]).run();
+        GetDb().insert(users).values([
+            { userId: C, name: "Charlie", notes: 0, isAdmin: false }, { userId: D, name: "Delta", notes: 0, isAdmin: false },
+            { userId: OLD, name: OLD_NAME, notes: 0, isAdmin: false }, { userId: LOOP, name: "Loop", notes: 0, isAdmin: false },
+            { userId: FLOOD, name: "Flood", notes: 0, isAdmin: false }
+        ]).run();
         Logs = CaptureLogs();
         Wire = new ChatServer({ Clock: () => Now, AutoTick: false });
         await Wire.listen(0);
@@ -226,12 +234,15 @@ describe("chat listener", () => {
         it("takes the domain from <open to>, and falls back to the game's own when it is missing or not a host name", async () => {
             const Local = await SignedIn(D, { OpenTo: "dauntless.local" });
             assert.equal(Local.Domain, "dauntless.local");
+            await Local.Logout();
 
             const Missing = await SignedIn(D, { OpenTo: null });
             assert.equal(Missing.Domain, DOMAIN);
+            await Missing.Logout();
 
             const Odd = await SignedIn(D, { OpenTo: "not a host!" });
             assert.equal(Odd.Domain, DOMAIN);
+            await Odd.Logout();
         });
 
         it("gives an empty resource a server one, and refuses an over-long one or one with control characters", async () => {
@@ -451,7 +462,10 @@ describe("chat listener", () => {
     describe("settings and start", () => {
         it("reads CHAT, CHAT_PORT and CHAT_BIND_HOST, with 127.0.0.1 the only host in public mode", () => {
             assert.equal(ReadChatConfig({}).Enabled, false);
-            assert.deepEqual(ReadChatConfig({ CHAT: "1" }), { Enabled: true, Port: 61099, Host: "127.0.0.1", Trace: false, Errors: [], Warnings: [] });
+            assert.deepEqual(ReadChatConfig({ CHAT: "1" }), { Enabled: true, Port: 61099, Host: "127.0.0.1", NickCheck: "enforce", Trace: false, Errors: [], Warnings: [] });
+            assert.equal(ReadChatConfig({ CHAT: "1", CHAT_NICK_CHECK: "log" }).NickCheck, "log");
+            assert.equal(ReadChatConfig({ CHAT: "1", CHAT_NICK_CHECK: "off" }).NickCheck, "enforce");
+            assert.match(ReadChatConfig({ CHAT: "1", CHAT_NICK_CHECK: "off" }).Warnings[0], /CHAT_NICK_CHECK=off is not enforce or log/);
             assert.equal(ReadChatConfig({ CHAT: "1", CHAT_BIND_HOST: "::1" }).Errors.length, 0);
             assert.equal(ReadChatConfig({ CHAT: "1", CHAT_BIND_HOST: "::1", GATEWAY_SECRET: "x".repeat(32) }).Errors.length, 1);
             assert.equal(ReadChatConfig({ CHAT: "1", CHAT_BIND_HOST: "0.0.0.0" }).Errors.length, 1);
@@ -479,6 +493,329 @@ describe("chat listener", () => {
             finally{
                 Blocker.close();
             }
+        });
+    });
+
+    describe("rooms and names", () => {
+        const CITY = "City-5f1c0000-aaaa-4bbb-8ccc-000000000001";
+        const MUC_DOMAIN = `muc.${DOMAIN}`;
+
+        // A player with a client model beside its connection: the model's stanzas go out, every reply comes in
+        async function Player(Uid: string, Name: string, Options: LoginOptions = {}){
+            const Wire = await SignedIn(Uid, Options);
+            const Model = new ChatClientModel({ LocalUid: Uid, Resource: Wire.Resource, LocalSocialName: Name, Domain: Wire.Domain });
+            return { Wire, Model, Name };
+        }
+
+        type Player_ = Awaited<ReturnType<typeof Player>>;
+
+        async function Settle(...Players: Player_[]){
+            const Seen: string[][] = [];
+
+            for(const Each of Players){
+                const Frames = await Each.Wire.Barrier();
+                Each.Model.ReceiveAll(Frames);
+                Seen.push(Frames);
+            }
+
+            return Seen;
+        }
+
+        function JoinAs(Who: Player_, Room: string, Name = Who.Name){
+            const Stanza = Who.Model.JoinPublicRoom(Room, Name);
+            assert.ok(Stanza);
+            Who.Wire.Send(Stanza);
+        }
+
+        function Presence(Room: string, Nick: string, Occupant: Player_, To: Player_, Self = false){
+            return `<presence xmlns="jabber:client" from="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Nick}`)}" to="${EscapeXml(`${To.Wire.Uid}@${DOMAIN}/${To.Wire.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="none" role="participant" jid="${EscapeXml(`${Occupant.Wire.Uid}@${DOMAIN}/${Occupant.Wire.Resource}`)}"/>${Self ? `<status code="110"/>` : ""}</x></presence>`;
+        }
+
+        function Unavailable(Room: string, Nick: string, Occupant: Player_, To: Player_, Self = false){
+            return `<presence xmlns="jabber:client" type="unavailable" from="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Nick}`)}" to="${EscapeXml(`${To.Wire.Uid}@${DOMAIN}/${To.Wire.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="none" role="none" jid="${EscapeXml(`${Occupant.Wire.Uid}@${DOMAIN}/${Occupant.Wire.Resource}`)}"/>${Self ? `<status code="110"/>` : ""}</x></presence>`;
+        }
+
+        const Lookup = LookupFrom({ [A]: "Alpha", [B]: "Bravo", [C]: "Charlie", [D]: "Delta" });
+
+        // Fresh buckets and no login hold-backs left over from the test before; every test logs its players out
+        beforeEach(() => {
+            Now += 61 * 1000;
+        });
+
+        afterEach(async () => {
+            for(const Client of Opened.splice(0)) await Client.Logout();
+        });
+
+        it("two players: joins in order, <item jid> everywhere, 110 only on self, every message to both with one from and id; both see usernames", async () => {
+            const Alpha = await Player(A, "Alpha");
+            const Bravo = await Player(B, "Bravo");
+            const NickA = Alpha.Model.Nickname("Alpha");
+            const NickB = Bravo.Model.Nickname("Bravo");
+
+            JoinAs(Alpha, CITY);
+            assert.deepEqual((await Settle(Alpha))[0], [Presence(CITY, NickA, Alpha, Alpha, true)]);
+
+            JoinAs(Bravo, CITY);
+            const [ForB, ForA] = await Settle(Bravo, Alpha);
+            assert.deepEqual(ForB, [Presence(CITY, NickA, Alpha, Bravo), Presence(CITY, NickB, Bravo, Bravo, true)], "B hears of A, then itself");
+            assert.deepEqual(ForA, [Presence(CITY, NickB, Bravo, Alpha)], "A hears of B");
+
+            const Text = "©héllo & <b>marker-room</b>";
+            Alpha.Wire.Send(Alpha.Model.RoomMessage(CITY, Text, "3F2504E04F8911D39A0C0305E82C3301"));
+            const [MineA, MineB] = await Settle(Alpha, Bravo);
+            const Expected = (To: Player_) => `<message xmlns="jabber:client" type="groupchat" id="3F2504E04F8911D39A0C0305E82C3301" from="${EscapeXml(`${CITY}@${MUC_DOMAIN}/${NickA}`)}" to="${EscapeXml(`${To.Wire.Uid}@${DOMAIN}/${To.Wire.Resource}`)}"><body>${EscapeXml(Text)}</body></message>`;
+            assert.deepEqual(MineA, [Expected(Alpha)], "the sender gets its own line back");
+            assert.deepEqual(MineB, [Expected(Bravo)]);
+
+            Bravo.Wire.Send(Bravo.Model.RoomMessage(CITY, "marker-reply", "g2"));
+            await Settle(Bravo, Alpha);
+            assert.deepEqual(await Alpha.Model.ShownLines(Lookup), [`Alpha: ${Text}`, "Bravo: marker-reply"]);
+            assert.deepEqual(await Bravo.Model.ShownLines(Lookup), [`Alpha: ${Text}`, "Bravo: marker-reply"]);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join room=${CITY} uid=${B} name=Bravo occupants=1`));
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: message room=${CITY} uid=${A} len=${[...Text].length} to=2`));
+        });
+
+        it("rooms live on muc.<domain> from <open to>; conference. or another case is refused not-allowed", async () => {
+            const Local = await Player(C, "Charlie", { OpenTo: "dauntless.local" });
+
+            JoinAs(Local, CITY);
+            await Settle(Local);
+            assert.equal(Local.Model.RoomOf(CITY)!.State, JOINED, "joined on muc.dauntless.local");
+
+            for(const Domain of ["conference.dauntless.local", "MUC.dauntless.local", `muc.${DOMAIN}`]){
+                Local.Wire.Send(`<presence to="Hunt-1@${Domain}/${Local.Model.Nickname("Charlie")}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                const [Frames] = await Settle(Local);
+                assert.equal(Frames.length, 1, Domain);
+                assert.match(Frames[0], /^<presence xmlns="jabber:client" type="error" from="Hunt-1@[^"]+"[^>]*><x xmlns="http:\/\/jabber.org\/protocol\/muc"\/><error type="cancel"><not-allowed xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error><\/presence>$/, Domain);
+            }
+        });
+
+        it("three players: the last one hears of both; leaves and a dropped connection are told to the rest", async () => {
+            const Alpha = await Player(A, "Alpha");
+            const Bravo = await Player(B, "Bravo");
+            const Charlie = await Player(C, "Charlie");
+            const [NickA, NickB, NickC] = [Alpha.Model.Nickname("Alpha"), Bravo.Model.Nickname("Bravo"), Charlie.Model.Nickname("Charlie")];
+
+            JoinAs(Alpha, CITY);
+            await Settle(Alpha);
+            JoinAs(Bravo, CITY);
+            await Settle(Bravo, Alpha);
+            JoinAs(Charlie, CITY);
+            const [ForC] = await Settle(Charlie, Alpha, Bravo);
+            assert.deepEqual(ForC, [Presence(CITY, NickA, Alpha, Charlie), Presence(CITY, NickB, Bravo, Charlie), Presence(CITY, NickC, Charlie, Charlie, true)]);
+
+            Alpha.Wire.Send(Alpha.Model.ExitRoom(CITY)!);
+            const [LeftA, LeftB, LeftC] = await Settle(Alpha, Bravo, Charlie);
+            assert.deepEqual(LeftA, [Unavailable(CITY, NickA, Alpha, Alpha, true)]);
+            assert.deepEqual(LeftB, [Unavailable(CITY, NickA, Alpha, Bravo)]);
+            assert.deepEqual(LeftC, [Unavailable(CITY, NickA, Alpha, Charlie)]);
+            assert.equal(Alpha.Model.RoomOf(CITY)!.State, NOT_JOINED);
+
+            Charlie.Wire.Close();
+            await Charlie.Wire.Closed;
+            await new Promise((Resolve) => setTimeout(Resolve, 50));
+            const [Dropped] = await Settle(Bravo);
+            assert.deepEqual(Dropped, [Unavailable(CITY, NickC, Charlie, Bravo)]);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: leave room=${CITY} uid=${C} reason=disconnect`));
+        });
+
+        it("refuses a nickname with another account's id, another name, the wrong resource or characters the client never writes", async () => {
+            const Alpha = await Player(A, "Alpha");
+            const Res = Alpha.Wire.Resource;
+            const Cases: Array<[string, string]> = [
+                [`Alpha:${B}:${Res}`, "nick-account"],
+                [`Alpha`, "nick-account"],
+                [`Bravo:${A}:${Res}`, "nick-name"],
+                [`Al+pha:${A}:${Res}`, "nick-format"],
+                [`Al pha:${A}:${Res}`, "nick-format"],
+                [`%ZZ:${A}:${Res}`, "nick-format"],
+                [`%FF:${A}:${Res}`, "nick-format"],
+                [`Alpha:${A}:V2:Other:WIN::0`, "nick-resource"]
+            ];
+
+            for(const [Nick, Reason] of Cases){
+                Alpha.Wire.Send(`<presence to="${EscapeXml(`Hunt-9@${MUC_DOMAIN}/${Nick}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                const [Frames] = await Settle(Alpha);
+                assert.equal(Frames.length, 1, Nick);
+                assert.match(Frames[0], /<error type="auth"><forbidden xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/, Nick);
+                assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=Hunt-9 uid=${A} reason=${Reason}`), `${Nick}: ${Reason}`);
+            }
+
+            // Another account's id hidden in a bound resource is refused too
+            const Forged = await Player(B, "Bravo", { Resource: `V2:${A}:WIN::0` });
+            JoinAs(Forged, "Hunt-10");
+            await Settle(Forged);
+            assert.equal(Forged.Model.RoomOf("Hunt-10"), undefined);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=Hunt-10 uid=${B} reason=nick-account`));
+        });
+
+        it("accepts the client's own encodings: %41lpha, lower-case hex, InvalidMCPUser and an older non-ASCII name", async () => {
+            const Old = await Player(OLD, OLD_NAME);
+            const Res = Old.Wire.Resource;
+
+            assert.equal(UrlEncodeLikeClient(OLD_NAME), "S%C3%B6lve%20%C3%96");
+
+            for(const [Room, Nick] of [["Hunt-20", `${UrlEncodeLikeClient(OLD_NAME)}:${OLD}:${Res}`], ["Hunt-21", `S%c3%b6lve%20%c3%96:${OLD}:${Res}`], ["Hunt-22", `InvalidMCPUser:${OLD}:${Res}`]]){
+                Old.Wire.Send(`<presence to="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Nick}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                const [Frames] = await Settle(Old);
+                assert.match(Frames.at(-1)!, /<status code="110"\/>/, Nick);
+            }
+
+            const Alpha = await Player(A, "Alpha");
+            Alpha.Wire.Send(`<presence to="${EscapeXml(`Hunt-23@${MUC_DOMAIN}/%41lpha:${A}:${Alpha.Wire.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+            const [Frames] = await Settle(Alpha);
+            assert.match(Frames.at(-1)!, /<status code="110"\/>/);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join room=Hunt-23 uid=${A} name=Alpha occupants=0`));
+        });
+
+        it("CHAT_NICK_CHECK=log admits a bad nickname with a warning, but a nickname held by another session is a conflict", async () => {
+            const Lenient = new ChatServer({ Clock: () => Now, AutoTick: false, NickCheck: "log" });
+            await Lenient.listen(0);
+
+            try{
+                const Alpha = await Login(Lenient.port, A);
+                const Bravo = await Login(Lenient.port, B);
+                const Taken = `Alpha:${A}:${Alpha.Resource}`;
+
+                Alpha.Send(`<presence to="${EscapeXml(`Hunt-30@${MUC_DOMAIN}/Somebody:${A}:${Alpha.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                assert.match((await Alpha.Barrier()).at(-1)!, /<status code="110"\/>/, "admitted");
+                assert.ok(Logs.Lines.some((Line) => Line === `warn chat: join nickname not checked room=Hunt-30 uid=${A} reason=nick-name (CHAT_NICK_CHECK=log)`));
+
+                Alpha.Send(`<presence to="${EscapeXml(`Hunt-31@${MUC_DOMAIN}/${Taken}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                await Alpha.Barrier();
+                Bravo.Send(`<presence to="${EscapeXml(`Hunt-31@${MUC_DOMAIN}/${Taken}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                const Refused = await Bravo.Barrier();
+                assert.equal(Refused.length, 1);
+                assert.match(Refused[0], /<error type="cancel"><conflict xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/);
+                await Alpha.Logout();
+                await Bravo.Logout();
+            }
+            finally{
+                await Lenient.close();
+            }
+        });
+
+        it("whispers: a bare JID reaches every session of the account, a full JID one, from the sender's full JID; offline and self are dropped", async () => {
+            const Alpha = await Player(A, "Alpha");
+            const Bravo1 = await Player(B, "Bravo");
+            const Bravo2 = await Player(B, "Bravo");
+
+            Alpha.Wire.Send(`<message type="chat" to="${B}@${DOMAIN}" id="w1"><body>marker-psst</body></message>`);
+            const [, One, Two] = await Settle(Alpha, Bravo1, Bravo2);
+            const Expected = (To: Player_) => `<message xmlns="jabber:client" type="chat" from="${EscapeXml(`${A}@${DOMAIN}/${Alpha.Wire.Resource}`)}" to="${EscapeXml(`${B}@${DOMAIN}/${To.Wire.Resource}`)}" id="w1"><body>marker-psst</body></message>`;
+            assert.deepEqual(One, [Expected(Bravo1)]);
+            assert.deepEqual(Two, [Expected(Bravo2)]);
+            assert.deepEqual(await Bravo1.Model.ShownWhispers(Lookup), ["Alpha: marker-psst"]);
+
+            Alpha.Wire.Send(`<message type="chat" to="${EscapeXml(`${B}@${DOMAIN}/${Bravo2.Wire.Resource}`)}"><body>marker-only-two</body></message>`);
+            const [, OnlyOne, OnlyTwo] = await Settle(Alpha, Bravo1, Bravo2);
+            assert.equal(OnlyOne.length, 0);
+            assert.equal(OnlyTwo.length, 1);
+
+            Alpha.Wire.Send(`<message type="chat" to="${D}@${DOMAIN}"><body>marker-offline</body></message>`);
+            Alpha.Wire.Send(`<message type="chat" to="${A}@${DOMAIN}"><body>marker-self</body></message>`);
+            assert.deepEqual((await Settle(Alpha))[0], [], "no error goes back");
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${A} to=${D} len=14 reason=offline`));
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${A} to=${A} len=11 reason=self`));
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${A} to=${B} len=11 delivered=2`));
+        });
+
+        it("two sessions of one account never see each other in a room; a third replaces the silent one; a ghost is pinged out in 10 s", async () => {
+            const First = await Player(D, "Delta");
+            const Second = await Player(D, "Delta");
+            const Room = "Party-7d1f0000-0000-4000-8000-00000000000d";
+
+            JoinAs(First, Room);
+            await Settle(First);
+            JoinAs(Second, Room);
+            const [ForSecond, ForFirst] = await Settle(Second, First);
+            assert.equal(ForSecond.length, 1, "only its own presence");
+            assert.equal(ForFirst.length, 0, "nothing about the other session");
+
+            First.Wire.Send(First.Model.RoomMessage(Room, "marker-same", "s1"));
+            const [Mine, Other] = await Settle(First, Second);
+            assert.equal(Mine.length, 1, "its own line comes back");
+            assert.equal(Other.length, 0, "the other session hears nothing");
+
+            First.Wire.Send(First.Model.ExitRoom(Room)!);
+            assert.equal((await Settle(Second, First))[0].length, 0, "a leave is not told to the other session");
+
+            // A third session: the one silent longest goes (reason replaced), and the new bind pings the
+            // other one, which is ended as a ghost when it stays silent for 10 s
+            Now += 1000;
+            await Settle(Second);
+            Second.Wire.AutoPong = false;
+            const Third = await Player(D, "Delta");
+            await First.Wire.Closed;
+            assert.ok(Logs.Lines.some((Line) => /chat: closed c=\d+ uid=UID-chat-d reason=replaced/.test(Line)));
+            Now += 10 * 1000;
+            Wire.Tick();
+            await Second.Wire.Closed;
+            assert.ok(Logs.Lines.some((Line) => /chat: closed c=\d+ uid=UID-chat-d reason=ping-timeout/.test(Line)));
+            assert.ok(Third.Wire.IsOpen);
+
+            // Either end holds the account's next login back for 60 s
+            await assert.rejects(Player(D, "Delta"), /was refused/);
+        });
+
+        it("the loop guard: more than 3 replacements in 60 s", async () => {
+            const Own = new ChatServer({ Clock: () => Now, AutoTick: false });
+            await Own.listen(0);
+
+            try{
+                const Resource = GameResource();
+                const Racers: WireClient[] = [];
+
+                // Five connections of one account log in first, then all bind the same resource
+                for(let Index = 0; Index < 5; Index++){
+                    const Racer = await Connected(Own);
+                    assert.match(await SaslAnswer(Racer, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /<success/);
+                    Racer.Send(`<open xmlns="${FRAMING}" to="${DOMAIN}" version="1.0"/>`);
+                    await Racer.Expect();
+                    await Racer.Expect();
+                    Racers.push(Racer);
+                }
+
+                for(const Racer of Racers){
+                    Racer.Send(`<iq type="set" id="_xmpp_bind1"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind"><resource>${Resource}</resource></bind></iq>`);
+                    await Racer.Expect("bind");
+                }
+
+                assert.ok(Logs.Lines.some((Line) => Line.startsWith(`warn chat: loop guard uid=${LOOP} (4 sessions replaced in 60 s)`)));
+            }
+            finally{
+                for(const Client of Opened.splice(0)) Client.Close();
+                await Own.close();
+            }
+        });
+
+        it("limits: a 2049-character body and a message burst get the room error; a stanza flood ends the session and holds its logins", async () => {
+            const Flooder = await Player(FLOOD, "Flood");
+
+            JoinAs(Flooder, "Hunt-40");
+            await Settle(Flooder);
+            Flooder.Wire.Send(`<message type="groupchat" to="Hunt-40@${MUC_DOMAIN}" id="big"><body>${"x".repeat(2049)}</body></message>`);
+            const [Big] = await Settle(Flooder);
+            assert.deepEqual(Big, [`<message xmlns="jabber:client" type="error" id="big" from="Hunt-40@${MUC_DOMAIN}" to="${EscapeXml(`${FLOOD}@${DOMAIN}/${Flooder.Wire.Resource}`)}"><error type="modify"><not-acceptable xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/></error></message>`]);
+
+            for(let Index = 0; Index < 9; Index++){
+                Flooder.Wire.Send(`<message type="groupchat" to="Hunt-40@${MUC_DOMAIN}" id="r${Index}"><body>marker-burst</body></message>`);
+            }
+
+            const [Burst] = await Settle(Flooder);
+            assert.equal(Burst.filter((Frame) => Frame.includes("<body>")).length, 8, "a burst of 8");
+            assert.equal(Burst.filter((Frame) => Frame.includes(`type="error"`)).length, 1);
+
+            for(let Index = 0; Index < 200; Index++){
+                Flooder.Wire.Send(`<iq type="get" id="f${Index}"><ping xmlns="urn:xmpp:ping"/></iq>`);
+            }
+
+            await Flooder.Wire.Closed;
+            assert.ok(Logs.Lines.some((Line) => /chat: closed c=\d+ uid=UID-chat-flood reason=abuse/.test(Line)));
+
+            const Next = await Connected();
+            assert.match(await SaslAnswer(Next, Base64Plain("", FLOOD, SignMetagameJWTForUid(FLOOD))), /temporary-auth-failure/);
+            Next.Close();
         });
     });
 

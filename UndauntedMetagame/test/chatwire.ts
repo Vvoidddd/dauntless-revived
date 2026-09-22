@@ -146,6 +146,16 @@ export class WireClient {
     Close(): void {
         this.Socket.terminate();
     }
+
+    // A clean logout: <close/>, which the server has fully handled once its own <close/> comes back
+    async Logout(): Promise<void> {
+        if(!this.IsOpen){
+            return;
+        }
+
+        this.Send(`<close xmlns="${FRAMING}"/>`);
+        await this.Closed;
+    }
 }
 
 export type LoginOptions = { Resource?: string, OpenTo?: string | null, Token?: string, Headers?: Record<string, string> };

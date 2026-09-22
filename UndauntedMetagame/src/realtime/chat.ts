@@ -8,9 +8,10 @@ import { ValidateMetagameJWTAndGetPayload } from "../controllers/auth";
 import { FindUsernameForUserId, IsAccountIdShape } from "../controllers/login";
 import { logger } from "../logger";
 import { ClientAddressOf, IsTrustedGatewayRequest } from "../middleware/RequestOrigin";
+import { BodyLength, JOIN_BURST, MESSAGE_BURST, MucService, NickCheckMode, TakeMessageToken } from "./muc";
 import {
     AttrOf, Bucket, ChildNamed, DEFAULT_DOMAIN, EscapeXml, HasMarkupDeclaration, IsHostName, LocalName, NewBucket, NS,
-    ParseFrame, RedactFrame, TakeToken, TextOf
+    ParseFrame, ParseJid, RedactFrame, TakeToken, TextOf
 } from "./xmpp";
 
 // The game's chat connection (roadmap 3.10; docs/findings/chat.md): XMPP over WebSocket, in the metagame's
@@ -48,9 +49,15 @@ const ABUSE_WINDOW_MS = 60 * 1000;
 const LOG_ONCE_MS = 10 * 60 * 1000;
 const MAX_RESOURCE = 256;
 const MAX_ID = 128;
+const MAX_SESSIONS_PER_ACCOUNT = 2;
+const GHOST_PING_MS = 10 * 1000;
+const LOOP_REPLACEMENTS = 3;
+const LOOP_WINDOW_MS = 60 * 1000;
+const CONTROL_CHARACTER = /\p{Cc}/u;
 
 export type ChatOptions = {
     Trace?: boolean,
+    NickCheck?: NickCheckMode,
     // Tests: a controllable clock, and no timer of its own (the test calls Tick)
     Clock?: () => number,
     AutoTick?: boolean
@@ -68,7 +75,6 @@ export type ChatSession = {
     Uid?: string,
     NameAtLogin?: string,
     Resource?: string,
-    SaslFailed: boolean,
     Ended: boolean,
     LastInbound: number,
     PingId?: string,
@@ -78,7 +84,10 @@ export type ChatSession = {
     LastDropLog: number,
     Namespaces: Set<string>,
     Available: boolean,
-    Rooms: Set<string>
+    // Bare room JID -> the nickname held there
+    Rooms: Map<string, string>,
+    Joins: Bucket,
+    Messages: Bucket
 };
 
 export function FullJidOf(Session: ChatSession): string {
@@ -99,8 +108,12 @@ export class ChatServer {
     private readonly throttledAddresses = new Map<string, number>();
     private readonly throttledUids = new Map<string, number>();
     private readonly loggedOnce = new Map<string, number>();
+    // Times one account's sessions were replaced, for the loop guard
+    private readonly replacements = new Map<string, number[]>();
     private readonly clock: () => number;
     private readonly trace: boolean;
+    private readonly nickCheck: NickCheckMode;
+    private readonly muc: MucService;
     private readonly ticker?: NodeJS.Timeout;
     private nextId = 1;
     private nextPing = 1;
@@ -108,6 +121,14 @@ export class ChatServer {
     constructor(Options: ChatOptions = {}) {
         this.clock = Options.Clock ?? (() => Date.now());
         this.trace = Options.Trace === true;
+        this.nickCheck = Options.NickCheck ?? "enforce";
+        this.muc = new MucService({
+            Send: (Session, Stanza) => this.send(Session as ChatSession, Stanza),
+            Clock: () => this.clock(),
+            LogOnce: (Key, WindowMs) => this.logOnce(Key, WindowMs),
+            UsernameOf: (Uid) => FindUsernameForUserId(Uid),
+            NickCheck: this.nickCheck
+        });
         this.http = createServer((_req, res) => { res.writeHead(404); res.end(); });
         this.http.on("clientError", (_error, socket) => socket.destroy());
         this.http.on("upgrade", (req, socket, head) => this.upgrade(req, socket, head));
@@ -131,7 +152,7 @@ export class ChatServer {
             this.http.listen(port, host, () => { this.http.removeListener("error", reject); resolve(); });
         });
         this.http.on("error", (error) => logger.error(`chat: listener error (${ErrorName(error)})`));
-        logger.info(`chat: listening on ${host}:${this.port}`);
+        logger.info(`chat: listening on ${host}:${this.port} (nick check ${this.nickCheck})`);
     }
 
     // Shutdown: <close/> to every session, then whatever is still open is cut after 1 s
@@ -232,7 +253,6 @@ export class ChatServer {
             Via: Via,
             OpenedAt: Now,
             Domain: DEFAULT_DOMAIN,
-            SaslFailed: false,
             Ended: false,
             LastInbound: Now,
             Stanzas: NewBucket(STANZA_BURST, Now),
@@ -240,7 +260,9 @@ export class ChatServer {
             LastDropLog: 0,
             Namespaces: new Set(),
             Available: false,
-            Rooms: new Set()
+            Rooms: new Map(),
+            Joins: NewBucket(JOIN_BURST, Now),
+            Messages: NewBucket(MESSAGE_BURST, Now)
         };
 
         this.clients.add(Session);
@@ -292,7 +314,7 @@ export class ChatServer {
 
         Session.Ended = true;
         this.clients.delete(Session);
-        this.leaveAll(Session, Reason === "replaced" ? "replaced" : "disconnect");
+        this.muc.LeaveAll(Session, Reason === "replaced" ? "replaced" : "disconnect");
 
         if(Session.Uid !== undefined && Session.Resource !== undefined){
             const List = (this.byUid.get(Session.Uid) ?? []).filter((Other) => Other !== Session);
@@ -355,6 +377,9 @@ export class ChatServer {
         for(const [Key, Until] of this.throttledAddresses) if(Until <= Now) this.throttledAddresses.delete(Key);
         for(const [Key, Until] of this.throttledUids) if(Until <= Now) this.throttledUids.delete(Key);
         for(const [Key, At] of this.loggedOnce) if(Now - At >= LOG_ONCE_MS) this.loggedOnce.delete(Key);
+        for(const [Key, Times] of this.replacements){
+            if(Times.every((At) => Now - At >= LOOP_WINDOW_MS)) this.replacements.delete(Key);
+        }
         for(const [Key, Times] of this.saslFailures){
             const Recent = Times.filter((At) => Now - At < SASL_FAILURE_WINDOW_MS);
 
@@ -498,8 +523,6 @@ export class ChatServer {
             this.countFailure(Session.Address, this.clock());
         }
 
-        Session.SaslFailed = true;
-
         if(this.logOnce(`login|${Uid ?? Session.Address}|${Reason}`)){
             logger.info(`chat: login refused c=${Session.Id} reason=${Reason}${Uid !== undefined ? ` uid=${Uid}` : ""}`);
         }
@@ -569,7 +592,6 @@ export class ChatServer {
 
         Session.Uid = Uid;
         Session.NameAtLogin = Name;
-        Session.SaslFailed = false;
         logger.info(`chat: login ok c=${Session.Id} uid=${Uid}`);
         this.send(Session, `<success xmlns="${NS.SASL}"/>`);
     }
@@ -615,81 +637,184 @@ export class ChatServer {
             return;
         }
 
-        if(Requested.length > MAX_RESOURCE || /[\x00-\x1f\x7f]/.test(Requested)){
+        if(Requested.length > MAX_RESOURCE || CONTROL_CHARACTER.test(Requested)){
             this.send(Session, `<iq xmlns="${NS.CLIENT}" type="error" id="${EscapeXml(Id)}"><error type="modify"><bad-request xmlns="${NS.STANZAS}"/></error></iq>`);
             return;
         }
 
         const Resource = Requested.length > 0 ? Requested : `srv-${crypto.randomBytes(16).toString("hex")}`;
 
+        // At most two sessions per account. The game makes a new resource at every login, so the same one
+        // again is a ghost or a forgery, and a third session replaces the one silent longest (normally the
+        // ghost of a dropped connection).
+        const Same = (this.byUid.get(Uid) ?? []).find((Other) => Other.Resource === Resource);
+
+        if(Same !== undefined){
+            this.replace(Same);
+        }
+
+        const Remaining = this.byUid.get(Uid) ?? [];
+
+        if(Remaining.length >= MAX_SESSIONS_PER_ACCOUNT){
+            this.replace(Remaining.reduce((Oldest, Other) => Other.LastInbound < Oldest.LastInbound ? Other : Oldest));
+        }
+
         Session.Resource = Resource;
         this.byUid.set(Uid, [...(this.byUid.get(Uid) ?? []), Session]);
         logger.info(`chat: bound c=${Session.Id} uid=${Uid} resource=${Resource} domain=${Session.Domain} sessions=${this.byUid.get(Uid)!.length}`);
         this.send(Session, `<iq xmlns="${NS.CLIENT}" type="result" id="${EscapeXml(Id)}"><bind xmlns="${NS.BIND}"><jid>${EscapeXml(FullJidOf(Session))}</jid></bind></iq>`);
+
+        // An older session of the same account that does not answer a ping within 10 s is a ghost
+        for(const Other of this.byUid.get(Uid)!){
+            if(Other !== Session && (Other.PingDeadline === undefined || Other.PingDeadline > this.clock() + GHOST_PING_MS)){
+                this.ping(Other, GHOST_PING_MS);
+            }
+        }
+    }
+
+    // Ends an older session of the same account. More than 3 in 60 s is a reconnect loop: that account's
+    // logins are held back for 60 s, so the game waits 15-45 s before its next try.
+    private replace(Old: ChatSession): void {
+        const Uid = Old.Uid!;
+        const Now = this.clock();
+        const Recent = (this.replacements.get(Uid) ?? []).filter((At) => Now - At < LOOP_WINDOW_MS);
+
+        Recent.push(Now);
+        this.replacements.set(Uid, Recent);
+
+        if(Recent.length > LOOP_REPLACEMENTS && this.logOnce(`loop|${Uid}`, LOOP_WINDOW_MS)){
+            logger.warn(`chat: loop guard uid=${Uid} (${Recent.length} sessions replaced in 60 s); its logins wait 60 s`);
+        }
+
+        this.end(Old, "replaced");
     }
 
     // ---- Presence and messages ----
 
-    private leaveAll(Session: ChatSession, _Reason: "disconnect" | "replaced"): void {
-        Session.Rooms.clear();
-    }
-
     private presence(Session: ChatSession, Node: Element): void {
-        const To = AttrOf(Node, "to") ?? "";
+        const ToText = AttrOf(Node, "to");
+        const Type = AttrOf(Node, "type");
 
-        if(To.includes("@") && To.length <= 256){
-            const Room = To.split("/")[0].toLowerCase();
+        // A broadcast presence (no "to") is recorded and dropped: never echoed, never relayed to anyone.
+        // An unavailable one leaves every room.
+        if(ToText === undefined){
+            if(Type === "unavailable"){
+                this.muc.LeaveAll(Session, "left");
+            }
+            else if(Type === undefined){
+                Session.Available = true;
+                logger.debug(`chat: presence c=${Session.Id} status=${JSON.stringify(StatusTextOf(Node))}`);
+            }
 
-            if(AttrOf(Node, "type") === "unavailable"){
-                Session.Rooms.delete(Room);
-                this.send(Session, `<presence from="${EscapeXml(Room)}/${EscapeXml(Session.Uid!)}" to="${EscapeXml(FullJidOf(Session))}" type="unavailable"/>`);
-            }
-            else if(Session.Rooms.has(Room) || Session.Rooms.size < 8){
-                Session.Rooms.add(Room);
-                // MUC clients need their own reflected presence before considering a
-                // public-room join complete. Code 110 identifies this occupant as self.
-                this.send(Session, `<presence from="${EscapeXml(Room)}/${EscapeXml(Session.Uid!)}" to="${EscapeXml(FullJidOf(Session))}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="member" role="participant"/><status code="110"/></x></presence>`);
-            }
+            return;
         }
-        else{
-            // A broadcast presence is recorded and dropped: never echoed, never relayed
-            Session.Available = AttrOf(Node, "type") !== "unavailable";
+
+        const To = ToText.length <= 2048 ? ParseJid(ToText) : undefined;
+        const Muc = ChildNamed(Node, "x");
+        const ToRoom = To !== undefined && (this.muc.IsMucDomain(Session, To.Domain) || /^(muc|conference)\./i.test(To.Domain) || (Muc !== undefined && AttrOf(Muc, "xmlns") === NS.MUC));
+
+        if(To === undefined || !ToRoom){
+            // Directed presence to a user, subscriptions and probes: dropped
+            logger.debug(`chat: presence to a user dropped c=${Session.Id}`);
+            return;
+        }
+
+        if(Type === undefined){
+            this.muc.Join(Session, To);
+        }
+        else if(Type === "unavailable"){
+            this.muc.Leave(Session, To);
         }
     }
 
     private message(Session: ChatSession, Node: Element): void {
-        const Body = TextOf(ChildNamed(Node, "body"));
-        const To = AttrOf(Node, "to") ?? "";
+        const Type = AttrOf(Node, "type");
+        const ToText = AttrOf(Node, "to") ?? "";
+        const To = ToText.length <= 2048 ? ParseJid(ToText) : undefined;
 
-        if(Body.length === 0 || Body.length > BODY_LIMIT || To.length > 256){
+        if(Type === "groupchat" && To !== undefined){
+            this.muc.GroupChat(Session, To, Node);
+        }
+        else if(Type === "chat" && To !== undefined){
+            this.whisper(Session, Node, To.Local, To.Resource);
+        }
+        else{
+            logger.debug(`chat: message dropped c=${Session.Id} type=${String(Type).slice(0, 16)}`);
+        }
+    }
+
+    // A whisper: to one session of the account when the resource names one, else to all of them, from the
+    // sender's full JID (the client drops senders without a resource). Nothing is sent back when it is not
+    // delivered: the client routes type="error" messages to its room code.
+    private whisper(Session: ChatSession, Node: Element, Target: string, Resource: string | undefined): void {
+        const Uid = Session.Uid!;
+        const Body = TextOf(ChildNamed(Node, "body"));
+        const Length = BodyLength(Body);
+        const IdAttr = AttrOf(Node, "id");
+        const Id = IdAttr !== undefined && IdAttr.length <= MAX_ID ? IdAttr : undefined;
+        const Shown = IsAccountIdShape(Target) ? Target : "?";
+        const Refused = (Reason: string) => logger.info(`chat: whisper from=${Uid} to=${Shown} len=${Length} reason=${Reason}`);
+
+        if(Length === 0 || Length > BODY_LIMIT){
+            Refused("size");
             return;
         }
 
-        const Id = AttrOf(Node, "id") ?? "";
-        const StanzaId = EscapeXml(Id.length <= MAX_ID ? Id : "");
-        const Group = AttrOf(Node, "type") === "groupchat";
-        const Target = To.split("/")[0].toLowerCase();
-
-        for(const Peer of this.clients){
-            if(!Peer.Uid || !Peer.Resource || Peer.Socket.readyState !== WebSocket.OPEN) continue;
-            if(Group ? (!Session.Rooms.has(Target) || !Peer.Rooms.has(Target)) : Peer.Uid.toLowerCase() !== Target.split("@")[0]) continue;
-            // 1.4.4 treats the MUC occupant resource as an account ID. Replacing it
-            // with a display name makes the sender "unknown" in the game. Keep the
-            // authenticated UID as the identity and advertise the stored account
-            // name separately with the standard XEP-0172 nickname element.
-            const From = Group ? `${Target}/${EscapeXml(Session.Uid!)}` : EscapeXml(FullJidOf(Session));
-            this.send(Peer, `<message from="${From}" to="${EscapeXml(FullJidOf(Peer))}" type="${Group ? "groupchat" : "chat"}" id="${StanzaId}"><body>${EscapeXml(Body)}</body><nick xmlns="http://jabber.org/protocol/nick">${EscapeXml(Session.NameAtLogin!)}</nick></message>`);
+        if(Target === Uid){
+            Refused("self");
+            return;
         }
+
+        if(!TakeMessageToken(Session, this.clock())){
+            if(this.logOnce(`whisper-rate|${Session.Id}`, 60 * 1000)){
+                Refused("limit");
+            }
+
+            return;
+        }
+
+        const Sessions = Target === "xmpp-admin" ? [] : (this.byUid.get(Target) ?? []);
+
+        if(Sessions.length === 0){
+            Refused("offline");
+            return;
+        }
+
+        const Chosen = Sessions.filter((Other) => Other.Resource === Resource);
+        const Recipients = Chosen.length > 0 ? Chosen : Sessions;
+        const Text = EscapeXml(Body);
+
+        for(const Recipient of Recipients){
+            this.send(Recipient, `<message xmlns="${NS.CLIENT}" type="chat" from="${EscapeXml(FullJidOf(Session))}" to="${EscapeXml(FullJidOf(Recipient))}"${Id !== undefined ? ` id="${EscapeXml(Id)}"` : ""}><body>${Text}</body></message>`);
+        }
+
+        logger.info(`chat: whisper from=${Uid} to=${Target} len=${Length} delivered=${Recipients.length}`);
+    }
+}
+
+// The Status text of a broadcast presence (the client sends JSON in <status>), at most 64 characters
+function StatusTextOf(Node: Element): string {
+    const Raw = TextOf(ChildNamed(Node, "status"));
+
+    try{
+        const Parsed = JSON.parse(Raw);
+        const Status = typeof Parsed === "object" && Parsed !== null ? (Parsed as { Status?: unknown }).Status : undefined;
+
+        return typeof Status === "string" ? Status.slice(0, 64) : "";
+    }
+    catch{
+        return "";
     }
 }
 
 // ---- Settings and start ----
 
-export type ChatConfig = { Enabled: boolean, Port: number, Host: string, Trace: boolean, Errors: string[], Warnings: string[] };
+export type ChatConfig = { Enabled: boolean, Port: number, Host: string, NickCheck: NickCheckMode, Trace: boolean, Errors: string[], Warnings: string[] };
 
 // CHAT=1 turns the listener on (off by default until the live two-player test passes). CHAT_PORT (61099)
 // and CHAT_BIND_HOST (127.0.0.1) say where; in public mode (GATEWAY_SECRET set) the gateway forwards to
-// 127.0.0.1 and nothing else is accepted. CHAT_TRACE=1 logs redacted frames.
+// 127.0.0.1 and nothing else is accepted. CHAT_NICK_CHECK=log admits room nicknames that fail the name
+// rules with a warning instead of refusing them (a rollback switch only). CHAT_TRACE=1 logs redacted frames.
 export function ReadChatConfig(Env: NodeJS.ProcessEnv = process.env): ChatConfig {
     const Errors: string[] = [];
     const Warnings: string[] = [];
@@ -717,7 +842,17 @@ export function ReadChatConfig(Env: NodeJS.ProcessEnv = process.env): ChatConfig
             : `CHAT_BIND_HOST must be 127.0.0.1 or ::1`);
     }
 
-    return { Enabled, Port, Host, Trace: Env.CHAT_TRACE === "1", Errors, Warnings };
+    const NickText = Env.CHAT_NICK_CHECK ?? "";
+    let NickCheck: NickCheckMode = "enforce";
+
+    if(NickText === "log"){
+        NickCheck = "log";
+    }
+    else if(NickText !== "" && NickText !== "enforce"){
+        Warnings.push(`CHAT_NICK_CHECK=${NickText.slice(0, 16)} is not enforce or log; nicknames are checked`);
+    }
+
+    return { Enabled, Port, Host, NickCheck, Trace: Env.CHAT_TRACE === "1", Errors, Warnings };
 }
 
 // Starts chat when CHAT=1. Never throws and never stops the metagame: a bad setting or a port in use is
@@ -738,7 +873,7 @@ export async function StartChat(Env: NodeJS.ProcessEnv = process.env): Promise<C
         return undefined;
     }
 
-    const Server = new ChatServer({ Trace: Config.Trace });
+    const Server = new ChatServer({ Trace: Config.Trace, NickCheck: Config.NickCheck });
 
     try{
         await Server.listen(Config.Port, Config.Host);
