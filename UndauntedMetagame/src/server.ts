@@ -6,7 +6,7 @@ import { logger } from "./logger";
 import { DescribeProgressionMode } from "./controllers/progressionmode";
 import { ProgressionUpgradeNotice } from "./controllers/realprogression";
 import { CheckGatewayConfig } from "./middleware/RequestOrigin";
-import { ChatServer } from "./realtime/chat";
+import { StartChat } from "./realtime/chat";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -36,22 +36,16 @@ GetDb(); // This runs migrations TODO make this more explicit
 DrainAndRegisterAPIKeys().then(async () => {
   await DrainAndRegisterUserAPIKeys();
 
-  // Disabled until the 1.4.4 client handshake and two-player chat are verified.
-  // In public mode the gateway is responsible for authenticated transport; never
-  // bind this plaintext WebSocket listener to a public interface by accident.
-  if (process.env.EXPERIMENTAL_CHAT === "1") {
-    const chat = new ChatServer();
-    const port = Number(process.env.CHAT_PORT || "61099");
-    const host = process.env.CHAT_BIND_HOST || "127.0.0.1";
-    if (!Number.isInteger(port) || port < 1 || port > 65535 || (host !== "127.0.0.1" && host !== "::1")) {
-      logger.fatal("Experimental chat requires a valid port and loopback CHAT_BIND_HOST");
-      process.exit(1);
-    }
-    try {
-      await chat.listen(port, host);
-    } catch (error) {
-      logger.fatal(error, `Could not start experimental chat on ${host}:${port}`);
-      process.exit(1);
+  // Text chat (roadmap 3.10, docs/findings/chat.md): only with CHAT=1, on loopback. A bad setting or a
+  // port in use is one error line; the metagame always starts, with or without chat.
+  const Chat = await StartChat();
+
+  if (Chat !== undefined) {
+    // Ctrl+C or a stop signal: tell the chat sessions first (at most 1 s), then stop as before
+    for (const Signal of ["SIGINT", "SIGTERM"] as const) {
+      process.once(Signal, () => {
+        void Chat.close().catch(() => undefined).finally(() => process.kill(process.pid, Signal));
+      });
     }
   }
 
