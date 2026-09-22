@@ -446,6 +446,9 @@ Ramsgate message did appear, but its sender showed as a UID. Replacing the UID i
 message address made the game show `[unknown]`. The prototype now keeps the UID for room
 identity and adds the stored username as an XMPP nickname element. Confirm whether the
 client reads that nickname and verify two-player delivery before treating chat as complete.
+The local client ignored the nickname extension; even a standards-compliant MUC nickname
+reassignment with status `210` left the room join pending. Keep the UID in the MUC address
+for working chat. Display-name resolution needs a separate client/account lookup investigation.
 Port 61099 must remain loopback-only
 behind the public gateway; changing matchmaking settings does not fix an XMPP disconnect.
 

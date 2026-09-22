@@ -476,7 +476,10 @@ Chat ei ole oletusarvoisesti käytössä. Paikallisessa 1.4.4-testissä Ramsgate
 mutta lähettäjänä näkyi UID. Kun UID korvattiin viestin osoitteessa käyttäjänimellä, peli näytti
 `[unknown]`. Prototyyppi säilyttää nyt UID:n huoneen tunnisteena ja lisää tallennetun käyttäjänimen
 XMPP-nimimerkkielementtiin. Varmista, lukeeko peliohjelma nimimerkin, sekä kahden pelaajan viestit ennen kuin chatin
-katsotaan olevan valmis. Portin 61099 on pysyttävä vain paikallisessa silmukkaliitännässä
+katsotaan olevan valmis. Paikallinen peliohjelma ohitti nimimerkkielementin, ja huoneeseen
+liittyminen jäi kesken myös standardin mukaisella MUC-nimimerkin vaihdolla (`210`). Säilytä UID
+MUC-osoitteessa toimivan chatin vuoksi. Näyttönimi vaatii erillisen peliohjelman tai tilin
+hakutoiminnon selvityksen. Portin 61099 on pysyttävä vain paikallisessa silmukkaliitännässä
 julkisen gatewayn takana; matchmaking-asetukset eivät korjaa XMPP-yhteyden katkeamista.
 
 ---
