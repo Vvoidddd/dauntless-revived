@@ -882,6 +882,20 @@ describe("chat listener", () => {
             const [SweptC, SweptA] = await Settle(Charlie, Alpha);
             assert.deepEqual(SweptC, [Evicted(Room, Charlie.Model.Nickname("Charlie"), Charlie, Charlie, true)]);
             assert.deepEqual(SweptA, [Evicted(Room, Charlie.Model.Nickname("Charlie"), Charlie, Alpha, false)]);
+
+            // D joins, is kicked, and sends its join again: removed from the room and refused
+            const Delta = await Player(D, "Delta");
+            assert.equal(InviteToParty(A, D, PartyId).Status, 200);
+            assert.equal((await AcceptPartyInvite(D, PartyId)).Status, 200);
+            const Join = Delta.Model.JoinPublicRoom(Room, "Delta")!;
+            Delta.Wire.Send(Join);
+            await Settle(Delta, Alpha);
+            assert.equal(KickPartyMember(A, D).Status, 200);
+            Delta.Wire.Send(Join);
+            const [RejoinD, RejoinA] = await Settle(Delta, Alpha);
+            assert.equal(RejoinD[0], Evicted(Room, Delta.Model.Nickname("Delta"), Delta, Delta, true));
+            assert.match(RejoinD[1], /<error type="auth"><forbidden xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/);
+            assert.deepEqual(RejoinA, [Evicted(Room, Delta.Model.Nickname("Delta"), Delta, Alpha, false)]);
             ResetPartiesForTests();
         });
 

@@ -185,6 +185,16 @@ export class MucService {
             return;
         }
 
+        // Party and guild rooms: members only (someone who left is also removed from the room)
+        if(!this.mayUse(Uid, Kind.Class, Kind.Id)){
+            if(Existing !== undefined && Held !== undefined){
+                this.remove(Session, Existing, "evicted");
+            }
+
+            this.refuse(Session, RoomJid, To.Local, Nick, "not-member");
+            return;
+        }
+
         // Rejoin with the same nickname: this session alone gets the room again, nobody else hears of it
         if(Existing !== undefined && Held === Nick){
             this.welcome(Session, Existing, Nick);
@@ -208,11 +218,6 @@ export class MucService {
             if(this.host.LogOnce(`nick-log|${Session.Id}|${RoomJid}`)){
                 logger.warn(`chat: join nickname not checked room=${To.Local} uid=${Uid} reason=${Check.Reason} (CHAT_NICK_CHECK=log)`);
             }
-        }
-
-        if(!this.mayUse(Uid, Kind.Class, Kind.Id)){
-            this.refuse(Session, RoomJid, To.Local, Nick, "not-member");
-            return;
         }
 
         // A different nickname in a room this session is already in: leave with the old one first
