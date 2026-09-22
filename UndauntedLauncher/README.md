@@ -92,13 +92,20 @@ npm run make        # installer and zip in out/make/
 parsing, the relay (pinned certificate, wrong certificate, headers, bodies, streaming, keep-alive,
 WebSocket), downloads (resume, verify, repair) over plain HTTP and pinned TLS, Engine.ini, launch
 arguments, the links the launcher may open, the Credits page's data and the whole public-mode flow
-through the controller. They make throwaway self-signed
+through the controller, and the look: the brand colours and images. They make throwaway self-signed
 certificates in a temp folder.
 
 `DAUNTLESS_REVIVED_RELAY_PORT` moves the relay off 61000 for rehearsals on a PC where 61000 is
 taken. The server must then point `QOS_TARGET_URL` at the same port.
 
-`npm run icon` redraws `assets/icon.png` and `assets/icon.ico` (the launcher's own emblem).
+The look follows the project's brand (`brand/`, see its README): the eight colours of
+`brand/palette.json` as `--dr-*` tokens in `src/renderer/styles.css`, the logo and emblem, and an
+original background drawn by `src/renderer/scene.ts` (mountains, pine forest, mist, a faint aurora and
+snow) that a host's art pack replaces. It moves only whole layers, slowly; it holds still while the
+game runs, and does not move at all when Windows' "Show animations" setting is off (reduced motion).
+`npm run icon` copies the icons and in-app images from `brand/`, where `python3 brand/build.py` makes
+them. `npm test` fails when a copy is out of date, when the stylesheet has a colour that is not a
+token, or when a colour pair it uses fails WCAG AA.
 
 ## Releases and updates
 

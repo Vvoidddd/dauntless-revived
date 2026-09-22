@@ -59,13 +59,13 @@ no longer match.
 | `logo-full.png` | 1402x1122 | Master of the full logo with the wordmark. Lossless; metadata removed. |
 | `emblem.png` | 1254x1254 | Master of the emblem (the dragon head). Lossless; metadata removed. |
 | `web/logo-1200`, `-800`, `-400` (`.webp`, `.png`) | width in the name, 5:4 | The full logo on web pages: 400 for a header or sidebar, 800 for a hero image, 1200 for large or high-density screens. Serve the WebP with the PNG as the fallback. |
-| `web/emblem-512` to `-16` (`.png`, plus `.webp` from 128 up) | square | The emblem where the full logo would be too small to read (below about 200 px wide): nav bars, avatars, list icons. |
+| `web/emblem-512` to `-16` (`.png`, plus `.webp` from 128 up) | square | The emblem where the full logo would be too small to read (below about 200 px wide): nav bars, avatars, list icons. The launcher uses the 32 and 64 px PNGs in its title bar and the 512 px one, faded, in its background. |
 | `icons/favicon.ico` | 16, 32, 48 | The docs site's favicon. |
 | `icons/apple-touch-icon.png` | 180x180 | `<link rel="apple-touch-icon">`. Opaque on purpose: iOS fills transparent pixels with black. |
 | `icons/icon-192.png`, `icons/icon-512.png` | square | The docs site links the 192 one as its large PNG icon; both also suit a web app manifest. |
-| `launcher/icon.ico` | 16, 24, 32, 48, 64, 128, 256 | The launcher's Windows icon (executable, installer, shortcut). Replaces `UndauntedLauncher/assets/icon.ico`. |
-| `launcher/icon-256.png`, `-512`, `-1024` | square | The launcher's window icon (`assets/icon.png` is the 256 one today) and larger listings. |
-| `launcher/logo-inapp.png`, `logo-inapp@2x.png` | 320x256, 640x512 | The full logo inside the launcher window (1x and 2x). |
+| `launcher/icon.ico` | 16, 24, 32, 48, 64, 128, 256 | The launcher's Windows icon (executable, installer, shortcut), as `UndauntedLauncher/assets/icon.ico`. |
+| `launcher/icon-256.png`, `-512`, `-1024` | square | The launcher's window icon (the 256 one, as `UndauntedLauncher/assets/icon.png`) and larger listings. |
+| `launcher/logo-inapp.png`, `logo-inapp@2x.png` | 320x256, 640x512 | The full logo inside the launcher window (1x and 2x), in its left-hand rail. |
 | `social-preview.png` | 1280x640 | GitHub repository settings, Social preview. The same image is kept at `.github/assets/social-preview.png`. |
 | `og.png` | 1200x630 | The docs site's default `og:image`, copied as `docs/assets/og-revived.png`. Give the copy a new name whenever the image changes: link previews (Discord, Slack, social sites) cache images by URL. |
 | `../.github/assets/banner.png` | 2560x640 | The banner at the top of `README.md` and `README.fi.md`. |
@@ -96,6 +96,25 @@ Small sizes: at 16 and 24 px the spikes of the emblem merge, and what remains is
 white skull and the cyan eye. Every emblem size of 48 px and below is resampled from the master with
 a light sharpen and an alpha curve that keeps the outline crisp (stronger at 32 px and below); the
 art is not redrawn.
+
+### The launcher
+
+The launcher uses copies: `npm run icon` in `UndauntedLauncher` copies `launcher/icon.ico` and
+`launcher/icon-256.png` to its `assets/` (as `icon.ico` and `icon.png`), and the in-app logo and the
+32, 64 and 512 px emblems to `src/renderer/brand/`. Its unit tests fail when a copy is out of date,
+so run it after `build.py` changes one of them.
+
+Its theme (`UndauntedLauncher/src/renderer/styles.css`) defines the eight tokens as `--dr-ink` to
+`--dr-frost` and uses them like the docs site: an `ink` page with `navy` and `deep` surfaces,
+`frost` text and `steel` muted text, `ice` links, primary buttons in `ink` on `ice` (`ink` on `glow`
+hovered, `frost` on `azure` pressed), `glow` focus rings, and `steel` edges on controls on `navy`. The
+palette has no red or amber, so warnings and problems are told apart by their icon, a bar on the left
+edge and a brighter edge: `ice` for a warning, `glow` for a problem. A risky button (log out, trust a
+changed certificate) is `frost` with a `frost` edge and a warning sign, never the inviting primary
+style. The unit tests check that the stylesheet has no colour except the tokens and that every pair it
+uses passes AA. Without a host's art pack the window shows an original night scene in the style of the
+logo, drawn by `src/renderer/scene.ts`: jagged mountains with snow, a pine forest, mist, a faint
+aurora, stars, falling snow and the emblem faded into the sky.
 
 ## Rebuilding
 

@@ -479,7 +479,7 @@ not update to. The details are in the "Checks" section of
 | `UndauntedMetagame/src/drizzle/*.sql` and `meta/` | `npm run db:generate` in `UndauntedMetagame` | `src/db/schema.ts` changes. It reads `.env`. Commit the new migration with the schema change. |
 | `UndauntedMetagame/src/vendor/hunt_titles.json` | `node UndauntedMetagame/scripts/make-hunt-titles.js` | The deploy server's hunt tables in `UndauntedDeployServer/src/vendor/` change. |
 | `UndauntedContent/data/dauntless-1.4.4.json` | `node tools/make-game-manifest.js --zip <game zip>`, after `npm ci` in `UndauntedContent` (for its zip reader) | Practically never: it describes the pinned 1.4.4 build. The launcher compiles this same file in, so rebuild the launcher afterwards. |
-| `UndauntedLauncher/assets/icon.png`, `icon.ico` | `npm run icon` in `UndauntedLauncher` | The emblem in `src/renderer/dom.ts` or the drawing in `scripts/make-icon.mjs` changes. |
+| `UndauntedLauncher/assets/icon.png`, `icon.ico` and `src/renderer/brand/*.png` | `npm run icon` in `UndauntedLauncher`, which copies them from `brand/` (`python3 brand/build.py` makes them there) | The launcher icons in `brand/launcher/` or the emblem sizes in `brand/web/` change. The launcher's unit tests fail while a copy is out of date. |
 
 Run the two docs generators with `sync-roadmap.js` first: `build-llms.js` reads the roadmap page it
 writes. Neither takes arguments; both find the repository root themselves. CI runs both and fails if

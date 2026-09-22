@@ -957,7 +957,7 @@ käyttövirhettä ja `1` mitä tahansa muuta virhettä.
 | `npm run make` | `electron-forge make --platform win32` | Rakentaa `DauntlessRevivedLauncher-Setup.exe`:n (Squirrel) ja zipin. |
 | `npm run typecheck` | `tsc --noEmit -p tsconfig.json` | Tarkistaa tyypit kääntämättä. |
 | `npm test [-- <suodatin>]` | `node scripts/run-tests.mjs` | Kääntää testit kansioon `.test-build\` ja ajaa ne tiedosto kerrallaan. Suodattimen kanssa vain ne testitiedostot, joiden nimessä suodatin esiintyy. |
-| `npm run icon` | `node scripts/make-icon.mjs` | Piirtää käynnistimen kuvakkeen ja kirjoittaa tiedostot `assets/icon.png` ja `assets/icon.ico`. |
+| `npm run icon [-- --check]` | `node scripts/make-icon.mjs` | Kopioi käynnistimen kuvakkeet (`assets/icon.ico`, `assets/icon.png`) ja sen ikkunassa näkyvät logo- ja tunnuskuvat (`src/renderer/brand/`) kansiosta `brand/`, jossa `python3 brand/build.py` tekee ne. Valitsimella `--check` se vain vertaa ja päättyy koodiin 1, jos jokin kopio puuttuu tai on vanhentunut; yksikkötestit ajavat sen. |
 
 Käynnistin tarvitsee Node.js:n version 20.19 tai uudemman (`engines` sen `package.json`-tiedostossa).
 Palvelinpaketti asentaa palvelimelle Node.js:n version 24.19.0.

@@ -95,6 +95,16 @@ npm run make        # asennusohjelma ja zip kansioon out/make/
 `DAUNTLESS_REVIVED_RELAY_PORT` siirtää välittimen pois portista 61000 harjoituksia varten koneella,
 jolla portti 61000 on varattu. Palvelimen `QOS_TARGET_URL` pitää silloin osoittaa samaan porttiin.
 
+Ulkoasu noudattaa projektin brändiä (`brand/`, katso sen README): tiedoston `brand/palette.json`
+kahdeksan väriä `--dr-*`-muuttujina tiedostossa `src/renderer/styles.css`, logo ja tunnuskuva sekä
+tiedoston `src/renderer/scene.ts` piirtämä oma tausta (vuoret, havumetsä, usva, himmeät revontulet ja
+lumi), jonka palvelimen kuvapaketti korvaa. Se liikuttaa vain kokonaisia kerroksia hitaasti; se pysyy
+paikallaan pelin ollessa käynnissä eikä liiku lainkaan, kun Windowsin "Näytä animaatiot" -asetus on
+pois päältä (vähennetty liike). `npm run icon` kopioi kuvakkeet ja ikkunan kuvat kansiosta `brand/`,
+jossa `python3 brand/build.py` tekee ne. `npm test` epäonnistuu, jos jokin kopio on vanhentunut, jos
+tyylitiedostossa on väri, joka ei ole muuttuja, tai jos jokin sen käyttämä väripari ei läpäise WCAG
+AA -vaatimusta.
+
 ## Julkaisut ja päivitykset
 
 CI (`.github/workflows/ci.yml`) kääntää ja testaa käynnistimen jokaisen pushin yhteydessä ja pitää

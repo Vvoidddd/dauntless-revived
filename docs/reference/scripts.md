@@ -917,7 +917,7 @@ failure.
 | `npm run make` | `electron-forge make --platform win32` | Builds `DauntlessRevivedLauncher-Setup.exe` (Squirrel) and a zip. |
 | `npm run typecheck` | `tsc --noEmit -p tsconfig.json` | Type-checks without building. |
 | `npm test [-- <filter>]` | `node scripts/run-tests.mjs` | Compiles the tests into `.test-build\` and runs them one file at a time. With a filter, only test files whose name contains it. |
-| `npm run icon` | `node scripts/make-icon.mjs` | Draws the launcher icon and writes `assets/icon.png` and `assets/icon.ico`. |
+| `npm run icon [-- --check]` | `node scripts/make-icon.mjs` | Copies the launcher's icons (`assets/icon.ico`, `assets/icon.png`) and the logo and emblem images its window shows (`src/renderer/brand/`) from `brand/`, where `python3 brand/build.py` makes them. With `--check` it only compares, and exits with 1 if a copy is missing or out of date; the unit tests run that. |
 
 The launcher needs Node.js 20.19 or newer (`engines` in its `package.json`). The server kit installs
 Node.js 24.19.0 on a server.

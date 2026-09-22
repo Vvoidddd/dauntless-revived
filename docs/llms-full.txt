@@ -4798,7 +4798,7 @@ them are named `dauntless-revived-*` (for example `dauntless-revived-metagame`).
 | `UndauntedDeployServer/` | Starts and supervises the game-server processes (Ramsgate, the Training Dojo, hunts). `src/vendor/` holds the hunt tables. | `dist/`, `build/` |
 | `UndauntedGateway/` | Public mode only: the TLS gateway (`dist/server.js`) and the allowlist helper (`dist/allowlist/server.js`). `tools/make-cert.js` makes the gateway certificate. | `dist/`, `build/` |
 | `UndauntedContent/` | The content server: game files, news and the art pack for registered launchers. `data/dauntless-1.4.4.json` is the game manifest (410 files) that the launcher also compiles in. | `dist/`, `build/` |
-| `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons. `scripts/` holds the test runner, the icon generator and `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests), `release/` (the release files that `scripts/collect-release.ps1` collects after `npm run make`: the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`). |
+| `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons (copies from `brand/launcher/`). `src/renderer/brand/` holds copies of the logo and emblem images the window shows. `scripts/` holds the test runner, the brand image copier (`make-icon.mjs`) and `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests), `release/` (the release files that `scripts/collect-release.ps1` collects after `npm run make`: the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`). |
 | `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. | Visual Studio output (`x64/`, `*.dll` and the like) |
 | `deploy/windows-server/` | The Windows server kit: the scripts, `lib/` (Node helpers `dr-db.js`, `dr-keys.js`, `verify-game.js`) and `tests/`. | none |
 | `friend-kit/` | The Tailscale-only setup and play scripts for invited friends. | `tools/make-friend-kit.ps1` builds the zip outside the repository |
@@ -4960,7 +4960,8 @@ live in `data\config\news.json` and `data\branding\`; elsewhere, wherever `CONTE
   `branding.json`: `{ "accent": "#c8a24a", "backgrounds": [ { "file": "harbour-dusk.jpg", "credit":
   "..." }, "second-image.webp" ] }`. Without `backgrounds`, every image in the folder is used in name
   order. The server offers at most 50 images; the launcher shows the first 8, of up to 15 MiB each,
-  and uses the accent colour only in the six-digit `#rrggbb` form. The repository ships no art.
+  and uses the accent colour only in the six-digit `#rrggbb` form. The repository ships no art pack:
+  without one, the launcher shows its own background, a night scene drawn in the style of the logo.
 
 Outside the root, the kit also writes:
 
@@ -6722,7 +6723,7 @@ failure.
 | `npm run make` | `electron-forge make --platform win32` | Builds `DauntlessRevivedLauncher-Setup.exe` (Squirrel) and a zip. |
 | `npm run typecheck` | `tsc --noEmit -p tsconfig.json` | Type-checks without building. |
 | `npm test [-- <filter>]` | `node scripts/run-tests.mjs` | Compiles the tests into `.test-build\` and runs them one file at a time. With a filter, only test files whose name contains it. |
-| `npm run icon` | `node scripts/make-icon.mjs` | Draws the launcher icon and writes `assets/icon.png` and `assets/icon.ico`. |
+| `npm run icon [-- --check]` | `node scripts/make-icon.mjs` | Copies the launcher's icons (`assets/icon.ico`, `assets/icon.png`) and the logo and emblem images its window shows (`src/renderer/brand/`) from `brand/`, where `python3 brand/build.py` makes them. With `--check` it only compares, and exits with 1 if a copy is missing or out of date; the unit tests run that. |
 
 The launcher needs Node.js 20.19 or newer (`engines` in its `package.json`). The server kit installs
 Node.js 24.19.0 on a server.
@@ -7212,7 +7213,7 @@ not update to. The details are in the "Checks" section of
 | `UndauntedMetagame/src/drizzle/*.sql` and `meta/` | `npm run db:generate` in `UndauntedMetagame` | `src/db/schema.ts` changes. It reads `.env`. Commit the new migration with the schema change. |
 | `UndauntedMetagame/src/vendor/hunt_titles.json` | `node UndauntedMetagame/scripts/make-hunt-titles.js` | The deploy server's hunt tables in `UndauntedDeployServer/src/vendor/` change. |
 | `UndauntedContent/data/dauntless-1.4.4.json` | `node tools/make-game-manifest.js --zip <game zip>`, after `npm ci` in `UndauntedContent` (for its zip reader) | Practically never: it describes the pinned 1.4.4 build. The launcher compiles this same file in, so rebuild the launcher afterwards. |
-| `UndauntedLauncher/assets/icon.png`, `icon.ico` | `npm run icon` in `UndauntedLauncher` | The emblem in `src/renderer/dom.ts` or the drawing in `scripts/make-icon.mjs` changes. |
+| `UndauntedLauncher/assets/icon.png`, `icon.ico` and `src/renderer/brand/*.png` | `npm run icon` in `UndauntedLauncher`, which copies them from `brand/` (`python3 brand/build.py` makes them there) | The launcher icons in `brand/launcher/` or the emblem sizes in `brand/web/` change. The launcher's unit tests fail while a copy is out of date. |
 
 Run the two docs generators with `sync-roadmap.js` first: `build-llms.js` reads the roadmap page it
 writes. Neither takes arguments; both find the repository root themselves. CI runs both and fails if

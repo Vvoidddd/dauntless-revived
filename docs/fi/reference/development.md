@@ -503,7 +503,7 @@ kohdassa "Julkaisut ja päivitykset".
 | `UndauntedMetagame/src/drizzle/*.sql` ja `meta/` | `npm run db:generate` kansiossa `UndauntedMetagame` | `src/db/schema.ts` muuttuu. Komento lukee `.env`-tiedoston. Commitoi uusi migraatio samassa muutoksessa skeemamuutoksen kanssa. |
 | `UndauntedMetagame/src/vendor/hunt_titles.json` | `node UndauntedMetagame/scripts/make-hunt-titles.js` | Deploy-palvelimen metsästystaulukot kansiossa `UndauntedDeployServer/src/vendor/` muuttuvat. |
 | `UndauntedContent/data/dauntless-1.4.4.json` | `node tools/make-game-manifest.js --zip <pelin zip>`, kun `npm ci` on ajettu kansiossa `UndauntedContent` (sen zip-lukijaa varten) | Käytännössä ei koskaan: tiedosto kuvaa kiinnitettyä 1.4.4-versiota. Käynnistin kääntää saman tiedoston sisäänsä, joten käännä käynnistin sen jälkeen uudelleen. |
-| `UndauntedLauncher/assets/icon.png`, `icon.ico` | `npm run icon` kansiossa `UndauntedLauncher` | Tunnuskuva tiedostossa `src/renderer/dom.ts` tai piirros tiedostossa `scripts/make-icon.mjs` muuttuu. |
+| `UndauntedLauncher/assets/icon.png`, `icon.ico` ja `src/renderer/brand/*.png` | `npm run icon` kansiossa `UndauntedLauncher`; se kopioi ne kansiosta `brand/` (siellä ne tekee `python3 brand/build.py`) | Käynnistimen kuvakkeet kansiossa `brand/launcher/` tai tunnuskuvan koot kansiossa `brand/web/` muuttuvat. Käynnistimen yksikkötestit epäonnistuvat, kun jokin kopio on vanhentunut. |
 
 Aja kaksi dokumentaatiogeneraattoria niin, että `sync-roadmap.js` on ensin: `build-llms.js` lukee sen
 kirjoittaman tiekarttasivun. Kumpikaan ei ota argumentteja, ja molemmat löytävät repositorion juuren
