@@ -27,6 +27,8 @@ test("the credits name every contributor, in order, with their role", () => {
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /airship/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /console windows/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /\.gitignore/);
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /performance sampler/); // #6
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /suorituskykymittarin/);
   // The exposure change was taken back out in 0.1.1 (it darkened Ramsgate); the note must not
   // suggest the airship is fixed.
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /reverted in launcher 0\.1\.1/);

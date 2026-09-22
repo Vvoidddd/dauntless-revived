@@ -249,7 +249,8 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
 - **[Vvoidddd](https://github.com/Vvoidddd)**: found the cause of the dark pre-hunt airship (1.4.4's
   automatic exposure; the setting was reverted in launcher 0.1.1 because it darkened Ramsgate), hid
   the console windows of temporary hunt servers, and added the repository's `.gitignore`
-  ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+  ([#5](https://github.com/mixutin/dauntless-revived/pull/5)); wrote the first performance sampler,
+  the base of the server's performance log ([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
 
 Everyone who has contributed is listed on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors).

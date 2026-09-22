@@ -51,7 +51,9 @@ heidän peliään.
 - **[Vvoidddd](https://github.com/Vvoidddd)**: löysi syyn siihen, miksi ilmalaiva on pimeä ennen
   metsästystä (1.4.4:n automaattinen valotus; muutos peruttiin käynnistimen versiossa 0.1.1, koska
   se pimensi Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi
-  projektin `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5)).
+  projektin `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5));
+  kirjoitti ensimmäisen suorituskykymittarin, jonka pohjalle palvelimen suorituskykyloki rakennettiin
+  ([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
 
 Kaikki osallistujat ovat [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 Käynnistin näyttää samat tiedot **Tekijät**-sivullaan, ja sen mukana tulee tiedosto
