@@ -188,7 +188,9 @@ kirjoittaja ohjaa yhteyden muualle (`[OnlineSubsystemMcp.XMPP]`, `bUseSSL=false`
 | Kaveripaketti (`play.ps1`) | `ws://<-Server-arvon osoiteosa>` | 61099 |
 | Paketti, pelipalvelimille (palvelutili) | `ws://127.0.0.1` | 61099 |
 
-Tässä projektissa mikään ei vielä kuuntele porttia 61099. Yhteys epäonnistuu vaarattomasti, ja
+Porttia 61099 ei kuunnella oletusarvoisesti. `EXPERIMENTAL_CHAT=1` käynnistää vain paikalliseen
+osoitteeseen sidotun XMPP-prototyypin. Sen toimivuutta 1.4.4-pelissä tai kaverien paikallaolotietoa
+ei ole vahvistettu, joten älä ota sitä käyttöön VPS:llä tai avaa palomuuriporttia. Normaalisti yhteys epäonnistuu vaarattomasti, ja
 yhdyskäytävä vastaa WebSocket-avauksiin 502. Portti on varattu tulevalle chat-palvelulle, eikä mikään
 palomuurisääntö avaa sitä. Paketin hiekkalaatikko ohjaa yhdyskäytävän sen sijaan porttiin 62099, jotta
 se ei koskaan yllä kehityskoneen omaan porttiin 61099. `Engine.ini`-avaimet ovat sivulla

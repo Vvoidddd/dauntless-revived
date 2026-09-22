@@ -174,7 +174,9 @@ it the account id and login token. Every writer of `Engine.ini` points it elsewh
 | Friend kit (`play.ps1`) | `ws://<host part of -Server>` | 61099 |
 | Kit, for the game servers (service account) | `ws://127.0.0.1` | 61099 |
 
-Nothing in this project listens on 61099 yet. The connection fails harmlessly, and the gateway
+Nothing listens on 61099 by default. `EXPERIMENTAL_CHAT=1` starts a loopback-only XMPP prototype
+with synthetic tests; its 1.4.4 client compatibility and online-presence behavior are unverified,
+so do not enable it on a VPS or open a firewall rule. Normally the connection fails harmlessly, and the gateway
 answers WebSocket upgrades with 502. The port is reserved for a future chat service, and no firewall
 rule opens it. A kit sandbox points the gateway at 62099 instead, so it never reaches a development
 PC's own 61099. The `Engine.ini` keys are on

@@ -6,6 +6,7 @@ import { logger } from "./logger";
 import { DescribeProgressionMode } from "./controllers/progressionmode";
 import { ProgressionUpgradeNotice } from "./controllers/realprogression";
 import { CheckGatewayConfig } from "./middleware/RequestOrigin";
+import { ChatServer } from "./realtime/chat";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -34,6 +35,25 @@ GetDb(); // This runs migrations TODO make this more explicit
 
 DrainAndRegisterAPIKeys().then(async () => {
   await DrainAndRegisterUserAPIKeys();
+
+  // Disabled until the 1.4.4 client handshake and two-player chat are verified.
+  // In public mode the gateway is responsible for authenticated transport; never
+  // bind this plaintext WebSocket listener to a public interface by accident.
+  if (process.env.EXPERIMENTAL_CHAT === "1") {
+    const chat = new ChatServer();
+    const port = Number(process.env.CHAT_PORT || "61099");
+    const host = process.env.CHAT_BIND_HOST || "127.0.0.1";
+    if (!Number.isInteger(port) || port < 1 || port > 65535 || (host !== "127.0.0.1" && host !== "::1")) {
+      logger.fatal("Experimental chat requires a valid port and loopback CHAT_BIND_HOST");
+      process.exit(1);
+    }
+    try {
+      await chat.listen(port, host);
+    } catch (error) {
+      logger.fatal(error, `Could not start experimental chat on ${host}:${port}`);
+      process.exit(1);
+    }
+  }
 
   // Express 5 hands bind failures to this callback. Upstream ignored the
   // argument and announced success anyway, so a port already taken by another
