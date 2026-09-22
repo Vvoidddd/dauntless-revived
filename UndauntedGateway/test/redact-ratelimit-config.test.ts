@@ -117,6 +117,9 @@ describe("gateway configuration", () => {
         assert.throws(() => LoadGatewayConfig({ ...Base, GATEWAY_BIND: "example.org" }), /GATEWAY_BIND/);
         assert.throws(() => LoadGatewayConfig({ ...Base, GATEWAY_RATE_REGISTER: "lots" }), /GATEWAY_RATE_REGISTER/);
         assert.deepEqual(LoadGatewayConfig({ ...Base, GATEWAY_RATE_REGISTER: "2,0.5" }).limits.rate.register, { burst: 2, perMinute: 0.5 });
+        assert.deepEqual(LoadGatewayConfig(Base).limits.rate.ws, { burst: 20, perMinute: 12 });
+        assert.deepEqual(LoadGatewayConfig({ ...Base, GATEWAY_RATE_WS: "5,2" }).limits.rate.ws, { burst: 5, perMinute: 2 });
+        assert.throws(() => LoadGatewayConfig({ ...Base, GATEWAY_RATE_WS: "many" }), /GATEWAY_RATE_WS/);
     });
 });
 

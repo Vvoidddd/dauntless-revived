@@ -29,7 +29,7 @@ The deploy server (61001) is never reachable through the gateway: no route leads
 | Request | Goes to |
 |---|---|
 | `/content` and `/content/*` | the content server (`GATEWAY_CONTENT_URL`) |
-| any WebSocket upgrade (`GET` with `Upgrade: websocket`) | the chat service (`GATEWAY_WS_URL`); `502 {"error":"bad_gateway"}` while nothing listens there |
+| any WebSocket upgrade (`GET` with `Upgrade: websocket`) | the metagame's chat listener (`GATEWAY_WS_URL`); `502 {"error":"bad_gateway"}` while chat is off. The game asks for `//` with the protocol `xmpp`; both pass through unchanged |
 | everything else | the metagame (`GATEWAY_METAGAME_URL`) |
 
 The request target goes upstream unchanged: method, path, query and headers (minus the ones below).
@@ -122,10 +122,11 @@ against one bucket. `burst` is the bucket size and `per minute` is the refill ra
 
 | Bucket | Requests | burst, per minute | Why |
 |---|---|---|---|
-| general | everything not below, WebSocket upgrades included | 300, 180 | at least 4 times every measured peak: 300 in 1 s (vs 120), 330 in 10 s (vs 212), 480 in 60 s (vs 392), 2,100 in 10 min (vs 1,424). That leaves room for a few players behind one home connection |
+| general | everything not below | 300, 180 | at least 4 times every measured peak: 300 in 1 s (vs 120), 330 in 10 s (vs 212), 480 in 60 s (vs 392), 2,100 in 10 min (vs 1,424). That leaves room for a few players behind one home connection |
 | content | `/content/*` | 600, 600 | a whole 410-file download without waiting |
 | register | `POST /undaunted/api/Register` | 5, 0.2 (one per 5 min) | 4 times the observed rate; typos and taken names included |
 | token | `POST /account/api/oauth/token` | 10, 1 | 8 in 60 s and 16 in 10 min are 4 times the observed peaks |
+| ws | WebSocket upgrades (the game's chat connection) | 20, 12 | the game reconnects its chat at most every 15-45 s after a failure; its own bucket, so chat reconnects can never use up the general one the game's HTTP traffic needs |
 | connect | new TCP connections (each costs a TLS handshake) | 200, 300 | the relay keeps connections alive; this only stops floods |
 
 A refused request gets `429` with `Retry-After` in seconds and never reaches the upstream.

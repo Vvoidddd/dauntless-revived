@@ -153,12 +153,15 @@ before(async () => {
   upstream.on("upgrade", (req, socket, _head) => {
     seen.push({ method: req.method ?? "", url: req.url ?? "", rawHeaders: req.rawHeaders, headers: req.headers });
     const key = req.headers["sec-websocket-key"];
-    if (req.url !== "/ws" || typeof key !== "string") {
+    // "/ws" for the tests' own client; "//" is the game's chat connection (libwebsockets 3.0)
+    if ((req.url !== "/ws" && req.url !== "//") || typeof key !== "string") {
       socket.end("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
       return;
     }
+    const asked = req.headers["sec-websocket-protocol"];
     socket.write(
       "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+        (typeof asked === "string" ? `Sec-WebSocket-Protocol: ${asked.split(",")[0].trim()}\r\n` : "") +
         `Sec-WebSocket-Accept: ${wsAccept(key)}\r\nX-Upstream: yes\r\n\r\n`,
     );
     wsEcho(socket);
@@ -354,6 +357,38 @@ test("WebSocket upgrades are carried to wss on the server", async () => {
   assert.equal(String(up.headers.upgrade).toLowerCase(), "websocket");
   assert.match(String(up.headers.connection), /upgrade/i);
   assert.ok(up.headers["sec-websocket-key"]);
+});
+
+test("the game's chat connection as libwebsockets 3.0 sends it: GET //, a loopback Origin without a port, protocol xmpp", async () => {
+  const before = seen.length;
+  const response = await new Promise<string>((resolve, reject) => {
+    const sock = net.connect(RELAY_PORT, "127.0.0.1", () => {
+      sock.write(
+        "GET // HTTP/1.1\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nHost: 127.0.0.1\r\nOrigin: http://127.0.0.1\r\n" +
+          "Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Protocol: xmpp\r\nSec-WebSocket-Version: 13\r\n\r\n",
+      );
+    });
+    let out = "";
+    const timer = setTimeout(() => {
+      sock.destroy();
+      resolve(out);
+    }, 3000);
+    sock.on("data", (d: Buffer) => {
+      out += d.toString("latin1");
+      if (out.includes("\r\n\r\n")) {
+        clearTimeout(timer);
+        sock.destroy();
+        resolve(out);
+      }
+    });
+    sock.on("error", reject);
+  });
+  assert.match(response, /^HTTP\/1\.1 101 /);
+  assert.match(response, /\r\nSec-WebSocket-Protocol: xmpp\r\n/i, "the server's protocol comes back");
+  const up = seen.slice(before).find((s) => s.url === "//");
+  assert.ok(up, "the server saw the request target // unchanged");
+  assert.equal(up.headers.host, `127.0.0.1:${UPSTREAM_PORT}`);
+  assert.equal(up.headers["sec-websocket-protocol"], "xmpp");
 });
 
 test("a server with a different certificate gets nothing: 502, no request, no WebSocket", async () => {

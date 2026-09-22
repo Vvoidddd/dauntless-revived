@@ -162,6 +162,7 @@ describe("gateway limits", () => {
                 Config.limits.rate.content = { burst: 3, perMinute: 60 };
                 Config.limits.rate.register = { burst: 2, perMinute: 0.2 };
                 Config.limits.rate.token = { burst: 2, perMinute: 1 };
+                Config.limits.rate.ws = { burst: 3, perMinute: 1 };
             });
         });
         const Port = P.rate;
@@ -214,21 +215,49 @@ describe("gateway limits", () => {
             assert.equal(Line!.entry.ip, "127.0.0.23");
         });
 
-        it("counts WebSocket upgrades against the general bucket", async () => {
-            for(let Index = 0; Index < 5; Index++){
-                assert.equal((await HttpsRequest(Port, "/party/invites", { localAddress: "127.0.0.24" })).status, 200);
-            }
-            const Status = await new Promise<number>((resolve, reject) => {
-                const Req = https.request({ host: "127.0.0.1", port: Port, path: "/xmpp", agent: false, rejectUnauthorized: false, localAddress: "127.0.0.24", headers: { Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==", "Sec-WebSocket-Version": "13" } });
+        it("counts WebSocket upgrades in their own bucket: a burst of chat reconnects never 429s the game's HTTP traffic", async () => {
+            const UpgradeStatus = () => new Promise<number>((resolve, reject) => {
+                const Req = https.request({ host: "127.0.0.1", port: Port, path: "//", agent: false, rejectUnauthorized: false, localAddress: "127.0.0.24", headers: { Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==", "Sec-WebSocket-Version": "13", "Sec-WebSocket-Protocol": "xmpp" } });
                 Req.on("response", (Res) => {
                     Res.resume();
                     resolve(Res.statusCode ?? 0);
                 });
-                Req.on("upgrade", () => resolve(101));
+                Req.on("upgrade", (_Res, Socket) => {
+                    Socket.destroy();
+                    resolve(101);
+                });
                 Req.on("error", reject);
                 Req.end();
             });
-            assert.equal(Status, 429);
+
+            for(let Index = 0; Index < 3; Index++){
+                assert.notEqual(await UpgradeStatus(), 429);
+            }
+            assert.equal(await UpgradeStatus(), 429, "the fourth upgrade is over the ws bucket");
+            assert.equal((await HttpsRequest(Port, "/heartbeat", { method: "POST", body: "{}", localAddress: "127.0.0.24" })).status, 200, "the general bucket is untouched");
+            const Line = Log.lines.find((Entry) => Entry.entry.status === 429 && Entry.entry.reason === "rate_limited:ws");
+            assert.ok(Line);
+        });
+
+        it("counts the game's HTTP traffic apart from upgrades: an empty general bucket still lets chat connect", async () => {
+            for(let Index = 0; Index < 5; Index++){
+                assert.equal((await HttpsRequest(Port, "/party/invites", { localAddress: "127.0.0.25" })).status, 200);
+            }
+            assert.equal((await HttpsRequest(Port, "/party/invites", { localAddress: "127.0.0.25" })).status, 429);
+            const Status = await new Promise<number>((resolve, reject) => {
+                const Req = https.request({ host: "127.0.0.1", port: Port, path: "/xmpp", agent: false, rejectUnauthorized: false, localAddress: "127.0.0.25", headers: { Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==", "Sec-WebSocket-Version": "13" } });
+                Req.on("response", (Res) => {
+                    Res.resume();
+                    resolve(Res.statusCode ?? 0);
+                });
+                Req.on("upgrade", (_Res, Socket) => {
+                    Socket.destroy();
+                    resolve(101);
+                });
+                Req.on("error", reject);
+                Req.end();
+            });
+            assert.notEqual(Status, 429);
         });
     });
 

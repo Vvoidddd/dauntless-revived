@@ -131,6 +131,7 @@ export class Gateway {
             content: new RateLimiter(Rates.content),
             register: new RateLimiter(Rates.register),
             token: new RateLimiter(Rates.token),
+            ws: new RateLimiter(Rates.ws),
         };
         this.ConnectLimiter = new RateLimiter(Rates.connect);
 

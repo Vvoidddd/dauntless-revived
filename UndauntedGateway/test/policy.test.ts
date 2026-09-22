@@ -62,8 +62,8 @@ describe("Classify", () => {
         assert.deepEqual(Classify("GET", "/Content/v1/files/Archon/x.pak", {}, false), { action: "proxy", upstream: "content", limitClass: "content" });
         assert.deepEqual(Classify("GET", "/party/invites", {}, false), { action: "proxy", upstream: "metagame", limitClass: "general" });
         assert.deepEqual(Classify("GET", "/contentx", {}, false), { action: "proxy", upstream: "metagame", limitClass: "general" });
-        assert.deepEqual(Classify("GET", "/xmpp", { upgrade: "websocket" }, true), { action: "proxy", upstream: "ws", limitClass: "general" });
-        assert.deepEqual(Classify("GET", "/", { upgrade: "WebSocket" }, true), { action: "proxy", upstream: "ws", limitClass: "general" });
+        assert.deepEqual(Classify("GET", "/xmpp", { upgrade: "websocket" }, true), { action: "proxy", upstream: "ws", limitClass: "ws" });
+        assert.deepEqual(Classify("GET", "/", { upgrade: "WebSocket" }, true), { action: "proxy", upstream: "ws", limitClass: "ws" });
         // The client's own odd path from the logs goes through untouched.
         assert.deepEqual(Classify("GET", "/account127.0.0.1:61000", {}, false), { action: "proxy", upstream: "metagame", limitClass: "general" });
         assert.deepEqual(Classify("POST", "/inventory/7d1c9d8e-2b43-4c55-9d0e-6f3a0c1e2b44/dauntlessrel-1.4.4:239827", {}, false).action, "proxy");
@@ -107,6 +107,13 @@ describe("Classify", () => {
         assert.equal((Classify("GET", "/xmpp", { upgrade: "h2c" }, true) as any).status, 400);
         assert.equal((Classify("POST", "/xmpp", { upgrade: "websocket" }, true) as any).status, 400);
         assert.equal((Classify("GET", "/undaunted/api/ServerStatus", { upgrade: "websocket" }, true) as any).status, 403);
+    });
+
+    it("the 1.4.4 client's chat connection: libwebsockets asks for //, which goes to the websocket upstream in its own bucket", () => {
+        // The request target of the game's XMPP WebSocket (exe 0x1441f761f, docs/findings/chat.md)
+        assert.deepEqual(Classify("GET", "//", { upgrade: "websocket", "sec-websocket-protocol": "xmpp", origin: "http://127.0.0.1" }, true), { action: "proxy", upstream: "ws", limitClass: "ws" });
+        assert.equal((Classify("GET", "//undaunted/api/x", { upgrade: "websocket" }, true) as any).status, 403);
+        assert.equal((Classify("GET", "//undaunted/api/x", {}, false) as any).status, 403);
     });
 });
 

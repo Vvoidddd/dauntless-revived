@@ -14,6 +14,8 @@ export type GatewayLimits = {
         content: BucketSpec;
         register: BucketSpec;
         token: BucketSpec;
+        // WebSocket upgrades: the game's chat connection.
+        ws: BucketSpec;
         // New TCP connections (each costs a TLS handshake).
         connect: BucketSpec;
     };
@@ -56,6 +58,9 @@ export const DEFAULT_LIMITS: GatewayLimits = {
         content: { burst: 600, perMinute: 600 },
         register: { burst: 5, perMinute: 0.2 },
         token: { burst: 10, perMinute: 1 },
+        // The game reconnects its chat at most every 15-45 s after a failure; a few players behind one
+        // address fit many times over.
+        ws: { burst: 20, perMinute: 12 },
         connect: { burst: 200, perMinute: 300 },
     },
 };
@@ -187,6 +192,7 @@ export function LoadGatewayConfig(Env: NodeJS.ProcessEnv = process.env): Gateway
                 content: Rate("GATEWAY_RATE_CONTENT", DEFAULT_LIMITS.rate.content),
                 register: Rate("GATEWAY_RATE_REGISTER", DEFAULT_LIMITS.rate.register),
                 token: Rate("GATEWAY_RATE_TOKEN", DEFAULT_LIMITS.rate.token),
+                ws: Rate("GATEWAY_RATE_WS", DEFAULT_LIMITS.rate.ws),
                 connect: Rate("GATEWAY_RATE_CONNECT", DEFAULT_LIMITS.rate.connect),
             },
         },

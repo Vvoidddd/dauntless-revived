@@ -3,6 +3,8 @@ import crypto from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
+import { once } from "node:events";
+import tls from "node:tls";
 import { after, before, describe, it } from "node:test";
 import { AllowlistFeed } from "../src/feed";
 import { Gateway } from "../src/gateway";
@@ -16,17 +18,20 @@ const FAKE_JWT = "eyJhbGciOiJSUzI1NiJ9.eyJ1c2VySWQiOiJVSUQtdGVzdCJ9.c2lnbmF0dXJl
 const FAKE_KEY = "UUK_" + "fedcba9876543210".repeat(3);
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-type WsUpstream = { server: http.Server; seen: http.IncomingHttpHeaders[]; close: () => Promise<void> };
+type WsUpstream = { server: http.Server; seen: http.IncomingHttpHeaders[]; urls: string[]; close: () => Promise<void> };
 
-// A minimal WebSocket server: completes the handshake and echoes bytes back with a prefix.
+// A minimal WebSocket server: completes the handshake (choosing the first protocol asked for, as the
+// chat server does) and echoes bytes back with a prefix.
 function StartWsUpstream(Port: number): Promise<WsUpstream> {
     const Seen: http.IncomingHttpHeaders[] = [];
+    const Urls: string[] = [];
     const Server = http.createServer((_Req, Res) => {
         Res.writeHead(426);
         Res.end();
     });
     Server.on("upgrade", (Req: http.IncomingMessage, Socket: net.Socket) => {
         Seen.push(Req.headers);
+        Urls.push(Req.url ?? "");
         // Sockets of an http.Server allow half-open connections: hang up when the peer does.
         Socket.on("end", () => Socket.end());
         if(Req.url === "/refuse"){
@@ -34,7 +39,9 @@ function StartWsUpstream(Port: number): Promise<WsUpstream> {
             return;
         }
         const Accept = crypto.createHash("sha1").update(String(Req.headers["sec-websocket-key"]) + WS_GUID).digest("base64");
-        Socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${Accept}\r\n\r\n`);
+        const Asked = Req.headers["sec-websocket-protocol"];
+        const Protocol = typeof Asked === "string" ? `Sec-WebSocket-Protocol: ${Asked.split(",")[0].trim()}\r\n` : "";
+        Socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n${Protocol}Sec-WebSocket-Accept: ${Accept}\r\n\r\n`);
         Socket.on("data", (Chunk: Buffer) => Socket.write(Buffer.concat([Buffer.from("echo:"), Chunk])));
         Socket.on("error", () => undefined);
     });
@@ -43,6 +50,7 @@ function StartWsUpstream(Port: number): Promise<WsUpstream> {
         Server.listen(Port, "127.0.0.1", () => resolve({
             server: Server,
             seen: Seen,
+            urls: Urls,
             close: () => new Promise<void>((done) => {
                 Server.close(() => done());
                 Server.closeAllConnections();
@@ -399,6 +407,39 @@ describe("gateway over TLS", () => {
         assert.equal(TheGateway.Stats().websockets, 0);
     });
 
+    it("carries the 1.4.4 client's chat connection as libwebsockets 3.0 sends it: GET //, protocol xmpp", async () => {
+        const Key = crypto.randomBytes(16).toString("base64");
+        const Socket = tls.connect({ host: "127.0.0.1", port: P.gateway, rejectUnauthorized: false });
+        await once(Socket, "secureConnect");
+        Socket.write([
+            "GET // HTTP/1.1", "Pragma: no-cache", "Cache-Control: no-cache", "Host: 127.0.0.1", "Origin: http://127.0.0.1",
+            "Upgrade: websocket", "Connection: Upgrade", `Sec-WebSocket-Key: ${Key}`, "Sec-WebSocket-Protocol: xmpp",
+            "Sec-WebSocket-Version: 13", "", ""
+        ].join("\r\n"));
+
+        let Head = "";
+        while(!Head.includes("\r\n\r\n")){
+            const [Chunk] = await once(Socket, "data") as [Buffer];
+            Head += Chunk.toString("latin1");
+        }
+        const Lines = Head.slice(0, Head.indexOf("\r\n\r\n")).split("\r\n");
+
+        try{
+            assert.match(Lines[0], /^HTTP\/1\.1 101 /);
+            // libwebsockets checks these: one Connection: Upgrade, and the protocol it asked for
+            assert.equal(Lines.filter((Line) => /^connection:\s*upgrade$/i.test(Line)).length, 1, Head);
+            assert.equal(Lines.filter((Line) => /^sec-websocket-protocol:\s*xmpp$/i.test(Line)).length, 1, Head);
+            assert.equal(Ws.urls[Ws.urls.length - 1], "//", "the upstream sees the request target as sent");
+            const Seen = Ws.seen[Ws.seen.length - 1];
+            assert.equal(Seen["x-dauntless-gateway"], Config.secret);
+            assert.equal(Seen["x-forwarded-for"], "127.0.0.1");
+            assert.equal(Seen["sec-websocket-protocol"], "xmpp");
+        }
+        finally{
+            Socket.destroy();
+        }
+    });
+
     it("applies the same rules to upgrades, and passes on an upstream's refusal", async () => {
         const Before = Ws.seen.length;
         const WithKey = await Upgrade(P.gateway, "/xmpp", { "x-undaunted-gameserver-apikey": "k" });
@@ -414,7 +455,7 @@ describe("gateway over TLS", () => {
         assert.equal(Refused.body, "no room");
     });
 
-    it("answers 502 when an upstream is down (no chat server yet, metagame stopped)", async () => {
+    it("answers 502 when an upstream is down (chat off, metagame stopped)", async () => {
         assert.equal(await PortOpen(P.dead), false, `something listens on ${P.dead}`);
         const Second = new Gateway(TestConfig({ gateway: P.gateway2, metagame: P.dead, content: P.dead, ws: P.dead }), { cert: Cert.certPem, key: Cert.keyPem });
         await Second.Listen();
