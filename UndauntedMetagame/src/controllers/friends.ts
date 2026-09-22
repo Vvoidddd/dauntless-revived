@@ -79,7 +79,7 @@ function AccountExists(tx: Tx, AccountId: string){
     return tx.select({ userId: users.userId }).from(users).where(eq(users.userId, AccountId)).get() != undefined;
 }
 
-function IsBlockedEitherWayInTx(tx: Tx, A: string, B: string){
+export function IsBlockedEitherWayInTx(tx: Tx, A: string, B: string){
     return tx.select({ blockerId: blocks.blockerId }).from(blocks).where(or(
         and(eq(blocks.blockerId, A), eq(blocks.blockedId, B)),
         and(eq(blocks.blockerId, B), eq(blocks.blockedId, A))

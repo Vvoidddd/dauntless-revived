@@ -92,6 +92,13 @@
       "when": 1790005698166,
       "tag": "0012_friends_and_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790048284578,
+      "tag": "0013_guilds",
+      "breakpoints": true
     }
   ]
 }

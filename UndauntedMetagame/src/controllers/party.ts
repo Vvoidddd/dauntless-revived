@@ -119,6 +119,12 @@ function SeenAgo(UserId: string){
     return Seen === undefined ? Infinity : Clock() - Seen;
 }
 
+// Heard from within Ms (party and invite polls, party actions, heartbeats). The game server's guild
+// create (controllers/guild.ts) uses it to check that the leader it names is really playing.
+export function SeenWithinMs(UserId: string, Ms: number){
+    return SeenAgo(UserId) <= Ms;
+}
+
 function Seconds(Ms: number){
     return Ms === Infinity ? "ever" : `${Math.round(Ms / 1000)} s`;
 }

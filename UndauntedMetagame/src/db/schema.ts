@@ -259,3 +259,45 @@ export const blocks = sqliteTable("blocks", {
     primaryKey({columns: [table.blockerId, table.blockedId]}),
     index("blocks_blocked").on(table.blockedId)
 ]);
+
+// Guilds (roadmap 3.11, the 1.4.4 client's v2 guild API; docs/findings/social.md). guildId is a
+// random UUID (it also names the chat room Guild-<guildId>). nameKey and nameplateKey are lowercase
+// copies for case-insensitive uniqueness; nameplateKey is NULL for a guild without a nameplate
+// (a unique index allows many NULLs). leaderId always equals the one member row with rank Leader.
+export const guilds = sqliteTable("guilds", {
+    guildId: text("guildId").notNull().primaryKey(),
+    name: text("name").notNull(),
+    nameKey: text("nameKey").notNull(),
+    nameplate: text("nameplate").notNull().default(""),
+    nameplateKey: text("nameplateKey"),
+    leaderId: text("leaderId").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    updatedAt: integer("updatedAt").notNull()
+}, (table) => [
+    uniqueIndex("guilds_name_key").on(table.nameKey),
+    uniqueIndex("guilds_nameplate_key").on(table.nameplateKey)
+]);
+
+// One guild per account, so the account is the key. rank: Member, Officer or Leader.
+export const guildmembers = sqliteTable("guildmembers", {
+    accountId: text("accountId").notNull().primaryKey(),
+    guildId: text("guildId").notNull(),
+    rank: text("rank").notNull(),
+    joinedAt: integer("joinedAt").notNull(),
+    updatedAt: integer("updatedAt").notNull()
+}, (table) => [
+    index("guildmembers_guild").on(table.guildId)
+]);
+
+// Invites that are still open: one per guild and invitee. Expired rows are ignored and swept.
+export const guildinvites = sqliteTable("guildinvites", {
+    inviteId: text("inviteId").notNull().primaryKey(),
+    guildId: text("guildId").notNull(),
+    inviteeId: text("inviteeId").notNull(),
+    inviterId: text("inviterId").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    expiresAt: integer("expiresAt").notNull()
+}, (table) => [
+    uniqueIndex("guildinvites_pair").on(table.guildId, table.inviteeId),
+    index("guildinvites_invitee").on(table.inviteeId)
+]);
