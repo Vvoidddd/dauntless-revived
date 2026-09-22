@@ -255,7 +255,9 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
   the base of the server's performance log ([#6](https://github.com/mixutin/dauntless-revived/pull/6));
   added the launcher's opt-in "Basic adaptive" auto exposure setting for the airship, off by default
   ([#7](https://github.com/mixutin/dauntless-revived/pull/7)); let the launcher use an existing
-  Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
+  Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8));
+  wrote the first in-game text chat server (XMPP) and tested it with a real 1.4.4 client
+  ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
 
 Everyone who has contributed is listed on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors).

@@ -279,7 +279,9 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
   ”mukautuvan perusvalotuksen” asetuksen ilmalaivaa varten, oletuksena pois päältä
   ([#7](https://github.com/mixutin/dauntless-revived/pull/7)); teki käynnistimelle mahdolliseksi
   käyttää valmista Dauntless 1.4.4 -kansiota liittämällä sen polun
-  ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
+  ([#8](https://github.com/mixutin/dauntless-revived/pull/8)); kirjoitti ensimmäisen pelinsisäisen
+  tekstichat-palvelimen (XMPP) ja testasi sen oikealla 1.4.4-pelillä
+  ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
 
 Kaikki osallistujat näkyvät [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 
