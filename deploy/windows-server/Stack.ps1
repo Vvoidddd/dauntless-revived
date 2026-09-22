@@ -28,6 +28,11 @@
     install's app folder) and game servers by their executable path under this install's game folder,
     so other Node programs and a Dauntless client on the same machine are never touched.
 
+    The stack supervisor also records what the server uses, every minute (roadmap 4.12): CPU and
+    memory per game server and component, the machine's CPU, RAM, disk and network, and player counts,
+    in data\logs\performance\performance-<UTC date>.csv (30 days kept; counts only, no names). Set
+    "PerformanceLog": false in server.json to turn it off. See Write-PerformanceLog.ps1.
+
 .EXAMPLE
     C:\DauntlessRevived\bin\Stack.ps1 status
 .EXAMPLE
@@ -45,6 +50,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\DauntlessServer.Common.ps1"
+. "$PSScriptRoot\DauntlessServer.Performance.ps1"
 
 $Root = Resolve-DRRoot $Root $PSScriptRoot
 $P = Get-DRPaths $Root
@@ -70,6 +76,7 @@ $ViaTask = [bool]($ServiceUser -and -not $IsService -and -not $IsSystem -and -no
 $StackTask = Get-DRConfigValue $Cfg 'StackTask' $DRNames.StackTask
 $AllowlistTask = Get-DRConfigValue $Cfg 'AllowlistTask' ''
 $BackupTask = Get-DRConfigValue $Cfg 'BackupTask' $DRNames.BackupTask
+$PerfLog = (Get-DRConfigValue $Cfg 'PerformanceLog' $true) -ne $false
 $script:SkipBackup = [bool]$NoBackup
 
 # Which components this call acts on. The service account never runs the allowlist helper; SYSTEM runs
@@ -185,6 +192,14 @@ function Show-Status {
     if ($null -eq $age) { 'last backup      : none yet' }
     else { 'last backup      : {0} ({1} min ago)' -f (Get-DRBackupFolders $P.Backups | Select-Object -First 1).Name, [math]::Round($age.TotalMinutes) }
     if (Test-Path -LiteralPath $P.StopFlag) { 'stop flag        : set (the supervisors do not restart anything)' }
+    if (-not $PerfLog) { 'performance log  : off ("PerformanceLog": false in server.json)' }
+    else {
+        $pf = Join-Path (Get-DRPerfDir $P) (Get-DRPerfFileName ([datetime]::UtcNow))
+        $last = $null
+        if (Test-Path -LiteralPath $pf) { $last = Get-Content -LiteralPath $pf -Tail 1 -ErrorAction SilentlyContinue }
+        if ($last -match '^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ),') { "performance log  : $pf (last sample $($Matches[1]))" }
+        else { 'performance log  : no sample today yet (the stack supervisor writes one every minute)' }
+    }
     if (@(Get-DRComponentProcesses $P 'metagame').Count) {
         # The metagame lists who is online to registered players only: ask with the owner key (readable
         # by administrators, SYSTEM and the service account; never printed), straight to the
@@ -446,6 +461,14 @@ function Invoke-Supervise {
         [void](Start-Components -Supervised)
         $history = @{}; $gaveUp = @{}
         foreach ($c in $Enabled) { $history[$c] = @() }
+        # The performance log (roadmap 4.12): a sample every 4th check, about once a minute. The service
+        # account (or the sandbox user) samples; the SYSTEM allowlist supervisor never does.
+        $perf = $null; $tick = 0
+        if ($PerfLog -and -not $IsSystem -and @($Enabled | Where-Object { $_ -ne 'allowlist' }).Count) {
+            $perf = New-DRPerfState
+            try { [void](Invoke-DRPerfSample -State $perf -Paths $P -Config $Cfg) } catch {}   # the CPU baseline
+            Say "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') performance log: a sample every minute in $(Get-DRPerfDir $P)"
+        }
         $running = $true
         while ($running) {
             Start-Sleep -Seconds 15
@@ -469,6 +492,10 @@ function Invoke-Supervise {
                 if (-not $IsSystem -and (Test-Path -LiteralPath $P.StopFlag)) { $running = $false; break }
                 if ($c -eq 'deploy') { Stop-GameServers }
                 [void](Start-Component $c)
+            }
+            if ($running -and $perf -and ((++$tick) % 4) -eq 0) {
+                $why = Invoke-DRPerfTick -State $perf -Paths $P -Config $Cfg
+                if ($why) { Say "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') performance log: sample skipped ($why)" }
             }
         }
     } finally {

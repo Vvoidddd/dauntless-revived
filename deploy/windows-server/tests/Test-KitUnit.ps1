@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
     Unit checks for the Windows Server kit: script parsing, invite strings (v1 and v2), certificate
-    fingerprints, TLS pinning, Get-ServerStatus with and without an account key, account key files
-    and the chunked-upload helper. Touches nothing outside -WorkDir and one loopback port (-Port,
-    default 62450).
+    fingerprints, TLS pinning, Get-ServerStatus with and without an account key, account key files,
+    the chunked-upload helper and the performance sampler. Touches nothing outside -WorkDir and two
+    loopback ports (-Port, default 62450, and the one above it).
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1 -WorkDir $env:TEMP\dr-kit-unit
@@ -223,6 +223,124 @@ $a = Recv 'Assemble'
 Check 'Assemble completes with the right SHA-256' ($a.complete -and (Get-DRSha256 (Join-Path $up 'test.zip')).ToLowerInvariant() -eq $whole) ($a | ConvertTo-Json -Compress)
 Write-DRText -Path (Join-Path $up 'upload.json.incoming') -Text (@{ name = 'test.zip'; size = $data.Length; sha256 = $whole; chunkSize = $chunk; chunks = $hashes } | ConvertTo-Json -Compress)
 Check 'Begin after completion reports complete' ((Recv 'Begin').complete)
+
+Write-Host '== performance sampler (DauntlessServer.Performance.ps1)'
+. (Join-Path $Kit 'DauntlessServer.Performance.ps1')
+Check 'CPU: 15 s of CPU in 60 s is 25% of one core' ((Get-DRCpuCorePercent 10 25 60) -eq 25)
+Check 'CPU: two busy cores read 200%' ((Get-DRCpuCorePercent 0 120 60) -eq 200)
+Check 'CPU: no time passed -> empty' ($null -eq (Get-DRCpuCorePercent 10 25 0))
+Check 'CPU: a counter that went backwards -> empty' ($null -eq (Get-DRCpuCorePercent 25 10 60))
+Check 'host CPU from the idle counter' ((Get-DRHostCpuPercent ([pscustomobject]@{ Idle = 1000; Time = 2000 }) ([pscustomobject]@{ Idle = 1500; Time = 3000 })) -eq 50)
+Check 'host CPU without an earlier reading -> empty' ($null -eq (Get-DRHostCpuPercent $null ([pscustomobject]@{ Idle = 1; Time = 2 })))
+Check 'network: 750 kB in 60 s is 100 kbit/s' ((Get-DRKbitPerSecond 0 750000 60) -eq 100)
+foreach ($r in @(@(8777, 8777, '', 'ramsgate'), @(8776, 8777, '', 'dojo'), @(8770, 8777, '', 'hunt'), @(8769, 8769, '', 'ramsgate'),
+                 @(8768, 8769, '', 'dojo'), @(8777, 8769, '', 'hunt'), @(8775, 8777, 'tutorial', 'tutorial'), @(8770, 8777, 'city', 'ramsgate'), @(0, 8777, '', 'unknown'))) {
+    Check "role: UDP $($r[0]) with UdpPortEnd $($r[1]) and kind '$($r[2])' is $($r[3])" ((Get-DRGameServerRole $r[0] $r[1] $r[2]) -ceq $r[3])
+}
+Check 'fixed CSV header' ((Get-DRPerfHeader) -ceq 'timestamp_utc,role,pid,udp_port,started_utc,players,cpu_core_percent,working_set_mb,private_mb,host_cpu_percent,logical_cpus,ram_total_mb,ram_free_mb,disk_free_gb,net_in_kbit_s,net_out_kbit_s,game_servers,players_online')
+Check 'one file per UTC day' ((Get-DRPerfFileName (New-Object DateTime 2026, 9, 22, 23, 59, 59, ([DateTimeKind]::Utc))) -ceq 'performance-2026-09-22.csv')
+$fiLine = & {
+    [Threading.Thread]::CurrentThread.CurrentCulture = New-Object Globalization.CultureInfo 'fi-FI'
+    $row = New-DRPerfRow (New-Object DateTime 2026, 9, 22, 12, 0, 0, ([DateTimeKind]::Utc)) 'hunt'
+    $row.cpu_core_percent = 12.5; $row.working_set_mb = 1100.25
+    @((1.5).ToString(), (ConvertTo-DRPerfCsvLine $row))
+}
+Check 'a decimal point, also on a Finnish Windows' ($fiLine[0] -eq '1,5' -and $fiLine[1] -ceq ('2026-09-22T12:00:00Z,hunt,,,,,12.5,1100.25' + (',' * 10))) "$($fiLine -join ' | ')"
+$deployList = @(
+    [pscustomobject]@{ id = 'c1'; port = 8777; kind = 'city'; expectedPlayers = @(); startedAt = '2026-09-22T10:00:00.000Z' },
+    [pscustomobject]@{ id = 'h0'; port = 8775; kind = 'hunt'; expectedPlayers = @('acct-old'); startedAt = '2026-09-22T10:05:00.000Z' },
+    [pscustomobject]@{ id = 'h1'; port = 8775; kind = 'tutorial'; expectedPlayers = @('acct-new'); startedAt = '2026-09-22T10:30:00.000Z' },
+    [pscustomobject]@{ id = 'd1'; port = 8776; kind = 'dojo'; expectedPlayers = @(); startedAt = '2026-09-22T10:10:00.000Z' })
+$inst = @([pscustomobject]@{ id = 'c1'; players = 2 }, [pscustomobject]@{ id = 'h0'; players = 9 }, [pscustomobject]@{ id = 'h1'; players = 1 })
+$bp = Get-DRGameServerCounts $deployList $inst
+Check 'players per game server: the deploy list joined to ServerStatus by id' ($bp[8777].Kind -eq 'city' -and $bp[8777].Players -eq 2 -and $bp[8776].Kind -eq 'dojo' -and $null -eq $bp[8776].Players)
+Check 'a reused port counts its newest server' ($bp[8775].Kind -eq 'tutorial' -and $bp[8775].Players -eq 1)
+
+# A stand-in install: server.json, an owner key, and one local HTTP server that answers both the deploy
+# server's /gameservers and the metagame's ServerStatus with names, account ids and the key it expects.
+$perfPort = if ($Port -lt 62499) { $Port + 1 } else { $Port - 1 }
+$perfRoot = Join-Path $WorkDir 'perf-root'
+$pp = Get-DRPaths $perfRoot
+New-Item -ItemType Directory -Force -Path $pp.Config, $pp.Keys, $pp.Logs | Out-Null
+Write-DRText -Path $pp.ServerJson -Text (@{ Version = 2; Mode = 'Public'; BindAddress = '127.0.0.1'; Ports = @{ metagame = $perfPort; deploy = $perfPort }; Components = @('metagame', 'deploy'); GameDir = ''; UdpPortEnd = 8777 } | ConvertTo-Json -Depth 4)
+$perfKey = 'UUK_' + ('0f1e' * 12)
+[IO.File]::WriteAllText($pp.OwnerKey, $perfKey)
+$perfJs = Join-Path $WorkDir 'perf-server.js'
+Set-Content -LiteralPath $perfJs -Encoding ASCII -Value @"
+const http = require('http');
+const key = process.argv[3];
+const at = new Date(Date.now() - 600000).toISOString();
+http.createServer((req, res) => {
+  res.writeHead(200, { 'content-type': 'application/json' });
+  if (req.url === '/gameservers') {
+    return res.end(JSON.stringify({ servers: [{ id: 'c1', port: 8777, kind: 'city', map: 'ramsgate', gameMode: null, behemoth: null, huntId: null, matchmakerHuntId: null, expectedPlayers: ['acct-secret-1111:x'], maxPlayers: null, startedAt: at }] }));
+  }
+  const full = req.headers['x-undaunted-user-api-key'] === key;
+  res.end(JSON.stringify({ name: 'perf test', online: true, registration: 'INVITECODE', playersOnline: full ? 2 : 0,
+    players: full ? [{ name: 'Aurora', where: 'city', instance: 'c1' }, { name: 'Borealis', where: 'menu', instance: null }] : [],
+    instances: full ? [{ id: 'c1', kind: 'city', title: 'Ramsgate', map: 'ramsgate', behemoth: null, players: 1, maxPlayers: 32, startedAt: at }] : [],
+    contentPort: null, uptimeSeconds: 60, limited: !full }));
+}).listen(Number(process.argv[2]), '127.0.0.1', () => console.log('listening'));
+"@
+$psi = New-Object Diagnostics.ProcessStartInfo($node, ('"{0}" {1} {2}' -f $perfJs, $perfPort, $perfKey))
+$psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $true
+$perfServer = [Diagnostics.Process]::Start($psi)
+try {
+    [void]$perfServer.StandardOutput.ReadLine()
+    $cfgPerf = Get-DRConfig $perfRoot
+    $st = New-DRPerfState
+    $first = @(Invoke-DRPerfSample -State $st -Paths $pp -Config $cfgPerf)
+    Start-Sleep -Milliseconds 1200
+    $second = @(Invoke-DRPerfSample -State $st -Paths $pp -Config $cfgPerf)
+    $h1 = $first[0]; $h2 = $second[0]
+    Check 'a host row first, with the machine''s numbers' ($h1.role -eq 'host' -and $h1.logical_cpus -gt 0 -and $h1.ram_total_mb -gt 0 -and $h1.ram_free_mb -gt 0 -and $h1.disk_free_gb -gt 0 -and $h1.game_servers -eq 0) (($h1.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ' ')
+    Check 'players online from ServerStatus, asked with the owner key' ($h1.players_online -eq 2)
+    Check 'the first sample has no CPU yet, the second has' ($null -eq $h1.host_cpu_percent -and $null -ne $h2.host_cpu_percent -and $h2.host_cpu_percent -ge 0 -and $h2.host_cpu_percent -le 100) "$($h2.host_cpu_percent)"
+    Check 'no processes of this stand-in install' ($first.Count -eq 1 -and $second.Count -eq 1)
+    $perfDir = Get-DRPerfDir $pp
+    $today = [datetime]::UtcNow
+    $file = Write-DRPerfRows $perfDir $today $first
+    [void](Write-DRPerfRows $perfDir $today $second)
+    $lines = @(Get-Content -LiteralPath $file)
+    Check 'the day file: one header, then one line per row' ($file -like '*\data\logs\performance\performance-*.csv' -and $lines.Count -eq 3 -and $lines[0] -ceq (Get-DRPerfHeader) -and $lines[1] -match '^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ,host,') ($lines -join ' | ')
+    $text = [IO.File]::ReadAllText($file)
+    Check 'the log holds no names, account ids or key' (-not ($text -match 'Aurora|Borealis|acct-secret|perf test') -and -not $text.Contains($perfKey))
+    Move-Item -LiteralPath $pp.OwnerKey -Destination "$($pp.OwnerKey).away"
+    $noKey = @(Invoke-DRPerfSample -State (New-DRPerfState) -Paths $pp -Config $cfgPerf)
+    Move-Item -LiteralPath "$($pp.OwnerKey).away" -Destination $pp.OwnerKey
+    Check 'without the owner key the count stays empty, not 0' ($null -eq $noKey[0].players_online)
+    $gone = @(Invoke-DRPerfSample -State (New-DRPerfState) -Paths $pp -Config ([pscustomobject]@{ BindAddress = '127.0.0.1'; Ports = [pscustomobject]@{ metagame = 1; deploy = 1 }; Components = @('metagame', 'deploy') }))
+    Check 'a metagame that does not answer leaves the count empty' ($gone[0].role -eq 'host' -and $null -eq $gone[0].players_online)
+} finally { if ($perfServer -and -not $perfServer.HasExited) { $perfServer.Kill(); $perfServer.WaitForExit(5000) | Out-Null } }
+
+# Planted links in the service-writable logs folder: never written through.
+$elsewhere = Join-Path $WorkDir 'perf-elsewhere'
+New-Item -ItemType Directory -Force -Path $elsewhere | Out-Null
+$jroot = Join-Path $WorkDir 'perf-junction'
+$jp = Get-DRPaths $jroot
+New-Item -ItemType Directory -Force -Path $jp.Logs | Out-Null
+$jperf = Get-DRPerfDir $jp
+[void](& cmd.exe /d /c mklink /J "$jperf" "$elsewhere")
+$threw = $false; try { [void](Write-DRPerfRows $jperf ([datetime]::UtcNow) $first) } catch { $threw = "$_" -match 'junction or symbolic link' }
+Check 'refuses to write when the performance folder is a junction' ($threw -and @(Get-ChildItem -LiteralPath $elsewhere -Force).Count -eq 0)
+$tickState = New-DRPerfState
+$m1 = Invoke-DRPerfTick -State $tickState -Paths $jp -Config ([pscustomobject]@{ Components = @() })
+$m2 = Invoke-DRPerfTick -State $tickState -Paths $jp -Config ([pscustomobject]@{ Components = @() })
+Check 'the supervisor hears about a skipped sample once, not every minute' ($m1 -match 'junction' -and $null -eq $m2 -and @(Get-ChildItem -LiteralPath $elsewhere -Force).Count -eq 0) "$m1 / $m2"
+[IO.Directory]::Delete($jperf, $false)
+New-Item -ItemType Directory -Force -Path $jperf | Out-Null
+$outside = Join-Path $WorkDir 'perf-outside.txt'
+[IO.File]::WriteAllText($outside, 'untouched')
+[void](& cmd.exe /d /c mklink /H "$(Join-Path $jperf (Get-DRPerfFileName ([datetime]::UtcNow)))" "$outside")
+$threw = $false; try { [void](Write-DRPerfRows $jperf ([datetime]::UtcNow) $first) } catch { $threw = "$_" -match 'hard link' }
+Check 'refuses to write through a hard link' ($threw -and [IO.File]::ReadAllText($outside) -ceq 'untouched')
+
+$prune = Join-Path $WorkDir 'perf-prune'
+New-Item -ItemType Directory -Force -Path $prune | Out-Null
+foreach ($n in 'performance-2026-08-22.csv', 'performance-2026-08-23.csv', 'performance-2026-08-24.csv', 'performance-2026-09-22.csv', 'performance-latest.csv', 'notes.txt') { [IO.File]::WriteAllText((Join-Path $prune $n), 'x') }
+$removed = Remove-DROldPerfFiles $prune (New-Object DateTime 2026, 9, 22, 8, 0, 0, ([DateTimeKind]::Utc)) 30
+$left = @(Get-ChildItem -LiteralPath $prune | ForEach-Object { $_.Name } | Sort-Object)
+Check 'keeps 30 days of files and nothing else is touched' ($removed -eq 2 -and ($left -join ',') -ceq 'notes.txt,performance-2026-08-24.csv,performance-2026-09-22.csv,performance-latest.csv') "$removed removed; left $($left -join ',')"
 
 Write-Host ''
 Write-Host "unit checks: $script:Pass passed, $script:Fail failed" -ForegroundColor $(if ($script:Fail) { 'Red' } else { 'Green' })

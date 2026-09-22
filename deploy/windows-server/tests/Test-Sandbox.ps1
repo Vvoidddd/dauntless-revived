@@ -3,8 +3,9 @@
     End-to-end test of the Windows Server kit on a development PC, in -Sandbox mode (no system
     changes): installs a public-mode server into a scratch folder, starts the metagame, content server,
     gateway and allowlist helper (dry-run) on spare loopback ports, makes an invite and checks the whole
-    public path through the gateway with the pinned certificate, then restores a second install from
-    the first one's backup, stops everything and deletes the scratch folder.
+    public path through the gateway with the pinned certificate, takes a performance sample, then
+    restores a second install from the first one's backup, stops everything and deletes the scratch
+    folder.
 
     Never used: ports 61000-61099, the game, the firewall, scheduled tasks, accounts, certificate stores.
     Ports: metagame 62000, content 62002, allowlist 62005, gateway 62443 (deploy 62001 stays unused).
@@ -221,6 +222,18 @@ try {
     Check 'Stack status shows the gateway check' ($ss.Code -eq 0 -and $ss.Text -match 'gateway check\s+: TLS ok' -and $ss.Text -match 'allowlist helper : \d+ player address') (($ss.Out | Where-Object { $_ -match 'gateway|allowlist' }) -join ' | ')
     Check 'Stack status prints no secret' (-not $ss.Text.Contains($alEnv['ALLOWLIST_SECRET']) -and -not $ss.Text.Contains($meta['GATEWAY_SECRET']) -and -not $ss.Text.Contains($ownerKeyText))
     Check 'Stack status counts players with the owner key' ($ss.Text -match 'players online\s+: \d+\s+game servers listed: \d+' -and $ss.Text -notmatch 'players online\s+: hidden') (($ss.Out | Where-Object { $_ -match 'players online' }) -join ' | ')
+    $pl = Run-Kit (Join-Path $bin 'Write-PerformanceLog.ps1') @('-Root', $Root, '-Once')
+    $perfFile = Join-Path $Root ('data\logs\performance\performance-{0}.csv' -f [datetime]::UtcNow.ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture))
+    $perfRows = @(); if (Test-Path -LiteralPath $perfFile) { $perfRows = @(Import-Csv -LiteralPath $perfFile) }
+    $perfHost = $perfRows | Where-Object { $_.role -eq 'host' } | Select-Object -Last 1
+    $perfMissing = @('metagame', 'content', 'gateway', 'allowlist' | Where-Object { $r = $_; -not ($perfRows | Where-Object { $_.role -eq $r }) })
+    Check 'Write-PerformanceLog -Once: a host row and a row per component' ($pl.Code -eq 0 -and $perfHost -and $perfMissing.Count -eq 0) "exit $($pl.Code); missing $($perfMissing -join ','); $(($pl.Out | Select-Object -Last 3) -join ' | ')"
+    $perfMeta = $perfRows | Where-Object { $_.role -eq 'metagame' } | Select-Object -Last 1
+    Check 'performance log: players counted with the owner key, CPU and memory per component' ($perfHost -and $perfHost.players_online -match '^\d+$' -and $perfHost.ram_total_mb -match '^\d+$' -and $perfMeta.cpu_core_percent -match '^\d' -and $perfMeta.working_set_mb -match '^\d') (($perfRows | Select-Object -First 2 | ForEach-Object { ($_.PSObject.Properties | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' ' }) -join ' || ')
+    $perfText = if (Test-Path -LiteralPath $perfFile) { [IO.File]::ReadAllText($perfFile) } else { '' }
+    Check 'performance log holds no key or secret' ($perfText -and -not $perfText.Contains($ownerKeyText) -and -not $perfText.Contains($meta['GATEWAY_SECRET']) -and -not $perfText.Contains($alEnv['ALLOWLIST_SECRET']) -and $perfText -notmatch 'SandboxOwner')
+    $ssPerf = Run-Kit (Join-Path $bin 'Stack.ps1') @('status', '-Root', $Root)
+    Check 'Stack status shows the last performance sample' ($ssPerf.Text -match 'performance log\s+: .*performance-\d{4}-\d\d-\d\d\.csv \(last sample \d{4}-') (($ssPerf.Out | Where-Object { $_ -match 'performance' }) -join ' | ')
     $ownerKeyText = $null
     # Without a readable owner key (a PowerShell that is not elevated): hidden, not 0.
     $okPath = Join-Path $Root 'data\keys\owner.key'

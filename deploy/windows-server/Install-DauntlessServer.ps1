@@ -1102,6 +1102,7 @@ try {
         ServiceUser        = ''      # set once the scheduled tasks exist (below)
         ServiceProfile     = $svcProfile
         InteractiveSession = [bool]$InteractiveSession
+        PerformanceLog     = [bool](Get-DRConfigValue $existingCfg 'PerformanceLog' $true)
         StackTask          = $DRNames.StackTask
         AllowlistTask      = $(if ($Public) { $DRNames.AllowlistTask } else { '' })
         BackupTask         = $DRNames.BackupTask
