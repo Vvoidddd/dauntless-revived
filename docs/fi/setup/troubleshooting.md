@@ -472,9 +472,11 @@ Lue metagamen lokia siitä hetkestä alkaen, kun käynnistit pelin:
 1.4.4-peliohjelman lokin `MUC: JoinPublicRoom failed. Not currently connected` huoneelle
 `City-...` tai `Party-...` tarkoittaa, ettei XMPP-chat-yhteyttä muodostettu. Viesti ei päässyt
 huoneeseen asti. Erillinen STOMP-varoitus `Bad protocol 'http'` ei aiheuta tätä chat-virhettä.
-Chat ei ole oletusarvoisesti käytössä: kokeellinen paikallinen kuuntelija on pois päältä,
-eikä sen toimivuutta peliohjelmalla ole varmistettu. Sitä ei pidä vielä ottaa käyttöön VPS:llä.
-Käytä toistaiseksi Discordia; viestin uudelleenlähetys tai matchmaking-asetusten muutos ei korjaa tätä.
+Chat ei ole oletusarvoisesti käytössä. Paikallisessa 1.4.4-testissä Ramsgate-viesti näkyi,
+mutta lähettäjänä näkyi UID. Prototyyppi lähettää nyt tunnistetun tilin tallennetun käyttäjänimen
+huoneen nimimerkkinä. Varmista nimen näkyminen ja kahden pelaajan viestit ennen kuin chatin
+katsotaan olevan valmis. Portin 61099 on pysyttävä vain paikallisessa silmukkaliitännässä
+julkisen gatewayn takana; matchmaking-asetukset eivät korjaa XMPP-yhteyden katkeamista.
 
 ---
 

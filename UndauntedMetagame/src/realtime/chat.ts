@@ -14,7 +14,7 @@ const DOMAIN = "prod.ol.epicgames.com";
 const FRAME_LIMIT = 32768;
 const BODY_LIMIT = 2048;
 
-type Client = { socket: WebSocket; id?: string; resource?: string; rooms: Set<string>; available: boolean; authenticatedAt?: number };
+type Client = { socket: WebSocket; id?: string; displayName?: string; resource?: string; rooms: Set<string>; available: boolean; authenticatedAt?: number };
 
 function escapeXml(value: string): string {
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -103,8 +103,10 @@ export class ChatServer {
             try {
                 const payload = ValidateMetagameJWTAndGetPayload(fields[2]);
                 const id = typeof payload === "object" ? payload.userId : undefined;
-                if (typeof id !== "string" || id !== fields[1] || !FindUsernameForUserId(id)) throw new Error("invalid account");
+                const displayName = FindUsernameForUserId(id);
+                if (typeof id !== "string" || id !== fields[1] || !displayName) throw new Error("invalid account");
                 client.id = id;
+                client.displayName = displayName;
                 client.authenticatedAt = Date.now();
                 send(client, `<success xmlns="${SASL}"/>`);
                 return true;
@@ -134,12 +136,12 @@ export class ChatServer {
                 const room = to.split("/")[0].toLowerCase();
                 if (node.attrs.type === "unavailable") {
                     client.rooms.delete(room);
-                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.id)}" to="${escapeXml(jid(client))}" type="unavailable"/>`);
+                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.displayName!)}" to="${escapeXml(jid(client))}" type="unavailable"/>`);
                 } else if (client.rooms.has(room) || client.rooms.size < 8) {
                     client.rooms.add(room);
                     // MUC clients need their own reflected presence before considering a
                     // public-room join complete. Code 110 identifies this occupant as self.
-                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.id)}" to="${escapeXml(jid(client))}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="member" role="participant"/><status code="110"/></x></presence>`);
+                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.displayName!)}" to="${escapeXml(jid(client))}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="member" role="participant"/><status code="110"/></x></presence>`);
                 }
             } else client.available = node.attrs.type !== "unavailable";
             return true;
@@ -154,7 +156,7 @@ export class ChatServer {
         for (const peer of this.clients) {
             if (!peer.id || !peer.resource || peer.socket.readyState !== WebSocket.OPEN) continue;
             if (group ? (!client.rooms.has(target) || !peer.rooms.has(target)) : peer.id.toLowerCase() !== target.split("@")[0]) continue;
-            const from = group ? `${target}/${escapeXml(client.id)}` : escapeXml(jid(client));
+            const from = group ? `${target}/${escapeXml(client.displayName!)}` : escapeXml(jid(client));
             send(peer, `<message from="${from}" to="${escapeXml(jid(peer))}" type="${group ? "groupchat" : "chat"}" id="${stanzaId}"><body>${escapeXml(body)}</body></message>`);
         }
         return true;

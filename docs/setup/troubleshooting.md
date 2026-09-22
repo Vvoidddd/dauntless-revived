@@ -441,9 +441,11 @@ Read the metagame log from the moment you launched:
 In a 1.4.4 client log, `MUC: JoinPublicRoom failed. Not currently connected` for a `City-...`
 or `Party-...` room means the XMPP chat connection was never established; the message did not
 reach a room. The separate STOMP `Bad protocol 'http'` warning is not the cause of this chat
-failure. Chat is not live by default: the experimental local listener is disabled, unverified
-with the game client, and must not be enabled on the VPS yet. Use Discord for now; this is not
-fixed by retrying the message or changing the game-server matchmaking settings.
+failure. Chat is not live by default. In a local 1.4.4 test with the listener on 61099, a
+Ramsgate message did appear, but its sender showed as a UID. The prototype now sends the
+authenticated account's stored username as the room nickname; confirm that display and
+two-player delivery before treating chat as complete. Port 61099 must remain loopback-only
+behind the public gateway; changing matchmaking settings does not fix an XMPP disconnect.
 
 ---
 

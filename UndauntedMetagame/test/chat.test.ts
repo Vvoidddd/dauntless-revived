@@ -94,8 +94,13 @@ describe("experimental chat", () => {
         const joinedB = frame(b);
         a.send(`<presence to="${city}/Alpha"/>`);
         b.send(`<presence to="${city}/Bravo"/>`);
-        assert.match(await joinedA, /status code="110"/);
-        assert.match(await joinedB, /status code="110"/);
+        const joinedAlpha = await joinedA;
+        const joinedBravo = await joinedB;
+        assert.match(joinedAlpha, /status code="110"/);
+        assert.match(joinedAlpha, /\/Alpha"/);
+        assert.doesNotMatch(joinedAlpha, /\/UID-chat-a"/);
+        assert.match(joinedBravo, /status code="110"/);
+        assert.match(joinedBravo, /\/Bravo"/);
         const readyA = frame(a);
         const readyB = frame(b);
         a.send('<iq type="get" id="ready-a"/>');
@@ -104,7 +109,9 @@ describe("experimental chat", () => {
         assert.match(await readyB, /ready-b/);
         const room = frame(b, "room message");
         a.send(`<message to="${city}" type="groupchat" id="m2"><body>Ready?</body></message>`);
-        assert.match(await room, /Ready\?/);
+        const delivered = await room;
+        assert.match(delivered, /Ready\?/);
+        assert.match(delivered, /\/Alpha"/);
         assert.match(await frame(a), /Ready\?/);
         const partyJoin = frame(a);
         a.send(`<presence to="Party-${A}@conference.prod.ol.epicgames.com/Alpha"/>`);

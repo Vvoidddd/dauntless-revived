@@ -2459,9 +2459,11 @@ Read the metagame log from the moment you launched:
 In a 1.4.4 client log, `MUC: JoinPublicRoom failed. Not currently connected` for a `City-...`
 or `Party-...` room means the XMPP chat connection was never established; the message did not
 reach a room. The separate STOMP `Bad protocol 'http'` warning is not the cause of this chat
-failure. Chat is not live by default: the experimental local listener is disabled, unverified
-with the game client, and must not be enabled on the VPS yet. Use Discord for now; this is not
-fixed by retrying the message or changing the game-server matchmaking settings.
+failure. Chat is not live by default. In a local 1.4.4 test with the listener on 61099, a
+Ramsgate message did appear, but its sender showed as a UID. The prototype now sends the
+authenticated account's stored username as the room nickname; confirm that display and
+two-player delivery before treating chat as complete. Port 61099 must remain loopback-only
+behind the public gateway; changing matchmaking settings does not fix an XMPP disconnect.
 
 ---
 
@@ -11883,7 +11885,8 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
-  - **Test wiring (2026-09-22):** public Windows Server installs can opt in with `Set-ExperimentalChat.ps1 -Enable`; it binds only to loopback behind the existing WebSocket gateway, restarts the stack, and checks the listener. Client login, Ramsgate room join and message delivery remain unverified. Guild endpoints are still stubs.
+  - **Test wiring (2026-09-22):** public Windows Server installs can opt in with `Set-ExperimentalChat.ps1 -Enable`; it binds only to loopback behind the existing WebSocket gateway, restarts the stack, and checks the listener. Two-client delivery and guild behavior remain unverified; guild endpoints are still stubs.
+  - **Local client result (2026-09-22):** one 1.4.4 client sent a Ramsgate message through the isolated loopback prototype; the game displayed the sender UID. The MUC sender now uses the authenticated account username. Verify that change in game and exchange messages between two clients before marking chat complete or deploying it broadly.
 
 - [ ] **3.11 Guilds** (L)
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).
