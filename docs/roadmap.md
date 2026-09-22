@@ -655,7 +655,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
   - **Test wiring (2026-09-22):** public Windows Server installs can opt in with `Set-ExperimentalChat.ps1 -Enable`; it binds only to loopback behind the existing WebSocket gateway, restarts the stack, and checks the listener. Two-client delivery and guild behavior remain unverified; guild endpoints are still stubs.
-  - **Local client result (2026-09-22):** one 1.4.4 client sent a Ramsgate message through the isolated loopback prototype; the game displayed the sender UID. The MUC sender now uses the authenticated account username. Verify that change in game and exchange messages between two clients before marking chat complete or deploying it broadly.
+  - **Local client result (2026-09-22):** one 1.4.4 client sent a Ramsgate message through the isolated loopback prototype; the game displayed the sender UID. Changing self-presence to the username stalled the client's room join, so self-presence stays UID while delivered messages use the authenticated account username. Verify that change in game and exchange messages between two clients before marking chat complete or deploying it broadly.
 
 - [ ] **3.11 Guilds** (L)
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).

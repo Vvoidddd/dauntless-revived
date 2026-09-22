@@ -97,10 +97,9 @@ describe("experimental chat", () => {
         const joinedAlpha = await joinedA;
         const joinedBravo = await joinedB;
         assert.match(joinedAlpha, /status code="110"/);
-        assert.match(joinedAlpha, /\/Alpha"/);
-        assert.doesNotMatch(joinedAlpha, /\/UID-chat-a"/);
+        assert.match(joinedAlpha, /\/UID-chat-a"/);
         assert.match(joinedBravo, /status code="110"/);
-        assert.match(joinedBravo, /\/Bravo"/);
+        assert.match(joinedBravo, /\/UID-chat-b"/);
         const readyA = frame(a);
         const readyB = frame(b);
         a.send('<iq type="get" id="ready-a"/>');

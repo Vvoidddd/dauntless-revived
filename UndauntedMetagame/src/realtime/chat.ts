@@ -136,12 +136,12 @@ export class ChatServer {
                 const room = to.split("/")[0].toLowerCase();
                 if (node.attrs.type === "unavailable") {
                     client.rooms.delete(room);
-                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.displayName!)}" to="${escapeXml(jid(client))}" type="unavailable"/>`);
+                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.id)}" to="${escapeXml(jid(client))}" type="unavailable"/>`);
                 } else if (client.rooms.has(room) || client.rooms.size < 8) {
                     client.rooms.add(room);
                     // MUC clients need their own reflected presence before considering a
                     // public-room join complete. Code 110 identifies this occupant as self.
-                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.displayName!)}" to="${escapeXml(jid(client))}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="member" role="participant"/><status code="110"/></x></presence>`);
+                    send(client, `<presence from="${escapeXml(room)}/${escapeXml(client.id)}" to="${escapeXml(jid(client))}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="member" role="participant"/><status code="110"/></x></presence>`);
                 }
             } else client.available = node.attrs.type !== "unavailable";
             return true;

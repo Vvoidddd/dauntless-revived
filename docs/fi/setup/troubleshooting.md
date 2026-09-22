@@ -474,7 +474,7 @@ Lue metagamen lokia siitä hetkestä alkaen, kun käynnistit pelin:
 huoneeseen asti. Erillinen STOMP-varoitus `Bad protocol 'http'` ei aiheuta tätä chat-virhettä.
 Chat ei ole oletusarvoisesti käytössä. Paikallisessa 1.4.4-testissä Ramsgate-viesti näkyi,
 mutta lähettäjänä näkyi UID. Prototyyppi lähettää nyt tunnistetun tilin tallennetun käyttäjänimen
-huoneen nimimerkkinä. Varmista nimen näkyminen ja kahden pelaajan viestit ennen kuin chatin
+viesteissä mutta säilyttää UID:n huoneeseen liittymisen omassa läsnäoloviestissä. Varmista nimen näkyminen ja kahden pelaajan viestit ennen kuin chatin
 katsotaan olevan valmis. Portin 61099 on pysyttävä vain paikallisessa silmukkaliitännässä
 julkisen gatewayn takana; matchmaking-asetukset eivät korjaa XMPP-yhteyden katkeamista.
 
