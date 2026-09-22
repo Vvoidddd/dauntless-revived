@@ -127,7 +127,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 - Don't break cells down into dust yet. Nobody has checked whether the dust is kept.
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
 - The launcher isn't code-signed yet. If Windows only offers "Don't run", check the installer against `SHA256SUMS.txt` from the same release and unblock it (Properties > Unblock, or `Unblock-File`).
-- The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17.
+- The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17. The launcher has an experimental opt-in (Settings > Graphics > Auto exposure > Basic adaptive); if Ramsgate or night hunts look wrong with it, switch back to Game default.
 - Parties are built on the server but haven't been tried with two players yet; that is the next test. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
 - There is no text chat yet. Use Discord.
 
@@ -789,8 +789,9 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
     - keep automatic exposure on, but clamp its range
     - a different metering method
     - a launcher option, so each player can choose
+  - **Experiment (Vvoidddd, [PR #7](https://github.com/mixutin/dauntless-revived/pull/7)):** the launcher offers an opt-in **Basic adaptive (experimental)** choice under Settings > Graphics > Auto exposure. It writes `r.EyeAdaptation.MethodOverride=2`, which the hash-pinned 1.4.4 executable's own help text calls "Auto Basic", so automatic exposure stays on (unlike `r.EyeAdaptationQuality=0`). **Game default** stays the default for everyone, and switching back removes the line at the next launch. This is not the proper fix yet: nobody has compared the same airship, Ramsgate and a night hunt with it, and the default does not change until that A/B check is done. This item stays open.
   - **You'll notice:** the airship cabin looks right, and Ramsgate and night scenes keep their normal brightness.
-  - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`.
+  - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`. *From a string scan of the 1.4.4 executable: `r.EyeAdaptation.MethodOverride`, `ExponentialTransitionDistance`, `LensAttenuation`, `BlackHistogramBucketInfluence`, `PreExposureOverride` and `Basic.Compute` exist, and `r.DefaultFeature.AutoExposure` (with `.Method`, `.Bias` and `.ExtendDefaultLuminanceRange`) are project defaults that post-process volumes override. The minimum and maximum brightness clamps exist only as post-process settings, not as console variables. A string scan cannot show whether a variable is ignored in a Shipping build; only the game can.*
   - **Done when:** in an in-game A/B check by the owner, the airship and the Ramsgate and night scenes all look right.
 
 ---

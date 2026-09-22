@@ -374,7 +374,13 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   korjauksen, joka ei pilaa pelin ulkonäköä. Kokeiltavat vaihtoehdot: automaattinen valotus pysyy
   päällä, mutta sen vaihteluväliä rajataan; valotus mitataan toisella tavalla; tai käynnistimeen tulee
   asetus, josta jokainen pelaaja voi valita. Ensin selvitetään, mitä valotusasetuksia 1.4.4 hyväksyy
-  `Engine.ini`-tiedostossa. *Valmis, kun:* omistaja vertaa vaihtoehtoja pelissä rinnakkain
+  `Engine.ini`-tiedostossa. *Kokeilu:* Vvoidddd lisäsi käynnistimeen valinnaisen asetuksen
+  ([PR #7](https://github.com/mixutin/dauntless-revived/pull/7)): Asetukset > Grafiikka >
+  Automaattinen valotus > **Mukautuva perusvalotus (kokeellinen)** kirjoittaa rivin
+  `r.EyeAdaptation.MethodOverride=2`, jota 1.4.4:n ohjelmatiedosto kutsuu nimellä ”Auto Basic”, joten
+  automaattinen valotus pysyy päällä. **Pelin oletus** on edelleen kaikkien oletus. Tämä ei ole vielä
+  kunnollinen korjaus: sitä ei ole verrattu pelissä, eikä oletus muutu ennen vertailua, joten kohta on
+  yhä avoin. *Valmis, kun:* omistaja vertaa vaihtoehtoja pelissä rinnakkain
   (A/B-vertailu), ja sekä ilmalaiva että Ramsgate ja yökohtaukset näyttävät oikeilta.
 
 ---
@@ -393,7 +399,9 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   asennusohjelma saman julkaisun `SHA256SUMS.txt`-tiedostoa vasten ja poista esto (Ominaisuudet >
   Poista esto, tai `Unblock-File`).
 - Ilmalaiva ennen metsästystä on toistaiseksi hyvin pimeä. Se on lyhyt kohtaus, ja kunnollinen
-  korjaus on kohta 4.17.
+  korjaus on kohta 4.17. Käynnistimessä on kokeellinen valinnainen asetus (Asetukset > Grafiikka >
+  Automaattinen valotus > Mukautuva perusvalotus). Jos Ramsgate tai yömetsästykset näyttävät sen kanssa
+  oudoilta, vaihda takaisin asetukseen Pelin oletus.
 - Ryhmät on rakennettu palvelimelle, mutta niitä ei ole vielä kokeiltu kahdella pelaajalla; se on
   seuraava testi. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä näy paikalla
   olevina.

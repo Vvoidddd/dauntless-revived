@@ -110,14 +110,15 @@ kerrotaan lisää sivulla [Pelin sisältö ja asetukset]({{ assets_page.url | re
 | Kirjoittaja | Milloin | `Engine.ini` | `Game.ini` | `GameUserSettings.ini` |
 |:------------|:--------|:-------------|:-----------|:-----------------------|
 | Käynnistin (`UndauntedLauncher/`) | Jokaisella PELAA-painalluksella ennen kuin peli käynnistyy | Korvaa osiot `[SystemSettings]` ja `[OnlineSubsystemMcp.XMPP]` | Ei koskaan | `sg.<ryhmä>Quality`-rivit, kun taso on valittu ja tiedosto on olemassa |
-| Kaveripaketti, `friend-kit/play.ps1` | Jokaisella käynnistyksellä, myös valinnalla `-DryRun` | Samat rivit kuin käynnistin | Ei koskaan | Kuten käynnistin |
+| Kaveripaketti, `friend-kit/play.ps1` | Jokaisella käynnistyksellä, myös valinnalla `-DryRun` | Samat rivit kuin käynnistin, paitsi käynnistimen valinnainen [automaattisen valotuksen](#auto-exposure) rivi | Ei koskaan | Kuten käynnistin |
 | Isännän `C:\dr\tools\play.ps1` (ei repositoriossa; kokonaisuudessaan sivun [Pystytä palvelin vaiheessa 13]({{ host_page.url | relative_url }}#launch-the-client)) | Jokaisella käynnistyksellä | Samat rivit | Ei koskaan | Sama, ja lisäksi `sg.ResolutionQuality=100.000000` |
 | Isännän `make-gameini.ps1` (skripti, jonka tallennat sivun [Pystytä palvelin vaiheesta 8]({{ host_page.url | relative_url }}#game-ini); ei repositoriossa) | Kun ajat sen | Ei kosketa | Korvaa koko tiedoston | Ei kosketa |
 | Windows-palvelinpaketti, `Install-DauntlessServer.ps1` | Jokaisella asennusohjelman ajokerralla. `Update-DauntlessServer.ps1` **ei** kirjoita näitä tiedostoja uudelleen. | Vain muistirivit ja chatin uudelleenohjaus: ei grafiikkarivejä | Korvaa koko tiedoston | Ei kosketa |
 | Peli itse | Käynnissä ollessaan | Kirjoittaa tiedoston uudelleen ja säilyttää osiomme | Kirjoittaa tiedoston uudelleen; lainausmerkeissä olevat arvot säilyvät | Asetusvalikostaan |
 
 Kun tiedostoa ei vielä ole, käynnistin kirjoittaa täsmälleen samat tavut kuin kaveripaketin
-`play.ps1`. Käynnistimen testi tarkistaa tämän tavu tavulta.
+`play.ps1`, kunhan automaattinen valotus on asetuksella ”Pelin oletus” (oletus). Käynnistimen testi
+tarkistaa tämän tavu tavulta.
 
 ### Näin `Engine.ini`-tiedoston uudelleenkirjoitus toimii {#engine-ini-rewrite}
 
@@ -174,16 +175,19 @@ pätee pelin valmis oletusarvo.
 | `r.MipMapLODBias` | `0` | kokonaisluku | Täyden resoluution tekstuuritasot (mipit). | Peliohjelman kirjoittajat, kun taso on pakotettu |
 | `r.MaxAnisotropy` | `16` | kokonaisluku | 16x anisotrooppinen suodatus: tekstuurit pysyvät terävinä myös vinossa katselukulmassa. | Peliohjelman kirjoittajat, kun taso on pakotettu |
 | `r.Tonemapper.Sharpen` | `0.6` | liukuluku | Kevyt terävöinti UE4:n ajallisen reunanpehmennyksen (temporal anti-aliasing) pehmeyttä vastaan. | Peliohjelman kirjoittajat, kun taso on pakotettu |
+| `r.EyeAdaptation.MethodOverride` | `2` | `-2` omat asetukset (testaukseen), `-1` ei ohitusta, `1` automaattinen, histogrammiin perustuva, `2` automaattinen, perus, `3` käsin (1.4.4:n ohjelmatiedoston oma ohjeteksti) | Vaihtaa automaattisen valotuksen histogrammista UE4:n perusmittaukseen; valotus pysyy automaattisena. Kokeilu [pimeää ilmalaivaa]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out) vastaan, jota ei ole vielä verrattu pelissä. Aina osion viimeinen rivi. | Vain käynnistin, ja vain kun Asetukset > Grafiikka > Automaattinen valotus on ”Mukautuva perusvalotus (kokeellinen)”. Katso [Automaattinen valotus](#auto-exposure). |
 
 Muistirivit ovat peräisin 2.1.1-työstämme, jossa rajoittamaton peliohjelma nousi 9 gigatavuun.
 1.4.4:ssä ne ovat varotoimi; emme ole mitanneet 1.4.4:ää ilman niitä. Aiemmin käyttämämme matalat
 rajat aiheuttivat [sumean grafiikan]({{ trouble_page.url | relative_url }}#blurry-graphics).
 
-**Valotusriviä ei enää ole.** Käynnistimen versio 0.1.0 sekä saman ajan kaveripaketti ja isännän
-skripti kirjoittivat myös rivin `r.EyeAdaptationQuality=0`. Se korjasi pimeän ilmalaivan ennen
-metsästystä, mutta teki Ramsgatesta ja yökohtauksista aivan liian pimeitä. Siksi käynnistimen versiosta
-0.1.1 alkaen mikään kirjoittaja ei aseta sitä, ja seuraavan käynnistyksen uudelleenkirjoitus poistaa
-vanhan rivin. Katso
+**Mikään kirjoittaja ei laita automaattista valotusta pois.** Käynnistimen versio 0.1.0 sekä saman
+ajan kaveripaketti ja isännän skripti kirjoittivat myös rivin `r.EyeAdaptationQuality=0`. Se korjasi
+pimeän ilmalaivan ennen metsästystä, mutta teki Ramsgatesta ja yökohtauksista aivan liian pimeitä.
+Siksi käynnistimen versiosta 0.1.1 alkaen mikään kirjoittaja ei aseta sitä, ja seuraavan
+käynnistyksen uudelleenkirjoitus poistaa vanhan rivin. Ainoa valotusrivi, jonka mikään kirjoittaja
+nyt laittaa tiedostoon, on yllä oleva käynnistimen valinnainen `r.EyeAdaptation.MethodOverride=2`,
+joka pitää automaattisen valotuksen päällä. Katso
 [Ilmalaiva on tosi pimeä ja ikkunat palavat puhki valkoisiksi]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
 
 Käynnistimen oletustasolla (4) käynnistetty peliohjelma saa tämän osion:
@@ -210,7 +214,9 @@ r.Tonemapper.Sharpen=0.6
 ```
 
 Tasolla `-1` osio päättyy riviin `s.ForceGCAfterLevelStreamedOut=1`: siinä on vain neljä
-muistiriviä, samat, jotka palvelinpaketti kirjoittaa.
+muistiriviä, samat, jotka palvelinpaketti kirjoittaa. Kun automaattinen valotus on asetuksella
+”Mukautuva perusvalotus (kokeellinen)”, `r.EyeAdaptation.MethodOverride=2` tulee viimeiseksi riviksi
+jokaisella tasolla.
 
 ### Grafiikkatasot {#graphics-levels}
 
@@ -236,6 +242,21 @@ Tasoilla 0–4 kirjoittaja asettaa myös valikon omat rivit
 [`GameUserSettings.ini`-tiedostoon](#gameusersettings), jotta asetusnäyttö näyttää pakotetun tason.
 Niin kauan kuin taso on pakotettu, se voittaa sen, mitä asetusvalikossa lukee, ja seuraava käynnistys
 kirjoittaa sen taas.
+
+### Automaattinen valotus {#auto-exposure}
+
+Valinnainen kokeilu pimeää ilmalaivaa vastaan ennen metsästystä (tiekartan kohta 4.17). Sen lisäsi
+Vvoidddd ([#7](https://github.com/mixutin/dauntless-revived/pull/7)). Se on oletuksena pois päältä.
+
+| Kirjoittaja | Oletus | Näin muutat sitä |
+|:------------|:-------|:-----------------|
+| Käynnistin | `game` (”Pelin oletus”): ei valotusriviä | Asetukset > Grafiikka > Automaattinen valotus: ”Pelin oletus” tai ”Mukautuva perusvalotus (kokeellinen)”, joka kirjoittaa rivin `r.EyeAdaptation.MethodOverride=2`. Tallennetaan nimellä `exposure` käynnistimen `settings.json`-tiedostoon (`game` tai `basic`); mikä tahansa muu arvo palautuu arvoon `game`. Tulee voimaan seuraavalla PELAA-painalluksella. |
+| Kaveripaketin `play.ps1`, isännän `play.ps1` | ei mitään | Ei tarjolla. Kun ne kirjoittavat `[SystemSettings]`-osion uudelleen, käynnistimen kirjoittama rivi poistuu. |
+| Palvelinpaketti | ei mitään | Ei koske: pelipalvelimet eivät piirrä mitään. |
+
+Kun valitset taas ”Pelin oletus”, rivi poistuu seuraavalla PELAA-painalluksella, koska käynnistin
+kirjoittaa koko osion uudelleen. Siihen asti (esimerkiksi jos poistat käynnistimen) rivi jää
+`Engine.ini`-tiedostoon. Siitä ei ole haittaa, koska valotus pysyy automaattisena.
 
 ---
 

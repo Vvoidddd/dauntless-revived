@@ -55,7 +55,7 @@ function temp(prefix: string): string {
 before(async () => {
   cert = makeTestCert();
   other = makeTestCert();
-  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE"]) });
+  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE", "EXPOSURE-CODE"]) });
   content = new FakeContentServer({ key: "unused", files });
   gateway = https.createServer({ cert: cert.certPem, key: cert.keyPem }, (req, res) => {
     gatewayRequests.push(`${req.method} ${req.url}`);
@@ -221,6 +221,36 @@ test("public mode end to end: join, register, install, play through the relay, g
   assert.equal(hx.c.relayActive, false);
   assert.equal(hx.last().phase, "ready");
   await assert.rejects(get(RELAY_PORT, "/undaunted/api/ServerStatus"));
+  await hx.c.shutdown();
+});
+
+test("auto exposure: off by default; Basic is stored and written at the next PLAY, an unknown value changes nothing, Game default removes it", async () => {
+  const hx = harness();
+  await hx.c.init();
+  assert.deepEqual(await hx.c.submitInvite(invite(cert.fingerprint, "EXPOSURE-CODE")), { ok: true });
+  assert.deepEqual(await hx.c.register("Exposure_1"), { ok: true, username: "Exposure_1" });
+  assert.deepEqual(await hx.c.startInstall(), { ok: true });
+  assert.equal(hx.last().settings.exposure, "game", "the game's own exposure unless the player opts in");
+
+  assert.equal((await hx.c.setSettings({ exposure: "basic" })).exposure, "basic");
+  assert.equal((await hx.c.setSettings({ exposure: "manual" })).exposure, "basic", "an unknown value is ignored");
+  assert.equal(JSON.parse(readFileSync(path.join(hx.userData, "settings.json"), "utf8")).exposure, "basic");
+  assert.equal(hx.last().settings.exposure, "basic");
+
+  assert.deepEqual(await hx.c.play(), { ok: true });
+  let ini = readFileSync(path.join(hx.configDir, "Engine.ini"), "latin1");
+  assert.ok(ini.includes("r.EyeAdaptation.MethodOverride=2\r\n\r\n[OnlineSubsystemMcp.XMPP]"), ini);
+  assert.ok(!ini.includes("EyeAdaptationQuality"), ini);
+  assert.ok(logLines.some((l) => l.includes("game config: auto exposure basic")));
+  hx.child()!.emit("exit", 0);
+  await new Promise((r) => setTimeout(r, 100));
+
+  assert.equal((await hx.c.setSettings({ exposure: "game" })).exposure, "game");
+  assert.deepEqual(await hx.c.play(), { ok: true });
+  ini = readFileSync(path.join(hx.configDir, "Engine.ini"), "latin1");
+  assert.ok(!/EyeAdaptation/i.test(ini), ini);
+  hx.child()!.emit("exit", 0);
+  await new Promise((r) => setTimeout(r, 100));
   await hx.c.shutdown();
 });
 

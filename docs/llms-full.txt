@@ -3545,7 +3545,7 @@ never logged.
 
 ## Launcher environment overrides
 
-The friend launcher has a settings page of its own (graphics, window, language). Where it keeps them
+The friend launcher has a settings page of its own (graphics, auto exposure, window, language). Where it keeps them
 is on [Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html), and what the graphics level writes into the game's
 ini files on [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html). From its environment it
 reads only the variables below.
@@ -5271,7 +5271,7 @@ The launcher keeps its data in Electron's per-user folder, which is named after 
 
 | Path | What it is |
 |:-----|:-----------|
-| `settings.json` | The joined server (mode, host, port, name, and the Tailscale share link or the certificate fingerprint; the invite code until it has been used), the install folder, the last fully checked game folder, the graphics preset, windowed mode, the language, and per server the username and whether the key backup was offered. Written atomically through `settings.json.tmp`; invalid fields fall back to defaults when it is read. No account key. |
+| `settings.json` | The joined server (mode, host, port, name, and the Tailscale share link or the certificate fingerprint; the invite code until it has been used), the install folder, the last fully checked game folder, the graphics preset, the auto exposure choice (`exposure`: `game` or `basic`), windowed mode, the language, and per server the username and whether the key backup was offered. Written atomically through `settings.json.tmp`; invalid fields fall back to defaults when it is read. No account key. |
 | `keys\<server id>.key` | The account key for one server. **Secret: never share, never copy it anywhere.** It is encrypted with Windows DPAPI, so only the same Windows user on the same PC can read it. Inside: the format tag `DRK2`, the certificate fingerprint the key belongs to (public servers) and the key. The server id is the first 24 hex characters of the SHA-256 of `host:port` (private mode) or `public:host:port` (public mode). "Log out" deletes the file. |
 | `logs\launcher.log`, `launcher.old.log` | The launcher log (see [Logs](https://mixutin.github.io/dauntless-revived/reference/files.html#logs)): startup, joins, connection problems, downloads, the game's command line with the key hidden. It holds server addresses and your username. |
 | `verified-files.json` | Size and modification time of the game files already hashed, so an interrupted install does not hash them again. Repair ignores it. Safe to delete. |
@@ -5379,14 +5379,14 @@ is in [Game assets and config](https://mixutin.github.io/dauntless-revived/findi
 | Writer | When | `Engine.ini` | `Game.ini` | `GameUserSettings.ini` |
 |:-------|:-----|:-------------|:-----------|:-----------------------|
 | Launcher (`UndauntedLauncher/`) | Every PLAY, before the game starts | Replaces `[SystemSettings]` and `[OnlineSubsystemMcp.XMPP]` | Never | `sg.<Group>Quality` lines, when a level is chosen and the file exists |
-| Friend kit, `friend-kit/play.ps1` | Every launch, also with `-DryRun` | The same lines as the launcher | Never | Same as the launcher |
+| Friend kit, `friend-kit/play.ps1` | Every launch, also with `-DryRun` | The same lines as the launcher, except the launcher's opt-in [auto exposure](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#auto-exposure) line | Never | Same as the launcher |
 | Host's `C:\dr\tools\play.ps1` (not in the repository; listed in full in [Host a server, step 13](https://mixutin.github.io/dauntless-revived/setup/host.html#launch-the-client)) | Every launch | The same lines | Never | Same, plus `sg.ResolutionQuality=100.000000` |
 | Host's `make-gameini.ps1` (a script to save from [Host a server, step 8](https://mixutin.github.io/dauntless-revived/setup/host.html#game-ini); not in the repository) | When you run it | Not touched | Overwrites the whole file | Not touched |
 | Windows server kit, `Install-DauntlessServer.ps1` | Every run of the installer. `Update-DauntlessServer.ps1` does **not** rewrite these files. | Memory lines and the chat redirect only: no graphics lines | Overwrites the whole file | Not touched |
 | The game itself | While it runs | Rewrites the file and keeps our sections | Rewrites the file; quoted values survive | From its options menu |
 
-For a new file, the launcher writes exactly the bytes the friend kit's `play.ps1` writes. A launcher
-test checks that byte for byte.
+For a new file, the launcher writes exactly the bytes the friend kit's `play.ps1` writes, as long as
+Auto exposure is on "Game default" (the default). A launcher test checks that byte for byte.
 
 ### How the `Engine.ini` rewrite works
 
@@ -5440,15 +5440,17 @@ the cooked default applies.
 | `r.MipMapLODBias` | `0` | integer | Full-resolution texture mips. | Client writers, with a forced level |
 | `r.MaxAnisotropy` | `16` | integer | 16x anisotropic filtering: sharp textures at glancing angles. | Client writers, with a forced level |
 | `r.Tonemapper.Sharpen` | `0.6` | float | A light sharpen against the softness of UE4's temporal anti-aliasing. | Client writers, with a forced level |
+| `r.EyeAdaptation.MethodOverride` | `2` | `-2` custom settings (for testing), `-1` no override, `1` automatic, histogram based, `2` automatic, basic, `3` manual (the 1.4.4 executable's own help text) | Switches automatic exposure from the histogram to UE4's basic metering; exposure stays automatic. An experiment against the [dark airship](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out), not yet compared in game. Always the last line of the section. | The launcher only, and only when Settings > Graphics > Auto exposure is "Basic adaptive (experimental)". See [Auto exposure](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#auto-exposure). |
 
 The memory lines come from our 2.1.1 work, where a client with no limits reached 9 GB. On 1.4.4 they
 are a precaution; we have not measured 1.4.4 without them. The low caps we used before these were
 the cause of [blurry graphics](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#blurry-graphics).
 
-**No exposure line any more.** Launcher 0.1.0, and the friend kit and host script of that time, also
-wrote `r.EyeAdaptationQuality=0`. It fixed the dark pre-hunt airship but made Ramsgate and night
-scenes far too dark, so since launcher 0.1.1 no writer sets it, and the next launch's rewrite removes
-the old line. See
+**No writer turns automatic exposure off.** Launcher 0.1.0, and the friend kit and host script of
+that time, also wrote `r.EyeAdaptationQuality=0`. It fixed the dark pre-hunt airship but made
+Ramsgate and night scenes far too dark, so since launcher 0.1.1 no writer sets it, and the next
+launch's rewrite removes the old line. The only exposure line any writer puts in the file now is the
+launcher's opt-in `r.EyeAdaptation.MethodOverride=2` above, which keeps automatic exposure on. See
 [Airship is extremely dark with blown-out windows](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out).
 
 A client launched with the launcher's default level (4) gets this section:
@@ -5475,7 +5477,8 @@ r.Tonemapper.Sharpen=0.6
 ```
 
 With level `-1` it ends after `s.ForceGCAfterLevelStreamedOut=1`: only the four memory lines, the
-same four the server kit writes.
+same four the server kit writes. With Auto exposure on "Basic adaptive (experimental)",
+`r.EyeAdaptation.MethodOverride=2` follows as the last line, at every level.
 
 ### Graphics levels
 
@@ -5498,6 +5501,21 @@ same four the server kit writes.
 With level 0 to 4, the writer also sets the menu's own lines in
 [`GameUserSettings.ini`](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#gameusersettings), so the options screen shows the forced level. While a
 level is forced, it wins over whatever the options menu says, and the next launch writes it again.
+
+### Auto exposure
+
+An opt-in experiment against the dark pre-hunt airship (roadmap 4.17), added by Vvoidddd
+([#7](https://github.com/mixutin/dauntless-revived/pull/7)). It is off by default.
+
+| Writer | Default | How to change it |
+|:-------|:--------|:-----------------|
+| Launcher | `game` ("Game default"): no exposure line | Settings > Graphics > Auto exposure: "Game default" or "Basic adaptive (experimental)", which writes `r.EyeAdaptation.MethodOverride=2`. Stored as `exposure` in the launcher's `settings.json` (`game` or `basic`); any other value falls back to `game`. Takes effect at the next PLAY. |
+| Friend kit `play.ps1`, host's `play.ps1` | none | Not offered. Their rewrite of `[SystemSettings]` removes a line the launcher wrote. |
+| Server kit | none | Not applicable: game servers render nothing. |
+
+Switching back to "Game default" removes the line at the next PLAY, because the launcher rewrites
+the whole section. Until then (for example after uninstalling the launcher) the line stays in
+`Engine.ini`; it is harmless, since exposure stays automatic.
 
 ---
 
@@ -11317,7 +11335,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 - Don't break cells down into dust yet. Nobody has checked whether the dust is kept.
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
 - The launcher isn't code-signed yet. If Windows only offers "Don't run", check the installer against `SHA256SUMS.txt` from the same release and unblock it (Properties > Unblock, or `Unblock-File`).
-- The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17.
+- The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17. The launcher has an experimental opt-in (Settings > Graphics > Auto exposure > Basic adaptive); if Ramsgate or night hunts look wrong with it, switch back to Game default.
 - Parties are built on the server but haven't been tried with two players yet; that is the next test. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
 - There is no text chat yet. Use Discord.
 
@@ -11979,8 +11997,9 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
     - keep automatic exposure on, but clamp its range
     - a different metering method
     - a launcher option, so each player can choose
+  - **Experiment (Vvoidddd, [PR #7](https://github.com/mixutin/dauntless-revived/pull/7)):** the launcher offers an opt-in **Basic adaptive (experimental)** choice under Settings > Graphics > Auto exposure. It writes `r.EyeAdaptation.MethodOverride=2`, which the hash-pinned 1.4.4 executable's own help text calls "Auto Basic", so automatic exposure stays on (unlike `r.EyeAdaptationQuality=0`). **Game default** stays the default for everyone, and switching back removes the line at the next launch. This is not the proper fix yet: nobody has compared the same airship, Ramsgate and a night hunt with it, and the default does not change until that A/B check is done. This item stays open.
   - **You'll notice:** the airship cabin looks right, and Ramsgate and night scenes keep their normal brightness.
-  - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`.
+  - **Needs:** nothing. The first step is to find out which exposure settings 1.4.4 accepts in `Engine.ini`. *From a string scan of the 1.4.4 executable: `r.EyeAdaptation.MethodOverride`, `ExponentialTransitionDistance`, `LensAttenuation`, `BlackHistogramBucketInfluence`, `PreExposureOverride` and `Basic.Compute` exist, and `r.DefaultFeature.AutoExposure` (with `.Method`, `.Bias` and `.ExtendDefaultLuminanceRange`) are project defaults that post-process volumes override. The minimum and maximum brightness clamps exist only as post-process settings, not as console variables. A string scan cannot show whether a variable is ignored in a Shipping build; only the game can.*
   - **Done when:** in an in-game A/B check by the owner, the airship and the Ramsgate and night scenes all look right.
 
 ---

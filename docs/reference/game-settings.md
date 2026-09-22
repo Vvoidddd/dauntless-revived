@@ -108,14 +108,14 @@ is in [Game assets and config]({{ assets_page.url | relative_url }}).
 | Writer | When | `Engine.ini` | `Game.ini` | `GameUserSettings.ini` |
 |:-------|:-----|:-------------|:-----------|:-----------------------|
 | Launcher (`UndauntedLauncher/`) | Every PLAY, before the game starts | Replaces `[SystemSettings]` and `[OnlineSubsystemMcp.XMPP]` | Never | `sg.<Group>Quality` lines, when a level is chosen and the file exists |
-| Friend kit, `friend-kit/play.ps1` | Every launch, also with `-DryRun` | The same lines as the launcher | Never | Same as the launcher |
+| Friend kit, `friend-kit/play.ps1` | Every launch, also with `-DryRun` | The same lines as the launcher, except the launcher's opt-in [auto exposure](#auto-exposure) line | Never | Same as the launcher |
 | Host's `C:\dr\tools\play.ps1` (not in the repository; listed in full in [Host a server, step 13]({{ host_page.url | relative_url }}#launch-the-client)) | Every launch | The same lines | Never | Same, plus `sg.ResolutionQuality=100.000000` |
 | Host's `make-gameini.ps1` (a script to save from [Host a server, step 8]({{ host_page.url | relative_url }}#game-ini); not in the repository) | When you run it | Not touched | Overwrites the whole file | Not touched |
 | Windows server kit, `Install-DauntlessServer.ps1` | Every run of the installer. `Update-DauntlessServer.ps1` does **not** rewrite these files. | Memory lines and the chat redirect only: no graphics lines | Overwrites the whole file | Not touched |
 | The game itself | While it runs | Rewrites the file and keeps our sections | Rewrites the file; quoted values survive | From its options menu |
 
-For a new file, the launcher writes exactly the bytes the friend kit's `play.ps1` writes. A launcher
-test checks that byte for byte.
+For a new file, the launcher writes exactly the bytes the friend kit's `play.ps1` writes, as long as
+Auto exposure is on "Game default" (the default). A launcher test checks that byte for byte.
 
 ### How the `Engine.ini` rewrite works {#engine-ini-rewrite}
 
@@ -169,15 +169,17 @@ the cooked default applies.
 | `r.MipMapLODBias` | `0` | integer | Full-resolution texture mips. | Client writers, with a forced level |
 | `r.MaxAnisotropy` | `16` | integer | 16x anisotropic filtering: sharp textures at glancing angles. | Client writers, with a forced level |
 | `r.Tonemapper.Sharpen` | `0.6` | float | A light sharpen against the softness of UE4's temporal anti-aliasing. | Client writers, with a forced level |
+| `r.EyeAdaptation.MethodOverride` | `2` | `-2` custom settings (for testing), `-1` no override, `1` automatic, histogram based, `2` automatic, basic, `3` manual (the 1.4.4 executable's own help text) | Switches automatic exposure from the histogram to UE4's basic metering; exposure stays automatic. An experiment against the [dark airship]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out), not yet compared in game. Always the last line of the section. | The launcher only, and only when Settings > Graphics > Auto exposure is "Basic adaptive (experimental)". See [Auto exposure](#auto-exposure). |
 
 The memory lines come from our 2.1.1 work, where a client with no limits reached 9 GB. On 1.4.4 they
 are a precaution; we have not measured 1.4.4 without them. The low caps we used before these were
 the cause of [blurry graphics]({{ trouble_page.url | relative_url }}#blurry-graphics).
 
-**No exposure line any more.** Launcher 0.1.0, and the friend kit and host script of that time, also
-wrote `r.EyeAdaptationQuality=0`. It fixed the dark pre-hunt airship but made Ramsgate and night
-scenes far too dark, so since launcher 0.1.1 no writer sets it, and the next launch's rewrite removes
-the old line. See
+**No writer turns automatic exposure off.** Launcher 0.1.0, and the friend kit and host script of
+that time, also wrote `r.EyeAdaptationQuality=0`. It fixed the dark pre-hunt airship but made
+Ramsgate and night scenes far too dark, so since launcher 0.1.1 no writer sets it, and the next
+launch's rewrite removes the old line. The only exposure line any writer puts in the file now is the
+launcher's opt-in `r.EyeAdaptation.MethodOverride=2` above, which keeps automatic exposure on. See
 [Airship is extremely dark with blown-out windows]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
 
 A client launched with the launcher's default level (4) gets this section:
@@ -204,7 +206,8 @@ r.Tonemapper.Sharpen=0.6
 ```
 
 With level `-1` it ends after `s.ForceGCAfterLevelStreamedOut=1`: only the four memory lines, the
-same four the server kit writes.
+same four the server kit writes. With Auto exposure on "Basic adaptive (experimental)",
+`r.EyeAdaptation.MethodOverride=2` follows as the last line, at every level.
 
 ### Graphics levels {#graphics-levels}
 
@@ -227,6 +230,21 @@ same four the server kit writes.
 With level 0 to 4, the writer also sets the menu's own lines in
 [`GameUserSettings.ini`](#gameusersettings), so the options screen shows the forced level. While a
 level is forced, it wins over whatever the options menu says, and the next launch writes it again.
+
+### Auto exposure {#auto-exposure}
+
+An opt-in experiment against the dark pre-hunt airship (roadmap 4.17), added by Vvoidddd
+([#7](https://github.com/mixutin/dauntless-revived/pull/7)). It is off by default.
+
+| Writer | Default | How to change it |
+|:-------|:--------|:-----------------|
+| Launcher | `game` ("Game default"): no exposure line | Settings > Graphics > Auto exposure: "Game default" or "Basic adaptive (experimental)", which writes `r.EyeAdaptation.MethodOverride=2`. Stored as `exposure` in the launcher's `settings.json` (`game` or `basic`); any other value falls back to `game`. Takes effect at the next PLAY. |
+| Friend kit `play.ps1`, host's `play.ps1` | none | Not offered. Their rewrite of `[SystemSettings]` removes a line the launcher wrote. |
+| Server kit | none | Not applicable: game servers render nothing. |
+
+Switching back to "Game default" removes the line at the next PLAY, because the launcher rewrites
+the whole section. Until then (for example after uninstalling the launcher) the line stays in
+`Engine.ini`; it is harmless, since exposure stays automatic.
 
 ---
 

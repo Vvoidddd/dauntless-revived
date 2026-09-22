@@ -378,7 +378,7 @@ never logged.
 
 ## Launcher environment overrides {#launcher}
 
-The friend launcher has a settings page of its own (graphics, window, language). Where it keeps them
+The friend launcher has a settings page of its own (graphics, auto exposure, window, language). Where it keeps them
 is on [Files and data]({{ files_page.url | relative_url }}), and what the graphics level writes into the game's
 ini files on [Game settings]({{ gamesettings_page.url | relative_url }}). From its environment it
 reads only the variables below.

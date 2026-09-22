@@ -393,7 +393,7 @@ koskaan kirjata lokiin.
 
 ## Käynnistimen ympäristömuuttujat {#launcher}
 
-Kaverikäynnistimellä on oma asetussivunsa (grafiikka, ikkuna, kieli). Missä se säilyttää asetukset,
+Kaverikäynnistimellä on oma asetussivunsa (grafiikka, automaattinen valotus, ikkuna, kieli). Missä se säilyttää asetukset,
 kerrotaan sivulla [Tiedostot ja data]({{ files_page.url | relative_url }}), ja mitä grafiikkataso
 kirjoittaa pelin ini-tiedostoihin, sivulla [Pelin asetukset]({{ gamesettings_page.url | relative_url }}).
 Ympäristöstään käynnistin lukee vain alla olevat muuttujat.
