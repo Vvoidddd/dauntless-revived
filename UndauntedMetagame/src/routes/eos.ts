@@ -131,20 +131,54 @@ eosRouter.get("/account/api/public/account/:AccId/externalAuths", (req, res) => 
     res.json({});
 });
 
-// POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint: Epic's account-mapping
-// lookup ("QueryExternalIdMappings request for N Ids"), which the game calls after a friend search
-// and before it shows a party invite. Upstream answered 404, and both then went nowhere. The request
-// format has not been captured yet, so this logs its shape (keys and id counts, never values that
-// could be tokens) and answers like Epic's lookup/externalId: an object keyed by the asked id, each
-// with a list of accounts. Every asked id that is one of our accounts maps to itself; other ids are
-// left out. Names only go to a caller with a player token, like the other account lookups.
+// POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint, which the game calls after
+// a friend search ("Add Friends") and right after a party invite arrives. Upstream answered 404, and
+// both then went nowhere. It is Phoenix's own client, not Epic's: the exe has "srcAccountType",
+// "accountMappings", "accountType", "epic" and "phoenix" next to it, and the live 1.4.4 client sent
+// {"srcAccountType": "epic", "ids": ["<account id>"]} (22 September 2026). A first answer in Epic's
+// lookup/externalId shape (an object keyed by the asked id) still showed nothing in game.
+//
+// The reply now satisfies both readings a Phoenix service reply gets: flat, with "accountMappings" at
+// the top, and wrapped, {"code", "message", "payload": {"accountMappings"}}. Wrapped or flat depends
+// on the host (docs/findings/awakening-2-1-1.md); the 2.1.1 features/platform/win answer is the
+// precedent for sending one body that is both. The keyed-by-id object is gone: next to "code",
+// "message" and "payload", a reader that walks the top-level keys as ids would take "accountMappings"
+// (a list of account objects, the very shape an id's entry had) for an account id, and the client did
+// not read that shape anyway. On this server a player's Epic id and Phoenix id are the same UID-...,
+// so every mapping is the identity; each entry carries the likely spellings side by side so the client
+// finds its keys. Asked ids that are not our accounts are left out, and names only go to a caller with
+// a player token, like the other account lookups. The unconfirmed request is still logged by shape
+// only (keys and id counts, never values that could be tokens).
 const MAX_MAPPING_IDS = 100;
 
 function MappingIds(Body: any): string[] {
     const List = (Value: unknown) => Array.isArray(Value) ? Value : undefined;
-    const Raw: unknown[] = Array.isArray(Body) ? Body : List(Body?.externalIds) ?? List(Body?.ids) ?? List(Body?.accountIds) ?? List(Body?.externalAuthIds) ?? [];
+    const Raw: unknown[] = Array.isArray(Body) ? Body : List(Body?.ids) ?? List(Body?.externalIds) ?? List(Body?.accountIds) ?? List(Body?.externalAuthIds) ?? [];
 
     return [...new Set(Raw.filter((Id): Id is string => typeof Id === "string" && Id.length > 0 && Id.length <= 128))].slice(0, MAX_MAPPING_IDS);
+}
+
+// The account type the ids are in: srcAccountType as the client sends it, or the older guesses
+function MappingSourceType(Body: any): string {
+    const Field = [Body?.srcAccountType, Body?.type, Body?.externalAuthType].find((Value) => typeof Value === "string");
+
+    return typeof Field === "string" && /^[A-Za-z0-9_.-]{1,32}$/.test(Field) ? Field : "epic";
+}
+
+function AccountMappingEntry(Id: string, Name: string, SourceType: string){
+    return {
+        accountType: "phoenix",
+        accountId: Id,
+        id: Id,
+        epic: Id,
+        phoenix: Id,
+        srcAccountType: SourceType,
+        srcAccountId: Id,
+        srcId: Id,
+        dstAccountType: "phoenix",
+        dstAccountId: Id,
+        displayName: Name
+    };
 }
 
 function DescribeMappingBody(Body: any): string {
@@ -176,22 +210,27 @@ function DescribeMappingBody(Body: any): string {
 eosRouter.post("/account/mapping", SoftMetagameAuth, (req: any, res) => {
     const Caller = SoftPlayerOf(req);
     const Ids = MappingIds(req.body);
-    const TypeField = typeof req.body?.type === "string" ? req.body.type : req.body?.externalAuthType;
-    const Type = typeof TypeField === "string" && /^[A-Za-z0-9_.-]{1,32}$/.test(TypeField) ? TypeField : "epic";
+    const SourceType = MappingSourceType(req.body);
     const Names = Caller !== undefined ? FindUsernames(Ids) : new Map<string, string>();
-    const Reply: Record<string, object[]> = {};
+    const AccountMappings: ReturnType<typeof AccountMappingEntry>[] = [];
 
     for(const Id of Ids){
         const Name = Names.get(Id);
 
         if(Name !== undefined){
-            Reply[Id] = [{ accountId: Id, displayName: Name, type: Type, externalAuthId: Id, externalAuthIdType: Type, externalDisplayName: Name }];
+            AccountMappings.push(AccountMappingEntry(Id, Name, SourceType));
         }
     }
 
-    logger.info(`account/mapping by ${Caller ?? "<no token>"}: ${DescribeMappingBody(req.body)}; content-type ${String(req.headers["content-type"] ?? "none").slice(0, 60)} -> ${Object.keys(Reply).length} of ${Ids.length} mapped`);
+    logger.info(`account/mapping by ${Caller ?? "<no token>"}: ${DescribeMappingBody(req.body)}; content-type ${String(req.headers["content-type"] ?? "none").slice(0, 60)} -> ${AccountMappings.length} of ${Ids.length} mapped`);
 
-    res.json(Reply);
+    // Flat and wrapped in one body (see above)
+    res.json({
+        code: "OK",
+        message: "",
+        payload: { accountMappings: AccountMappings },
+        accountMappings: AccountMappings
+    });
 });
 
 eosRouter.delete("/account/api/oauth/sessions/kill", (req, res) => {

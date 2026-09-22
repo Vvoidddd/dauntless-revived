@@ -298,22 +298,33 @@ describe("account lookups (Hunt Members, /invite <name>)", () => {
         assert.equal((await Call("GET", "/account/api/public/account/displayName/Charlie")).status, 404);
     });
 
-    it("POST /account/mapping maps our own accounts to themselves, keyed by id, and never 404s", async () => {
-        const Expect = (Id: string, Name: string, Type = "epic") => [{ accountId: Id, displayName: Name, type: Type, externalAuthId: Id, externalAuthIdType: Type, externalDisplayName: Name }];
+    it("POST /account/mapping maps our own accounts to themselves in accountMappings, flat and wrapped at once, and never 404s", async () => {
+        const Entry = (Id: string, Name: string, Source = "epic") => ({
+            accountType: "phoenix", accountId: Id, id: Id, epic: Id, phoenix: Id,
+            srcAccountType: Source, srcAccountId: Id, srcId: Id, dstAccountType: "phoenix", dstAccountId: Id, displayName: Name
+        });
+        const Expect = (...Entries: object[]) => ({ code: "OK", message: "", payload: { accountMappings: Entries }, accountMappings: Entries });
 
-        const ByExternalIds = await Call("POST", "/account/mapping", { as: A, body: { type: "epic", externalIds: [B, "UID-nobody", C, B] } });
-        assert.equal(ByExternalIds.status, 200);
-        assert.deepEqual(ByExternalIds.json, { [B]: Expect(B, "Bravo"), [C]: Expect(C, "Charlie") });
+        // Exactly what the live 1.4.4 client sent after a friend search and a party invite (22 September 2026)
+        const AsSent = await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [B] } });
+        assert.equal(AsSent.status, 200);
+        assert.deepEqual(AsSent.json, Expect(Entry(B, "Bravo")));
+        assert.deepEqual(Object.keys(AsSent.json), ["code", "message", "payload", "accountMappings"], "no top-level key an id reader could take for an account");
 
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: [C] })).json, { [C]: Expect(C, "Charlie") });
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalAuthType: "psn", ids: [B] } })).json, { [B]: Expect(B, "Bravo", "psn") });
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { type: "bad type!", ids: [B] } })).json, { [B]: Expect(B, "Bravo") });
+        // Several ids: in the asked order, once each, unknown ids left out
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [C, "UID-nobody", B, C] } })).json, Expect(Entry(C, "Charlie"), Entry(B, "Bravo")));
 
-        // No token: nothing is mapped (no names to strangers); an empty or odd body is still a 200 with {}.
-        const NoToken = await Call("POST", "/account/mapping", { body: { externalIds: [B] } });
-        assert.deepEqual([NoToken.status, NoToken.json], [200, {}]);
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: {} })).json, {});
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalIds: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, {});
+        // The older guesses at the body still work: a bare array, externalIds, type/externalAuthType
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: [C] })).json, Expect(Entry(C, "Charlie")));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { type: "epic", externalIds: [B] } })).json, Expect(Entry(B, "Bravo")));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalAuthType: "psn", ids: [B] } })).json, Expect(Entry(B, "Bravo", "psn")));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "bad type!", ids: [B] } })).json, Expect(Entry(B, "Bravo")));
+
+        // No token: nothing is mapped (no names to strangers); an empty or odd body is still a 200 with no mappings.
+        const NoToken = await Call("POST", "/account/mapping", { body: { srcAccountType: "epic", ids: [B] } });
+        assert.deepEqual([NoToken.status, NoToken.json], [200, Expect()]);
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: {} })).json, Expect());
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { ids: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, Expect());
     });
 
     it("/accountinfo/public with an unknown account answers an empty name instead of a 500", async () => {
