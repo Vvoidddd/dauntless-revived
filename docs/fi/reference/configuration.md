@@ -126,7 +126,7 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | `GUILDS` | metagame | päällä | `0` | Kiltareitit. `0` palauttaa vanhat tyngät: kukaan ei voi perustaa kiltaa tai liittyä siihen. |
 | `GUILD_RESERVED_NAMES` | metagame | päällä | `0` | Henkilökunnan ja projektin sanat torjutaan kiltojen nimissä ja nimikylteissä. |
 | `PARTY_SOLO_STUB` | metagame | päällä (alkuperäisen projektin paikkamerkki yhden hengen ryhmälle) | `0` | `0`, jos Invite to Party ei tee mitään yksin olevalle pelaajalle. |
-| `CHAT_NICK_CHECK` | metagame | `enforce`: chat-huoneeseen liittyminen hylätään, jos nimimerkki rikkoo nimisääntöjä | `log` (päästä sisään ja varoita) | Vain paluukytkin siltä varalta, että oikea peliohjelma hylätään. Merkitsee jotain vain, kun `CHAT=1`. |
+| `CHAT_NICK_CHECK` | metagame | `enforce`: chat-huoneeseen liittyminen hylätään, jos nimimerkki rikkoo nimisääntöjä | `log` (päästä sisään ja varoita; toisen tilin tunnus hylätään silti) | Vain paluukytkin siltä varalta, että oikea peliohjelma hylätään. Merkitsee jotain vain, kun `CHAT=1`. |
 | `PROGRESSION_CONFIRM` | metagame | päällä | `off` | Vain vianetsintään. |
 | `LOG_REQUESTS` | metagame | päällä | `0` | Pyyntöloki on tärkein vianetsintävälineemme; pidä se päällä. |
 | `GATEWAY_ALLOWLIST` | yhdyskäytävä | päällä | `0` | Hätäkatkaisin: kun se on pois päältä, kenenkään peliportit eivät aukea. |
@@ -286,7 +286,7 @@ metagame jatkaa ilman chattia.
 | `CHAT` | pois | `1` kytkee päälle; `0` tai asettamaton on pois, muu arvo on pois ja kirjoittaa varoituksen | Käynnistää chat-kuuntelijan. Käynnistysrivi on `chat: listening on 127.0.0.1:61099 (nick check enforce)`. Se korvaa ensimmäisen kokeiluversion kytkimen `EXPERIMENTAL_CHAT`, jota ei enää lueta (varoitus kertoo sen). | Paketti: aina julkisessa tilassa (`CHAT=1` tai `0` valinnasta `-Chat On` tai `Off`, muuten `server.json`) |
 | `CHAT_PORT` | `61099` | 1-65535 | Kuuntelijan portti. Sen on oltava sama kuin yhdyskäytävän `GATEWAY_WS_URL`-osoitteen portti. | Paketti: aina julkisessa tilassa (61099; hiekkalaatikossa 62099) |
 | `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` tai `::1`; kun `GATEWAY_SECRET` on asetettu (julkinen tila), vain `127.0.0.1` | Kuuntelijan osoite. Mikä tahansa muu, myös `0.0.0.0`, pitää chatin pois päältä. Yksityistä tilaa (Tailscale) ei vielä tueta. | Paketti: aina `127.0.0.1` julkisessa tilassa |
-| `CHAT_NICK_CHECK` | `enforce` | `enforce` tai `log`; muu arvo lasketaan arvoksi `enforce` ja kirjoittaa varoituksen | `enforce` hylkää huoneeseen liittymisen, jos nimimerkki ei ole `<tilin käyttäjänimi>:<sen tilitunnus>:<sen resurssi>` ([miksi]({{ '/fi/findings/chat.html' | relative_url }}#nickname-check)). `log` päästää sen sisään ja kirjoittaa yhden varoitusrivin yhteyttä ja huonetta kohden: paluukytkin siltä varalta, että oikea peliohjelma hylätään. | Oletuksena ei kukaan |
+| `CHAT_NICK_CHECK` | `enforce` | `enforce` tai `log`; muu arvo lasketaan arvoksi `enforce` ja kirjoittaa varoituksen | `enforce` hylkää huoneeseen liittymisen, jos nimimerkki ei ole `<tilin käyttäjänimi>:<sen tilitunnus>:<sen resurssi>` ([miksi]({{ '/fi/findings/chat.html' | relative_url }}#nickname-check)). `log` päästää sisään nimimerkin, joka rikkoo resurssi-, muoto- tai nimisääntöä, ja kirjoittaa yhden varoitusrivin yhteyttä ja huonetta kohden: paluukytkin siltä varalta, että oikea peliohjelma hylätään. Nimimerkki, jossa on toisen tilin tunnus, hylätään molemmissa tiloissa (oikea peliohjelma ei koskaan rakenna sellaista). | Oletuksena ei kukaan |
 | `CHAT_TRACE` | pois | `1` tai mikä tahansa muu | `1` kirjaa jokaisen chat-kehyksen molempiin suuntiin 2 kt:n mittaan leikattuna niin, että kirjautuminen, salasanat, viestien teksti (`[N chars]`) ja tunnisteet on korvattu. Vain ensimmäisiin oikeisiin ajoihin. | Oletuksena ei kukaan |
 
 **Rajat** (kiinteät koodissa):
@@ -295,20 +295,27 @@ metagame jatkaa ilman chattia.
 |:-----|:-----|:---------------|
 | WebSocket-kehys | 32 KiB | Se yhteys suljetaan (1009) |
 | Yhteyksiä yhteensä | 64 | Uudet saavat HTTP 503:n |
-| Keskeneräisiä kirjautumisia osoitetta kohden | 8 | HTTP 503 |
+| Kehyksiä ennen kirjautumista | 4 (peli tarvitsee `<open>`-, `<auth>`- ja hylkäyksen jälkeen vanhan kirjautumistapansa viestin); yksi kirjautumisyritys | Yhteys suljetaan |
+| Keskeneräisiä kirjautumisia osoitetta kohden (yhteydet, jotka eivät ole vielä sitoutuneet) | 8 | HTTP 503 |
 | Epäonnistuneita kirjautumisia osoitetta kohden | 10 kymmenessä minuutissa | Osoitteen kirjautumiset saavat 10 minuutin ajan vastauksen `temporary-auth-failure` |
-| Yhteyksiä tiliä kohden | 2 | Kolmas korvaa pisimpään hiljaa olleen |
+| Yhteyksiä tiliä kohden | 2 sidottua, kaikkiaan 3 | Kolmas sidottu korvaa pisimpään hiljaa olleen; kolmannen jälkeinen kirjautuminen sulkee vanhimman, joka ei ole sitoutunut |
+| Aikaa sitoutua | 10 sekuntia kirjautumisesta | Yhteys suljetaan; kolme kertaa kymmenessä minuutissa pidättää tilin kirjautumisia 60 sekuntia |
 | Huoneita yhteyttä kohden | 8 | Liittyminen hylätään |
 | Pelaajia huonetta kohden | 128 | Liittyminen hylätään |
 | Huoneita yhteensä | 1000 | Liittyminen hylätään |
-| Liittymisiä yhteyttä kohden | 10 kerralla, sitten 1 kuuden sekunnin välein | Liittyminen hylätään |
+| Liittymisiä yhteyttä kohden (hylätyt mukaan lukien) | 10 kerralla, sitten 1 kuuden sekunnin välein | Liittyminen hylätään |
 | Huonerivejä ja kuiskauksia yhteyttä kohden | 8 kerralla, sitten 1 sekunnissa | Rivi saa virheen; kuiskaus pudotetaan |
 | Kaikkia viestejä yhteyttä kohden | 60 kerralla, sitten 30 sekunnissa | Pudotetaan; yli 100 pudotusta minuutissa päättää yhteyden |
 | Viestin teksti | 1-2048 merkkiä | Rivi saa virheen; kuiskaus pudotetaan |
 | Huoneen nimimerkki | 1-1023 tavua | Liittyminen hylätään |
+| Lähtemätöntä liikennettä yhteyttä kohden | 256 KiB | Mitään ei enää lähetetä; yhteys päättyy (`reason=backlog`) |
 
-Yhteyttä pingataan 50 sekunnin hiljaisuuden jälkeen, ja se päätetään, jos vastausta ei tule 30
-sekunnissa. Jokainen palvelimen päättämä yhteys pidättää tilin seuraavaa kirjautumista 60 sekuntia.
+Yhteyttä pingataan 50 sekunnin hiljaisuuden jälkeen, ja se päätetään, jos vastausta ei tule
+seuraavien 100 sekunnin aikana: peli vastaa vain oman pelisäikeensä kierroksella, ja pitkä kartan
+lataus pysäyttää sen ([miksi]({{ '/fi/findings/chat.html' | relative_url }}#limits)). Korvaaminen,
+väärinkäyttö, liian suuri kehys tai rajan ylittävä lähtemätön liikenne pidättää tilin seuraavaa
+kirjautumista 60 sekuntia; vastaamaton ping ei pidätä. Hylätty liittyminen lasketaan pudotusten
+rajaan, ja se kirjataan lokiin kerran yhteyttä, huonetyyppiä ja syytä kohden 10 minuutin välein.
 Viestien tekstiä, tunnisteita, kirjautumistietoja tai pyyntöjen otsakkeita ei kirjata lokiin koskaan.
 
 ### Yhteensopivuuskytkimet {#metagame-compatibility}

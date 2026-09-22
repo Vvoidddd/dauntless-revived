@@ -534,9 +534,13 @@ It writes `CHAT=1` or `0`, `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` (61099, 62
 `metagame.env` and `"Chat"` into `server.json`. Then it runs `Stack.ps1 stop` and `start`, with the
 usual backups around them, and waits up to 30 seconds for `127.0.0.1:<port>` to listen (or to stop
 listening). If a step fails, it puts both files back as they were, restarts the stack again and
-exits with `1`. When the setting is already as asked, it changes nothing and restarts nothing. The
-restart drops the parties and matchmaking queues, which live in memory: run it when nobody is
-playing. From your PC, `Deploy-Remote.ps1 -Server <address> -Chat On` runs it over SSH.
+exits with `1`. When the setting is already as asked, it changes nothing and restarts nothing; it
+goes by the three chat keys and `"Chat"`, so what the installer or an update wrote elsewhere in
+`metagame.env` does not count. The restart drops the parties and matchmaking queues, which live in
+memory: run it when nobody is playing. From your PC, `Deploy-Remote.ps1 -Server <address> -Chat On`
+runs it over SSH. On a server installed before chat, the script arrives with the update, so update
+first. Based on Vvoidddd's first chat switch
+([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
 
 ```powershell
 C:\DauntlessRevived\bin\Set-Chat.ps1 -On

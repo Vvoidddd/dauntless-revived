@@ -118,7 +118,7 @@ development are off.
 | `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
 | `GUILD_RESERVED_NAMES` | metagame | on | `0` | Staff and project words refused in guild names and nameplates. |
 | `PARTY_SOLO_STUB` | metagame | on (upstream's placeholder for a party of one) | `0` | `0` if Invite to Party does nothing for a player on their own. |
-| `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
+| `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn; another account's id is still refused) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -273,7 +273,7 @@ one `chat: not started ...` error line, and the metagame runs on without chat.
 | `CHAT` | off | `1` turns it on; `0` or unset is off, anything else is off with a warning | Starts the chat listener. The startup line is `chat: listening on 127.0.0.1:61099 (nick check enforce)`. It replaces `EXPERIMENTAL_CHAT` from the first prototype, which is no longer read (a warning says so). | Kit: always in public mode (`CHAT=1` or `0` from `-Chat On` or `Off`, else `server.json`) |
 | `CHAT_PORT` | `61099` | 1-65535 | The listener's port. Must be the port in the gateway's `GATEWAY_WS_URL`. | Kit: always in public mode (61099; 62099 in sandbox) |
 | `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` or `::1`; with `GATEWAY_SECRET` set (public mode) only `127.0.0.1` | The listener's address. Anything else, `0.0.0.0` included, keeps chat off. Private mode (Tailscale) is not supported yet. | Kit: always `127.0.0.1` in public mode |
-| `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why]({{ '/findings/chat.html' | relative_url }}#nickname-check)). `log` admits it with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. | Nobody by default |
+| `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why]({{ '/findings/chat.html' | relative_url }}#nickname-check)). `log` admits a nickname that fails the resource, format or name rule, with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. A nickname with another account's id is refused in both modes (a real client never builds one). | Nobody by default |
 | `CHAT_TRACE` | off | `1` or anything else | `1` logs every chat frame in and out, cut at 2 KB, with the login, passwords, message text (`[N chars]`) and tokens replaced. For the first live runs only. | Nobody by default |
 
 **Limits** (fixed in the code):
@@ -282,21 +282,27 @@ one `chat: not started ...` error line, and the metagame runs on without chat.
 |:------|:------|:--------|
 | WebSocket frame | 32 KiB | That connection is closed (1009) |
 | Connections in total | 64 | New ones get HTTP 503 |
-| Unfinished logins per address | 8 | HTTP 503 |
+| Frames before login | 4 (the game needs `<open>`, `<auth>` and, after a refusal, its legacy login); one login attempt | The connection is closed |
+| Unfinished logins per address (connections that have not bound yet) | 8 | HTTP 503 |
 | Failed logins per address | 10 in 10 minutes | Logins from that address get `temporary-auth-failure` for 10 minutes |
-| Connections per account | 2 | A third replaces the one silent longest |
+| Connections per account | 2 bound, 3 in all | A third bound one replaces the one silent longest; a login past 3 closes the oldest one that has not bound |
+| Time to bind | 10 s from the login | The connection is closed; three in 10 minutes hold the account's logins back for 60 s |
 | Rooms per connection | 8 | The join is refused |
 | Players per room | 128 | The join is refused |
 | Rooms in total | 1000 | The join is refused |
-| Joins per connection | 10 at once, then 1 every 6 s | The join is refused |
+| Joins per connection (refused ones included) | 10 at once, then 1 every 6 s | The join is refused |
 | Room lines and whispers per connection | 8 at once, then 1 per second | The line gets an error; a whisper is dropped |
 | Messages of any kind per connection | 60 at once, then 30 per second | Dropped; more than 100 drops in a minute ends the connection |
 | Message text | 1-2048 characters | The line gets an error; a whisper is dropped |
 | Room nickname | 1-1023 bytes | The join is refused |
+| Unsent output per connection | 256 KiB | Nothing more is sent; the connection ends (`reason=backlog`) |
 
-A connection is pinged after 50 s of silence and ended when 30 s pass without an answer. Any end by
-the server holds that account's next login back for 60 s. Message text, tokens, login payloads and
-request headers are never logged.
+A connection is pinged after 50 s of silence and ended when another 100 s pass without an answer:
+the game answers only from its own game-thread tick, which a long map load holds up
+([why]({{ '/findings/chat.html' | relative_url }}#limits)). A replacement, abuse, an oversized frame
+or unsent output past the limit holds that account's next login back for 60 s; a ping timeout does
+not. A refused join counts toward the drop limit and is logged once per connection, room kind and
+reason every 10 minutes. Message text, tokens, login payloads and request headers are never logged.
 
 ### Compatibility switches {#metagame-compatibility}
 

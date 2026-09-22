@@ -2,7 +2,7 @@
 title: Upgrade notes
 parent: Setup
 nav_order: 6
-description: "What changes for players when you update an existing Dauntless Revived server: friends, parties and guilds now work, and real progression is on by default. How to keep old max ranks, start fresh, or stay on the stub."
+description: "What changes for players when you update an existing Dauntless Revived server: text chat is built (off until you switch it on), friends, parties and guilds now work, and real progression is on by default. How to keep old max ranks, start fresh, or stay on the stub."
 lang: en
 ref: setup/upgrading
 ---
@@ -14,6 +14,7 @@ ref: setup/upgrading
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
 {% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
 
 # Upgrade notes
 {: .no_toc }
@@ -27,6 +28,43 @@ your players will see, and what you can do about it. The newest change is first.
 1. TOC
 {:toc}
 </details>
+
+## Text chat {#chat}
+
+**September 2026.** Applies to every server updated to the version with text chat (the kit then has
+`Set-Chat.ps1`, and `Stack.ps1 status` has a `chat` line).
+
+### What changes {#chat-what-changes}
+
+- **Nothing for players until you switch chat on.** Chat is a listener inside the metagame, off by
+  default: the kit writes `CHAT=0` unless you choose `-Chat On`. While it is off, the game's chat
+  connection gets 502 from the gateway and retries every 15-45 s, harmlessly, as before.
+- **`Set-Chat.ps1` arrives with the update.** Switch chat on afterwards, in a second run when nobody
+  is playing (it restarts the stack): `Deploy-Remote.ps1 -Server <address> -Chat On` from your PC, or
+  `Set-Chat.ps1 -On` on the server ([Windows server kit]({{ winserver_page.url | relative_url }}#chat)).
+  `-Chat` cannot go with `-Update`.
+- **The gateway gives the game's chat connections a rate bucket of their own** (`GATEWAY_RATE_WS`,
+  default `20,12`: 20 at once, then 12 per minute per address), so chat reconnects never use up the
+  budget a player's game traffic needs ([Configuration]({{ config_page.url | relative_url }}#gateway)).
+- **No database migration, no firewall rule and no new launcher.** Every launcher from v0.1.0 on
+  relays chat; v0.1.5 has the updated credits.
+
+### What your players will see {#chat-what-players-see}
+
+With chat on: Ramsgate and hunt chat, party chat, guild chat and whispers, all with usernames. Ramsgate
+chat is per session for now, so two players share it only when they travelled to Ramsgate together as
+a party. A game that was already running when chat went on connects within about 45 s. Online status
+(friends showing as online) is still to come.
+
+### What you can do {#chat-what-you-can-do}
+
+- The first time, run the two-player test under
+  [Text chat]({{ chat_page.url | relative_url }}#how-to-verify), which lists the log lines to expect.
+- If real players are refused room joins with `reason=nick-resource`, `nick-format` or `nick-name`, set
+  `CHAT_NICK_CHECK=log` in `metagame.env` and restart when nobody is playing. For anything serious,
+  `Set-Chat.ps1 -Off`.
+- **Going back** to the build before the update (`Update-DauntlessServer.ps1 -Rollback`) needs
+  nothing else: the older code ignores `CHAT` and `GATEWAY_RATE_WS`.
 
 ## Friends, parties and guilds {#social}
 
@@ -58,7 +96,8 @@ shows `guild:` lines, and `GET /guild/invite/player` no longer logs "Guild invit
 info and the first mapping it got for each player for the whole session, so the old, wrong answers
 stay until the game restarts. After that: party invites appear under PARTY INVITES, Add Friends
 works (the other player sees the request at their next login), and the Guilds tab can create and
-join guilds. Online status, EPIC FRIENDS and chat still do not work (they need an XMPP server).
+join guilds. Online status and EPIC FRIENDS still do not work. Chat came with a later update
+([Text chat](#chat)).
 [Join as a friend]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) explains it to
 players.
 

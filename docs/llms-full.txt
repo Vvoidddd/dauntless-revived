@@ -2619,8 +2619,9 @@ chat: message room=City-... uid=UID-... len=5 to=1
 - **`chat: login refused ... reason=...`:** `expired` means the player's 24-hour session ran out
   (restart the game); `uid-mismatch`, `bad-token` and `no-account` mean the login does not belong to a
   live account; `throttled` means the account or address is held back for a while after repeated
-  failures or reconnects (it clears by itself in 60 s, or 10 minutes for an address). The game retries
-  every 15-45 s.
+  failures, a replaced or abusive connection, or logins that never bound (it clears by itself in 60 s,
+  or 10 minutes for an address). The game retries every 15-45 s. Why a connection ended is in
+  [its `closed` line](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#chat-closed).
 - `MUC: JoinPublicRoom failed. Not currently connected` in the game's console only means the chat
   connection was not logged in at that moment; the game joins again once it is. It has nothing to do
   with names.
@@ -2634,6 +2635,13 @@ The server runs a chat version from before usernames were fixed (the first proto
 #9). Update the server. With the current version the game shows usernames: it reads them from the
 room nickname it joined with, and the server keeps that nickname unchanged. Why the old one showed
 `UID-...`: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#why-uid).
+
+If one player's lines turned to `[unknown]` for the others right after that player's game reconnected,
+the server predates the reconnect fix: the old connection stayed in the room and its later leave
+removed the player from the others' member list. Update the server; until then the player leaves the
+room and joins it again (for party chat: leave and rejoin the party). With the current version the
+log shows `chat: leave room=... reason=replaced` just before the new connection's join
+([why](https://mixutin.github.io/dauntless-revived/findings/chat.html#rooms)).
 
 ### "Another operation already pending"
 
@@ -2650,11 +2658,29 @@ text or tokens). Then turn the trace off again.
 | `not-member` | A `Party-` or `Guild-` room of a party or guild the player is not in. After a metagame restart parties are gone, so the game's first rejoin of its old party room is refused; it moves to its new party at the next party poll. | Nothing, unless it repeats for a player who is really in that party. |
 | `not-allowed` | A room name the game never builds, or another domain. | Nothing: not a real client. |
 | `nick-name` | The name part of the nickname is not the account's username. Right after an admin renamed a player, the game still uses the old name. | The player restarts the game. |
-| `nick-account`, `nick-resource`, `nick-format` | The nickname does not carry the player's own account id and resource, or holds characters the game never writes. | A real client should never get these. If one does, set `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody plays, and report the line. |
-| `conflict` | Another connection holds that nickname. | Normally only a leftover connection; it is pinged out within a minute. |
+| `nick-resource`, `nick-format` | The nickname does not carry the player's own resource, or holds characters the game never writes. | A real client should never get these. If one does, set `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody plays, and report the line. |
+| `nick-account` | The nickname does not carry the player's own account id, or carries another account's. | A real client never gets this: it builds the nickname from its own id. It is refused with `CHAT_NICK_CHECK=log` too. |
+| `conflict` | A connection of another account holds that nickname. | Should never happen: a nickname carries its own account id, and a new connection of the same account takes the room over from the old one. |
 | `limit` | Too many rooms, players in a room or joins in a short time. | Nothing, unless it repeats. |
 
-A refusal is logged at most once per player, room and reason every 10 minutes.
+A refusal is logged at most once per connection, room kind (`City-` and `Hunt-`, `General`, `Party-`,
+`Guild-`, anything else) and reason every 10 minutes, with the room name cut to 80 characters. Every
+refusal counts toward the drop limit, so a client that keeps sending refused joins is disconnected.
+
+### `chat: closed ... reason=...`
+
+| Reason | Meaning | Next login waits 60 s |
+|:-------|:--------|:----------------------|
+| `close` | The game logged out (quit, or its own reconnect). | no |
+| `socket` | The connection dropped. | no |
+| `ping-timeout` | No answer to a ping for 100 s (or 10 s for an older connection after the same account connected again: a leftover). | no |
+| `replaced` | A newer connection of the same account took its place. | yes, when it had bound |
+| `timeout` | No login within 15 s, or no bind within 10 s of the login. | after three missed binds in 10 minutes |
+| `refused` | A refused login, or too many frames before login. | no (failed logins count toward the address limit) |
+| `size` | A frame over 32 KiB. | yes |
+| `backlog` | The game stopped reading: 256 KiB waited unsent. | yes |
+| `abuse` | More than 100 dropped stanzas or refused joins in a minute. | yes |
+| `shutdown` | The metagame stopped. | no |
 
 ### `name=InvalidMCPUser` in the join line
 
@@ -3062,6 +3088,11 @@ off on a new install. How it works: [Text chat](https://mixutin.github.io/dauntl
 **Switch it when nobody is playing.** Turning chat on or off restarts the stack, and a restart drops
 the parties and matchmaking queues, which live in memory.
 
+**On a server installed before chat, update first.** `Set-Chat.ps1` comes with the code that has chat,
+so a server on an older version does not have it yet: run `Deploy-Remote.ps1 -Server <address> -Update`
+(or `Update-DauntlessServer.ps1` on the server), then switch chat on. `-Chat` cannot go with
+`-Update`, so that is two runs and two restarts.
+
 - On the server: `C:\DauntlessRevived\bin\Set-Chat.ps1 -On` (or `-Off`). It writes `CHAT`,
   `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` in `metagame.env` and `"Chat"` in `server.json`, restarts
   the stack with the usual backups, and waits up to 30 s for the listener. If that fails, it puts the
@@ -3077,10 +3108,13 @@ and then has `chat:` lines for connections, logins, room joins and messages (nev
 [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#chat-not-connected) explains each one.
 
 For the first live runs, `CHAT_TRACE=1` in `metagame.env` logs every chat frame with logins, message
-text and tokens replaced; take it out again afterwards. If real players are refused room joins with
-`reason=nick-...`, `CHAT_NICK_CHECK=log` admits them with a warning while you report the line.
+text and tokens replaced; add it before `Set-Chat.ps1 -On`, whose restart picks it up, and take it out
+again afterwards. If real players are refused room joins with `reason=nick-resource`, `nick-format`
+or `nick-name`, `CHAT_NICK_CHECK=log` admits them with a warning while you report the line.
 `Set-Chat.ps1 -Off` is the way back from anything serious: the game then retries every 15-45 s,
-harmlessly, as before chat existed. Private mode has no chat yet.
+harmlessly, as before chat existed. If the chat code itself is at fault,
+`Update-DauntlessServer.ps1 -Rollback` goes back to the build before the update; older code ignores
+`CHAT`. Private mode has no chat yet.
 
 ### Updates
 
@@ -3222,6 +3256,43 @@ URL: https://mixutin.github.io/dauntless-revived/setup/upgrading.html
 Read this before you update a server that already has players. Each note says what changes, what
 your players will see, and what you can do about it. The newest change is first.
 
+## Text chat
+
+**September 2026.** Applies to every server updated to the version with text chat (the kit then has
+`Set-Chat.ps1`, and `Stack.ps1 status` has a `chat` line).
+
+### What changes
+
+- **Nothing for players until you switch chat on.** Chat is a listener inside the metagame, off by
+  default: the kit writes `CHAT=0` unless you choose `-Chat On`. While it is off, the game's chat
+  connection gets 502 from the gateway and retries every 15-45 s, harmlessly, as before.
+- **`Set-Chat.ps1` arrives with the update.** Switch chat on afterwards, in a second run when nobody
+  is playing (it restarts the stack): `Deploy-Remote.ps1 -Server <address> -Chat On` from your PC, or
+  `Set-Chat.ps1 -On` on the server ([Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html#chat)).
+  `-Chat` cannot go with `-Update`.
+- **The gateway gives the game's chat connections a rate bucket of their own** (`GATEWAY_RATE_WS`,
+  default `20,12`: 20 at once, then 12 per minute per address), so chat reconnects never use up the
+  budget a player's game traffic needs ([Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html#gateway)).
+- **No database migration, no firewall rule and no new launcher.** Every launcher from v0.1.0 on
+  relays chat; v0.1.5 has the updated credits.
+
+### What your players will see
+
+With chat on: Ramsgate and hunt chat, party chat, guild chat and whispers, all with usernames. Ramsgate
+chat is per session for now, so two players share it only when they travelled to Ramsgate together as
+a party. A game that was already running when chat went on connects within about 45 s. Online status
+(friends showing as online) is still to come.
+
+### What you can do
+
+- The first time, run the two-player test under
+  [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify), which lists the log lines to expect.
+- If real players are refused room joins with `reason=nick-resource`, `nick-format` or `nick-name`, set
+  `CHAT_NICK_CHECK=log` in `metagame.env` and restart when nobody is playing. For anything serious,
+  `Set-Chat.ps1 -Off`.
+- **Going back** to the build before the update (`Update-DauntlessServer.ps1 -Rollback`) needs
+  nothing else: the older code ignores `CHAT` and `GATEWAY_RATE_WS`.
+
 ## Friends, parties and guilds
 
 **September 2026.** Applies to every server updated to the version with guilds (the metagame's log
@@ -3252,7 +3323,8 @@ shows `guild:` lines, and `GET /guild/invite/player` no longer logs "Guild invit
 info and the first mapping it got for each player for the whole session, so the old, wrong answers
 stay until the game restarts. After that: party invites appear under PARTY INVITES, Add Friends
 works (the other player sees the request at their next login), and the Guilds tab can create and
-join guilds. Online status, EPIC FRIENDS and chat still do not work (they need an XMPP server).
+join guilds. Online status and EPIC FRIENDS still do not work. Chat came with a later update
+([Text chat](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#chat)).
 [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html#friends-parties-and-guilds) explains it to
 players.
 
@@ -3612,7 +3684,7 @@ development are off.
 | `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
 | `GUILD_RESERVED_NAMES` | metagame | on | `0` | Staff and project words refused in guild names and nameplates. |
 | `PARTY_SOLO_STUB` | metagame | on (upstream's placeholder for a party of one) | `0` | `0` if Invite to Party does nothing for a player on their own. |
-| `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
+| `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn; another account's id is still refused) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -3767,7 +3839,7 @@ one `chat: not started ...` error line, and the metagame runs on without chat.
 | `CHAT` | off | `1` turns it on; `0` or unset is off, anything else is off with a warning | Starts the chat listener. The startup line is `chat: listening on 127.0.0.1:61099 (nick check enforce)`. It replaces `EXPERIMENTAL_CHAT` from the first prototype, which is no longer read (a warning says so). | Kit: always in public mode (`CHAT=1` or `0` from `-Chat On` or `Off`, else `server.json`) |
 | `CHAT_PORT` | `61099` | 1-65535 | The listener's port. Must be the port in the gateway's `GATEWAY_WS_URL`. | Kit: always in public mode (61099; 62099 in sandbox) |
 | `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` or `::1`; with `GATEWAY_SECRET` set (public mode) only `127.0.0.1` | The listener's address. Anything else, `0.0.0.0` included, keeps chat off. Private mode (Tailscale) is not supported yet. | Kit: always `127.0.0.1` in public mode |
-| `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why](https://mixutin.github.io/dauntless-revived/findings/chat.html#nickname-check)). `log` admits it with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. | Nobody by default |
+| `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why](https://mixutin.github.io/dauntless-revived/findings/chat.html#nickname-check)). `log` admits a nickname that fails the resource, format or name rule, with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. A nickname with another account's id is refused in both modes (a real client never builds one). | Nobody by default |
 | `CHAT_TRACE` | off | `1` or anything else | `1` logs every chat frame in and out, cut at 2 KB, with the login, passwords, message text (`[N chars]`) and tokens replaced. For the first live runs only. | Nobody by default |
 
 **Limits** (fixed in the code):
@@ -3776,21 +3848,27 @@ one `chat: not started ...` error line, and the metagame runs on without chat.
 |:------|:------|:--------|
 | WebSocket frame | 32 KiB | That connection is closed (1009) |
 | Connections in total | 64 | New ones get HTTP 503 |
-| Unfinished logins per address | 8 | HTTP 503 |
+| Frames before login | 4 (the game needs `<open>`, `<auth>` and, after a refusal, its legacy login); one login attempt | The connection is closed |
+| Unfinished logins per address (connections that have not bound yet) | 8 | HTTP 503 |
 | Failed logins per address | 10 in 10 minutes | Logins from that address get `temporary-auth-failure` for 10 minutes |
-| Connections per account | 2 | A third replaces the one silent longest |
+| Connections per account | 2 bound, 3 in all | A third bound one replaces the one silent longest; a login past 3 closes the oldest one that has not bound |
+| Time to bind | 10 s from the login | The connection is closed; three in 10 minutes hold the account's logins back for 60 s |
 | Rooms per connection | 8 | The join is refused |
 | Players per room | 128 | The join is refused |
 | Rooms in total | 1000 | The join is refused |
-| Joins per connection | 10 at once, then 1 every 6 s | The join is refused |
+| Joins per connection (refused ones included) | 10 at once, then 1 every 6 s | The join is refused |
 | Room lines and whispers per connection | 8 at once, then 1 per second | The line gets an error; a whisper is dropped |
 | Messages of any kind per connection | 60 at once, then 30 per second | Dropped; more than 100 drops in a minute ends the connection |
 | Message text | 1-2048 characters | The line gets an error; a whisper is dropped |
 | Room nickname | 1-1023 bytes | The join is refused |
+| Unsent output per connection | 256 KiB | Nothing more is sent; the connection ends (`reason=backlog`) |
 
-A connection is pinged after 50 s of silence and ended when 30 s pass without an answer. Any end by
-the server holds that account's next login back for 60 s. Message text, tokens, login payloads and
-request headers are never logged.
+A connection is pinged after 50 s of silence and ended when another 100 s pass without an answer:
+the game answers only from its own game-thread tick, which a long map load holds up
+([why](https://mixutin.github.io/dauntless-revived/findings/chat.html#limits)). A replacement, abuse, an oversized frame
+or unsent output past the limit holds that account's next login back for 60 s; a ping timeout does
+not. A refused join counts toward the drop limit and is logged once per connection, room kind and
+reason every 10 minutes. Message text, tokens, login payloads and request headers are never logged.
 
 ### Compatibility switches
 
@@ -5160,13 +5238,15 @@ settings and limits are on [Configuration](https://mixutin.github.io/dauntless-r
 with the account id and the player token (the token must be valid and belong to that account), a
 second `<open>`, then a bind: the resource is echoed as sent. A refused login answers `<failure>` with
 `<not-authorized/>` (or `<temporary-auth-failure/>` while that account or address is held back); the
-client's legacy `jabber:iq:auth` try after it gets an error and the connection is closed.
+client's legacy `jabber:iq:auth` try after it gets an error and the connection is closed. A connection
+gets one login attempt and at most four frames before it is logged in, and must bind within 10 s of
+its login.
 
 **What the server answers:**
 
 | The client sends | The server |
 |:-----------------|:-----------|
-| `<presence to="Room@muc.<domain>/<nickname>">` (join) | Checks the room and the nickname. Then sends the joiner every other occupant's presence, tells every other occupant about the joiner, and sends the joiner's own presence (status 110) last. Every occupant presence carries `<item jid="<account>@<domain>/<resource>">`, and every `from` is the room JID with the occupant's nickname exactly as sent. |
+| `<presence to="Room@muc.<domain>/<nickname>">` (join) | Checks the room and the nickname. If an older connection of the same account is in the room (a reconnect while the old one lingers), it leaves first: the others get its unavailable presence, and the old connection is told nothing. Then sends the joiner every other occupant's presence, tells every other occupant about the joiner, and sends the joiner's own presence (status 110) last. Every occupant presence carries `<item jid="<account>@<domain>/<resource>">`, and every `from` is the room JID with the occupant's nickname exactly as sent. |
 | `<presence type="unavailable" to="Room@...">` (leave) | The others get the leaver's unavailable presence; the leaver gets its own with status 110. |
 | `<message type="groupchat" to="Room@muc.<domain>">` | Delivered to every occupant, the sender included, from `Room@muc.<domain>/<sender's nickname>`, with the same `id`. Not to occupants who blocked the sender. |
 | `<message type="chat" to="<account>@<domain>[/<resource>]">` (whisper) | Delivered from the sender's full JID to that session, or to every session of the account. Not delivered, with no error, when the player is offline or either player blocked the other. |
@@ -5174,8 +5254,9 @@ client's legacy `jabber:iq:auth` try after it gets an error and the connection i
 | `<iq>` ping, session or anything else | An empty `result` with the same `id`. |
 | `<close/>` | `<close/>`, then the connection closes. |
 
-After 50 s of silence the server pings the client, and ends the connection when 30 s pass without an
-answer.
+After 50 s of silence the server pings the client, and ends the connection when another 100 s pass
+without an answer (the client answers from its game-thread tick, which a map load holds up). A client
+that stops reading is sent nothing more once 256 KiB wait unsent, and its connection ends.
 
 **Rooms.** `City-<id>`, `Hunt-<id>` and `General<id>` are open to every signed-in player,
 `Party-<partyId>` only to that party's members and `Guild-<guildId>` only to that guild's. All live on
@@ -5441,7 +5522,7 @@ them are named `dauntless-revived-*` (for example `dauntless-revived-metagame`).
 
 | Folder | What it holds | Build output (git-ignored) |
 |:-------|:--------------|:---------------------------|
-| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends and the `/undaunted/api` admin API. `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json` and the generated `hunt_titles.json`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
+| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends, guilds, the `/undaunted/api` admin API and the game's text chat (`src/realtime/`, an XMPP listener in the same process, on when `CHAT=1`). `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json` and the generated `hunt_titles.json`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
 | `UndauntedDeployServer/` | Starts and supervises the game-server processes (Ramsgate, the Training Dojo, hunts). `src/vendor/` holds the hunt tables. | `dist/`, `build/` |
 | `UndauntedGateway/` | Public mode only: the TLS gateway (`dist/server.js`) and the allowlist helper (`dist/allowlist/server.js`). `tools/make-cert.js` makes the gateway certificate. | `dist/`, `build/` |
 | `UndauntedContent/` | The content server: game files, news and the art pack for registered launchers. `data/dauntless-1.4.4.json` is the game manifest (410 files) that the launcher also compiles in. | `dist/`, `build/` |
@@ -7053,9 +7134,13 @@ It writes `CHAT=1` or `0`, `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` (61099, 62
 `metagame.env` and `"Chat"` into `server.json`. Then it runs `Stack.ps1 stop` and `start`, with the
 usual backups around them, and waits up to 30 seconds for `127.0.0.1:<port>` to listen (or to stop
 listening). If a step fails, it puts both files back as they were, restarts the stack again and
-exits with `1`. When the setting is already as asked, it changes nothing and restarts nothing. The
-restart drops the parties and matchmaking queues, which live in memory: run it when nobody is
-playing. From your PC, `Deploy-Remote.ps1 -Server <address> -Chat On` runs it over SSH.
+exits with `1`. When the setting is already as asked, it changes nothing and restarts nothing; it
+goes by the three chat keys and `"Chat"`, so what the installer or an update wrote elsewhere in
+`metagame.env` does not count. The restart drops the parties and matchmaking queues, which live in
+memory: run it when nobody is playing. From your PC, `Deploy-Remote.ps1 -Server <address> -Chat On`
+runs it over SSH. On a server installed before chat, the script arrives with the update, so update
+first. Based on Vvoidddd's first chat switch
+([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
 
 ```powershell
 C:\DauntlessRevived\bin\Set-Chat.ps1 -On
@@ -7610,7 +7695,7 @@ inside them are named `dauntless-revived-metagame`, `dauntless-revived-deploy-se
 
 | Folder | What it is | Language and tools |
 |---|---|---|
-| `UndauntedMetagame/` | The backend the game talks to: accounts and keys, characters, inventory, loadouts, progression, parties, friends, matchmaking, the admin API. | TypeScript, Express 5, SQLite through `better-sqlite3` and Drizzle |
+| `UndauntedMetagame/` | The backend the game talks to: accounts and keys, characters, inventory, loadouts, progression, parties, friends, guilds, matchmaking, the admin API, and the game's text chat (an XMPP listener in the same process, on when `CHAT=1`). | TypeScript, Express 5, SQLite through `better-sqlite3` and Drizzle |
 | `UndauntedDeployServer/` | Starts and watches the game-server processes when the metagame asks. It has no authentication and answers loopback callers only. | TypeScript, Express 5 |
 | `UndauntedContent/` | Serves the verified 1.4.4 game files, the host's art pack and news to the launcher. | TypeScript, Node's own `http` |
 | `UndauntedGateway/` | Public mode: the TLS gateway (the server's only public TCP port) and the allowlist helper (one Windows Firewall rule for the game's UDP ports). | TypeScript, Node's own `https`; `node-forge` for the certificate tool |
@@ -8115,6 +8200,7 @@ Paths in each table are relative to the folder named above it.
 | Parties | `controllers/party.ts` (in memory), `routes/party.ts`, `middleware/PlayerAuth.ts` | A party's hunt goes through `controllers/matchmaking.ts`; `PartyInvite` is in `routes/undauntedapi.ts`. |
 | Friends and blocks | `controllers/friends.ts` (stored in SQLite, migration `0012_friends_and_blocks.sql`), `routes/friends.ts` (the Epic-style friends service the client calls) | `Friends` is in `routes/undauntedapi.ts`. |
 | Guilds | `controllers/guild.ts` (stored in SQLite, migration `0013_guilds.sql`; the rules and reply shapes), `routes/guild.ts` (the eleven v2 routes, in registration order), `middleware/GameServerKeyAuth.ts` (the game-server-only create) | `GuildInvite`, `Guilds` and `DisbandGuild` are in `routes/undauntedapi.ts`. `test/socialclient.ts` models how the client parses the social replies; `test/guildhttp.test.ts` and `test/socialflow.test.ts` use it. |
+| Chat (XMPP) | `realtime/chat.ts` (the WebSocket listener, SASL login with the player token, sessions and their limits, pings, whispers; `ReadChatConfig` and `StartChat`, which `server.ts` calls only with `CHAT=1`), `realtime/muc.ts` (rooms: joins, leaves, the fan-out of room lines, party and guild membership checks, the 60 s sweep), `realtime/chatnick.ts` (the client's URL encoding and the room nickname rules), `realtime/xmpp.ts` (parsing, escaping, JIDs, token buckets, the trace redaction) | Membership and blocks come from `GetPartyOf` in `controllers/party.ts`, `IsGuildMember` in `controllers/guild.ts` and `BlockersAmong` in `controllers/friends.ts`. [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html) explains why each answer has its shape. Tests: `test/chat.test.ts` (end to end over WebSocket), `test/chatmodel.test.ts` and `test/chatclient.ts` (a model of how the 1.4.4 client reads chat), `test/chathttp.test.ts` with `test/chatenv.ts` (names through the real account routes), `test/chatwire.ts` (a raw client shaped like the game's). |
 | Matchmaking | `controllers/matchmaking.ts` (queues, candidate status, parties, the call to the deploy server), `routes/matchmaking.ts` | |
 | Server status | `controllers/serverstatus.ts`, `middleware/SoftAccountAuth.ts`, `/dauntless-status` in `routes/system.ts` | |
 
@@ -12589,8 +12675,10 @@ the client drops the pending room cleanly and reports a failed join (B `0x143a34
 callback as a successful join, `0x143a298a8`). So a refusal never leaves "Another operation already
 pending" behind.
 
-`CHAT_NICK_CHECK=log` admits a nickname that fails these rules, with a warning line. It is a rollback
-switch in case the live test shows a real client being refused, not a normal setting.
+`CHAT_NICK_CHECK=log` admits a nickname that fails the resource, format or name rule, with a warning
+line. It is a rollback switch in case the live test shows a real client being refused, not a normal
+setting. The account id rule (`nick-account`) holds in both modes: a real client always builds its
+nickname from its own account id (B `0x1408b5aeb`), so only a forged nickname fails it.
 
 ## Rooms, and who may join them
 
@@ -12614,6 +12702,15 @@ from exactly that domain, case included (B `0x143a379d2`).
   either player blocked the other (the same rule as party invites).
 - Two connections of one account never see each other in a room: the client's "is this me?" test
   would take the other one's presence for its own.
+- Only one connection of an account is in a room at a time. When a player reconnects while the old
+  connection still lingers (a dropped Wi-Fi, say), the new one takes over each room it joins: the
+  others get the old connection's leave first, then the new one's join. The old connection is not
+  told, and it is pinged out 10 s later. The reason is in the client: it keeps one room member per
+  account id. A presence of that account updates the member, and a leave removes the member by the
+  account id in the leaving nickname (B `0x1408fe300`; `0x1408c0680` -> `0x1408e1ce0`). A line's
+  sender is then looked up among the members by room address (B `0x1408a83c0`). If the old connection
+  left later, at its ping timeout, it would remove the member the new one had just updated, and the
+  others would see that player's lines as `[unknown]` until the player left and joined the room again.
 - The server keeps no history and sends no room subject.
 
 **Ramsgate chat is per session today.** Each player gets a session id of their own for Ramsgate, so two
@@ -12640,10 +12737,29 @@ Friends' online status needs presence, so it is not part of this round.
 - **No reconnect loops.** The client reconnects on its next tick when an established connection drops
   (B `0x140939988`). So the server never closes a logged-in connection over bad input: it drops the
   stanza and counts it. Only the client's `<close/>`, a ping timeout, replacement, shutdown, an
-  oversized frame or sustained abuse end one, and any end by the server holds that account's next
-  login back for 60 s, which makes the client wait 15-45 s instead (B `0x14093a3ee`).
-- **Sessions.** At most two connections per account; a third replaces the one silent longest. A new
-  connection pings the older one, which is ended as a ghost if it does not answer in 10 s.
+  oversized frame, output the client does not read, or sustained abuse end one. Replacement, abuse,
+  an oversized frame and unread output hold that account's next login back for 60 s, which makes the
+  client wait 15-45 s instead (B `0x14093a3ee`). A ping timeout does not: one reconnect after it is not
+  a loop.
+- **Pings and map loads.** After 50 s with nothing from the client, the server pings it, and it ends
+  the connection when another 100 s pass without an answer. The client answers a ping only from its
+  game-thread tick: the handler only queues it (B `0x143a2a690`), and `FXmppPingStrophe::Tick` builds
+  the answer while the connection is logged in (B `0x143a3eb90`, the check at `0x143a3ed99`). A long
+  map load very likely holds that tick up (S: how Unreal ticks, not traced here). The client's own
+  ping settings (60 s, 30 s, one retry: B `0x143a1f367`-`0x143a1f37b`) let about 150 s of silence pass
+  (S), and so does the server. With 30 s, a hunt travel could have cut a player's chat for a minute or
+  two.
+- **Sessions.** At most two bound connections per account; a third replaces the one silent longest.
+  A new connection pings the older one, which is ended as a ghost if it does not answer in 10 s.
+  Counting the ones still logging in, an account has at most three connections: a new login closes
+  the oldest one that has not bound. A connection must bind within 10 s of its login.
+- **Before login** a connection gets four frames and one login attempt; the game needs `<open>`,
+  `<auth>` and, after a refusal, its legacy login. The limit of 8 per address counts every connection
+  that has not bound yet.
+- **Unread output.** When 256 KiB of output wait unsent for one connection (its client stopped
+  reading), the server sends it nothing more and ends it (`reason=backlog`).
+- **Refused joins** each count toward the abuse limit and are logged once per connection, room kind
+  and reason every 10 minutes, with the room name cut to 80 characters.
 - The limits (message size, rates, rooms per player) are listed on
   [Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html#metagame-chat). Message text, tokens and request
   headers are never logged.
@@ -12653,17 +12769,34 @@ Friends' online status needs presence, so it is not part of this round.
 `UndauntedMetagame/test/chatclient.ts` is a model of how the client reads chat, with the addresses
 above. Fed the first server's replies, it reproduces what Vvoidddd saw: `UID-...` as the sender, the
 join stuck with "Another operation already pending", and `[unknown]`. Fed ours, captured from the real
-server in the test, both players see usernames. The WebSocket tests run two and three players through
-joins, messages, leaves, the nickname rules, party and guild rooms, blocks, whispers, sessions, limits
-and the crash guard, and one test takes the names through the real account routes.
+server in the test, both players see usernames. Like the client, the model keeps one room member per
+account, so it also shows what a reconnect would do to the others' view. The WebSocket tests run two
+and three players through joins, messages, leaves, a reconnect while the old connection lingers, the
+nickname rules, party and guild rooms, blocks, whispers, sessions, pings, limits and the crash guard,
+and one test takes the names through the real account routes.
 
 ## How to verify
 
-The live test with two players on the rented server. Switch chat on first, when nobody is playing
-(`Set-Chat.ps1 -On`, see [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html#chat)); for the
-first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 status` shows
-`chat: listening 127.0.0.1:61099` and that the metagame log has
-`chat: listening on 127.0.0.1:61099 (nick check enforce)`. The lines below are from the metagame log.
+The live test with two players on the rented server.
+
+**Before the test**, when nobody is playing (each step restarts the stack, which drops the parties and
+matchmaking queues held in memory):
+
+1. **Update the server to this version.** From your PC: `Deploy-Remote.ps1 -Server <address> -Update`
+   (or `Update-DauntlessServer.ps1` on the server). `Set-Chat.ps1` arrives with the update: a server
+   on an older version (the rented one runs 9f3f78b) does not have it yet. `-Chat` cannot go with
+   `-Update`, so switching chat on is a second run.
+2. **For the first run, add `CHAT_TRACE=1`** to `C:\DauntlessRevived\data\config\metagame.env` now,
+   before switching chat on: the restart in the next step picks it up.
+3. **Switch chat on:** `Deploy-Remote.ps1 -Server <address> -Chat On` (or `Set-Chat.ps1 -On` on the
+   server; see [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html#chat)).
+4. **Check** that `Stack.ps1 status` has the line `chat             : listening 127.0.0.1:61099`, and
+   that the metagame log has `chat: listening on 127.0.0.1:61099 (nick check enforce)`.
+5. Both players use their own account and any launcher from v0.1.0 on (every one relays chat; 0.1.5
+   has the updated credits). They start the game after chat is on; a game that was already running
+   connects within about 45 s.
+
+The lines below are from the metagame log.
 
 1. **A starts the game.** `EOS Account Info for <A> by <A>: found`, then `chat: connect ... via=gateway`,
    `chat: login ok ... uid=<A>` and `chat: bound ... uid=<A> resource=V2:... sessions=1`. No second
@@ -12678,9 +12811,11 @@ first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 statu
 5. **Party chat both ways.** Each line gives `chat: message room=Party-<P> ... to=2`, and the first line
    from the other player a `Account info for 1 account(s) by userId ...: 1 found`. **Each player sees
    the other's username**, not `UID-...` and not `[unknown]`.
-6. **Ramsgate together.** The leader takes the party to Ramsgate; both then join the same
+6. **Ramsgate together, and a hunt.** The leader takes the party to Ramsgate; both then join the same
    `City-<id>` room, and Normal chat works both ways. (Two players who are not in a party are in
-   different `City-` rooms: expected for now.)
+   different `City-` rooms: expected for now.) Then the party goes on a hunt and back: the map loads
+   must not cost chat, so there is no `chat: closed ... reason=ping-timeout` line for A or B, and party
+   chat works right after each load.
 7. **Whispers.** A whispers B by name, and B replies. `chat: whisper from=<A> to=<B> len=<n> delivered=1`
    and the other way round; B sees A's username.
 8. **Blocks.** B blocks A: A's next Normal line logs `blocked=1` and B sees nothing; a whisper from A
@@ -12688,14 +12823,28 @@ first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 statu
 9. **Party safety.** A and B stay in the party for a minute with chat on. There must be **no**
    `DELETE /party/member/...` and no `DELETE /party/leader/...` in the log, and the party poll still
    shows two members.
-10. **Leave and quit.** B leaves the party (`chat: leave room=Party-<P> uid=<B> reason=left`, and A sees
+10. **A dropped connection (if one happens, or to try it: B turns the network off for a minute and on
+    again).** When the game reconnected while its old connection still lingered, the log shows
+    `chat: bound ... uid=<B> ... sessions=2`, then for each room
+    `chat: leave room=<room> uid=<B> reason=replaced` and `chat: join room=<room> uid=<B> ...`, and about
+    10 s later `chat: closed ... uid=<B> reason=ping-timeout`. A still sees B's lines under B's
+    username, not `[unknown]`.
+11. **Leave and quit.** B leaves the party (`chat: leave room=Party-<P> uid=<B> reason=left`, and A sees
     B go), then quits the game (`chat: closed ... uid=<B> reason=close` or `socket`).
-11. **Log hygiene.** Search the metagame log for a word you typed in steps 3-7, and for `eyJ`: neither
+12. **Log hygiene.** Search the metagame log for a word you typed in steps 3-7, and for `eyJ`: neither
     may be found. Then take `CHAT_TRACE=1` out again (restart when nobody is playing).
 
-The test passes when steps 1-10 go as described and step 11 finds nothing. If real players are
-refused with `reason=nick-...`, set `CHAT_NICK_CHECK=log` and report the line; if anything serious goes
-wrong, `Set-Chat.ps1 -Off` puts things back as before chat.
+The test passes when steps 1-11 go as described and step 12 finds nothing.
+
+**The way back**, from the lightest:
+
+- Real players refused with `reason=nick-resource`, `nick-format` or `nick-name`: set
+  `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody is playing, and report the line.
+- Anything serious: `Deploy-Remote.ps1 -Server <address> -Chat Off` (or `Set-Chat.ps1 -Off` on the
+  server) puts things back as before chat.
+- The chat code itself at fault: `Update-DauntlessServer.ps1 -Rollback` (the build before the update)
+  or `Update-DauntlessServer.ps1 -Ref 9f3f78b`. The older code ignores `CHAT`, so nothing else needs
+  changing.
 
 ## Still unconfirmed
 
@@ -12704,13 +12853,15 @@ wrong, `Set-Chat.ps1 -Off` puts things back as before chat.
 | The account read sets the name to `displayName` | S | The `chat: join ... name=` line shows the username. |
 | Your own lines use the Social panel's name for you | S | Your own line in Normal chat. |
 | The nickname's resource is the bound resource | S | No `reason=nick-resource` refusal. |
-| How often the client retries a refused join | unknown | Count `join refused` lines. |
+| How often the client retries a refused join | unknown | With `CHAT_TRACE=1`, count the repeated join presences in the trace (a refusal is logged only once per connection, room kind and reason). |
 | Whether game servers open a chat connection | G | `chat: connect ... via=direct` lines after a hunt starts. |
 | What a whisper to an offline player shows | unknown | Whisper a player who quit. |
 | The client's typing limit against our 2048 characters | G | Paste a long line; watch `len=`. |
 | "Entered room" notices use the nickname's first part | G | The notice shows the username (right either way). |
 | The automatic party kick stays dormant with room presence | B for its conditions | A party of two with chat on for 60 s: no `DELETE /party/member/...`. |
 | Chat after the 24-hour token expiry | B (the retry), C (the expiry) | A `reason=expired` line at most every 10 minutes. |
+| A map load holds up the client's answer to a server ping | S | No `reason=ping-timeout` around a hunt travel (step 6). |
+| A reconnect keeps the player's name for the others | B for the client's member list, C for ours | Step 10, when it happens. |
 
 What to do when chat misbehaves is on [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#chat-not-connected);
 turning it on and off on a server is on [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html#chat).
@@ -12763,7 +12914,7 @@ This page is generated from [`ROADMAP.md`](https://github.com/mixutin/dauntless-
 > **Update, 2026-09-22 (text chat, 3.10):**
 > - **Why the first chat server showed every sender as `UID-...`, and the fix.** Vvoidddd's chat server ([PR #9](https://github.com/mixutin/dauntless-revived/pull/9)) got Ramsgate messages through with a real 1.4.4 client, but the sender showed as the account id. Read from the executable: the client already joins every room with a nickname that carries the username (`<name>:<account id>:<resource>`) and reads the name back from it; the server threw that nickname away and answered from `<room>/UID-...`. The chat server now keeps each nickname as sent, adds `<item jid>`, tells occupants about each other and sends every line back to its sender, so both players see usernames. The metagame's account routes needed no change.
 > - **Built into the metagame and tested without the game, off by default** (`CHAT=1`, or `Set-Chat.ps1 -On` on a kit server; no firewall rule, no launcher update). Room joins are checked against the player's own account, so nobody can pose as someone else; party and guild rooms are for their members; blocks apply to room lines and whispers. It sends no presence outside rooms, so the client's dormant party auto-kick stays asleep. A crash guard and a login hold-back keep bad input and reconnect loops from hurting the metagame or the player's game traffic.
-> - **Not yet deployed or tried by two players.** Next: switch it on on the rented server when nobody is playing, and run the two-player test under [How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify). Online status (friends showing as online) is still to come. Details: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html).
+> - **Not yet deployed or tried by two players.** Next, when nobody is playing: update the rented server (it runs 9f3f78b, which has no `Set-Chat.ps1` yet), then switch chat on in a second run, and run the two-player test under [How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify). Online status (friends showing as online) is still to come. Details: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html).
 
 > **Update, 2026-09-22 (friends, parties and guilds):**
 > - **Why the two-player test showed no party invite and no friend request, and the fix.** Read from the 1.4.4 executable and the live route census: the invite reached the other player's invite poll, but the client drops an invite whose sender it cannot set up, and `POST /accountinfo/public` (upstream's reply) described the **caller** instead of the sender. Add Friends stopped at `POST /account/mapping`, whose reply the client reads as an object keyed by the asked id (the array we sent read as empty). Both are fixed and **running on the rented server since 22 September 2026** (60955e1), not yet tried in game; both players must restart the game once after the deploy. This corrects the earlier note that blamed `/account/mapping` for both.
@@ -13369,8 +13520,8 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
   - **First chat server (2026-09-22, Vvoidddd, [PR #9](https://github.com/mixutin/dauntless-revived/pull/9)):** an opt-in XMPP-over-WebSocket listener in the metagame that logs in with the player's own token. With one real 1.4.4 client, Ramsgate messages went through, but the sender showed as `UID-...`; answering from the username instead left room joins pending ("Another operation already pending"), even with MUC status 210; sending messages from the username showed `[unknown]`; an XEP-0172 `<nick>` was ignored. His conclusion was to keep the UID in the room address. The cause, read later from the executable: the client joins with the nickname `<name>:<account id>:<resource>` and reads both the name and the account id from it, and its "is this me?" test looks for its account id in the nickname. So the account id does belong there, but together with the name, exactly as the client sent it. Each result is explained on [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#attempts).
-  - **Built (2026-09-22), off by default:** each nickname kept byte for byte, `<item jid>` on every occupant presence, occupants told about each other both ways, every line sent back to its sender; a join refused unless its nickname carries the player's own account id and username; `City-`, `Hunt-` and `General` rooms for everyone, `Party-` and `Guild-` rooms for their members only (checked at every message and every 60 s); blocks for room lines and whispers; up to two sessions per account; a crash guard and a 60 s login hold-back so reconnect loops cannot hurt the metagame or a player's game traffic; no presence outside rooms, so the dormant party auto-kick stays asleep. `CHAT_NICK_CHECK=log` and `Set-Chat.ps1 -Off` are the rollbacks. Tests: a model of how the client reads chat reproduces Vvoidddd's three observations and shows usernames for both players with our replies. The server kit has `-Chat On/Off`, and the gateway counts chat connections in a rate bucket of their own (`GATEWAY_RATE_WS`).
-  - **Next:** the live two-player test on the rented server ([How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify)), then chat on by default. After that: a shared Ramsgate channel for players who are not in a party (today each player's Ramsgate session has its own room), online status for friends (presence between friends and party members, never echoed back, with the party test repeated), and private mode (Tailscale).
+  - **Built (2026-09-22), off by default:** each nickname kept byte for byte, `<item jid>` on every occupant presence, occupants told about each other both ways, every line sent back to its sender; a join refused unless its nickname carries the player's own account id and username; `City-`, `Hunt-` and `General` rooms for everyone, `Party-` and `Guild-` rooms for their members only (checked at every message and every 60 s); blocks for room lines and whispers; up to two sessions per account, and a reconnect takes each room over from the lingering old connection, so the others keep seeing the player's name (the client keeps one room member per account); pings that let a long map load pass; a crash guard, limits before login and on unread output, and a 60 s login hold-back so reconnect loops cannot hurt the metagame or a player's game traffic; no presence outside rooms, so the dormant party auto-kick stays asleep. `CHAT_NICK_CHECK=log` (it never admits another account's id), `Set-Chat.ps1 -Off` and, for the code, `Update-DauntlessServer.ps1 -Rollback` are the rollbacks. Tests: a model of how the client reads chat reproduces Vvoidddd's three observations and shows usernames for both players with our replies. The server kit has `-Chat On/Off`, and the gateway counts chat connections in a rate bucket of their own (`GATEWAY_RATE_WS`).
+  - **Next:** update the rented server, switch chat on (a second run), and the live two-player test ([How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify)), then chat on by default. After that: a shared Ramsgate channel for players who are not in a party (today each player's Ramsgate session has its own room), online status for friends (presence between friends and party members, never echoed back, with the party test repeated), and private mode (Tailscale).
 
 - [ ] **3.11 Guilds** (L) — *Update 2026-09-22: **built** and running on the rented server since 22 September 2026, not yet tried in game: the eleven v2 routes the 1.4.4 client uses (validate, create, invites, accept, decline, leave, kick, ranks with leader hand-over, disband), stored in SQLite (migration `0013_guilds`, three new tables), with the client's own error codes and name rules. The Create button is an RPC to the Ramsgate game server, which sends the create with its key; it costs nothing in 1.4.4. The game server sends no token of the player (only its own, if any), so the metagame accepts a create only when the leader validated that exact name and nameplate with their own token in the last 15 minutes (`GUILD_CREATE_ACTIVITY_FALLBACK=1` loosens it, only if the live test shows the client never validates the final name). Staff and project words are reserved (`GUILD_RESERVED_NAMES=0`). A block, a decline (24 hours for that guild) and a demoted, kicked or departed Officer each end the invites concerned. Other members see changes at their next login or world load (no push). `GUILDS=0` restores the old stubs. Passes HTTP tests with the client's bodies (`test/guildhttp.test.ts`); not yet tried in game. Guild chat is built with 3.10 (the room `Guild-<guildId>`, members only), off by default like the rest of chat.*
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).

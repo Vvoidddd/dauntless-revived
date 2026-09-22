@@ -463,8 +463,9 @@ chat: message room=City-... uid=UID-... len=5 to=1
 - **`chat: login refused ... reason=...`:** `expired` means the player's 24-hour session ran out
   (restart the game); `uid-mismatch`, `bad-token` and `no-account` mean the login does not belong to a
   live account; `throttled` means the account or address is held back for a while after repeated
-  failures or reconnects (it clears by itself in 60 s, or 10 minutes for an address). The game retries
-  every 15-45 s.
+  failures, a replaced or abusive connection, or logins that never bound (it clears by itself in 60 s,
+  or 10 minutes for an address). The game retries every 15-45 s. Why a connection ended is in
+  [its `closed` line](#chat-closed).
 - `MUC: JoinPublicRoom failed. Not currently connected` in the game's console only means the chat
   connection was not logged in at that moment; the game joins again once it is. It has nothing to do
   with names.
@@ -478,6 +479,13 @@ The server runs a chat version from before usernames were fixed (the first proto
 #9). Update the server. With the current version the game shows usernames: it reads them from the
 room nickname it joined with, and the server keeps that nickname unchanged. Why the old one showed
 `UID-...`: [Text chat]({{ chat_page.url | relative_url }}#why-uid).
+
+If one player's lines turned to `[unknown]` for the others right after that player's game reconnected,
+the server predates the reconnect fix: the old connection stayed in the room and its later leave
+removed the player from the others' member list. Update the server; until then the player leaves the
+room and joins it again (for party chat: leave and rejoin the party). With the current version the
+log shows `chat: leave room=... reason=replaced` just before the new connection's join
+([why]({{ chat_page.url | relative_url }}#rooms)).
 
 ### "Another operation already pending" {#chat-operation-pending}
 
@@ -494,11 +502,29 @@ text or tokens). Then turn the trace off again.
 | `not-member` | A `Party-` or `Guild-` room of a party or guild the player is not in. After a metagame restart parties are gone, so the game's first rejoin of its old party room is refused; it moves to its new party at the next party poll. | Nothing, unless it repeats for a player who is really in that party. |
 | `not-allowed` | A room name the game never builds, or another domain. | Nothing: not a real client. |
 | `nick-name` | The name part of the nickname is not the account's username. Right after an admin renamed a player, the game still uses the old name. | The player restarts the game. |
-| `nick-account`, `nick-resource`, `nick-format` | The nickname does not carry the player's own account id and resource, or holds characters the game never writes. | A real client should never get these. If one does, set `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody plays, and report the line. |
-| `conflict` | Another connection holds that nickname. | Normally only a leftover connection; it is pinged out within a minute. |
+| `nick-resource`, `nick-format` | The nickname does not carry the player's own resource, or holds characters the game never writes. | A real client should never get these. If one does, set `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody plays, and report the line. |
+| `nick-account` | The nickname does not carry the player's own account id, or carries another account's. | A real client never gets this: it builds the nickname from its own id. It is refused with `CHAT_NICK_CHECK=log` too. |
+| `conflict` | A connection of another account holds that nickname. | Should never happen: a nickname carries its own account id, and a new connection of the same account takes the room over from the old one. |
 | `limit` | Too many rooms, players in a room or joins in a short time. | Nothing, unless it repeats. |
 
-A refusal is logged at most once per player, room and reason every 10 minutes.
+A refusal is logged at most once per connection, room kind (`City-` and `Hunt-`, `General`, `Party-`,
+`Guild-`, anything else) and reason every 10 minutes, with the room name cut to 80 characters. Every
+refusal counts toward the drop limit, so a client that keeps sending refused joins is disconnected.
+
+### `chat: closed ... reason=...` {#chat-closed}
+
+| Reason | Meaning | Next login waits 60 s |
+|:-------|:--------|:----------------------|
+| `close` | The game logged out (quit, or its own reconnect). | no |
+| `socket` | The connection dropped. | no |
+| `ping-timeout` | No answer to a ping for 100 s (or 10 s for an older connection after the same account connected again: a leftover). | no |
+| `replaced` | A newer connection of the same account took its place. | yes, when it had bound |
+| `timeout` | No login within 15 s, or no bind within 10 s of the login. | after three missed binds in 10 minutes |
+| `refused` | A refused login, or too many frames before login. | no (failed logins count toward the address limit) |
+| `size` | A frame over 32 KiB. | yes |
+| `backlog` | The game stopped reading: 256 KiB waited unsent. | yes |
+| `abuse` | More than 100 dropped stanzas or refused joins in a minute. | yes |
+| `shutdown` | The metagame stopped. | no |
 
 ### `name=InvalidMCPUser` in the join line {#chat-invalid-mcp-user}
 

@@ -175,8 +175,10 @@ the client drops the pending room cleanly and reports a failed join (B `0x143a34
 callback as a successful join, `0x143a298a8`). So a refusal never leaves "Another operation already
 pending" behind.
 
-`CHAT_NICK_CHECK=log` admits a nickname that fails these rules, with a warning line. It is a rollback
-switch in case the live test shows a real client being refused, not a normal setting.
+`CHAT_NICK_CHECK=log` admits a nickname that fails the resource, format or name rule, with a warning
+line. It is a rollback switch in case the live test shows a real client being refused, not a normal
+setting. The account id rule (`nick-account`) holds in both modes: a real client always builds its
+nickname from its own account id (B `0x1408b5aeb`), so only a forged nickname fails it.
 
 ## Rooms, and who may join them {#rooms}
 
@@ -200,6 +202,15 @@ from exactly that domain, case included (B `0x143a379d2`).
   either player blocked the other (the same rule as party invites).
 - Two connections of one account never see each other in a room: the client's "is this me?" test
   would take the other one's presence for its own.
+- Only one connection of an account is in a room at a time. When a player reconnects while the old
+  connection still lingers (a dropped Wi-Fi, say), the new one takes over each room it joins: the
+  others get the old connection's leave first, then the new one's join. The old connection is not
+  told, and it is pinged out 10 s later. The reason is in the client: it keeps one room member per
+  account id. A presence of that account updates the member, and a leave removes the member by the
+  account id in the leaving nickname (B `0x1408fe300`; `0x1408c0680` -> `0x1408e1ce0`). A line's
+  sender is then looked up among the members by room address (B `0x1408a83c0`). If the old connection
+  left later, at its ping timeout, it would remove the member the new one had just updated, and the
+  others would see that player's lines as `[unknown]` until the player left and joined the room again.
 - The server keeps no history and sends no room subject.
 
 **Ramsgate chat is per session today.** Each player gets a session id of their own for Ramsgate, so two
@@ -226,10 +237,29 @@ Friends' online status needs presence, so it is not part of this round.
 - **No reconnect loops.** The client reconnects on its next tick when an established connection drops
   (B `0x140939988`). So the server never closes a logged-in connection over bad input: it drops the
   stanza and counts it. Only the client's `<close/>`, a ping timeout, replacement, shutdown, an
-  oversized frame or sustained abuse end one, and any end by the server holds that account's next
-  login back for 60 s, which makes the client wait 15-45 s instead (B `0x14093a3ee`).
-- **Sessions.** At most two connections per account; a third replaces the one silent longest. A new
-  connection pings the older one, which is ended as a ghost if it does not answer in 10 s.
+  oversized frame, output the client does not read, or sustained abuse end one. Replacement, abuse,
+  an oversized frame and unread output hold that account's next login back for 60 s, which makes the
+  client wait 15-45 s instead (B `0x14093a3ee`). A ping timeout does not: one reconnect after it is not
+  a loop.
+- **Pings and map loads.** After 50 s with nothing from the client, the server pings it, and it ends
+  the connection when another 100 s pass without an answer. The client answers a ping only from its
+  game-thread tick: the handler only queues it (B `0x143a2a690`), and `FXmppPingStrophe::Tick` builds
+  the answer while the connection is logged in (B `0x143a3eb90`, the check at `0x143a3ed99`). A long
+  map load very likely holds that tick up (S: how Unreal ticks, not traced here). The client's own
+  ping settings (60 s, 30 s, one retry: B `0x143a1f367`-`0x143a1f37b`) let about 150 s of silence pass
+  (S), and so does the server. With 30 s, a hunt travel could have cut a player's chat for a minute or
+  two.
+- **Sessions.** At most two bound connections per account; a third replaces the one silent longest.
+  A new connection pings the older one, which is ended as a ghost if it does not answer in 10 s.
+  Counting the ones still logging in, an account has at most three connections: a new login closes
+  the oldest one that has not bound. A connection must bind within 10 s of its login.
+- **Before login** a connection gets four frames and one login attempt; the game needs `<open>`,
+  `<auth>` and, after a refusal, its legacy login. The limit of 8 per address counts every connection
+  that has not bound yet.
+- **Unread output.** When 256 KiB of output wait unsent for one connection (its client stopped
+  reading), the server sends it nothing more and ends it (`reason=backlog`).
+- **Refused joins** each count toward the abuse limit and are logged once per connection, room kind
+  and reason every 10 minutes, with the room name cut to 80 characters.
 - The limits (message size, rates, rooms per player) are listed on
   [Configuration]({{ config_page.url | relative_url }}#metagame-chat). Message text, tokens and request
   headers are never logged.
@@ -239,17 +269,34 @@ Friends' online status needs presence, so it is not part of this round.
 `UndauntedMetagame/test/chatclient.ts` is a model of how the client reads chat, with the addresses
 above. Fed the first server's replies, it reproduces what Vvoidddd saw: `UID-...` as the sender, the
 join stuck with "Another operation already pending", and `[unknown]`. Fed ours, captured from the real
-server in the test, both players see usernames. The WebSocket tests run two and three players through
-joins, messages, leaves, the nickname rules, party and guild rooms, blocks, whispers, sessions, limits
-and the crash guard, and one test takes the names through the real account routes.
+server in the test, both players see usernames. Like the client, the model keeps one room member per
+account, so it also shows what a reconnect would do to the others' view. The WebSocket tests run two
+and three players through joins, messages, leaves, a reconnect while the old connection lingers, the
+nickname rules, party and guild rooms, blocks, whispers, sessions, pings, limits and the crash guard,
+and one test takes the names through the real account routes.
 
 ## How to verify {#how-to-verify}
 
-The live test with two players on the rented server. Switch chat on first, when nobody is playing
-(`Set-Chat.ps1 -On`, see [Windows server kit]({{ winserver_page.url | relative_url }}#chat)); for the
-first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 status` shows
-`chat: listening 127.0.0.1:61099` and that the metagame log has
-`chat: listening on 127.0.0.1:61099 (nick check enforce)`. The lines below are from the metagame log.
+The live test with two players on the rented server.
+
+**Before the test**, when nobody is playing (each step restarts the stack, which drops the parties and
+matchmaking queues held in memory):
+
+1. **Update the server to this version.** From your PC: `Deploy-Remote.ps1 -Server <address> -Update`
+   (or `Update-DauntlessServer.ps1` on the server). `Set-Chat.ps1` arrives with the update: a server
+   on an older version (the rented one runs 9f3f78b) does not have it yet. `-Chat` cannot go with
+   `-Update`, so switching chat on is a second run.
+2. **For the first run, add `CHAT_TRACE=1`** to `C:\DauntlessRevived\data\config\metagame.env` now,
+   before switching chat on: the restart in the next step picks it up.
+3. **Switch chat on:** `Deploy-Remote.ps1 -Server <address> -Chat On` (or `Set-Chat.ps1 -On` on the
+   server; see [Windows server kit]({{ winserver_page.url | relative_url }}#chat)).
+4. **Check** that `Stack.ps1 status` has the line `chat             : listening 127.0.0.1:61099`, and
+   that the metagame log has `chat: listening on 127.0.0.1:61099 (nick check enforce)`.
+5. Both players use their own account and any launcher from v0.1.0 on (every one relays chat; 0.1.5
+   has the updated credits). They start the game after chat is on; a game that was already running
+   connects within about 45 s.
+
+The lines below are from the metagame log.
 
 1. **A starts the game.** `EOS Account Info for <A> by <A>: found`, then `chat: connect ... via=gateway`,
    `chat: login ok ... uid=<A>` and `chat: bound ... uid=<A> resource=V2:... sessions=1`. No second
@@ -264,9 +311,11 @@ first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 statu
 5. **Party chat both ways.** Each line gives `chat: message room=Party-<P> ... to=2`, and the first line
    from the other player a `Account info for 1 account(s) by userId ...: 1 found`. **Each player sees
    the other's username**, not `UID-...` and not `[unknown]`.
-6. **Ramsgate together.** The leader takes the party to Ramsgate; both then join the same
+6. **Ramsgate together, and a hunt.** The leader takes the party to Ramsgate; both then join the same
    `City-<id>` room, and Normal chat works both ways. (Two players who are not in a party are in
-   different `City-` rooms: expected for now.)
+   different `City-` rooms: expected for now.) Then the party goes on a hunt and back: the map loads
+   must not cost chat, so there is no `chat: closed ... reason=ping-timeout` line for A or B, and party
+   chat works right after each load.
 7. **Whispers.** A whispers B by name, and B replies. `chat: whisper from=<A> to=<B> len=<n> delivered=1`
    and the other way round; B sees A's username.
 8. **Blocks.** B blocks A: A's next Normal line logs `blocked=1` and B sees nothing; a whisper from A
@@ -274,14 +323,28 @@ first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 statu
 9. **Party safety.** A and B stay in the party for a minute with chat on. There must be **no**
    `DELETE /party/member/...` and no `DELETE /party/leader/...` in the log, and the party poll still
    shows two members.
-10. **Leave and quit.** B leaves the party (`chat: leave room=Party-<P> uid=<B> reason=left`, and A sees
+10. **A dropped connection (if one happens, or to try it: B turns the network off for a minute and on
+    again).** When the game reconnected while its old connection still lingered, the log shows
+    `chat: bound ... uid=<B> ... sessions=2`, then for each room
+    `chat: leave room=<room> uid=<B> reason=replaced` and `chat: join room=<room> uid=<B> ...`, and about
+    10 s later `chat: closed ... uid=<B> reason=ping-timeout`. A still sees B's lines under B's
+    username, not `[unknown]`.
+11. **Leave and quit.** B leaves the party (`chat: leave room=Party-<P> uid=<B> reason=left`, and A sees
     B go), then quits the game (`chat: closed ... uid=<B> reason=close` or `socket`).
-11. **Log hygiene.** Search the metagame log for a word you typed in steps 3-7, and for `eyJ`: neither
+12. **Log hygiene.** Search the metagame log for a word you typed in steps 3-7, and for `eyJ`: neither
     may be found. Then take `CHAT_TRACE=1` out again (restart when nobody is playing).
 
-The test passes when steps 1-10 go as described and step 11 finds nothing. If real players are
-refused with `reason=nick-...`, set `CHAT_NICK_CHECK=log` and report the line; if anything serious goes
-wrong, `Set-Chat.ps1 -Off` puts things back as before chat.
+The test passes when steps 1-11 go as described and step 12 finds nothing.
+
+**The way back**, from the lightest:
+
+- Real players refused with `reason=nick-resource`, `nick-format` or `nick-name`: set
+  `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody is playing, and report the line.
+- Anything serious: `Deploy-Remote.ps1 -Server <address> -Chat Off` (or `Set-Chat.ps1 -Off` on the
+  server) puts things back as before chat.
+- The chat code itself at fault: `Update-DauntlessServer.ps1 -Rollback` (the build before the update)
+  or `Update-DauntlessServer.ps1 -Ref 9f3f78b`. The older code ignores `CHAT`, so nothing else needs
+  changing.
 
 ## Still unconfirmed {#unconfirmed}
 
@@ -290,13 +353,15 @@ wrong, `Set-Chat.ps1 -Off` puts things back as before chat.
 | The account read sets the name to `displayName` | S | The `chat: join ... name=` line shows the username. |
 | Your own lines use the Social panel's name for you | S | Your own line in Normal chat. |
 | The nickname's resource is the bound resource | S | No `reason=nick-resource` refusal. |
-| How often the client retries a refused join | unknown | Count `join refused` lines. |
+| How often the client retries a refused join | unknown | With `CHAT_TRACE=1`, count the repeated join presences in the trace (a refusal is logged only once per connection, room kind and reason). |
 | Whether game servers open a chat connection | G | `chat: connect ... via=direct` lines after a hunt starts. |
 | What a whisper to an offline player shows | unknown | Whisper a player who quit. |
 | The client's typing limit against our 2048 characters | G | Paste a long line; watch `len=`. |
 | "Entered room" notices use the nickname's first part | G | The notice shows the username (right either way). |
 | The automatic party kick stays dormant with room presence | B for its conditions | A party of two with chat on for 60 s: no `DELETE /party/member/...`. |
 | Chat after the 24-hour token expiry | B (the retry), C (the expiry) | A `reason=expired` line at most every 10 minutes. |
+| A map load holds up the client's answer to a server ping | S | No `reason=ping-timeout` around a hunt travel (step 6). |
+| A reconnect keeps the player's name for the others | B for the client's member list, C for ours | Step 10, when it happens. |
 
 What to do when chat misbehaves is on [Troubleshooting]({{ trouble_page.url | relative_url }}#chat-not-connected);
 turning it on and off on a server is on [Windows server kit]({{ winserver_page.url | relative_url }}#chat).

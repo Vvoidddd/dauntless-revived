@@ -371,6 +371,12 @@ tarvitse uutta käynnistintä. Uudessa asennuksessa se on pois päältä. Miten 
 **Kytke se, kun kukaan ei pelaa.** Chatin kytkeminen päälle tai pois käynnistää kokonaisuuden
 uudelleen, ja uudelleenkäynnistys pudottaa ryhmät ja matchmaking-jonot, jotka ovat vain muistissa.
 
+**Jos palvelin on asennettu ennen chattia, päivitä ensin.** `Set-Chat.ps1` tulee chatin sisältävän
+koodin mukana, joten vanhemmassa versiossa sitä ei vielä ole: aja
+`Deploy-Remote.ps1 -Server <osoite> -Update` (tai palvelimella `Update-DauntlessServer.ps1`) ja kytke
+chat sitten päälle. `-Chat` ei käy yhdessä valinnan `-Update` kanssa, joten ajoja ja
+uudelleenkäynnistyksiä on kaksi.
+
 - Palvelimella: `C:\DauntlessRevived\bin\Set-Chat.ps1 -On` (tai `-Off`). Se kirjoittaa tiedostoon
   `metagame.env` asetukset `CHAT`, `CHAT_BIND_HOST=127.0.0.1` ja `CHAT_PORT` sekä tiedostoon
   `server.json` kohdan `"Chat"`, käynnistää kokonaisuuden uudelleen tavallisine varmuuskopioineen ja
@@ -388,11 +394,14 @@ viesteistä (ei koskaan niiden tekstiä). [Vianetsintä]({{ trouble_page.url | r
 selittää jokaisen.
 
 Ensimmäisissä oikeissa ajoissa `CHAT_TRACE=1` tiedostossa `metagame.env` kirjaa jokaisen chat-kehyksen
-niin, että kirjautumiset, viestien teksti ja tunnisteet on korvattu; poista se sen jälkeen. Jos oikeiden
-pelaajien huoneisiin liittymiset hylätään syyllä `reason=nick-...`, `CHAT_NICK_CHECK=log` päästää heidät
-sisään varoituksen kera sillä aikaa, kun raportoit rivin. `Set-Chat.ps1 -Off` on paluutie mistä tahansa
-vakavasta: peli yrittää silloin uudelleen 15-45 sekunnin välein vaarattomasti, kuten ennen chattia.
-Yksityisessä tilassa chattia ei vielä ole.
+niin, että kirjautumiset, viestien teksti ja tunnisteet on korvattu; lisää se ennen komentoa
+`Set-Chat.ps1 -On`, jonka uudelleenkäynnistys ottaa sen käyttöön, ja poista se sen jälkeen. Jos oikeiden
+pelaajien huoneisiin liittymiset hylätään syyllä `reason=nick-resource`, `nick-format` tai
+`nick-name`, `CHAT_NICK_CHECK=log` päästää heidät sisään varoituksen kera sillä aikaa, kun raportoit
+rivin. `Set-Chat.ps1 -Off` on paluutie mistä tahansa vakavasta: peli yrittää silloin uudelleen 15-45
+sekunnin välein vaarattomasti, kuten ennen chattia. Jos vika on itse chat-koodissa,
+`Update-DauntlessServer.ps1 -Rollback` palaa päivitystä edeltäneeseen versioon; vanhempi koodi ei lue
+asetusta `CHAT`. Yksityisessä tilassa chattia ei vielä ole.
 
 ### Päivitykset
 

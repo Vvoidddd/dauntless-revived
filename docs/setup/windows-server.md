@@ -358,6 +358,11 @@ off on a new install. How it works: [Text chat]({{ chat_page.url | relative_url 
 **Switch it when nobody is playing.** Turning chat on or off restarts the stack, and a restart drops
 the parties and matchmaking queues, which live in memory.
 
+**On a server installed before chat, update first.** `Set-Chat.ps1` comes with the code that has chat,
+so a server on an older version does not have it yet: run `Deploy-Remote.ps1 -Server <address> -Update`
+(or `Update-DauntlessServer.ps1` on the server), then switch chat on. `-Chat` cannot go with
+`-Update`, so that is two runs and two restarts.
+
 - On the server: `C:\DauntlessRevived\bin\Set-Chat.ps1 -On` (or `-Off`). It writes `CHAT`,
   `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` in `metagame.env` and `"Chat"` in `server.json`, restarts
   the stack with the usual backups, and waits up to 30 s for the listener. If that fails, it puts the
@@ -373,10 +378,13 @@ and then has `chat:` lines for connections, logins, room joins and messages (nev
 [Troubleshooting]({{ trouble_page.url | relative_url }}#chat-not-connected) explains each one.
 
 For the first live runs, `CHAT_TRACE=1` in `metagame.env` logs every chat frame with logins, message
-text and tokens replaced; take it out again afterwards. If real players are refused room joins with
-`reason=nick-...`, `CHAT_NICK_CHECK=log` admits them with a warning while you report the line.
+text and tokens replaced; add it before `Set-Chat.ps1 -On`, whose restart picks it up, and take it out
+again afterwards. If real players are refused room joins with `reason=nick-resource`, `nick-format`
+or `nick-name`, `CHAT_NICK_CHECK=log` admits them with a warning while you report the line.
 `Set-Chat.ps1 -Off` is the way back from anything serious: the game then retries every 15-45 s,
-harmlessly, as before chat existed. Private mode has no chat yet.
+harmlessly, as before chat existed. If the chat code itself is at fault,
+`Update-DauntlessServer.ps1 -Rollback` goes back to the build before the update; older code ignores
+`CHAT`. Private mode has no chat yet.
 
 ### Updates
 

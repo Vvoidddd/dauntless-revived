@@ -3,7 +3,7 @@ title: Päivitysohjeet
 parent: Asennus
 grand_parent: Dauntless Revived suomeksi
 nav_order: 6
-description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: kaverit, ryhmät ja killat toimivat nyt, ja oikea eteneminen on oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
+description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: tekstichat on rakennettu (pois päältä, kunnes kytket sen), kaverit, ryhmät ja killat toimivat nyt, ja oikea eteneminen on oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
 lang: fi
 ref: setup/upgrading
 locale: fi_FI
@@ -16,6 +16,7 @@ locale: fi_FI
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
 {% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
 {% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
 
 # Päivitysohjeet
 {: .no_toc }
@@ -29,6 +30,48 @@ mitä pelaajasi näkevät ja mitä voit asialle tehdä. Uusin muutos on ensimmä
 1. TOC
 {:toc}
 </details>
+
+## Tekstichat {#chat}
+
+**Syyskuu 2026.** Koskee jokaista palvelinta, joka päivitetään tekstichatin sisältävään versioon
+(paketissa on silloin `Set-Chat.ps1`, ja `Stack.ps1 status` näyttää `chat`-rivin).
+
+### Mikä muuttuu {#chat-what-changes}
+
+- **Pelaajille ei muutu mitään, ennen kuin kytket chatin päälle.** Chat on metagamen sisällä toimiva
+  kuuntelija, joka on oletuksena pois päältä: paketti kirjoittaa `CHAT=0`, ellet valitse `-Chat On`.
+  Niin kauan kuin se on pois päältä, pelin chat-yhteys saa yhdyskäytävältä vastauksen 502 ja yrittää
+  uudelleen 15-45 sekunnin välein vaarattomasti, kuten ennenkin.
+- **`Set-Chat.ps1` tulee päivityksen mukana.** Kytke chat päälle sen jälkeen toisella ajolla, kun
+  kukaan ei pelaa (se käynnistää kokonaisuuden uudelleen): omalta koneelta
+  `Deploy-Remote.ps1 -Server <osoite> -Chat On` tai palvelimella `Set-Chat.ps1 -On`
+  ([Windows-palvelin]({{ winserver_page.url | relative_url }}#chat)). `-Chat` ei käy yhdessä valinnan
+  `-Update` kanssa.
+- **Yhdyskäytävä antaa pelin chat-yhteyksille oman tahtirajansa** (`GATEWAY_RATE_WS`, oletus `20,12`:
+  20 kerralla, sitten 12 minuutissa osoitetta kohden), joten chatin uudelleenyhdistämiset eivät koskaan
+  kuluta sitä varaa, jota pelaajan peliliikenne tarvitsee
+  ([Asetukset]({{ config_page.url | relative_url }}#gateway)).
+- **Ei tietokannan siirtoa, ei palomuurisääntöä eikä uutta käynnistintä.** Jokainen käynnistin
+  versiosta v0.1.0 alkaen välittää chatin; v0.1.5:ssä on päivitetyt tekijätiedot.
+
+### Mitä pelaajasi näkevät {#chat-what-players-see}
+
+Kun chat on päällä: Ramsgaten ja metsästysten chat, ryhmächat, kiltachat ja kuiskaukset, kaikki
+käyttäjänimin. Ramsgaten chat on toistaiseksi istuntokohtainen, joten kaksi pelaajaa jakaa sen vain,
+kun he matkustivat Ramsgateen yhdessä ryhmänä. Peli, joka oli jo käynnissä chatin kytkeytyessä
+päälle, yhdistää noin 45 sekunnissa. Paikalla olon näyttäminen (kaverit näkyvät paikalla) on vielä
+tulossa.
+
+### Mitä voit tehdä {#chat-what-you-can-do}
+
+- Tee ensimmäisellä kerralla kahden pelaajan testi sivulta
+  [Tekstichat]({{ chat_page.url | relative_url }}#how-to-verify); siinä luetellaan odotettavat
+  lokirivit.
+- Jos oikeiden pelaajien huoneisiin liittymiset hylätään syyllä `reason=nick-resource`, `nick-format`
+  tai `nick-name`, aseta `CHAT_NICK_CHECK=log` tiedostoon `metagame.env` ja käynnistä uudelleen, kun
+  kukaan ei pelaa. Mihin tahansa vakavaan: `Set-Chat.ps1 -Off`.
+- **Paluu** päivitystä edeltäneeseen versioon (`Update-DauntlessServer.ps1 -Rollback`) ei vaadi muuta:
+  vanhempi koodi ei lue asetuksia `CHAT` ja `GATEWAY_RATE_WS`.
 
 ## Kaverit, ryhmät ja killat {#social}
 
@@ -61,8 +104,8 @@ mitä pelaajasi näkevät ja mitä voit asialle tehdä. Uusin muutos on ensimmä
 ensimmäiset tilitiedot ja ensimmäisen yhdistämisen kustakin pelaajasta koko istunnon ajan, joten
 vanhat, väärät vastaukset jäävät voimaan, kunnes peli käynnistetään uudelleen. Sen jälkeen ryhmäkutsut
 näkyvät kohdassa PARTY INVITES, kaverin lisääminen toimii (toinen pelaaja näkee pyynnön seuraavalla
-kirjautumisellaan), ja Guilds-välilehdellä voi perustaa kiltoja ja liittyä niihin. Paikalla olo, EPIC
-FRIENDS ja chat eivät vieläkään toimi (ne vaativat XMPP-palvelimen).
+kirjautumisellaan), ja Guilds-välilehdellä voi perustaa kiltoja ja liittyä niihin. Paikalla olo ja EPIC
+FRIENDS eivät vieläkään toimi. Chat tuli myöhemmällä päivityksellä ([Tekstichat](#chat)).
 [Liity kaverina]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) kertoo tämän
 pelaajille.
 

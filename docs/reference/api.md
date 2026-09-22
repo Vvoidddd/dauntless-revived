@@ -675,13 +675,15 @@ settings and limits are on [Configuration]({{ config_page.url | relative_url }}#
 with the account id and the player token (the token must be valid and belong to that account), a
 second `<open>`, then a bind: the resource is echoed as sent. A refused login answers `<failure>` with
 `<not-authorized/>` (or `<temporary-auth-failure/>` while that account or address is held back); the
-client's legacy `jabber:iq:auth` try after it gets an error and the connection is closed.
+client's legacy `jabber:iq:auth` try after it gets an error and the connection is closed. A connection
+gets one login attempt and at most four frames before it is logged in, and must bind within 10 s of
+its login.
 
 **What the server answers:**
 
 | The client sends | The server |
 |:-----------------|:-----------|
-| `<presence to="Room@muc.<domain>/<nickname>">` (join) | Checks the room and the nickname. Then sends the joiner every other occupant's presence, tells every other occupant about the joiner, and sends the joiner's own presence (status 110) last. Every occupant presence carries `<item jid="<account>@<domain>/<resource>">`, and every `from` is the room JID with the occupant's nickname exactly as sent. |
+| `<presence to="Room@muc.<domain>/<nickname>">` (join) | Checks the room and the nickname. If an older connection of the same account is in the room (a reconnect while the old one lingers), it leaves first: the others get its unavailable presence, and the old connection is told nothing. Then sends the joiner every other occupant's presence, tells every other occupant about the joiner, and sends the joiner's own presence (status 110) last. Every occupant presence carries `<item jid="<account>@<domain>/<resource>">`, and every `from` is the room JID with the occupant's nickname exactly as sent. |
 | `<presence type="unavailable" to="Room@...">` (leave) | The others get the leaver's unavailable presence; the leaver gets its own with status 110. |
 | `<message type="groupchat" to="Room@muc.<domain>">` | Delivered to every occupant, the sender included, from `Room@muc.<domain>/<sender's nickname>`, with the same `id`. Not to occupants who blocked the sender. |
 | `<message type="chat" to="<account>@<domain>[/<resource>]">` (whisper) | Delivered from the sender's full JID to that session, or to every session of the account. Not delivered, with no error, when the player is offline or either player blocked the other. |
@@ -689,8 +691,9 @@ client's legacy `jabber:iq:auth` try after it gets an error and the connection i
 | `<iq>` ping, session or anything else | An empty `result` with the same `id`. |
 | `<close/>` | `<close/>`, then the connection closes. |
 
-After 50 s of silence the server pings the client, and ends the connection when 30 s pass without an
-answer.
+After 50 s of silence the server pings the client, and ends the connection when another 100 s pass
+without an answer (the client answers from its game-thread tick, which a map load holds up). A client
+that stops reading is sent nothing more once 256 KiB wait unsent, and its connection ends.
 
 **Rooms.** `City-<id>`, `Hunt-<id>` and `General<id>` are open to every signed-in player,
 `Party-<partyId>` only to that party's members and `Guild-<guildId>` only to that guild's. All live on

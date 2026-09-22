@@ -495,8 +495,10 @@ chat: message room=City-... uid=UID-... len=5 to=1
 - **`chat: login refused ... reason=...`:** `expired` tarkoittaa, että pelaajan 24 tunnin istunto on
   päättynyt (käynnistä peli uudelleen); `uid-mismatch`, `bad-token` ja `no-account` tarkoittavat, ettei
   kirjautuminen kuulu olemassa olevalle tilille; `throttled` tarkoittaa, että tiliä tai osoitetta
-  pidätetään hetken toistuvien epäonnistumisten tai uudelleenyhdistämisten jälkeen (se poistuu itsestään
-  60 sekunnissa, osoitteelta 10 minuutissa). Peli yrittää uudelleen 15-45 sekunnin välein.
+  pidätetään hetken toistuvien epäonnistumisten, korvatun tai väärinkäyttävän yhteyden tai
+  sitoutumatta jääneiden kirjautumisten jälkeen (se poistuu itsestään 60 sekunnissa, osoitteelta 10
+  minuutissa). Peli yrittää uudelleen 15-45 sekunnin välein. Miksi yhteys päättyi, kertoo sen
+  [`closed`-rivi](#chat-closed).
 - `MUC: JoinPublicRoom failed. Not currently connected` pelin konsolissa tarkoittaa vain, ettei
   chat-yhteys ollut sillä hetkellä kirjautuneena; peli liittyy uudelleen, kun se on. Tällä ei ole
   mitään tekemistä nimien kanssa.
@@ -510,6 +512,13 @@ Palvelimella on chat-versio ajalta ennen käyttäjänimien korjausta (pull reque
 kokeiluversio). Päivitä palvelin. Nykyisellä versiolla peli näyttää käyttäjänimet: se lukee ne
 nimimerkistä, jolla se liittyi huoneeseen, ja palvelin pitää nimimerkin muuttamattomana. Miksi vanha
 versio näytti `UID-...`: [Tekstichat]({{ chat_page.url | relative_url }}#why-uid).
+
+Jos yhden pelaajan rivit muuttuivat muille muotoon `[unknown]` heti sen jälkeen, kun hänen pelinsä
+yhdisti uudelleen, palvelin on vanhempi kuin uudelleenyhdistämisen korjaus: vanha yhteys jäi
+huoneeseen, ja sen myöhempi poistuminen poisti pelaajan muiden jäsenluettelosta. Päivitä palvelin;
+siihen asti pelaaja poistuu huoneesta ja liittyy uudelleen (ryhmächatissa: lähtee ryhmästä ja liittyy
+takaisin). Nykyisellä versiolla lokissa on `chat: leave room=... reason=replaced` juuri ennen uuden
+yhteyden liittymistä ([miksi]({{ chat_page.url | relative_url }}#rooms)).
 
 ### ”Another operation already pending” {#chat-operation-pending}
 
@@ -526,11 +535,30 @@ liittymisen suoraan, minkä peli käsittelee siististi. Jos näet tämän nykyis
 | `not-member` | `Party-`- tai `Guild-`-huone ryhmästä tai killasta, johon pelaaja ei kuulu. Metagamen uudelleenkäynnistyksen jälkeen ryhmät ovat poissa, joten pelin ensimmäinen liittyminen vanhaan ryhmähuoneeseen hylätään; se siirtyy uuteen ryhmäänsä seuraavalla ryhmäkyselyllä. | Ei mitään, ellei se toistu pelaajalle, joka todella on siinä ryhmässä. |
 | `not-allowed` | Huoneen nimi, jota peli ei koskaan rakenna, tai eri verkkotunnus. | Ei mitään: ei oikea peliohjelma. |
 | `nick-name` | Nimimerkin nimiosa ei ole tilin käyttäjänimi. Heti kun ylläpitäjä on vaihtanut pelaajan nimen, peli käyttää vielä vanhaa nimeä. | Pelaaja käynnistää pelin uudelleen. |
-| `nick-account`, `nick-resource`, `nick-format` | Nimimerkissä ei ole pelaajan omaa tilitunnusta ja resurssia, tai siinä on merkkejä, joita peli ei koskaan kirjoita. | Oikean peliohjelman ei pitäisi koskaan saada näitä. Jos saa, aseta `CHAT_NICK_CHECK=log` tiedostoon `metagame.env`, käynnistä uudelleen, kun kukaan ei pelaa, ja raportoi rivi. |
-| `conflict` | Toinen yhteys pitää samaa nimimerkkiä. | Yleensä vain jäljelle jäänyt yhteys; se pingataan pois minuutin sisällä. |
+| `nick-resource`, `nick-format` | Nimimerkissä ei ole pelaajan omaa resurssia, tai siinä on merkkejä, joita peli ei koskaan kirjoita. | Oikean peliohjelman ei pitäisi koskaan saada näitä. Jos saa, aseta `CHAT_NICK_CHECK=log` tiedostoon `metagame.env`, käynnistä uudelleen, kun kukaan ei pelaa, ja raportoi rivi. |
+| `nick-account` | Nimimerkissä ei ole pelaajan omaa tilitunnusta, tai siinä on toisen tilin tunnus. | Oikea peliohjelma ei koskaan saa tätä: se rakentaa nimimerkin omasta tunnuksestaan. Se hylätään myös asetuksella `CHAT_NICK_CHECK=log`. |
+| `conflict` | Toisen tilin yhteys pitää samaa nimimerkkiä. | Ei pitäisi koskaan tapahtua: nimimerkissä on oma tilitunnus, ja saman tilin uusi yhteys ottaa huoneen vanhalta. |
 | `limit` | Liikaa huoneita, pelaajia huoneessa tai liittymisiä lyhyessä ajassa. | Ei mitään, ellei se toistu. |
 
-Hylkäys kirjataan enintään kerran pelaajaa, huonetta ja syytä kohden 10 minuutissa.
+Hylkäys kirjataan enintään kerran yhteyttä, huonetyyppiä (`City-` ja `Hunt-`, `General`, `Party-`,
+`Guild-`, kaikki muu) ja syytä kohden 10 minuutissa, huoneen nimi 80 merkkiin katkaistuna. Jokainen
+hylkäys lasketaan pudotusten rajaan, joten peliohjelma, joka lähettää jatkuvasti hylättyjä
+liittymisiä, katkaistaan.
+
+### `chat: closed ... reason=...` {#chat-closed}
+
+| Syy | Merkitys | Seuraava kirjautuminen odottaa 60 s |
+|:----|:---------|:------------------------------------|
+| `close` | Peli kirjautui ulos (lopetus tai sen oma uudelleenyhdistäminen). | ei |
+| `socket` | Yhteys katkesi. | ei |
+| `ping-timeout` | Pingiin ei vastattu 100 sekunnissa (tai 10 sekunnissa vanhemmalla yhteydellä, kun sama tili yhdisti uudelleen: jäljelle jäänyt yhteys). | ei |
+| `replaced` | Saman tilin uudempi yhteys tuli sen tilalle. | kyllä, jos se oli sitoutunut |
+| `timeout` | Ei kirjautumista 15 sekunnissa tai ei sitoutumista 10 sekunnissa kirjautumisesta. | kolmen 10 minuutin sisällä jääneen sitoutumisen jälkeen |
+| `refused` | Hylätty kirjautuminen tai liian monta kehystä ennen kirjautumista. | ei (epäonnistuneet kirjautumiset lasketaan osoitteen rajaan) |
+| `size` | Yli 32 KiB:n kehys. | kyllä |
+| `backlog` | Peli lakkasi lukemasta: 256 KiB odotti lähtemättä. | kyllä |
+| `abuse` | Yli 100 pudotettua viestiä tai hylättyä liittymistä minuutissa. | kyllä |
+| `shutdown` | Metagame pysähtyi. | ei |
 
 ### `name=InvalidMCPUser` liittymisrivillä {#chat-invalid-mcp-user}
 

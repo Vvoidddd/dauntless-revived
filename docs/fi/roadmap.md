@@ -164,8 +164,11 @@ käyttäjänimet.
   toisena. Ryhmä- ja kiltahuoneet ovat vain jäsenille, ja estot koskevat huonerivejä ja kuiskauksia.
 - Palvelin ei lähetä läsnäolotietoja huoneiden ulkopuolella, joten peliohjelman automaattinen
   ryhmäpotku pysyy lepotilassa.
-- **Ei vielä viety palvelimelle eikä kokeiltu kahdella pelaajalla.** Seuraavaksi chat kytketään päälle
-  vuokratulla palvelimella, kun kukaan ei pelaa, ja tehdään kahden pelaajan testi
+- Kun pelaajan yhteys katkeaa ja peli yhdistää uudelleen, uusi yhteys ottaa huoneet vanhalta, joten
+  muut näkevät pelaajan nimen edelleen. Pingit sallivat pitkän kartan latauksen.
+- **Ei vielä viety palvelimelle eikä kokeiltu kahdella pelaajalla.** Seuraavaksi, kun kukaan ei pelaa:
+  vuokrattu palvelin päivitetään (se ajaa versiota 9f3f78b, jossa ei vielä ole `Set-Chat.ps1`:tä),
+  chat kytketään päälle toisella ajolla, ja tehdään kahden pelaajan testi
   ([Näin se tarkistetaan]({{ '/fi/findings/chat.html' | relative_url }}#how-to-verify)). Sen jälkeen:
   yhteinen Ramsgate-kanava ryhmättömille pelaajille, kavereiden näkyminen paikalla ja yksityinen tila.
   Yksityiskohdat ovat sivulla [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}).

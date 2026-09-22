@@ -555,9 +555,13 @@ Se kirjoittaa tiedostoon `metagame.env` asetukset `CHAT=1` tai `0`, `CHAT_BIND_H
 ajaa komennot `Stack.ps1 stop` ja `start` tavallisine varmuuskopioineen ja odottaa enintään 30
 sekuntia, että `127.0.0.1:<portti>` alkaa kuunnella (tai lakkaa kuuntelemasta). Jos jokin vaihe
 epäonnistuu, se palauttaa molemmat tiedostot ennalleen, käynnistää kokonaisuuden taas uudelleen ja
-päättyy koodilla `1`. Jos asetus on jo pyydetty, se ei muuta mitään eikä käynnistä mitään uudelleen.
-Uudelleenkäynnistys pudottaa ryhmät ja matchmaking-jonot, jotka ovat vain muistissa: aja se, kun
-kukaan ei pelaa. Omalta koneelta `Deploy-Remote.ps1 -Server <osoite> -Chat On` ajaa sen SSH:n kautta.
+päättyy koodilla `1`. Jos asetus on jo pyydetty, se ei muuta mitään eikä käynnistä mitään uudelleen;
+se katsoo vain kolmea chat-asetusta ja kohtaa `"Chat"`, joten se, mitä asennusohjelma tai päivitys
+kirjoitti muualle tiedostoon `metagame.env`, ei vaikuta. Uudelleenkäynnistys pudottaa ryhmät ja
+matchmaking-jonot, jotka ovat vain muistissa: aja se, kun kukaan ei pelaa. Omalta koneelta
+`Deploy-Remote.ps1 -Server <osoite> -Chat On` ajaa sen SSH:n kautta. Jos palvelin on asennettu ennen
+chattia, skripti tulee päivityksen mukana, joten päivitä ensin. Pohjana on Vvoidddd:n ensimmäinen
+chat-kytkin ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
 
 ```powershell
 C:\DauntlessRevived\bin\Set-Chat.ps1 -On

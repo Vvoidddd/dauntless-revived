@@ -710,13 +710,14 @@ SASL `PLAIN` tilitunnuksella ja pelaajan tunnisteella (tunnisteen on oltava voim
 tälle tilille), toinen `<open>` ja sitten sidonta (bind): resurssi palautetaan sellaisenaan. Hylättyyn
 kirjautumiseen vastataan `<failure>` ja `<not-authorized/>` (tai `<temporary-auth-failure/>`, kun
 tiliä tai osoitetta pidätetään); peliohjelman sen jälkeen yrittämä vanha `jabber:iq:auth` saa virheen,
-ja yhteys suljetaan.
+ja yhteys suljetaan. Yhteys saa yhden kirjautumisyrityksen ja enintään neljä kehystä ennen
+kirjautumista, ja sen on sitouduttava 10 sekunnissa kirjautumisesta.
 
 **Mitä palvelin vastaa:**
 
 | Peliohjelma lähettää | Palvelin |
 |:---------------------|:---------|
-| `<presence to="Huone@muc.<verkkotunnus>/<nimimerkki>">` (liittyminen) | Tarkistaa huoneen ja nimimerkin. Sitten se lähettää liittyjälle jokaisen muun huoneessa olijan läsnäolotiedon, kertoo jokaiselle muulle liittyjästä ja lähettää liittyjän oman läsnäolotiedon (tilakoodi 110) viimeisenä. Jokaisessa huoneessa olijan läsnäolotiedossa on `<item jid="<tili>@<verkkotunnus>/<resurssi>">`, ja jokainen `from` on huoneen JID ja huoneessa olijan nimimerkki täsmälleen sellaisena kuin se lähetettiin. |
+| `<presence to="Huone@muc.<verkkotunnus>/<nimimerkki>">` (liittyminen) | Tarkistaa huoneen ja nimimerkin. Jos saman tilin vanhempi yhteys on huoneessa (uudelleenyhdistäminen vanhan yhteyden vielä roikkuessa), se poistuu ensin: muut saavat sen unavailable-läsnäolotiedon, eikä vanhalle yhteydelle kerrota mitään. Sitten se lähettää liittyjälle jokaisen muun huoneessa olijan läsnäolotiedon, kertoo jokaiselle muulle liittyjästä ja lähettää liittyjän oman läsnäolotiedon (tilakoodi 110) viimeisenä. Jokaisessa huoneessa olijan läsnäolotiedossa on `<item jid="<tili>@<verkkotunnus>/<resurssi>">`, ja jokainen `from` on huoneen JID ja huoneessa olijan nimimerkki täsmälleen sellaisena kuin se lähetettiin. |
 | `<presence type="unavailable" to="Huone@...">` (poistuminen) | Muut saavat poistujan unavailable-läsnäolotiedon; poistuja saa omansa tilakoodilla 110. |
 | `<message type="groupchat" to="Huone@muc.<verkkotunnus>">` | Toimitetaan jokaiselle huoneessa olijalle lähettäjä mukaan lukien osoitteesta `Huone@muc.<verkkotunnus>/<lähettäjän nimimerkki>` samalla `id`:llä. Ei niille, jotka ovat estäneet lähettäjän. |
 | `<message type="chat" to="<tili>@<verkkotunnus>[/<resurssi>]">` (kuiskaus) | Toimitetaan lähettäjän täydestä JID:stä kyseiselle istunnolle tai tilin jokaiselle istunnolle. Ei toimiteta, eikä virhettä lähetetä, jos pelaaja ei ole paikalla tai jompikumpi on estänyt toisen. |
@@ -725,7 +726,9 @@ ja yhteys suljetaan.
 | `<close/>` | `<close/>`, sitten yhteys suljetaan. |
 
 Kun peliohjelma on ollut 50 sekuntia hiljaa, palvelin pingaa sitä ja päättää yhteyden, jos vastausta
-ei tule 30 sekunnissa.
+ei tule seuraavien 100 sekunnin aikana (peliohjelma vastaa pelisäikeensä kierroksella, jonka kartan
+lataus pysäyttää). Peliohjelmalle, joka lakkaa lukemasta, ei lähetetä enää mitään, kun 256 KiB odottaa
+lähtemättä, ja sen yhteys päättyy.
 
 **Huoneet.** `City-<tunnus>`, `Hunt-<tunnus>` ja `General<tunnus>` ovat avoimia kaikille
 kirjautuneille pelaajille, `Party-<partyId>` vain sen ryhmän jäsenille ja `Guild-<guildId>` vain sen
