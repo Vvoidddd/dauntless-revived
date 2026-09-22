@@ -269,7 +269,7 @@ ServerPort=61099
 bUseSSL=false
 ```
 
-Yhteys menee nyt Tailscalen kautta isännälle. Niin kauan kuin isäntä ei pyöritä chat-palvelinta,
+Yhteys menee nyt Tailscalen kautta isännälle. Yksityisessä tilassa chat ei vielä toimi, joten
 yhteys vain epäonnistuu, täsmälleen kuten se epäonnistuu Epiciä vastaan nykyään, ja peli jatkaa
 normaalisti. Kaveripaketin `play.ps1` kirjoittaa tämän lohkon jokaisella käynnistyksellä.
 
@@ -399,7 +399,7 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja
   käynnistää heille yhden palvelimen, kun neljä on liittynyt tai kun 20 sekuntia kuluu ilman, että
   kukaan uusi liittyy.
-- Tekstichattia ei vielä ole. Käytä Discordia.
+- Tekstichat on rakennettu, mutta sitä ei ole vielä kytketty päälle (katso alta). Käytä Discordia.
 - Palkkiotehtävät (bounties) ja odotusajat (cooldowns) tallentuvat, mutta palkkiotehtävän valitsemista
   ja lunastamista sekä vuorokauden vaihdetta ei ole vielä kokeiltu pelissä. Escalation-sarjat ovat
   vain tynkiä, jotka eivät oikeasti tallenna mitään, eivätkä ne säily pelikerrasta toiseen.
@@ -480,9 +480,10 @@ hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
 ### Mikä ei vielä toimi {#what-does-not-work-yet}
 
 - **Paikalla olo.** Kaikki näkyvät tilassa Offline, ja EPIC FRIENDS pysyy tyhjänä. Pelaajien
-  näyttäminen paikalla vaatii chat-palvelimen, jota ei ole vielä rakennettu; se on seuraavana
-  vuorossa, kun ryhmät toimivat.
-- **Chat**: kuiskaukset sekä ryhmä-, kilta- ja Ramsgate-chat. Käytä Discordia.
+  näyttäminen paikalla vaatii chat-yhteyden läsnäolotiedot, joita ei ole vielä rakennettu.
+- **Chat**: kuiskaukset sekä ryhmä-, kilta- ja Ramsgate-chat käyttäjänimin on rakennettu, mutta isäntä
+  kytkee sen päälle vasta, kun kaksi pelaajaa on kokeillut sitä; siihen asti käytä Discordia. Aluksi
+  Ramsgaten chat tavoittaa vain ne pelaajat, jotka matkustivat sinne kanssasi ryhmänä.
 - **Muutokset näkyvät viiveellä.** Kaveripyynnöt, hyväksytyt pyynnöt ja kiltojen muutokset näkyvät
   toiselle pelaajalle hänen seuraavalla kirjautumisellaan (killoissa myös matkustamisen jälkeen), eivät
   heti.

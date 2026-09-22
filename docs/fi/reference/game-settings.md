@@ -287,9 +287,11 @@ Mitä kukin kirjoittaja laittaa siihen:
 
 Minne yhteys päätyy:
 
-- **Portissa 61099 ei vielä kuuntele mikään**, millään puolella. Yhteys epäonnistuu samalla tavalla
-  kuin se jo epäonnistuu Epicin palvelinta vastaan, ja peli jatkaa normaalisti. Portti pidetään
-  vapaana myöhempää chat-palvelinta varten.
+- **Metagamen chat kuuntelee porttia 61099, kun `CHAT=1`**, palvelimen (tai isäntäkoneen)
+  osoitteessa `127.0.0.1`. Toistaiseksi se on oletuksena pois päältä; kun mikään ei kuuntele, yhteys
+  epäonnistuu samalla tavalla kuin se jo epäonnistuu Epicin palvelinta vastaan, ja peli jatkaa
+  normaalisti. Yksityisessä tilassa chattia ei vielä ole. Katso
+  [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}).
 - Julkisessa tilassa käynnistimen välitin välittää WebSocket-yhteyden avauspyynnön (upgrade)
   kiinnitetyn TLS-yhteytensä yli palvelimen yhdyskäytävälle, joka välittää sen edelleen osoitteeseen
   `GATEWAY_WS_URL` (oletus `http://127.0.0.1:61099`; `-Sandbox`-asennus käyttää osoitetta

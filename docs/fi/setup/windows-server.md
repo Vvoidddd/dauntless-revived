@@ -18,6 +18,8 @@ locale: fi_FI
 {% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
 {% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
 {% assign scripts_page = site.pages | where: "path", "fi/reference/scripts.md" | first %}
+{% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 
 # Windows-palvelin
 {: .no_toc }
@@ -354,8 +356,43 @@ Nämä ajetaan palvelimella (SSH:n kautta: `ssh -i <avain> Administrator@<palvel
 | `Backup-DauntlessServer.ps1` | Varmuuskopio heti (tehdään myös tunnin välein sekä jokaisen käynnistyksen ja pysäytyksen yhteydessä). |
 | `Write-PerformanceLog.ps1 -Once` | Suorituskykymittaus heti (aja järjestelmänvalvojana). Kokonaisuus ottaa mittauksen itse minuutin välein kansioon `data\logs\performance\`: pelipalvelinten ja osien suoritin ja muisti, koneen suoritin, keskusmuisti, levy ja verkko sekä pelaajamäärät. Katso [Mittaa se]({{ admin_page.url | relative_url }}#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tagi>` | Uusi palvelinkoodi, katso alta. |
+| `Set-Chat.ps1 -On` / `-Off` | Kytkee pelin tekstichatin päälle tai pois; katso [Chat](#chat) alta. Käynnistää kokonaisuuden uudelleen. |
 
 Omalta koneelta `Deploy-Remote.ps1 -Server <osoite> -Status` näyttää tilanteen kirjautumatta.
+
+### Chat {#chat}
+
+Pelin tekstichat (Ramsgaten ja metsästysten chat, ryhmächat, kiltachat ja kuiskaukset käyttäjänimin)
+on metagamen sisällä toimiva kuuntelija osoitteessa `127.0.0.1:61099`. Yhdyskäytävä välittää pelin
+chat-yhteyden sille jo valmiiksi, joten **palomuurista ei tarvitse avata mitään**, eivätkä kaverit
+tarvitse uutta käynnistintä. Uudessa asennuksessa se on pois päältä. Miten se toimii:
+[Tekstichat]({{ chat_page.url | relative_url }}).
+
+**Kytke se, kun kukaan ei pelaa.** Chatin kytkeminen päälle tai pois käynnistää kokonaisuuden
+uudelleen, ja uudelleenkäynnistys pudottaa ryhmät ja matchmaking-jonot, jotka ovat vain muistissa.
+
+- Palvelimella: `C:\DauntlessRevived\bin\Set-Chat.ps1 -On` (tai `-Off`). Se kirjoittaa tiedostoon
+  `metagame.env` asetukset `CHAT`, `CHAT_BIND_HOST=127.0.0.1` ja `CHAT_PORT` sekä tiedostoon
+  `server.json` kohdan `"Chat"`, käynnistää kokonaisuuden uudelleen tavallisine varmuuskopioineen ja
+  odottaa kuuntelijaa enintään 30 sekuntia. Jos se ei onnistu, se palauttaa vanhat asetukset ja
+  käynnistää uudelleen.
+- Omalta koneelta: `Deploy-Remote.ps1 -Server <osoite> -Chat On` ajaa saman skriptin SSH:n kautta.
+- Asennuksessa: `-Chat On` tai `-Chat Off` (sekä asennusohjelma että `Deploy-Remote.ps1` ottavat sen).
+  Uusi ajo ilman valintaa `-Chat` pitää tallennetun valinnan, eikä päivitys koskaan muuta sitä.
+
+`Stack.ps1 status` näyttää `chat`-rivin: `listening 127.0.0.1:61099`, `off` tai
+`on in metagame.env but not listening (see the metagame log)`; `Get-ServerStatus.ps1` näyttää saman
+palvelimella. Metagamen loki alkaa rivillä `chat: listening on 127.0.0.1:61099 (nick check enforce)`,
+ja sen jälkeen siinä on `chat:`-rivejä yhteyksistä, kirjautumisista, huoneisiin liittymisistä ja
+viesteistä (ei koskaan niiden tekstiä). [Vianetsintä]({{ trouble_page.url | relative_url }}#chat-not-connected)
+selittää jokaisen.
+
+Ensimmäisissä oikeissa ajoissa `CHAT_TRACE=1` tiedostossa `metagame.env` kirjaa jokaisen chat-kehyksen
+niin, että kirjautumiset, viestien teksti ja tunnisteet on korvattu; poista se sen jälkeen. Jos oikeiden
+pelaajien huoneisiin liittymiset hylätään syyllä `reason=nick-...`, `CHAT_NICK_CHECK=log` päästää heidät
+sisään varoituksen kera sillä aikaa, kun raportoit rivin. `Set-Chat.ps1 -Off` on paluutie mistä tahansa
+vakavasta: peli yrittää silloin uudelleen 15-45 sekunnin välein vaarattomasti, kuten ennen chattia.
+Yksityisessä tilassa chattia ei vielä ole.
 
 ### Päivitykset
 

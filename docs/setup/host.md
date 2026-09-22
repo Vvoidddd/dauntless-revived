@@ -342,9 +342,10 @@ ServerPort=61099
 bUseSSL=false
 ```
 
-This is a recent addition. Nothing listens on port 61099 yet, so the connection fails, the same way
-it already fails against Epic's server, and the game carries on. A local presence server can take
-that port later. The address is quoted for the same reason as the endpoints in step 8. We have
+With `CHAT=1` in the metagame's `.env` (step 9), the metagame listens on port 61099 and in-game text
+chat works: Ramsgate, party, guild and whispers, with usernames. Without it nothing listens there, so
+the connection fails, the same way it already fails against Epic's server, and the game carries on.
+The address is quoted for the same reason as the endpoints in step 8. We have
 confirmed that the game keeps this section when it rewrites `Engine.ini`. **Verified 2026-09-21:** in
 the first 90 seconds after launch there were no connections outside the PC; the client tried local
 port 61099 instead (item 0.5 on the [roadmap]({{ roadmap_page.url | relative_url }})).
@@ -501,6 +502,7 @@ what an unset value means and who sets it, is on [Configuration]({{ config_page.
 
 | Key | Default | What it does |
 |---|---|---|
+| `CHAT` | off | `1` turns on the game's text chat: the metagame also listens on `127.0.0.1:61099`, where step 7 points the game's chat connection, and logs `chat: listening on 127.0.0.1:61099 (nick check enforce)` at startup. Off by default until the two-player test on the rented server passes. If the port is taken, the metagame logs one error line and runs without chat. Details: [Configuration]({{ config_page.url | relative_url }}#metagame-chat). |
 | `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` | The entitlements every account owns. The first one is the Elite Hunt Pass. |
 | `INVENTORY_REFUSE_OVERSPEND` | off | `1` refuses an inventory transaction that removes more than the player has. Off because a refusal drops the whole transaction, rewards included, and no hunt-end transaction has been checked against it yet. Meanwhile an overspend is clamped at 0 and logged as "Allowing overspend". |
 | `DB_WAL` | off | `1` switches the database to WAL mode. Off because the backups described here copy the database file alone, and a hard stop leaves the newest saves in a separate `-wal` file. |
@@ -745,9 +747,9 @@ if ($Graphics -ge 0) {
 # Chat/presence (XMPP): 1.4.4 ships pointed at Epic's live server
 # (wss://xmpp-service-prod.ol.epicgames.com:443) and keeps reconnecting to it,
 # sending the account id and our login token. Point it at this PC instead.
-# Nothing listens on 61099 yet, so the connection fails exactly as it does
-# against Epic today (the game tolerates that); a local presence server can
-# take this port later. URLs MUST be quoted in a user ini.
+# With CHAT=1 in the metagame's .env the metagame's chat listens on 61099;
+# without it the connection fails harmlessly, exactly as it does against
+# Epic (the game tolerates that). URLs MUST be quoted in a user ini.
 $xmpp = @("[OnlineSubsystemMcp.XMPP]", 'ServerAddr="ws://127.0.0.1"', "ServerPort=61099", "bUseSSL=false")
 
 $eng = "$U\Engine.ini"

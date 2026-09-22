@@ -12,6 +12,9 @@ ref: setup/troubleshooting
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign ports_page = site.pages | where: "path", "reference/ports.md" | first %}
 
 # Troubleshooting
 {: .no_toc }
@@ -433,6 +436,101 @@ Read the metagame log from the moment you launched:
   - the game-server key wasn't registered (the metagame must have logged
     `Registered 1 new Gameserver API Key(s) on boot!` once), or
   - `METAGAME_API_KEY` in the deploy server's `.env` differs from `gameserver.key`.
+
+---
+
+## Chat says "Unable to send message", or nothing arrives {#chat-not-connected}
+
+Chat is the metagame's own listener, off unless `CHAT=1`
+([Text chat]({{ chat_page.url | relative_url }}), [Configuration]({{ config_page.url | relative_url }}#metagame-chat)).
+In the metagame log, one connection looks like this:
+
+```text
+chat: listening on 127.0.0.1:61099 (nick check enforce)        at startup
+chat: connect c=3 from=203.0.113.7 via=gateway
+chat: login ok c=3 uid=UID-...
+chat: bound c=3 uid=UID-... resource=V2:...:WIN::... domain=prod.ol.epicgames.com sessions=1
+chat: join room=City-... uid=UID-... name=<username> occupants=0
+chat: message room=City-... uid=UID-... len=5 to=1
+```
+
+- **No `chat: listening` line:** chat is off (`CHAT` is not `1`) or did not start; see
+  [The chat listener does not start](#chat-not-started). On a kit server `Stack.ps1 status` shows a
+  `chat` line.
+- **No `chat: connect` line:** the game never reached the listener. In public mode the gateway log has
+  a `ws` route for it; a 502 there means the metagame is not listening. On one PC, check that
+  `Engine.ini` points the chat at `ws://127.0.0.1:61099` ([Ports and network]({{ ports_page.url | relative_url }}#chat-port)).
+- **`chat: login refused ... reason=...`:** `expired` means the player's 24-hour session ran out
+  (restart the game); `uid-mismatch`, `bad-token` and `no-account` mean the login does not belong to a
+  live account; `throttled` means the account or address is held back for a while after repeated
+  failures or reconnects (it clears by itself in 60 s, or 10 minutes for an address). The game retries
+  every 15-45 s.
+- `MUC: JoinPublicRoom failed. Not currently connected` in the game's console only means the chat
+  connection was not logged in at that moment; the game joins again once it is. It has nothing to do
+  with names.
+
+Changing matchmaking settings does not fix a chat problem, and 61099 must stay on loopback: never open
+it in the firewall.
+
+### Names show as `UID-...` or "[unknown]" {#chat-uid-names}
+
+The server runs a chat version from before usernames were fixed (the first prototype of pull request
+#9). Update the server. With the current version the game shows usernames: it reads them from the
+room nickname it joined with, and the server keeps that nickname unchanged. Why the old one showed
+`UID-...`: [Text chat]({{ chat_page.url | relative_url }}#why-uid).
+
+### "Another operation already pending" {#chat-operation-pending}
+
+The game waits for its own room presence to finish a join or a leave, and refuses a new join to that
+room until then. The current server always sends it, or refuses the join outright, which the game
+handles cleanly. If you see this with the current version, turn on `CHAT_TRACE=1`, restart when
+nobody plays, reproduce it once, and keep the `chat: trace` lines for the room (they hold no message
+text or tokens). Then turn the trace off again.
+
+### `chat: join refused ... reason=...` {#chat-join-refused}
+
+| Reason | Meaning | What to do |
+|:-------|:--------|:-----------|
+| `not-member` | A `Party-` or `Guild-` room of a party or guild the player is not in. After a metagame restart parties are gone, so the game's first rejoin of its old party room is refused; it moves to its new party at the next party poll. | Nothing, unless it repeats for a player who is really in that party. |
+| `not-allowed` | A room name the game never builds, or another domain. | Nothing: not a real client. |
+| `nick-name` | The name part of the nickname is not the account's username. Right after an admin renamed a player, the game still uses the old name. | The player restarts the game. |
+| `nick-account`, `nick-resource`, `nick-format` | The nickname does not carry the player's own account id and resource, or holds characters the game never writes. | A real client should never get these. If one does, set `CHAT_NICK_CHECK=log` in `metagame.env`, restart when nobody plays, and report the line. |
+| `conflict` | Another connection holds that nickname. | Normally only a leftover connection; it is pinged out within a minute. |
+| `limit` | Too many rooms, players in a room or joins in a short time. | Nothing, unless it repeats. |
+
+A refusal is logged at most once per player, room and reason every 10 minutes.
+
+### `name=InvalidMCPUser` in the join line {#chat-invalid-mcp-user}
+
+The game's own account read at login failed, so its name is the fallback `InvalidMCPUser`. Other
+players still see the real username (they look it up), but the "entered room" notice may show the
+fallback. Look for `EOS Account Info for <id> by <id>: found` at that player's login; if it is missing
+or says `unknown`, the game did not get its own account data. Restarting the game usually fixes it.
+
+### Whispers never show {#chat-whispers}
+
+A whisper is shown once the game has looked up the sender's name with
+`GET /account/api/public/account?accountId=...`; the metagame logs
+`Account info for 1 account(s) by userId ...`. The chat line
+`chat: whisper from=... to=... ... reason=offline` means the other player was not connected to chat,
+and `reason=blocked` that one of the two blocked the other. Nothing is sent back to the sender in
+either case.
+
+### Ramsgate chat only reaches your party {#chat-ramsgate-party-only}
+
+Expected for now. Each player gets a Ramsgate session of their own, and the Normal channel is per
+session, so two players share it only when they travelled to Ramsgate together as a party. Use party
+chat meanwhile. A shared Ramsgate channel is on the roadmap (3.10).
+
+### The chat listener does not start {#chat-not-started}
+
+The metagame logs one error line and keeps running without chat:
+
+- `chat: not started: could not listen on 127.0.0.1:61099 (EADDRINUSE)`: another program holds the
+  port. Find it with `Get-NetTCPConnection -LocalPort 61099 -State Listen` and stop it.
+- `chat: not started: CHAT_BIND_HOST must be 127.0.0.1 in public mode`: fix `CHAT_BIND_HOST` (the kit
+  always writes `127.0.0.1`).
+- `chat: EXPERIMENTAL_CHAT is no longer read; the switch is now CHAT=1` (a warning): rename the line.
 
 ---
 

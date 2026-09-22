@@ -61,7 +61,7 @@ These rules apply to every script in `deploy/windows-server/`.
   `Update-DauntlessServer.ps1` refreshes that copy from the new code. `staging\kit` is only the upload
   folder that `Deploy-Remote.ps1` uses.
 - **`-Root`.** `Stack.ps1`, `Update-DauntlessServer.ps1`, `Backup-DauntlessServer.ps1`,
-  `New-Invite.ps1`, `Get-ServerStatus.ps1` and `Write-PerformanceLog.ps1` take `-Root <install root>`. Without it they use the
+  `New-Invite.ps1`, `Get-ServerStatus.ps1`, `Set-Chat.ps1` and `Write-PerformanceLog.ps1` take `-Root <install root>`. Without it they use the
   folder above their own folder if that folder holds `data\config\server.json`, which is the case for
   `<root>\bin`. Otherwise they use `C:\DauntlessRevived`. The installer takes `-InstallRoot` instead.
 - **`-WhatIf` and `-Confirm`** work on `Deploy-Remote.ps1`, `Install-DauntlessServer.ps1`,
@@ -87,6 +87,7 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `Update-DauntlessServer.ps1` | Yes, except on a `-Sandbox` install. |
 | `Stack.ps1` | `start`, `stop` and `restart` on an installed server work through the scheduled tasks and need it, and so does `-Direct`. `status` runs without it, but it can show the players online only when it can read the owner key, which needs elevation. |
 | `New-Invite.ps1` | Yes: it reads `data\keys\owner.key`. |
+| `Set-Chat.ps1` | Yes, except on a `-Sandbox` install: it rewrites `metagame.env` and restarts the stack. |
 | `Get-ServerStatus.ps1` | On the server, if you want the player list: it reads the owner key. Not needed with `-KeyFile`. |
 | `Backup-DauntlessServer.ps1` | Run it elevated, or let the backup task run it as the service account. An account that cannot read a file skips it and names it in the output. |
 | `Write-PerformanceLog.ps1` | On an installed server, yes: without elevation it cannot see the game servers (they run as the service account) or read the owner key for the player counts. Not on a `-Sandbox` install. |
@@ -103,6 +104,7 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `New-Invite.ps1` | The server | Creates an invite code and prints the invite line. Also lists and revokes codes. |
 | `Get-ServerStatus.ps1` | The server or any PC | Who is online and which worlds and hunts run. |
 | `Backup-DauntlessServer.ps1` | The server | A backup now, with retention. |
+| `Set-Chat.ps1` | The server | Turns the in-game text chat on or off (public mode), and restarts the stack. |
 | `backup-hidden.vbs` | The server | Runs the backup without a window (used by the hourly task). |
 | `Write-PerformanceLog.ps1` | The server | A performance sample now, or every minute in a sandbox. The stack supervisor already takes one every minute on an installed server. |
 | `Receive-Upload.ps1` | The server | The server side of the chunked upload. `Deploy-Remote.ps1` calls it; you do not. |
@@ -160,6 +162,7 @@ server's host key in a `known_hosts` file. Commands run on the server as
 | `-AdminIp` | IPv4 address or `IPv4/prefix` with a prefix from 8 to 32; one or more | none | The addresses allowed to use Remote Desktop. Without it and without `-KeepRdpOpen`, the script warns that the installer turns internet-open Remote Desktop rules off. |
 | `-KeepRdpOpen` | switch | off | Leave internet-open Remote Desktop rules as they are. |
 | `-InteractiveSession` | switch | off | The session-0 fallback of the installer. |
+| `-Chat` | `On` or `Off` | not passed | Passed on as the installer's `-Chat`. Public mode only for `On`. On its own, without anything to install, it is an action instead: see below. |
 | `-GameZip` | path of the local zip | none | Uploads the game zip in resumable parts. The zip is hashed on your PC first and must match the pinned SHA-256. Each part is checked on the server, with up to 3 tries, and the whole file again after assembly, with up to 4 rounds. Run the same command again to resume an interrupted upload. |
 | `-GameZipUrl` | `https://` URL | none | Lets the server download the zip itself. Use either `-GameZip` or `-GameZipUrl`. |
 | `-ChunkSizeMB` | 1-2048 | `256` | Part size of the game-zip upload. |
@@ -185,6 +188,7 @@ zip are sent. Commit your work, or add `-WorkingTree`. Uncommitted changes are n
 | `-Update` | switch | Uploads the kit and the code, then runs `Update-DauntlessServer.ps1 -Root <InstallRoot>` with the uploaded zip, or with `-Ref` for `-Source GitHub`. `-GameZip`, `-GameZipUrl`, `-RestoreFrom` and `-OwnerName` are refused. |
 | `-Status` | switch | Runs `<InstallRoot>\bin\Stack.ps1 status` and `Get-ServerStatus.ps1` on the server. The exit code is theirs. |
 | `-InviteFor` | text without control characters, quotes, backticks or `$` | Runs `New-Invite.ps1 -For <text>` on the server, prints the invite line, then checks it from your PC with `Get-ServerStatus.ps1 -Invite`. |
+| `-Chat` alone | `On` or `Off` | With no install parameter (`-OwnerName`, `-RestoreFrom`, `-GameZip`, `-GameZipUrl`, `-ServerName`, `-AdminIp`, `-Ref`, `-WorkingTree`, `-UploadOnly`), runs `<InstallRoot>\bin\Set-Chat.ps1 -On` or `-Off` on the server and uploads nothing. The stack restarts, so do it when nobody is playing. Refused together with `-Update`, `-Status` or `-InviteFor`. |
 | `-UploadOnly` | switch | Uploads everything, prints the command that would run on the server (the installer, or the updater with `-Update`), and stops. |
 
 **Tests only**
@@ -205,6 +209,7 @@ zip are sent. Commit your work, or add `-WorkingTree`. Uncommitted changes are n
 - `-ServerName` is passed only when you give it, and the installer's default is
   `Dauntless Revived`. Re-deploying without it renames the server.
 - `-InteractiveSession` is not remembered. Re-deploying without it turns the auto-logon off again.
+- `-Chat` is remembered in `server.json`: re-deploying without it keeps chat as it was.
 
 For code changes, use `-Update`. It does not run the installer, so none of this applies.
 
@@ -225,6 +230,7 @@ For code changes, use `-Update`. It does not run the installer, so none of this 
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Update
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -InviteFor friend1
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Status
+.\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Chat On
 ```
 
 ### Install-DauntlessServer.ps1
@@ -306,6 +312,12 @@ swaps it in, keeping the old build as `app.prev`.
 |:----------|:-----|:--------|:-------------|
 | `-MetagamePort`, `-DeployPort`, `-ContentPort`, `-AllowlistPort` | 1024-65535 (a sandbox: 62000-62499) | The stored port, else 61000, 61001, 61002 and 61005 (a sandbox: 62000, 62001, 62002 and 62005) | The components' TCP ports. The ports in use must all differ and be free. [Ports and network]({{ ports_page.url | relative_url }}) explains each one. |
 
+**Chat**
+
+| Parameter | Type | Default | What it does |
+|:----------|:-----|:--------|:-------------|
+| `-Chat` | `On` or `Off` | The stored `"Chat"` in `server.json`, else `Off` | The in-game text chat. Public mode writes `CHAT=1` or `0`, `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` (61099, or 62099 in a sandbox, the same port as the gateway's `GATEWAY_WS_URL`) into `metagame.env`, and saves the choice. No firewall rule is added. `-Chat On` in private mode stops the installer: private mode has no chat yet. |
+
 **Private mode (Tailscale)**
 
 | Parameter | Type | Default | What it does |
@@ -326,7 +338,7 @@ swaps it in, keeping the old build as `app.prev`.
 
 **What a re-run keeps.** Without the parameter, a re-run uses what `server.json` holds for `-Mode`,
 `-PublicHost`, `-GatewayPort`, the four other ports, `-AdminIp`, `-AdvertiseHost`,
-`-TailscaleShareUrl` and `-GameDir`. It keeps the certificate, the keys, the secrets and every `.env`
+`-TailscaleShareUrl`, `-GameDir` and `-Chat`. It keeps the certificate, the keys, the secrets and every `.env`
 key it does not manage (see [Configuration]({{ config_page.url | relative_url }})). It does **not**
 keep `-ServerName`, `-InteractiveSession` or `-AllowlistDryRun`: pass them again every time.
 
@@ -505,6 +517,32 @@ C:\DauntlessRevived\bin\Get-ServerStatus.ps1
 .\Get-ServerStatus.ps1 -Server 203.0.113.7:443 -Fingerprint <64 hex> -Json
 ```
 
+On the server itself it also prints a `chat:` line, as `Stack.ps1 status` does.
+
+### Set-Chat.ps1
+
+Turns the in-game text chat on or off on an installed public-mode server
+([Chat]({{ winserver_page.url | relative_url }}#chat)). It needs an elevated PowerShell, except on a
+`-Sandbox` install.
+
+| Parameter | Type | Default | What it does |
+|:----------|:-----|:--------|:-------------|
+| `-On` / `-Off` | switch, one of them **required** | | The new state. |
+| `-Root` | path | `C:\DauntlessRevived` | The install root. |
+
+It writes `CHAT=1` or `0`, `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` (61099, 62099 in a sandbox) into
+`metagame.env` and `"Chat"` into `server.json`. Then it runs `Stack.ps1 stop` and `start`, with the
+usual backups around them, and waits up to 30 seconds for `127.0.0.1:<port>` to listen (or to stop
+listening). If a step fails, it puts both files back as they were, restarts the stack again and
+exits with `1`. When the setting is already as asked, it changes nothing and restarts nothing. The
+restart drops the parties and matchmaking queues, which live in memory: run it when nobody is
+playing. From your PC, `Deploy-Remote.ps1 -Server <address> -Chat On` runs it over SSH.
+
+```powershell
+C:\DauntlessRevived\bin\Set-Chat.ps1 -On
+C:\DauntlessRevived\bin\Set-Chat.ps1 -Off
+```
+
 ### Backup-DauntlessServer.ps1 and backup-hidden.vbs
 
 `Backup-DauntlessServer.ps1` copies everything a restore needs into
@@ -635,9 +673,9 @@ at CRLF line endings, also in `git archive`, which is what `Deploy-Remote.ps1` u
 
 | Script | Parameters | What it tests |
 |:-------|:-----------|:--------------|
-| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`; the performance check also uses the port above it) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper; the performance sampler (CPU arithmetic, roles from the port range, the fixed header, day files and their pruning, player counts from a stand-in metagame with no names or keys in the file, a decimal point on a Finnish Windows, and refusing a junction or a hard link). Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
-| `tests\Test-DeployRemote.ps1` | `-WorkDir` (default `%TEMP%\dr-deploy-test`; emptied at the start, deleted at the end) | `Deploy-Remote.ps1` without a server: argument refusals, `-WhatIf`, the kit, source and backup uploads, and the chunked upload with a dropped connection and damaged parts. No network, no SSH key. |
-| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, an update and a rollback, a performance sample, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
+| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`; the performance check also uses the port above it) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper; the performance sampler (CPU arithmetic, roles from the port range, the fixed header, day files and their pruning, player counts from a stand-in metagame with no names or keys in the file, a decimal point on a Finnish Windows, and refusing a junction or a hard link); the chat settings (`CHAT_PORT` equal to the gateway's WebSocket port in normal and sandbox installs, `-Chat` against `server.json`, the keys surviving a re-run, and the `chat` status line). Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
+| `tests\Test-DeployRemote.ps1` | `-WorkDir` (default `%TEMP%\dr-deploy-test`; emptied at the start, deleted at the end) | `Deploy-Remote.ps1` without a server: argument refusals, `-WhatIf`, the kit, source and backup uploads, the chunked upload with a dropped connection and damaged parts, and `-Chat` (passed to the installer, or `Set-Chat.ps1` on its own). No network, no SSH key. |
+| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted, and it must be outside the checkout, which the installer copies); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install with chat on into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, the game's chat connection through the gateway (101), an update and a rollback, `Set-Chat.ps1 -Off` (502 again), a performance sample, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005, 62099 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1

@@ -126,6 +126,7 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | `GUILDS` | metagame | päällä | `0` | Kiltareitit. `0` palauttaa vanhat tyngät: kukaan ei voi perustaa kiltaa tai liittyä siihen. |
 | `GUILD_RESERVED_NAMES` | metagame | päällä | `0` | Henkilökunnan ja projektin sanat torjutaan kiltojen nimissä ja nimikylteissä. |
 | `PARTY_SOLO_STUB` | metagame | päällä (alkuperäisen projektin paikkamerkki yhden hengen ryhmälle) | `0` | `0`, jos Invite to Party ei tee mitään yksin olevalle pelaajalle. |
+| `CHAT_NICK_CHECK` | metagame | `enforce`: chat-huoneeseen liittyminen hylätään, jos nimimerkki rikkoo nimisääntöjä | `log` (päästä sisään ja varoita) | Vain paluukytkin siltä varalta, että oikea peliohjelma hylätään. Merkitsee jotain vain, kun `CHAT=1`. |
 | `PROGRESSION_CONFIRM` | metagame | päällä | `off` | Vain vianetsintään. |
 | `LOG_REQUESTS` | metagame | päällä | `0` | Pyyntöloki on tärkein vianetsintävälineemme; pidä se päällä. |
 | `GATEWAY_ALLOWLIST` | yhdyskäytävä | päällä | `0` | Hätäkatkaisin: kun se on pois päältä, kenenkään peliportit eivät aukea. |
@@ -135,6 +136,7 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 
 | Kytkin | Osa | Näin päälle | Miksi se on pois päältä |
 |:-------|:----|:------------|:------------------------|
+| `CHAT` | metagame | `1` | Pelin tekstichat. Rakennettu ja testattu ilman peliä, kaksi pelaajaa ei ole vielä kokeillut; se tulee oletuksena päälle tämän testin jälkeen. |
 | `MATCHMAKING_CANCEL` | metagame | `1` | Kokeellinen. Peliohjelma lähettää perumisen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että perumiseen vastataan 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | Vain paluuta varten: alkuperäisen projektin tilitietovastaus, joka piilottaa muut pelaajat (ryhmäkutsut eivät koskaan näy). |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Heikompi tarkistus killan perustamiselle, vain jos oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä. |
@@ -269,6 +271,46 @@ kertoo, mitä kukin vastaus tekee pelissä.
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | pois | `1` tai mikä tahansa muu | Pelipalvelimen lähettämä killan perustaminen hyväksytään vain, jos johtaja on tarkistanut juuri tämän nimen ja nimikyltin omalla tunnisteellaan viimeisten 15 minuutin aikana. `1` hyväksyy myös johtajan, joka tarkisti jonkin toisen nimen tai näkyi palvelimelle viimeisen minuutin aikana, ja kirjaa lokiin varoituksen. Vain siltä varalta, että oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä (torjunta kirjataan tekstillä "no validate of this name"); päällä ollessaan muokattu peliohjelma voisi nimetä toisen paikalla olevan pelaajan killan johtajaksi. | Oletuksena ei kukaan |
 | `PARTY_SOLO_STUB` | päällä | `0` tai mikä tahansa muu | Yksin ryhmässään oleva pelaaja saa alkuperäisen projektin paikkamerkkiehdokkaan (`QUEUED_FOR_START`), jonka on todettu olevan harmiton metsästyksiin jonottamiselle. Peliohjelma ei lähetä ryhmäkutsua, kun se luulee ryhmänsä olevan jonossa; jos Invite to Party ei tee mitään yksin olevalle pelaajalle (lokiin ei tule riviä `party: invite`), `0` vastaa yhden hengen ryhmälle ilman ehdokasta. | Oletuksena ei kukaan |
 
+### Chat {#metagame-chat}
+
+Kaikki ovat **vain forkissa**. Pelin tekstichat (tiekartta 3.10): metagamen sisällä toimiva kuuntelija
+pelin XMPP-yhteydelle paikallisessa osoitteessa. Julkisessa tilassa yhdyskäytävä välittää pelin
+chat-yhteyden sille (`GATEWAY_WS_URL`, sama portti); yhdellä koneella peli ottaa siihen yhteyden
+suoraan. Miten se toimii, kerrotaan sivulla [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}),
+ja viestit, joihin se vastaa, sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#chat). Luetaan
+käynnistyksessä. Huono arvo tai varattu portti kirjoittaa yhden virherivin `chat: not started ...`, ja
+metagame jatkaa ilman chattia.
+
+| Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
+|:-----|:-------|:------|:--------------|:-------------|
+| `CHAT` | pois | `1` kytkee päälle; `0` tai asettamaton on pois, muu arvo on pois ja kirjoittaa varoituksen | Käynnistää chat-kuuntelijan. Käynnistysrivi on `chat: listening on 127.0.0.1:61099 (nick check enforce)`. Se korvaa ensimmäisen kokeiluversion kytkimen `EXPERIMENTAL_CHAT`, jota ei enää lueta (varoitus kertoo sen). | Paketti: aina julkisessa tilassa (`CHAT=1` tai `0` valinnasta `-Chat On` tai `Off`, muuten `server.json`) |
+| `CHAT_PORT` | `61099` | 1-65535 | Kuuntelijan portti. Sen on oltava sama kuin yhdyskäytävän `GATEWAY_WS_URL`-osoitteen portti. | Paketti: aina julkisessa tilassa (61099; hiekkalaatikossa 62099) |
+| `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` tai `::1`; kun `GATEWAY_SECRET` on asetettu (julkinen tila), vain `127.0.0.1` | Kuuntelijan osoite. Mikä tahansa muu, myös `0.0.0.0`, pitää chatin pois päältä. Yksityistä tilaa (Tailscale) ei vielä tueta. | Paketti: aina `127.0.0.1` julkisessa tilassa |
+| `CHAT_NICK_CHECK` | `enforce` | `enforce` tai `log`; muu arvo lasketaan arvoksi `enforce` ja kirjoittaa varoituksen | `enforce` hylkää huoneeseen liittymisen, jos nimimerkki ei ole `<tilin käyttäjänimi>:<sen tilitunnus>:<sen resurssi>` ([miksi]({{ '/fi/findings/chat.html' | relative_url }}#nickname-check)). `log` päästää sen sisään ja kirjoittaa yhden varoitusrivin yhteyttä ja huonetta kohden: paluukytkin siltä varalta, että oikea peliohjelma hylätään. | Oletuksena ei kukaan |
+| `CHAT_TRACE` | pois | `1` tai mikä tahansa muu | `1` kirjaa jokaisen chat-kehyksen molempiin suuntiin 2 kt:n mittaan leikattuna niin, että kirjautuminen, salasanat, viestien teksti (`[N chars]`) ja tunnisteet on korvattu. Vain ensimmäisiin oikeisiin ajoihin. | Oletuksena ei kukaan |
+
+**Rajat** (kiinteät koodissa):
+
+| Raja | Arvo | Kun se ylittyy |
+|:-----|:-----|:---------------|
+| WebSocket-kehys | 32 KiB | Se yhteys suljetaan (1009) |
+| Yhteyksiä yhteensä | 64 | Uudet saavat HTTP 503:n |
+| Keskeneräisiä kirjautumisia osoitetta kohden | 8 | HTTP 503 |
+| Epäonnistuneita kirjautumisia osoitetta kohden | 10 kymmenessä minuutissa | Osoitteen kirjautumiset saavat 10 minuutin ajan vastauksen `temporary-auth-failure` |
+| Yhteyksiä tiliä kohden | 2 | Kolmas korvaa pisimpään hiljaa olleen |
+| Huoneita yhteyttä kohden | 8 | Liittyminen hylätään |
+| Pelaajia huonetta kohden | 128 | Liittyminen hylätään |
+| Huoneita yhteensä | 1000 | Liittyminen hylätään |
+| Liittymisiä yhteyttä kohden | 10 kerralla, sitten 1 kuuden sekunnin välein | Liittyminen hylätään |
+| Huonerivejä ja kuiskauksia yhteyttä kohden | 8 kerralla, sitten 1 sekunnissa | Rivi saa virheen; kuiskaus pudotetaan |
+| Kaikkia viestejä yhteyttä kohden | 60 kerralla, sitten 30 sekunnissa | Pudotetaan; yli 100 pudotusta minuutissa päättää yhteyden |
+| Viestin teksti | 1-2048 merkkiä | Rivi saa virheen; kuiskaus pudotetaan |
+| Huoneen nimimerkki | 1-1023 tavua | Liittyminen hylätään |
+
+Yhteyttä pingataan 50 sekunnin hiljaisuuden jälkeen, ja se päätetään, jos vastausta ei tule 30
+sekunnissa. Jokainen palvelimen päättämä yhteys pidättää tilin seuraavaa kirjautumista 60 sekuntia.
+Viestien tekstiä, tunnisteita, kirjautumistietoja tai pyyntöjen otsakkeita ei kirjata lokiin koskaan.
+
 ### Yhteensopivuuskytkimet {#metagame-compatibility}
 
 | Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
@@ -328,7 +370,7 @@ jäljellä alle 30 päivää. `NODE_ENV` ei vaikuta tässä mitään.
 | `GATEWAY_SECRET` | ei oletusta, pakollinen | 32-256 tulostettavaa merkkiä ilman välilyöntejä | **Salainen: älä koskaan jaa, älä koskaan tallenna versionhallintaan.** Lähetetään otsakkeena `X-Dauntless-Gateway` jokaisen pyynnön mukana, jonka yhdyskäytävä välittää eteenpäin (metagamelle, sisältöpalvelimelle ja WebSocket-palvelulle); vain metagame tarkistaa sen, ja arvon on oltava sama kuin metagamen `GATEWAY_SECRET`. Asiakkaan itse lähettämä samanniminen otsake pudotetaan pois. Ei koskaan lokiin. | Paketti: aina (64 heksamerkkiä, säilyy uudelleenajoissa) |
 | `GATEWAY_METAGAME_URL` | `http://127.0.0.1:61000` | `http://host:port` vain tällä koneella (`127.x.x.x`, `::1` tai `localhost`), ilman polkua | Minne menee jokainen pyyntö, joka ei ole `/content` eikä WebSocket-yhteyden avaus (upgrade). Loopback vaaditaan, jotta salainen otsake ei koskaan poistu koneelta. | Paketti: aina |
 | `GATEWAY_CONTENT_URL` | `http://127.0.0.1:61002` | sama sääntö | Minne `/content` ja `/content/...` menevät (sisältöpalvelin). | Paketti: aina |
-| `GATEWAY_WS_URL` | `http://127.0.0.1:61099` | sama sääntö | Minne WebSocket-yhteyksien avaukset menevät (tuleva chat-palvelu). Siellä ei vielä kuuntele mikään, joten ne saavat vastauksen 502. | Paketti: aina (61099; hiekkalaatikkotilassa 62099) |
+| `GATEWAY_WS_URL` | `http://127.0.0.1:61099` | sama sääntö | Minne WebSocket-yhteyksien avaukset menevät: metagamen chat-kuuntelijalle ([`CHAT_PORT`](#metagame-chat)). Kun chat on pois päältä, siellä ei kuuntele mikään, ja avaukset saavat vastauksen 502. | Paketti: aina (61099; hiekkalaatikkotilassa 62099), sama portti kuin `CHAT_PORT` |
 | `GATEWAY_ALLOWLIST` | päällä | tarkalleen `0` ottaa sen pois päältä | Hätäkatkaisin, joka lopettaa kirjautuneiden pelaajien osoitteiden ilmoittamisen sallittujen listan apurille. Pois päältä: `ALLOWLIST_*`-arvot ohitetaan, lokiin kirjataan varoitus, eikä yhdenkään pelaajan peliportit aukea, ellet hoida palomuuria muulla tavalla. | Ei kukaan; paketti ei koskaan kirjoita sitä |
 | `ALLOWLIST_URL` | `http://127.0.0.1:61005` | `http://host:port` vain tällä koneella | Minne yhdyskäytävä ilmoittaa pelaajien osoitteet. | Paketti: aina |
 | `ALLOWLIST_SECRET` | ei oletusta; pakollinen, ellei `GATEWAY_ALLOWLIST=0` | 32-256 tulostettavaa merkkiä ilman välilyöntejä | **Salainen: älä koskaan jaa, älä koskaan tallenna versionhallintaan.** Lähetetään sallittujen listan apurille; arvon on oltava sama kuin apurin `ALLOWLIST_SECRET`. Paketin palvelimella tämä kopio on `gateway.env`-tiedostossa, jota yhdyskäytävää ajava palvelutili voi lukea. | Paketti: aina (sama arvo kuin `allowlist.env`-tiedostossa, säilyy uudelleenajoissa) |
@@ -340,6 +382,7 @@ jäljellä alle 30 päivää. `NODE_ENV` ei vaikuta tässä mitään.
 | `GATEWAY_RATE_CONTENT` | `600,600` | `<kerralla>,<minuutissa>` | Pyyntökiintiö `/content`-latauksille. | Oletuksena ei kukaan; paketti: säilyttää |
 | `GATEWAY_RATE_REGISTER` | `5,0.2` | `<kerralla>,<minuutissa>` | Pyyntökiintiö tilin luonnille: viisi kerralla, sitten yksi viiden minuutin välein. | Oletuksena ei kukaan; paketti: säilyttää |
 | `GATEWAY_RATE_TOKEN` | `10,1` | `<kerralla>,<minuutissa>` | Pyyntökiintiö kirjautumisille. | Oletuksena ei kukaan; paketti: säilyttää |
+| `GATEWAY_RATE_WS` | `20,12` | `<kerralla>,<minuutissa>` | WebSocket-avausten (pelin chat-yhteyden) kiintiö. Oma kiintiönsä, joten chatin uudelleenyhdistämiset eivät koskaan kuluta sitä kiintiötä, jota pelin HTTP-liikenne tarvitsee. | Oletuksena ei kukaan; paketti: säilyttää |
 | `GATEWAY_RATE_CONNECT` | `200,300` | `<kerralla>,<minuutissa>` | Uusien TCP-yhteyksien kiintiö (jokainen vaatii TLS-kättelyn). Kun kiintiö on tyhjä, yhteys suljetaan vastaamatta. | Oletuksena ei kukaan; paketti: säilyttää |
 | `GATEWAY_HANDSHAKE_TIMEOUT_MS` | `10000` | 1000-120000 | TLS-kättelyn aikaraja. | Oletuksena ei kukaan; paketti: säilyttää |
 | `GATEWAY_HEADERS_TIMEOUT_MS` | `10000` | 1000-120000 | Aika, jonka pyynnön otsakkeet saavat viedä (vastaus 408). Myös taustapalvelun aikaraja WebSocket-kättelylle. | Oletuksena ei kukaan; paketti: säilyttää |
@@ -458,10 +501,14 @@ Muut säännöt:
   [Portit ja verkko]({{ ports_page.url | relative_url }}) oletuksista.
 - `NODE_ENV=production` kirjoitetaan kaikkiin viiteen tiedostoon. Vain metagame ja deploy-palvelin
   lukevat sen.
+- Chat: `-Chat On` tai `-Chat Off`, muuten olemassa olevan asennuksen `server.json` (`"Chat"`), muuten
+  pois. Valinta tallennetaan tiedostoon `server.json`. `Set-Chat.ps1 -On` tai `-Off` muuttaa sitä
+  myöhemmin sekä tiedostossa `metagame.env` että `server.json`. Yksityisessä tilassa chattia ei vielä
+  ole.
 
 | Tiedosto | Kirjoitetaan | Asennus asettaa aina | Asetetaan vain, jos puuttuu | Poistetaan | Säilytetään (sinun) |
 |:---------|:-------------|:---------------------|:----------------------------|:-----------|:--------------------|
-| `metagame.env` | joka ajokerralla | `PORT`, `BIND_HOST`, `AUTH_MODE`, `DB_FILENAME`, `TARGET_CHANGELIST`, `QOS_TARGET_URL`, `MATCHMAKING_MODE`, `DEPLOYSERVER_URL`, `REGISTRATION_MODE`, `NODE_ENV`, `SERVER_NAME`, `SOURCE_URL`, `GIT_COMMIT`, `BODY_LOG_FILE`; julkisessa tilassa myös `GATEWAY_SECRET` ja `LOG_BODIES=0`; sisältöpalvelimen kanssa myös `CONTENT_PORT` | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` (uusi pari) | `GATEWAY_SECRET` yksityisessä tilassa; `CONTENT_PORT` ilman sisältöpalvelinta | kaikki muu, esimerkiksi `PROGRESSION_*`, `SAVE_HISTORY_*`, `LOG_LEVEL`, `DB_WAL` |
+| `metagame.env` | joka ajokerralla | `PORT`, `BIND_HOST`, `AUTH_MODE`, `DB_FILENAME`, `TARGET_CHANGELIST`, `QOS_TARGET_URL`, `MATCHMAKING_MODE`, `DEPLOYSERVER_URL`, `REGISTRATION_MODE`, `NODE_ENV`, `SERVER_NAME`, `SOURCE_URL`, `GIT_COMMIT`, `BODY_LOG_FILE`; julkisessa tilassa myös `GATEWAY_SECRET`, `LOG_BODIES=0`, `CHAT` (valinnasta `-Chat`, muuten `server.json`), `CHAT_BIND_HOST=127.0.0.1` ja `CHAT_PORT` (`GATEWAY_WS_URL`-osoitteen portti); sisältöpalvelimen kanssa myös `CONTENT_PORT` | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` (uusi pari) | `GATEWAY_SECRET` yksityisessä tilassa (ja `CHAT` muuttuu siellä arvoksi `0`); `CONTENT_PORT` ilman sisältöpalvelinta | kaikki muu, esimerkiksi `PROGRESSION_*`, `SAVE_HISTORY_*`, `LOG_LEVEL`, `DB_WAL`, `CHAT_NICK_CHECK`, `CHAT_TRACE` |
 | `deployserver.env` | joka ajokerralla (myös hiekkalaatikkotilassa, jossa deploy-palvelinta ei ajeta) | `PORT`, `BIND_HOST=127.0.0.1`, `MY_IP`, `PORT_RANGE_BEGIN=8770`, `PORT_RANGE_END=8777`, `GAMESERVER_BINARY_PATH`, `METAGAME_API_KEY`, `NODE_ENV` | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=10` (myös tyhjän tilalle), `ENABLE_DOJO=0` | ei mitään | `LOG_LEVEL`, oma `ENABLE_DOJO`-arvosi ja käynnistystaukosi |
 | `content.env` | kun asennetussa koodissa on sisältöpalvelin | `PORT`, `BIND_HOST`, `METAGAME_URL`, `CONTENT_GAME_DIR`, `CONTENT_BRANDING_DIR`, `CONTENT_NEWS_FILE`, `NODE_ENV` | ei mitään | `CONTENT_MANIFEST` (paitsi hiekkalaatikkotilassa valinnalla `-ContentManifest`) | `CONTENT_MAX_STREAMS_*`, `CONTENT_AUTH_CACHE_SECONDS`, `LOG_LEVEL` |
 | `gateway.env` | julkisessa tilassa | `GATEWAY_BIND`, `GATEWAY_PORT`, `GATEWAY_CERT`, `GATEWAY_KEY`, `GATEWAY_SECRET`, `GATEWAY_METAGAME_URL`, `GATEWAY_CONTENT_URL`, `GATEWAY_WS_URL`, `ALLOWLIST_URL`, `ALLOWLIST_SECRET`, `NODE_ENV` | ei mitään | `GATEWAY_CHAT_URL`, `GATEWAY_ACCESS_LOG` (nimiä varhaisista luonnoksista) | rajat, kiintiöt, aikarajat, `GATEWAY_ALLOWLIST_REFRESH_SECONDS`, `LOG_LEVEL` |
@@ -557,3 +604,6 @@ Vain automaattiset testit lukevat näitä. Testien ajamisesta kerrotaan sivulla
 - `GATEWAY_CHAT_URL`, `GATEWAY_ACCESS_LOG`, `ALLOWLIST_RULE_NAME`, `ALLOWLIST_UDP_PORTS` ja
   `ALLOWLIST_PROGRAM` ovat nimiä palvelinpaketin varhaisista luonnoksista. Mikään ei lue niitä, ja
   asennusohjelma poistaa ne.
+- `EXPERIMENTAL_CHAT` kytki päälle ensimmäisen chat-kokeiluversion. Mikään ei lue sitä enää: kytkin on
+  [`CHAT`](#metagame-chat), ja metagame varoittaa käynnistyessään, jos se löytää vanhan nimen ilman
+  uutta.

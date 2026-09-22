@@ -118,6 +118,7 @@ development are off.
 | `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
 | `GUILD_RESERVED_NAMES` | metagame | on | `0` | Staff and project words refused in guild names and nameplates. |
 | `PARTY_SOLO_STUB` | metagame | on (upstream's placeholder for a party of one) | `0` | `0` if Invite to Party does nothing for a player on their own. |
+| `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -127,6 +128,7 @@ development are off.
 
 | Switch | Component | To turn it on | Why it is off |
 |:-------|:----------|:--------------|:--------------|
+| `CHAT` | metagame | `1` | In-game text chat. Built and tested without the game, not yet tried by two players; it goes on by default after that live test. |
 | `MATCHMAKING_CANCEL` | metagame | `1` | Experimental. The client sends a cancel right after every queued join, and hunts start only because that cancel gets a 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | A rollback only: upstream's account info reply, which hides other players (party invites never show). |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Weaker check on guild creates, only if the live test shows the client never validates the final name. |
@@ -257,6 +259,45 @@ each reply does in the game.
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | off | `1` or anything else | A guild create from the game server is accepted only when the leader validated that exact name and nameplate with their own token in the last 15 minutes. `1` also accepts a leader who validated another name or was heard from in the last minute, with a warning in the log. Only for the case where the live test shows the client never validates the final name (the refusal is logged as "no validate of this name"); with it on, a modified client could name another online player as a guild's leader. | Nobody by default |
 | `PARTY_SOLO_STUB` | on | `0` or anything else | A player alone in their party gets upstream's placeholder candidate (`QUEUED_FOR_START`), which is proven harmless for queueing hunts. The client refuses to send a party invite while it thinks its party is matchmaking; if Invite to Party does nothing for a player on their own (no `party: invite` line in the log), `0` answers a party of one with no candidate instead. | Nobody by default |
 
+### Chat {#metagame-chat}
+
+All **fork only**. The game's text chat (roadmap 3.10): a listener inside the metagame for the game's
+XMPP connection, on loopback. In public mode the gateway forwards the game's chat connection to it
+(`GATEWAY_WS_URL`, the same port); on one PC the game connects to it straight. How it works is on
+[Text chat]({{ '/findings/chat.html' | relative_url }}), the messages it answers on
+[HTTP API]({{ api_page.url | relative_url }}#chat). Read at startup. A bad value or a port in use logs
+one `chat: not started ...` error line, and the metagame runs on without chat.
+
+| Name | Default | Values | What it does | Set by |
+|:-----|:--------|:-------|:-------------|:-------|
+| `CHAT` | off | `1` turns it on; `0` or unset is off, anything else is off with a warning | Starts the chat listener. The startup line is `chat: listening on 127.0.0.1:61099 (nick check enforce)`. It replaces `EXPERIMENTAL_CHAT` from the first prototype, which is no longer read (a warning says so). | Kit: always in public mode (`CHAT=1` or `0` from `-Chat On` or `Off`, else `server.json`) |
+| `CHAT_PORT` | `61099` | 1-65535 | The listener's port. Must be the port in the gateway's `GATEWAY_WS_URL`. | Kit: always in public mode (61099; 62099 in sandbox) |
+| `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` or `::1`; with `GATEWAY_SECRET` set (public mode) only `127.0.0.1` | The listener's address. Anything else, `0.0.0.0` included, keeps chat off. Private mode (Tailscale) is not supported yet. | Kit: always `127.0.0.1` in public mode |
+| `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why]({{ '/findings/chat.html' | relative_url }}#nickname-check)). `log` admits it with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. | Nobody by default |
+| `CHAT_TRACE` | off | `1` or anything else | `1` logs every chat frame in and out, cut at 2 KB, with the login, passwords, message text (`[N chars]`) and tokens replaced. For the first live runs only. | Nobody by default |
+
+**Limits** (fixed in the code):
+
+| Limit | Value | Over it |
+|:------|:------|:--------|
+| WebSocket frame | 32 KiB | That connection is closed (1009) |
+| Connections in total | 64 | New ones get HTTP 503 |
+| Unfinished logins per address | 8 | HTTP 503 |
+| Failed logins per address | 10 in 10 minutes | Logins from that address get `temporary-auth-failure` for 10 minutes |
+| Connections per account | 2 | A third replaces the one silent longest |
+| Rooms per connection | 8 | The join is refused |
+| Players per room | 128 | The join is refused |
+| Rooms in total | 1000 | The join is refused |
+| Joins per connection | 10 at once, then 1 every 6 s | The join is refused |
+| Room lines and whispers per connection | 8 at once, then 1 per second | The line gets an error; a whisper is dropped |
+| Messages of any kind per connection | 60 at once, then 30 per second | Dropped; more than 100 drops in a minute ends the connection |
+| Message text | 1-2048 characters | The line gets an error; a whisper is dropped |
+| Room nickname | 1-1023 bytes | The join is refused |
+
+A connection is pinged after 50 s of silence and ended when 30 s pass without an answer. Any end by
+the server holds that account's next login back for 60 s. Message text, tokens, login payloads and
+request headers are never logged.
+
 ### Compatibility switches {#metagame-compatibility}
 
 | Name | Default | Values | What it does | Set by |
@@ -313,7 +354,7 @@ match the key, and warns when fewer than 30 days remain. `NODE_ENV` has no effec
 | `GATEWAY_SECRET` | none, required | 32 to 256 printable characters without spaces | **Secret: never share, never commit.** Sent as `X-Dauntless-Gateway` with every request the gateway passes on (to the metagame, the content server and the WebSocket service); only the metagame checks it, and it must equal the metagame's `GATEWAY_SECRET`. A copy of that header sent by a client is dropped. Never logged. | Kit: always (64 hex characters, kept across re-runs) |
 | `GATEWAY_METAGAME_URL` | `http://127.0.0.1:61000` | `http://host:port` on this machine only (`127.x.x.x`, `::1` or `localhost`), no path | Where every request goes that is not `/content` or a WebSocket upgrade. Loopback is enforced so the secret header never leaves the machine. | Kit: always |
 | `GATEWAY_CONTENT_URL` | `http://127.0.0.1:61002` | same rule | Where `/content` and `/content/...` go (the content server). | Kit: always |
-| `GATEWAY_WS_URL` | `http://127.0.0.1:61099` | same rule | Where WebSocket upgrades go (a future chat service). Nothing listens there yet, so upgrades get 502. | Kit: always (61099; 62099 in sandbox) |
+| `GATEWAY_WS_URL` | `http://127.0.0.1:61099` | same rule | Where WebSocket upgrades go: the metagame's chat listener ([`CHAT_PORT`](#metagame-chat)). With chat off nothing listens there, and upgrades get 502. | Kit: always (61099; 62099 in sandbox), the same port as `CHAT_PORT` |
 | `GATEWAY_ALLOWLIST` | on | exactly `0` turns it off | Kill switch for reporting logged-in players' addresses to the allowlist helper. Off: the `ALLOWLIST_*` values are ignored, a warning is logged, and no player's game ports open unless you manage the firewall another way. | Nobody; never written by the kit |
 | `ALLOWLIST_URL` | `http://127.0.0.1:61005` | `http://host:port` on this machine only | Where the gateway reports player addresses. | Kit: always |
 | `ALLOWLIST_SECRET` | none; required unless `GATEWAY_ALLOWLIST=0` | 32 to 256 printable characters without spaces | **Secret: never share, never commit.** Sent to the allowlist helper; must equal the helper's `ALLOWLIST_SECRET`. On a kit server `gateway.env` holds this copy and is readable by the service account the gateway runs as. | Kit: always (the same value as in `allowlist.env`, kept across re-runs) |
@@ -325,6 +366,7 @@ match the key, and warns when fewer than 30 days remain. `NODE_ENV` has no effec
 | `GATEWAY_RATE_CONTENT` | `600,600` | `<burst>,<per minute>` | Request rate for `/content` downloads. | Nobody by default; kit: kept |
 | `GATEWAY_RATE_REGISTER` | `5,0.2` | `<burst>,<per minute>` | Request rate for account creation: five at once, then one every five minutes. | Nobody by default; kit: kept |
 | `GATEWAY_RATE_TOKEN` | `10,1` | `<burst>,<per minute>` | Request rate for logins. | Nobody by default; kit: kept |
+| `GATEWAY_RATE_WS` | `20,12` | `<burst>,<per minute>` | Rate of WebSocket upgrades (the game's chat connection). A bucket of their own, so chat reconnects never use up the one the game's HTTP traffic needs. | Nobody by default; kit: kept |
 | `GATEWAY_RATE_CONNECT` | `200,300` | `<burst>,<per minute>` | Rate of new TCP connections (each costs a TLS handshake). An empty bucket closes the connection without an answer. | Nobody by default; kit: kept |
 | `GATEWAY_HANDSHAKE_TIMEOUT_MS` | `10000` | 1000-120000 | TLS handshake timeout. | Nobody by default; kit: kept |
 | `GATEWAY_HEADERS_TIMEOUT_MS` | `10000` | 1000-120000 | Time allowed for a request's headers (answers 408). Also the upstream timeout for a WebSocket handshake. | Nobody by default; kit: kept |
@@ -441,10 +483,13 @@ Other rules:
   [Ports and network]({{ ports_page.url | relative_url }}).
 - `NODE_ENV=production` is written into all five files. Only the metagame and the deploy server read
   it.
+- Chat: `-Chat On` or `-Chat Off`, else the existing install's `server.json` (`"Chat"`), else Off. The
+  choice is saved in `server.json`. `Set-Chat.ps1 -On` or `-Off` changes it later, in both
+  `metagame.env` and `server.json`. Private mode has no chat yet.
 
 | File | Written | Always set by the installer | Set only when missing | Removed | Kept (yours) |
 |:-----|:--------|:----------------------------|:----------------------|:--------|:-------------|
-| `metagame.env` | every run | `PORT`, `BIND_HOST`, `AUTH_MODE`, `DB_FILENAME`, `TARGET_CHANGELIST`, `QOS_TARGET_URL`, `MATCHMAKING_MODE`, `DEPLOYSERVER_URL`, `REGISTRATION_MODE`, `NODE_ENV`, `SERVER_NAME`, `SOURCE_URL`, `GIT_COMMIT`, `BODY_LOG_FILE`; in public mode also `GATEWAY_SECRET` and `LOG_BODIES=0`; with the content server also `CONTENT_PORT` | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` (a new pair) | `GATEWAY_SECRET` in private mode; `CONTENT_PORT` without the content server | everything else, for example `PROGRESSION_*`, `SAVE_HISTORY_*`, `LOG_LEVEL`, `DB_WAL` |
+| `metagame.env` | every run | `PORT`, `BIND_HOST`, `AUTH_MODE`, `DB_FILENAME`, `TARGET_CHANGELIST`, `QOS_TARGET_URL`, `MATCHMAKING_MODE`, `DEPLOYSERVER_URL`, `REGISTRATION_MODE`, `NODE_ENV`, `SERVER_NAME`, `SOURCE_URL`, `GIT_COMMIT`, `BODY_LOG_FILE`; in public mode also `GATEWAY_SECRET`, `LOG_BODIES=0`, `CHAT` (from `-Chat`, else `server.json`), `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` (the port in `GATEWAY_WS_URL`); with the content server also `CONTENT_PORT` | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` (a new pair) | `GATEWAY_SECRET` in private mode (and `CHAT` there becomes `0`); `CONTENT_PORT` without the content server | everything else, for example `PROGRESSION_*`, `SAVE_HISTORY_*`, `LOG_LEVEL`, `DB_WAL`, `CHAT_NICK_CHECK`, `CHAT_TRACE` |
 | `deployserver.env` | every run (also in sandbox, where no deploy server runs) | `PORT`, `BIND_HOST=127.0.0.1`, `MY_IP`, `PORT_RANGE_BEGIN=8770`, `PORT_RANGE_END=8777`, `GAMESERVER_BINARY_PATH`, `METAGAME_API_KEY`, `NODE_ENV` | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=10` (also when empty), `ENABLE_DOJO=0` | nothing | `LOG_LEVEL`, your `ENABLE_DOJO` and wait time |
 | `content.env` | when the installed code has the content server | `PORT`, `BIND_HOST`, `METAGAME_URL`, `CONTENT_GAME_DIR`, `CONTENT_BRANDING_DIR`, `CONTENT_NEWS_FILE`, `NODE_ENV` | nothing | `CONTENT_MANIFEST` (unless sandbox `-ContentManifest`) | `CONTENT_MAX_STREAMS_*`, `CONTENT_AUTH_CACHE_SECONDS`, `LOG_LEVEL` |
 | `gateway.env` | public mode | `GATEWAY_BIND`, `GATEWAY_PORT`, `GATEWAY_CERT`, `GATEWAY_KEY`, `GATEWAY_SECRET`, `GATEWAY_METAGAME_URL`, `GATEWAY_CONTENT_URL`, `GATEWAY_WS_URL`, `ALLOWLIST_URL`, `ALLOWLIST_SECRET`, `NODE_ENV` | nothing | `GATEWAY_CHAT_URL`, `GATEWAY_ACCESS_LOG` (names from early drafts) | limits, rates, timeouts, `GATEWAY_ALLOWLIST_REFRESH_SECONDS`, `LOG_LEVEL` |
@@ -536,3 +581,6 @@ Only the automated tests read these. How to run the tests is in the
 - `GATEWAY_CHAT_URL`, `GATEWAY_ACCESS_LOG`, `ALLOWLIST_RULE_NAME`, `ALLOWLIST_UDP_PORTS` and
   `ALLOWLIST_PROGRAM` are names from early drafts of the server kit. Nothing reads them, and the
   installer deletes them.
+- `EXPERIMENTAL_CHAT` switched on the first chat prototype. Nothing reads it now: the switch is
+  [`CHAT`](#metagame-chat), and the metagame warns at startup when it finds the old name without the
+  new one.

@@ -53,7 +53,7 @@ Three setups come up throughout:
 | 61001 | TCP | Deploy server (`UndauntedDeployServer/`) | Server | Never. |
 | 61002 | TCP | Content server (`UndauntedContent/`), game files for the launcher | Server, when installed | Public mode: never, only through the gateway. Private mode: Tailscale peers. |
 | 61005 | TCP | Allowlist helper (`UndauntedGateway/`, runs as SYSTEM) | Server, public mode only | Never. |
-| 61099 | TCP | Nothing yet. Reserved for chat. | | No firewall rule anywhere. |
+| 61099 | TCP | Chat, inside the metagame (only with `CHAT=1`), on `127.0.0.1` | Server | Never directly. Public mode: through the gateway. No firewall rule anywhere. |
 | 8777 | UDP | Ramsgate game server | Server | Players. Public mode: only addresses of logged-in players. Private mode: Tailscale peers. |
 | 8776 | UDP | Training Dojo game server | Server | As 8777. |
 | 8770-8775 | UDP | Hunt and tutorial game servers, one process per group | Server | As 8777. |
@@ -73,7 +73,7 @@ and 62099 instead; see [Test and sandbox ports](#test-ports).
 | Content server | 61002 | `PORT` (content server) | `-ContentPort` (1024-65535), sandbox 62002 | `GATEWAY_CONTENT_URL`; the metagame's `CONTENT_PORT`, which tells launchers the port (`contentPort` in ServerStatus) |
 | Allowlist helper | 61005 | `ALLOWLIST_PORT` | `-AllowlistPort` (1024-65535), sandbox 62005 | The gateway's `ALLOWLIST_URL` (default `http://127.0.0.1:61005`) |
 | Gateway | 443 | `GATEWAY_PORT` | `-GatewayPort` (1-65535), sandbox 62443 | The `port=` of every public-mode invite (the launcher assumes 443 when an invite leaves it out) |
-| Chat (nothing yet) | 61099 | `GATEWAY_WS_URL` (gateway), `ServerPort` in `Engine.ini` | fixed; sandbox 62099 | The game's chat override, see [Chat port 61099](#chat-port) |
+| Chat (in the metagame, `CHAT=1`) | 61099 | `CHAT_PORT` (metagame), `GATEWAY_WS_URL` (gateway), `ServerPort` in `Engine.ini` | fixed; sandbox 62099; the kit writes the same port into `CHAT_PORT` and `GATEWAY_WS_URL` | The game's chat override, see [Chat port 61099](#chat-port) |
 
 Notes:
 
@@ -174,11 +174,29 @@ it the account id and login token. Every writer of `Engine.ini` points it elsewh
 | Friend kit (`play.ps1`) | `ws://<host part of -Server>` | 61099 |
 | Kit, for the game servers (service account) | `ws://127.0.0.1` | 61099 |
 
-Nothing in this project listens on 61099 yet. The connection fails harmlessly, and the gateway
-answers WebSocket upgrades with 502. The port is reserved for a future chat service, and no firewall
-rule opens it. A kit sandbox points the gateway at 62099 instead, so it never reaches a development
-PC's own 61099. The `Engine.ini` keys are on
-[Game settings]({{ gamesettings_page.url | relative_url }}).
+With `CHAT=1` the metagame itself listens on 61099 for the game's chat
+([Configuration]({{ config_page.url | relative_url }}#metagame-chat),
+[Text chat]({{ '/findings/chat.html' | relative_url }})). It listens on `127.0.0.1` only, and no
+firewall rule opens it in any mode.
+
+- **Public mode** (the rented server): the game's chat connection goes to the launcher relay on the
+  player's PC, over TLS to the gateway, and from there to `127.0.0.1:61099` (`GATEWAY_WS_URL`). The
+  request target is `//`, with the protocol `xmpp`; the relay and the gateway pass both through, and
+  launchers from v0.1.0 on already do this. The kit writes the same port into the metagame's
+  `CHAT_PORT` and the gateway's `GATEWAY_WS_URL`, so they cannot disagree. With chat off the gateway
+  answers the upgrade with 502, and the game retries every 15-45 s, harmlessly.
+- **Dev PC** (one PC): the game connects to `ws://127.0.0.1:61099` straight. Set `CHAT=1` in
+  `UndauntedMetagame/.env` ([Host a server]({{ host_page.url | relative_url }})).
+- **Private mode** (Tailscale): not supported yet. The game would connect to `ws://<Tailscale
+  address>:61099`, but the listener refuses any address other than loopback, so the connection fails
+  harmlessly, as before.
+- **Game servers** on a kit server: their `Engine.ini` points at `ws://127.0.0.1:61099` too. Whether
+  they log in to chat at all is not known; a refused login shows as `chat: login refused ...` in the
+  metagame log at most once per 10 minutes.
+- **Kit sandbox**: the gateway and `CHAT_PORT` use 62099 instead, so a sandbox never reaches a
+  development PC's own 61099.
+
+The `Engine.ini` keys are on [Game settings]({{ gamesettings_page.url | relative_url }}).
 
 ## Bind addresses by setup {#bind-addresses}
 
@@ -203,6 +221,7 @@ What each listener accepts:
 | Content server | A comma-separated list of IP addresses (or `localhost`), one listener per address. Only loopback, `localhost`, Tailscale's 100.64.0.0/10 and fd7a:115c:a1e0::/48 are allowed, unless `CONTENT_ALLOW_ANY_BIND=1`. | `127.0.0.1` |
 | Gateway | One IP address; host names are refused. Keep it IPv4 (`0.0.0.0`): the address the gateway reports to the allowlist must be the one the game's UDP traffic comes from, and `MY_IP` is IPv4. | `0.0.0.0` |
 | Allowlist helper | `127.0.0.1` or `::1` only. Anything else is a startup error. | `127.0.0.1` |
+| Chat (`CHAT_BIND_HOST`, in the metagame) | `127.0.0.1` or `::1`; with `GATEWAY_SECRET` set (public mode) `127.0.0.1` only. Anything else keeps chat off with an error line; the metagame starts anyway. | `127.0.0.1` |
 | Gateway upstreams (`GATEWAY_METAGAME_URL`, `GATEWAY_CONTENT_URL`, `GATEWAY_WS_URL`) and `ALLOWLIST_URL` | Only `http://host:port` on this machine (127.x.x.x, `::1` or `localhost`), no path. The gateway secret never leaves the machine. | `127.0.0.1` with 61000, 61002, 61099 and 61005 |
 | Launcher relay | `127.0.0.1` only, fixed in code. | `127.0.0.1:61000` |
 
@@ -232,7 +251,7 @@ game ---------------------UDP-------------------> game server :8770-8777 (allowl
 | 3 | Relay | Gateway `<PublicHost>:443`, TLS pinned | Everything from step 2 |
 | 4 | Gateway | Metagame `127.0.0.1:61000` | Everything except `/content` and WebSockets. The gateway adds `X-Dauntless-Gateway` (the gateway secret) and `X-Forwarded-For` (the player's address). Only four `/undaunted/api` routes pass; see [HTTP API]({{ api_page.url | relative_url }}). |
 | 5 | Gateway | Content server `127.0.0.1:61002` | `/content` and `/content/*` |
-| 6 | Gateway | `127.0.0.1:61099` | WebSocket upgrades. Nothing listens yet: 502. |
+| 6 | Gateway | Chat `127.0.0.1:61099`, in the metagame | WebSocket upgrades: the game's chat (request target `//`). With chat off nothing listens there: 502. |
 | 7 | Gateway | Allowlist helper `127.0.0.1:61005`, `POST /allow` with the allowlist secret | The player's address, after a successful login (`POST /account/api/oauth/token`) or a successful heartbeat that carried a bearer token |
 | 8 | Allowlist helper | Windows Firewall | Opens UDP 8770-8777 for that address until 600 seconds after its last login or heartbeat |
 | 9 | Metagame | Deploy server `127.0.0.1:61001` | Start or find a game server. The answer is `MY_IP` (the public IPv4) and the UDP port. |
@@ -254,7 +273,7 @@ game     ---UDP--------------------------------------> game server 100.x.y.z:877
 | 1 | Launcher | Metagame `http://<100.x.y.z>:61000` | Registration and server status |
 | 2 | Launcher | Content server `http://<100.x.y.z>:61002` (the port comes from ServerStatus `contentPort`) | Game file downloads, news and art |
 | 3 | Game | Metagame `http://<100.x.y.z>:61000` | Every backend call, the login with the account key, the QoS ping |
-| 4 | Game | `ws://<100.x.y.z>:61099` | Chat. Nothing listens, the connection fails harmlessly. |
+| 4 | Game | `ws://<100.x.y.z>:61099` | Chat. Not supported in private mode yet: nothing listens on that address, and the connection fails harmlessly. |
 | 5 | Metagame | Deploy server `127.0.0.1:61001` | Start or find a game server. The answer is `MY_IP` (the Tailscale IPv4) and the UDP port. |
 | 6 | Game | Game server `<100.x.y.z>:8770-8777`, UDP | The game session |
 | 7 | Game servers | Metagame `http://<100.x.y.z>:61000` | Loading and saving characters, with the game-server key |
@@ -402,14 +421,14 @@ sandbox install or `Test-Sandbox.ps1` is running. How to run the tests is on
 
 | Suite | Ports |
 |:------|:------|
-| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904 |
+| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904, 62921-62922; the chat tests' own listeners take a random free port |
 | `UndauntedDeployServer/`, `npm test` | 62013, 62473 |
 | `UndauntedGateway/`, `npm test` | 62400-62499 (in use: 62400-62405, 62409-62417, 62420-62422, 62430-62436) |
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
 | `UndauntedContent/`, `npm run test:integration` | 62002 and 62003 (`CONTENT_IT_PORT`, `CONTENT_IT_MOCK_PORT`) |
 | `UndauntedLauncher/`, `npm test` | 62012, 62013, 62401-62404, 62409, 62420-62422, 62429, 62440-62444 |
 | `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 and 62451 (`-Port` and the port above it, 62000-62499) |
-| `-Sandbox` install and `Test-Sandbox.ps1` | Metagame 62000, content 62002, allowlist helper 62005, gateway 62443, gateway WebSocket target 62099. 62001 is written for the deploy server, which does not run in a sandbox. |
+| `-Sandbox` install and `Test-Sandbox.ps1` | Metagame 62000, content 62002, allowlist helper 62005, gateway 62443, chat (the gateway's WebSocket target and the metagame's `CHAT_PORT`) 62099. 62001 is written for the deploy server, which does not run in a sandbox. |
 
 Known overlaps: the content integration test and the sandbox both use 62002; the launcher's
 controller test uses 62443 like the sandbox gateway; the launcher tests share 62012, 62013,
@@ -432,4 +451,5 @@ Get-NetUDPEndpoint -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -
 
 Expect `node` on the TCP ports that apply to your setup, at the addresses in
 [Bind addresses by setup](#bind-addresses), and `Dauntless-Win64-Shipping` on `0.0.0.0` for each
-running game server. Nothing should listen on 61099.
+running game server. On 61099, `node` (the metagame) listens on `127.0.0.1` only when chat is on;
+`Stack.ps1 status` says so in its `chat` line.

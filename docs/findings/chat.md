@@ -1,0 +1,262 @@
+---
+title: Text chat
+parent: Findings
+nav_order: 10
+description: "How the Dauntless 1.4.4 client does text chat against our server, read from the executable: why the first chat server showed UID-... instead of names, the room nickname and how we check it, which rooms exist and who may join them, and what is still unconfirmed."
+lang: en
+ref: findings/chat
+---
+
+{% assign api_page = site.pages | where: "path", "reference/api.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign ports_page = site.pages | where: "path", "reference/ports.md" | first %}
+{% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
+{% assign winserver_page = site.pages | where: "path", "setup/windows-server.md" | first %}
+
+# Text chat in 1.4.4
+{: .no_toc }
+
+This page describes how the **1.4.4** client's text chat works against our server: Ramsgate and hunt
+chat, party chat, guild chat and whispers. It explains why the first chat server showed every sender
+as `UID-...`, what the client needs to show usernames, how the server keeps anyone from posing as
+another player, and what is still unconfirmed.
+
+**Status (22 September 2026): built and tested without the game, off by default, not yet tried by two
+players.** The chat listener runs inside the metagame when `CHAT=1`
+([Configuration]({{ config_page.url | relative_url }}#metagame-chat)). Every rule below is covered by
+tests that feed the server's replies to a model of the client, read from the executable. The live
+two-player test on the rented server confirms or corrects them.
+
+The first chat server was written and tested with a real 1.4.4 client by **Vvoidddd**
+([pull request #9](https://github.com/mixutin/dauntless-revived/pull/9)). His observations are what
+this page explains, and his code is what the server grew from.
+
+<details open markdown="block">
+  <summary>Contents</summary>
+  {: .text-delta }
+1. TOC
+{:toc}
+</details>
+
+## Evidence and confidence {#evidence-and-confidence}
+
+| Label | Source |
+|:------|:-------|
+| **B** | The 1.4.4 executable (`Dauntless-Win64-Shipping.exe`): strings and disassembly. Addresses are virtual addresses with image base `0x140000000`. |
+| **S** | Strong inference: one link in the chain was not traced. |
+| **G** | A guess, or a design decision of ours where nothing in the client decides it. |
+| **O** | Observed by Vvoidddd with a real 1.4.4 client on 22 September 2026 (one client). |
+| **C** | Our own code and tests. |
+
+## How chat reaches the server {#transport}
+
+The game's chat is XMPP over WebSocket. Its connection is set in `Engine.ini`
+(`[OnlineSubsystemMcp.XMPP]`), which the launcher and the server kit point away from Epic
+([Ports and network]({{ ports_page.url | relative_url }}#chat-port)).
+
+- **Public mode** (our rented server): the game connects to the launcher's local relay
+  (`ws://127.0.0.1:61000`), which carries the connection over TLS to the gateway, which forwards it to
+  the metagame's chat listener on `127.0.0.1:61099`. The request target is `//`, not `/`
+  (B `0x1441f761f`), and every hop accepts that (C). No firewall rule is needed: 61099 stays on
+  loopback, and launchers from v0.1.0 on already relay it.
+- **One PC**: the game connects to `ws://127.0.0.1:61099` straight.
+- **Private mode** (Tailscale): not supported yet. The listener refuses any address other than
+  loopback.
+
+The client logs in with SASL PLAIN, sending its account id and the same signed token it uses for the
+metagame (B `0x144218640`). The server checks the token, and that it belongs to that account, before
+anything else. Then the client binds a resource of the form `V2:<AppId>:WIN::<32 hex>`, new at every
+login (B `0x143a3ca5a`), which the server echoes unchanged.
+
+## Why the first server showed UID-... {#why-uid}
+
+The client joins every room with a **nickname** it builds itself (B `0x1408b5aeb`):
+
+```
+Printf("%s:%s:%s", UrlEncode(DisplayName), AccountId, OwnResource)
+  -> Alpha:UID-aaaa...:V2:MissingGameServiceForAppId:WIN::A1B2...
+```
+
+The username is already there, in the first part. The client reads names back out of the nickname of
+whoever sent a line: it splits the nickname at `:`, takes the first part (URL-decoded) as the name and
+the second as the account id, and takes the member id from the presence's `<item jid>` when there is
+one (B `0x1408fe300`, `0x1408c3500`).
+
+The first server threw the nickname away. It answered every join and sent every message from
+`<room>/UID-...`, with no `<item jid>`. That resource has no `:`, so the client took the whole
+resource, `UID-...`, as the name, and the room JID's full path as the member id (B `0x1408c3686`,
+`0x1408aea40`). That id is nobody's account, so even the player's own lines went down the "other
+member" path: the account lookup found nobody, and the client fell back to the name it had,
+`UID-...` (B `0x1408fe9c0` -> `0x140987d90`, `0x14097fc20`). An XEP-0172 `<nick>` element does not help:
+its namespace is not in the executable (B).
+
+### What each attempt did, and why {#attempts}
+
+| What was tried (O) | What the game did (O) | Why (B) |
+|:-------------------|:----------------------|:--------|
+| Answer from `<room>/UID-...` | The join completed; lines showed `UID-...` as the sender. | The client's "is this me?" test is a case-sensitive search for its own account id in the nickname (`0x143a34acd`-`0x143a34aec`), so the join completed. The name: see above. |
+| Answer from `<room>/<username>` (also with status 210) | Room joins stayed pending; the next join said "Another operation already pending". | The username does not contain the account id, so the client never recognised its own presence and the room stayed in JoinPublicPending (state 4). A new join to a room in state 4 is refused (`0x143a32938`-`0x143a32990`). Status 110 and 210 are not read. |
+| Presence from `UID-...`, messages from `<username>` | `[unknown]` | A line is matched to its sender through an earlier occupant presence from the same room JID (`0x1408a83c0`). None matched, so the sender kept the default nickname "unknown" (`0x14087ed65`). |
+| `JoinPublicRoom failed. Not currently connected` for City and Party rooms | (in the client log) | The XMPP connection was not logged in at the moment of those joins (`0x143a327fe`); the client retries them (S). It has nothing to do with names. |
+
+His conclusion, "keep the UID in the room address", fits these results, but the reason is a
+different one: the account id does belong in the room address, inside the nickname and together with
+the username, exactly as the client sent it.
+
+A second player would have seen his lines as `[unknown]`: the first server never told other occupants
+that someone had joined (our client model predicts this; it was never run with two clients).
+
+## What makes names show {#names}
+
+Three server rules, all in `src/realtime/muc.ts` (C):
+
+1. **Keep every nickname byte for byte** and use it in every `from` for that occupant, presence and
+   messages alike. Never swap in the account id or a display name, never assign a nickname, never
+   rename on a clash.
+2. **Put `<item jid="<account>@<domain>/<resource>">` in every occupant presence**, the player's own
+   included. The member id comes from it.
+3. **Tell occupants about each other both ways**, and send every room message back to its sender too,
+   from the same room JID. Without an occupant presence first, a line shows as `[unknown]`.
+
+The join order matters (B `0x143a34c19`, `0x143a34c0f`): the joiner first hears of everyone already in
+the room, then they hear of the joiner, and the joiner's own presence (status 110) comes last. Its own
+presence is what completes the join on its screen.
+
+A leave is answered with the player's own unavailable presence (status 110) as well as the notice to
+the others. Without it the room stays in ExitPending (state 5) and the next join to it is refused.
+
+The metagame needed no change for names. Both account lookups the client uses already answer
+`displayName` to a caller with a valid token. The token answer's `displayName` is never read by the
+client (B `0x1408e8303`, `0x1408a8a10`), so adding one would change nothing.
+
+## What each player sees {#what-each-player-sees}
+
+| Line | Where the name comes from |
+|:-----|:--------------------------|
+| Another player's room line | `GET /account/api/public/account?accountId=<id>`, that player's `displayName`. The id comes from `<item jid>` (B `0x1408fe9c0` -> `0x140987d90`). |
+| Your own room line | The client recognises the member id as its own (B `0x1408febd5`) and shows its own social name (S: the name the Social panel shows for you). |
+| A whisper | The same account lookup. If the sender is not found, the whisper waits (S). |
+| When a lookup finds nobody | The nickname's first part, URL-decoded (B `0x14097fc20`; the shipped config trusts it). |
+| "Entered room" and "left room" notices | Probably the nickname's first part (G). |
+
+The client's own name comes from `GET /account/api/public/account/<own id>` at login, read by
+`GetPlayerNickname` (B `0x14092bad0`). When that read fails, the name is the literal
+`InvalidMCPUser`, never empty (B `0x14092bc0b`). After an admin rename the client keeps the old name
+until its next login (S).
+
+## The nickname check (anti-spoofing) {#nickname-check}
+
+The nickname is the only text a client controls that other clients read. The server knows each
+connection's account from its token, so a join is **refused** unless the nickname is exactly:
+
+```
+<name>:<own account id>:<own bound resource>
+```
+
+- The part after the first `:` must be the connection's own account id and resource, case included
+  (`nick-account` or `nick-resource` in the log).
+- No other account id may appear anywhere in the nickname. The client's "is this me?" test is a
+  substring search, so a stranger's nickname carrying your id would read as your own presence on your
+  screen, and their leave would end your membership (`nick-account`).
+- `<name>` may only hold the characters the client's URL encoder writes: `A-Z a-z 0-9 - _ . ~` and
+  `%XX` (B `0x1428aebb0`). It must decode to valid UTF-8 (`nick-format`).
+- Decoded, `<name>` must be the account's username (now, or as it was at chat login), or the client's
+  fallback `InvalidMCPUser` (`nick-name`).
+
+A real client is never refused: its encoder only writes that alphabet, the comparison is on the
+decoded text (so upper- or lower-case hex does not matter), and its name is the username our own
+account route served. The one exception: after an admin renames a player, that player restarts the
+game before chat works again.
+
+The server **never rewrites** a nickname: a rewritten one breaks the joiner's own "is this me?" test
+and the join hangs, as the username attempt above showed. A refused join is an error presence, and
+the client drops the pending room cleanly and reports a failed join (B `0x143a34d80`; the same
+callback as a successful join, `0x143a298a8`). So a refusal never leaves "Another operation already
+pending" behind.
+
+`CHAT_NICK_CHECK=log` admits a nickname that fails these rules, with a warning line. It is a rollback
+switch in case the live test shows a real client being refused, not a normal setting.
+
+## Rooms, and who may join them {#rooms}
+
+The client names its rooms itself (B builders in parentheses). They all live on `muc.<domain>`, where
+the domain is the one the client sent in `<open to>`; the client takes a room presence as its own only
+from exactly that domain, case included (B `0x143a379d2`).
+
+| Room | Chat channel | Who may join |
+|:-----|:-------------|:-------------|
+| `City-<session id>` | Normal, in Ramsgate (`0x141568c20`) | Any signed-in player |
+| `Hunt-<session id>` | Normal, on a hunt | Any signed-in player |
+| `Party-<party id>` | Party Chat (`0x1415ad14f`) | Members of that party only |
+| `Guild-<guild id>` | Guild Chat (`0x1415bb270`) | Members of that guild only |
+| `General<id>` | "General Chat" (`0x1415669e0`, no caller in 1.4.4) | Any signed-in player |
+| anything else (`Lobby...`, other spellings or case) | none | Refused |
+
+- Membership is checked at the join, at every message (for the sender and each recipient) and every
+  60 s. A player who left the party or guild (a kick, a stale client) is removed from the room with
+  status 307, which the client handles as "server initiated room exit".
+- A room line is not delivered to a player who blocked its sender. A whisper is not delivered when
+  either player blocked the other (the same rule as party invites).
+- Two connections of one account never see each other in a room: the client's "is this me?" test
+  would take the other one's presence for its own.
+- The server keeps no history and sends no room subject.
+
+**Ramsgate chat is per session today.** Each player gets a session id of their own for Ramsgate, so two
+players share a `City-` room only when they travelled there together as a party. A shared Ramsgate
+channel for everyone on the same server is a later step (roadmap 3.10).
+
+## Party safety {#party-safety}
+
+The client has an automatic kick for party members who look offline (B `0x1415f6f60`). It runs only
+while the local player's own Phoenix presence is online (B `0x1415f7562`), and it reads only that
+presence. Our server sends **no presence outside chat rooms**: it records the client's own broadcast
+presence and drops it, never echoing or relaying it. Room presence comes from `muc.<domain>`, which the
+presence module leaves to the room code (B `0x143a381d0`). So the automatic kick stays dormant. The
+live test checks that a party of two with chat on keeps both members for a minute
+([Friends, parties and guilds]({{ social_page.url | relative_url }}#parties)).
+
+Friends' online status needs presence, so it is not part of this round.
+
+## Connections and limits {#limits}
+
+- **Crash guard.** Every socket has an error listener, and every stanza handler is guarded. An
+  oversized frame, invalid UTF-8 or a bad WebSocket opcode ends that one connection, never the
+  metagame.
+- **No reconnect loops.** The client reconnects on its next tick when an established connection drops
+  (B `0x140939988`). So the server never closes a logged-in connection over bad input: it drops the
+  stanza and counts it. Only the client's `<close/>`, a ping timeout, replacement, shutdown, an
+  oversized frame or sustained abuse end one, and any end by the server holds that account's next
+  login back for 60 s, which makes the client wait 15-45 s instead (B `0x14093a3ee`).
+- **Sessions.** At most two connections per account; a third replaces the one silent longest. A new
+  connection pings the older one, which is ended as a ghost if it does not answer in 10 s.
+- The limits (message size, rates, rooms per player) are listed on
+  [Configuration]({{ config_page.url | relative_url }}#metagame-chat). Message text, tokens and request
+  headers are never logged.
+
+## Testing without the game {#testing-without-the-game}
+
+`UndauntedMetagame/test/chatclient.ts` is a model of how the client reads chat, with the addresses
+above. Fed the first server's replies, it reproduces what Vvoidddd saw: `UID-...` as the sender, the
+join stuck with "Another operation already pending", and `[unknown]`. Fed ours, captured from the real
+server in the test, both players see usernames. The WebSocket tests run two and three players through
+joins, messages, leaves, the nickname rules, party and guild rooms, blocks, whispers, sessions, limits
+and the crash guard, and one test takes the names through the real account routes.
+
+## Still unconfirmed {#unconfirmed}
+
+| Open point | Label | How the live test checks it |
+|:-----------|:------|:----------------------------|
+| The account read sets the name to `displayName` | S | The `chat: join ... name=` line shows the username. |
+| Your own lines use the Social panel's name for you | S | Your own line in Normal chat. |
+| The nickname's resource is the bound resource | S | No `reason=nick-resource` refusal. |
+| How often the client retries a refused join | unknown | Count `join refused` lines. |
+| Whether game servers open a chat connection | G | `chat: connect ... via=direct` lines after a hunt starts. |
+| What a whisper to an offline player shows | unknown | Whisper a player who quit. |
+| The client's typing limit against our 2048 characters | G | Paste a long line; watch `len=`. |
+| "Entered room" notices use the nickname's first part | G | The notice shows the username (right either way). |
+| The automatic party kick stays dormant with room presence | B for its conditions | A party of two with chat on for 60 s: no `DELETE /party/member/...`. |
+| Chat after the 24-hour token expiry | B (the retry), C (the expiry) | A `reason=expired` line at most every 10 minutes. |
+
+What to do when chat misbehaves is on [Troubleshooting]({{ trouble_page.url | relative_url }}#chat-not-connected);
+turning it on and off on a server is on [Windows server kit]({{ winserver_page.url | relative_url }}#chat).

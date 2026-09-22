@@ -17,6 +17,7 @@ ref: findings/index
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
 {% assign tools_page = site.pages | where: "path", "tools.md" | first %}
 
 # Findings
@@ -46,6 +47,7 @@ addresses and short snippets, and only as much as each explanation needs.
 | [Crash forensics]({{ crashes_page.url | relative_url }}) | Mostly 2.1.1 | Turning crash reports into instruction addresses, and what each crash we hit turned out to be. |
 | [The 2.1.1 standalone attempt]({{ awakening_page.url | relative_url }}) | 2.1.1 | How far a solo boot into Ramsgate got, where it stopped (no controllable player), and where to continue. |
 | [Friends, parties and guilds]({{ social_page.url | relative_url }}) | 1.4.4 | How the client finds other players, the exact replies friends, parties and guilds need, why the first two-player test showed nothing, and what is still unconfirmed. |
+| [Text chat]({{ chat_page.url | relative_url }}) | 1.4.4 | How the client's text chat works on our server, why the first chat server showed UID-... instead of names, the nickname check, the rooms and who may join them. |
 
 The scripts used for most of the static analysis are described on
 [Tools]({{ tools_page.url | relative_url }}).

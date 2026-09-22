@@ -17,6 +17,8 @@ ref: setup/windows-server
 {% assign scripts_page = site.pages | where: "path", "reference/scripts.md" | first %}
 {% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
 {% assign files_page = site.pages | where: "path", "reference/files.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 
 # Windows server kit
 {: .no_toc }
@@ -342,8 +344,39 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
 | `Write-PerformanceLog.ps1 -Once` | A performance sample now (run it as administrator). The stack takes one every minute by itself, into `data\logs\performance\`: CPU and memory per game server and component, the machine's CPU, RAM, disk and network, and player counts. See [Measure it]({{ admin_page.url | relative_url }}#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
+| `Set-Chat.ps1 -On` / `-Off` | Turns the in-game text chat on or off; see [Chat](#chat) below. Restarts the stack. |
 
 From your PC, `Deploy-Remote.ps1 -Server <address> -Status` shows the status without logging in.
+
+### Chat {#chat}
+
+The game's text chat (Ramsgate and hunt chat, party chat, guild chat and whispers, with usernames) is
+a listener inside the metagame on `127.0.0.1:61099`. The gateway already forwards the game's chat
+connection to it, so there is **no firewall rule to open**, and friends need no new launcher. It is
+off on a new install. How it works: [Text chat]({{ chat_page.url | relative_url }}).
+
+**Switch it when nobody is playing.** Turning chat on or off restarts the stack, and a restart drops
+the parties and matchmaking queues, which live in memory.
+
+- On the server: `C:\DauntlessRevived\bin\Set-Chat.ps1 -On` (or `-Off`). It writes `CHAT`,
+  `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT` in `metagame.env` and `"Chat"` in `server.json`, restarts
+  the stack with the usual backups, and waits up to 30 s for the listener. If that fails, it puts the
+  old settings back and restarts again.
+- From your PC: `Deploy-Remote.ps1 -Server <address> -Chat On` runs the same script over SSH.
+- On an install: `-Chat On` or `-Chat Off` (the installer and `Deploy-Remote.ps1` both take it). A re-run
+  without `-Chat` keeps the saved choice, and an update never changes it.
+
+`Stack.ps1 status` has a `chat` line: `listening 127.0.0.1:61099`, `off`, or
+`on in metagame.env but not listening (see the metagame log)`; `Get-ServerStatus.ps1` on the server
+shows the same. The metagame log starts with `chat: listening on 127.0.0.1:61099 (nick check enforce)`
+and then has `chat:` lines for connections, logins, room joins and messages (never their text).
+[Troubleshooting]({{ trouble_page.url | relative_url }}#chat-not-connected) explains each one.
+
+For the first live runs, `CHAT_TRACE=1` in `metagame.env` logs every chat frame with logins, message
+text and tokens replaced; take it out again afterwards. If real players are refused room joins with
+`reason=nick-...`, `CHAT_NICK_CHECK=log` admits them with a warning while you report the line.
+`Set-Chat.ps1 -Off` is the way back from anything serious: the game then retries every 15-45 s,
+harmlessly, as before chat existed. Private mode has no chat yet.
 
 ### Updates
 

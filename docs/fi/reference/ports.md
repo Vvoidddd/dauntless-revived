@@ -55,7 +55,7 @@ Sivulla toistuu kolme kokoonpanoa:
 | 61001 | TCP | Deploy-palvelin (`UndauntedDeployServer/`) | Palvelin | Ei koskaan. |
 | 61002 | TCP | Sisältöpalvelin (`UndauntedContent/`), pelitiedostot käynnistimelle | Palvelin, jos asennettu | Julkinen tila: ei koskaan suoraan, vain yhdyskäytävän kautta. Yksityinen tila: Tailscale-verkon koneilta. |
 | 61005 | TCP | Sallittujen listan apuri (`UndauntedGateway/`, pyörii SYSTEM-tilillä) | Palvelin, vain julkinen tila | Ei koskaan. |
-| 61099 | TCP | Ei vielä mitään. Varattu chatille. | | Palomuurisääntöä ei ole missään. |
+| 61099 | TCP | Chat metagamen sisällä (vain kun `CHAT=1`) osoitteessa `127.0.0.1` | Palvelin | Ei koskaan suoraan. Julkinen tila: yhdyskäytävän kautta. Palomuurisääntöä ei ole missään. |
 | 8777 | UDP | Ramsgaten pelipalvelin | Palvelin | Pelaajilta. Julkinen tila: vain kirjautuneiden pelaajien osoitteista. Yksityinen tila: Tailscale-verkon koneilta. |
 | 8776 | UDP | Training Dojon pelipalvelin | Palvelin | Kuten 8777. |
 | 8770-8775 | UDP | Metsästysten ja opetusjakson pelipalvelimet, yksi prosessi ryhmää kohden | Palvelin | Kuten 8777. |
@@ -75,7 +75,7 @@ Paketin hiekkalaatikkotila (`-Sandbox`, testeihin kehityskoneella) käyttää n�
 | Sisältöpalvelin | 61002 | `PORT` (sisältöpalvelin) | `-ContentPort` (1024-65535), hiekkalaatikossa 62002 | `GATEWAY_CONTENT_URL`; metagamen `CONTENT_PORT`, joka kertoo portin käynnistimille (`contentPort` ServerStatus-vastauksessa) |
 | Sallittujen listan apuri | 61005 | `ALLOWLIST_PORT` | `-AllowlistPort` (1024-65535), hiekkalaatikossa 62005 | Yhdyskäytävän `ALLOWLIST_URL` (oletus `http://127.0.0.1:61005`) |
 | Yhdyskäytävä | 443 | `GATEWAY_PORT` | `-GatewayPort` (1-65535), hiekkalaatikossa 62443 | Jokaisen julkisen tilan kutsun `port=` (käynnistin olettaa 443, jos kutsusta puuttuu portti) |
-| Chat (ei vielä mitään) | 61099 | `GATEWAY_WS_URL` (yhdyskäytävä), `ServerPort` tiedostossa `Engine.ini` | kiinteä; hiekkalaatikossa 62099 | Pelin chat-ohitus, katso [Chat-portti 61099](#chat-port) |
+| Chat (metagamessa, `CHAT=1`) | 61099 | `CHAT_PORT` (metagame), `GATEWAY_WS_URL` (yhdyskäytävä), `ServerPort` tiedostossa `Engine.ini` | kiinteä; hiekkalaatikossa 62099; paketti kirjoittaa saman portin sekä asetukseen `CHAT_PORT` että `GATEWAY_WS_URL` | Pelin chat-ohitus, katso [Chat-portti 61099](#chat-port) |
 
 Huomioita:
 
@@ -188,11 +188,30 @@ kirjoittaja ohjaa yhteyden muualle (`[OnlineSubsystemMcp.XMPP]`, `bUseSSL=false`
 | Kaveripaketti (`play.ps1`) | `ws://<-Server-arvon osoiteosa>` | 61099 |
 | Paketti, pelipalvelimille (palvelutili) | `ws://127.0.0.1` | 61099 |
 
-Tässä projektissa mikään ei vielä kuuntele porttia 61099. Yhteys epäonnistuu vaarattomasti, ja
-yhdyskäytävä vastaa WebSocket-avauksiin 502. Portti on varattu tulevalle chat-palvelulle, eikä mikään
-palomuurisääntö avaa sitä. Paketin hiekkalaatikko ohjaa yhdyskäytävän sen sijaan porttiin 62099, jotta
-se ei koskaan yllä kehityskoneen omaan porttiin 61099. `Engine.ini`-avaimet ovat sivulla
-[Pelin asetukset]({{ gamesettings_page.url | relative_url }}).
+Kun `CHAT=1`, metagame itse kuuntelee porttia 61099 pelin chattia varten
+([Asetukset]({{ config_page.url | relative_url }}#metagame-chat),
+[Tekstichat]({{ '/fi/findings/chat.html' | relative_url }})). Se kuuntelee vain osoitteessa
+`127.0.0.1`, eikä mikään palomuurisääntö avaa sitä missään tilassa.
+
+- **Julkinen tila** (vuokrattu palvelin): pelin chat-yhteys menee pelaajan koneella käynnistimen
+  välittimelle, sieltä TLS-salattuna yhdyskäytävälle ja edelleen osoitteeseen `127.0.0.1:61099`
+  (`GATEWAY_WS_URL`). Pyynnön polku on `//` ja protokolla `xmpp`; välitin ja yhdyskäytävä päästävät
+  molemmat läpi, ja käynnistimet versiosta 0.1.0 alkaen tekevät tämän jo. Paketti kirjoittaa saman
+  portin metagamen asetukseen `CHAT_PORT` ja yhdyskäytävän asetukseen `GATEWAY_WS_URL`, joten ne eivät
+  voi erota toisistaan. Kun chat on pois päältä, yhdyskäytävä vastaa avaukseen 502, ja peli yrittää
+  uudelleen 15-45 sekunnin välein vaarattomasti.
+- **Kehityskone** (yksi kone): peli ottaa yhteyden suoraan osoitteeseen `ws://127.0.0.1:61099`. Aseta
+  `CHAT=1` tiedostoon `UndauntedMetagame/.env` ([Pystytä palvelin]({{ host_page.url | relative_url }})).
+- **Yksityinen tila** (Tailscale): ei vielä tuettu. Peli ottaisi yhteyden osoitteeseen
+  `ws://<Tailscale-osoite>:61099`, mutta kuuntelija ei suostu muuhun kuin paikalliseen osoitteeseen,
+  joten yhteys epäonnistuu vaarattomasti kuten ennenkin.
+- **Pelipalvelimet** paketin palvelimella: niidenkin `Engine.ini` osoittaa osoitteeseen
+  `ws://127.0.0.1:61099`. Ei tiedetä, kirjautuvatko ne chattiin lainkaan; hylätty kirjautuminen näkyy
+  metagamen lokissa rivinä `chat: login refused ...` enintään kerran 10 minuutissa.
+- **Paketin hiekkalaatikko**: yhdyskäytävä ja `CHAT_PORT` käyttävät porttia 62099, jotta hiekkalaatikko
+  ei koskaan yllä kehityskoneen omaan porttiin 61099.
+
+`Engine.ini`-avaimet ovat sivulla [Pelin asetukset]({{ gamesettings_page.url | relative_url }}).
 
 ## Kuunteluosoitteet kokoonpanoittain {#bind-addresses}
 
@@ -217,6 +236,7 @@ Mitä kukin kuuntelija hyväksyy:
 | Sisältöpalvelin | Pilkuin erotetun listan IP-osoitteita (tai `localhost`), yksi kuuntelija osoitetta kohden. Vain loopback, `localhost` sekä Tailscalen 100.64.0.0/10 ja fd7a:115c:a1e0::/48 sallitaan, ellei `CONTENT_ALLOW_ANY_BIND=1`. | `127.0.0.1` |
 | Yhdyskäytävä | Yhden IP-osoitteen; nimiä ei hyväksytä. Pidä se IPv4-osoitteena (`0.0.0.0`): osoitteen, jonka yhdyskäytävä ilmoittaa sallittujen listalle, on oltava sama, josta pelin UDP-liikenne tulee, ja `MY_IP` on IPv4. | `0.0.0.0` |
 | Sallittujen listan apuri | Vain `127.0.0.1` tai `::1`. Kaikki muu on käynnistysvirhe. | `127.0.0.1` |
+| Chat (`CHAT_BIND_HOST`, metagamessa) | `127.0.0.1` tai `::1`; kun `GATEWAY_SECRET` on asetettu (julkinen tila), vain `127.0.0.1`. Kaikki muu pitää chatin pois päältä ja kirjoittaa virherivin; metagame käynnistyy silti. | `127.0.0.1` |
 | Yhdyskäytävän kohteet (`GATEWAY_METAGAME_URL`, `GATEWAY_CONTENT_URL`, `GATEWAY_WS_URL`) ja `ALLOWLIST_URL` | Vain muoto `http://host:port` tällä koneella (127.x.x.x, `::1` tai `localhost`), ilman polkua. Yhdyskäytävän salaisuus ei koskaan lähde koneelta. | `127.0.0.1` porteilla 61000, 61002, 61099 ja 61005 |
 | Käynnistimen välitin | Vain `127.0.0.1`, kiinteästi koodissa. | `127.0.0.1:61000` |
 
@@ -247,7 +267,7 @@ peli ---------------------UDP---------------------> pelipalvelin :8770-8777 (sal
 | 3 | Välitin | Yhdyskäytävä `<PublicHost>:443`, TLS kiinnitettynä | Kaikki vaiheesta 2 |
 | 4 | Yhdyskäytävä | Metagame `127.0.0.1:61000` | Kaikki paitsi `/content` ja WebSocketit. Yhdyskäytävä lisää otsakkeet `X-Dauntless-Gateway` (yhdyskäytävän salaisuus) ja `X-Forwarded-For` (pelaajan osoite). Vain neljä `/undaunted/api`-reittiä pääsee läpi; katso [HTTP-rajapinta]({{ api_page.url | relative_url }}). |
 | 5 | Yhdyskäytävä | Sisältöpalvelin `127.0.0.1:61002` | `/content` ja `/content/*` |
-| 6 | Yhdyskäytävä | `127.0.0.1:61099` | WebSocket-avaukset. Mikään ei vielä kuuntele: 502. |
+| 6 | Yhdyskäytävä | Chat `127.0.0.1:61099` metagamessa | WebSocket-avaukset: pelin chat (pyynnön polku `//`). Kun chat on pois päältä, siellä ei kuuntele mikään: 502. |
 | 7 | Yhdyskäytävä | Sallittujen listan apuri `127.0.0.1:61005`, `POST /allow` apurin salaisuudella | Pelaajan osoite onnistuneen kirjautumisen (`POST /account/api/oauth/token`) tai sellaisen onnistuneen elonmerkin jälkeen, jossa oli bearer-tunniste |
 | 8 | Sallittujen listan apuri | Windowsin palomuuri | Avaa UDP-portit 8770-8777 tälle osoitteelle, kunnes sen viimeisestä kirjautumisesta tai elonmerkistä on kulunut 600 sekuntia |
 | 9 | Metagame | Deploy-palvelin `127.0.0.1:61001` | Pelipalvelimen käynnistys tai haku. Vastauksena `MY_IP` (julkinen IPv4) ja UDP-portti. |
@@ -269,7 +289,7 @@ peli       ---UDP--------------------------------------> pelipalvelin 100.x.y.z:
 | 1 | Käynnistin | Metagame `http://<100.x.y.z>:61000` | Rekisteröityminen ja palvelimen tila |
 | 2 | Käynnistin | Sisältöpalvelin `http://<100.x.y.z>:61002` (portti tulee ServerStatus-vastauksen kentästä `contentPort`) | Pelitiedostojen lataukset, uutiset ja kuvat |
 | 3 | Peli | Metagame `http://<100.x.y.z>:61000` | Jokainen taustapalvelun kutsu, kirjautuminen tiliavaimella, QoS-ping |
-| 4 | Peli | `ws://<100.x.y.z>:61099` | Chat. Mikään ei kuuntele, joten yhteys epäonnistuu vaarattomasti. |
+| 4 | Peli | `ws://<100.x.y.z>:61099` | Chat. Yksityisessä tilassa ei vielä tuettu: siinä osoitteessa ei kuuntele mikään, joten yhteys epäonnistuu vaarattomasti. |
 | 5 | Metagame | Deploy-palvelin `127.0.0.1:61001` | Pelipalvelimen käynnistys tai haku. Vastauksena `MY_IP` (Tailscale-IPv4) ja UDP-portti. |
 | 6 | Peli | Pelipalvelin `<100.x.y.z>:8770-8777`, UDP | Pelisessio |
 | 7 | Pelipalvelimet | Metagame `http://<100.x.y.z>:61000` | Hahmojen lataus ja tallennus pelipalvelinavaimella |
@@ -431,14 +451,14 @@ aja koneella vain yksi sarja kerrallaan, äläkä silloin, kun hiekkalaatikkoase
 
 | Sarja | Portit |
 |:------|:-------|
-| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904 |
+| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904, 62921-62922; chat-testien omat kuuntelijat ottavat satunnaisen vapaan portin |
 | `UndauntedDeployServer/`, `npm test` | 62013, 62473 |
 | `UndauntedGateway/`, `npm test` | 62400-62499 (käytössä: 62400-62405, 62409-62417, 62420-62422, 62430-62436) |
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
 | `UndauntedContent/`, `npm run test:integration` | 62002 ja 62003 (`CONTENT_IT_PORT`, `CONTENT_IT_MOCK_PORT`) |
 | `UndauntedLauncher/`, `npm test` | 62012, 62013, 62401-62404, 62409, 62420-62422, 62429, 62440-62444 |
 | `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 ja 62451 (`-Port` ja sitä seuraava portti, 62000-62499) |
-| `-Sandbox`-asennus ja `Test-Sandbox.ps1` | Metagame 62000, sisältöpalvelin 62002, sallittujen listan apuri 62005, yhdyskäytävä 62443, yhdyskäytävän WebSocket-kohde 62099. 62001 kirjoitetaan deploy-palvelimelle, joka ei pyöri hiekkalaatikossa. |
+| `-Sandbox`-asennus ja `Test-Sandbox.ps1` | Metagame 62000, sisältöpalvelin 62002, sallittujen listan apuri 62005, yhdyskäytävä 62443, chat (yhdyskäytävän WebSocket-kohde ja metagamen `CHAT_PORT`) 62099. 62001 kirjoitetaan deploy-palvelimelle, joka ei pyöri hiekkalaatikossa. |
 
 Tunnetut päällekkäisyydet: sisältöpalvelimen integraatiotesti ja hiekkalaatikko käyttävät kumpikin
 porttia 62002, käynnistimen controller-testi käyttää porttia 62443 kuten hiekkalaatikon yhdyskäytävä,
@@ -462,5 +482,6 @@ Get-NetUDPEndpoint -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -
 
 Kokoonpanoosi kuuluvissa TCP-porteissa pitäisi näkyä `node` kohdan
 [Kuunteluosoitteet kokoonpanoittain](#bind-addresses) mukaisissa osoitteissa, ja jokaiselle käynnissä
-olevalle pelipalvelimelle `Dauntless-Win64-Shipping` osoitteessa `0.0.0.0`. Portissa 61099 ei pitäisi
-kuunnella mikään.
+olevalle pelipalvelimelle `Dauntless-Win64-Shipping` osoitteessa `0.0.0.0`. Portissa 61099 kuuntelee
+`node` (metagame) osoitteessa `127.0.0.1` vain, kun chat on päällä; `Stack.ps1 status` kertoo sen
+`chat`-rivillään.

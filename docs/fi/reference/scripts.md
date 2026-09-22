@@ -63,7 +63,7 @@ Nämä säännöt koskevat jokaista kansion `deploy/windows-server/` skriptiä.
   kopioi paketin sinne, ja `Update-DauntlessServer.ps1` päivittää kopion uudesta koodista.
   `staging\kit` on vain lähetyskansio, jota `Deploy-Remote.ps1` käyttää.
 - **`-Root`.** `Stack.ps1`, `Update-DauntlessServer.ps1`, `Backup-DauntlessServer.ps1`,
-  `New-Invite.ps1`, `Get-ServerStatus.ps1` ja `Write-PerformanceLog.ps1` ottavat parametrin
+  `New-Invite.ps1`, `Get-ServerStatus.ps1`, `Set-Chat.ps1` ja `Write-PerformanceLog.ps1` ottavat parametrin
   `-Root <asennuskansio>`. Ilman sitä
   ne käyttävät omaa kansiotaan ylempää kansiota, jos siinä on `data\config\server.json`, kuten
   kansion `<root>\bin` kohdalla on. Muuten ne käyttävät kansiota `C:\DauntlessRevived`.
@@ -94,6 +94,7 @@ Mitkä skriptit tarvitsevat ylläpitäjänä avatun PowerShellin ("Suorita järj
 | `Update-DauntlessServer.ps1` | Kyllä, paitsi `-Sandbox`-asennuksessa. |
 | `Stack.ps1` | Asennetulla palvelimella `start`, `stop` ja `restart` toimivat ajastettujen tehtävien kautta ja tarvitsevat sen, samoin `-Direct`. `status` toimii ilmankin, mutta se voi näyttää paikalla olevat pelaajat vain, jos se pystyy lukemaan omistajan avaimen, ja siihen tarvitaan ylläpitäjän oikeudet. |
 | `New-Invite.ps1` | Kyllä: se lukee tiedoston `data\keys\owner.key`. |
+| `Set-Chat.ps1` | Kyllä, paitsi `-Sandbox`-asennuksessa: se kirjoittaa tiedoston `metagame.env` uudelleen ja käynnistää kokonaisuuden uudelleen. |
 | `Get-ServerStatus.ps1` | Palvelimella, jos haluat pelaajalistan: se lukee omistajan avaimen. Ei tarvita `-KeyFile`:n kanssa. |
 | `Backup-DauntlessServer.ps1` | Aja se ylläpitäjänä, tai anna varmuuskopiotehtävän ajaa se palvelutilillä. Tili, joka ei voi lukea jotakin tiedostoa, ohittaa sen ja mainitsee sen tulosteessa. |
 | `Write-PerformanceLog.ps1` | Asennetulla palvelimella kyllä: ilman ylläpitäjän oikeuksia se ei näe pelipalvelimia (ne pyörivät palvelutilillä) eikä pysty lukemaan omistajan avainta pelaajamääriä varten. `-Sandbox`-asennuksessa ei. |
@@ -110,6 +111,7 @@ Mitkä skriptit tarvitsevat ylläpitäjänä avatun PowerShellin ("Suorita järj
 | `New-Invite.ps1` | Palvelin | Luo kutsukoodin ja tulostaa kutsurivin. Myös luettelee ja peruu koodeja. |
 | `Get-ServerStatus.ps1` | Palvelin tai mikä tahansa kone | Ketkä ovat paikalla ja mitkä maailmat ja metsästykset ovat käynnissä. |
 | `Backup-DauntlessServer.ps1` | Palvelin | Varmuuskopio heti, vanhojen kopioiden karsinnalla. |
+| `Set-Chat.ps1` | Palvelin | Kytkee pelin tekstichatin päälle tai pois (julkinen tila) ja käynnistää kokonaisuuden uudelleen. |
 | `backup-hidden.vbs` | Palvelin | Ajaa varmuuskopion ilman ikkunaa (tuntitehtävän käytössä). |
 | `Write-PerformanceLog.ps1` | Palvelin | Suorituskykymittaus heti, tai minuutin välein hiekkalaatikossa. Asennetulla palvelimella kokonaisuuden valvoja ottaa mittauksen jo minuutin välein. |
 | `Receive-Upload.ps1` | Palvelin | Osissa tehtävän lähetyksen palvelinpää. `Deploy-Remote.ps1` kutsuu sitä; sinä et. |
@@ -168,6 +170,7 @@ kiinnittää palvelimen isäntäavaimen `known_hosts`-tiedostoon. Komennot ajeta
 | `-AdminIp` | IPv4-osoite tai `IPv4/etuliite`, jossa etuliite on 8-32; yksi tai useampi | ei mitään | Osoitteet, joista etätyöpöytä sallitaan. Ilman tätä ja ilman `-KeepRdpOpen`:ia skripti varoittaa, että asennusohjelma laittaa internetille avoimet etätyöpöytäsäännöt pois päältä. |
 | `-KeepRdpOpen` | valitsin | pois | Jätä internetille avoimet etätyöpöytäsäännöt ennalleen. |
 | `-InteractiveSession` | valitsin | pois | Asennusohjelman istunto 0:n varasuunnitelma. |
+| `-Chat` | `On` tai `Off` | ei välitetä | Välitetään asennusohjelman parametriksi `-Chat`. `On` vain julkisessa tilassa. Yksinään, ilman mitään asennettavaa, se on sen sijaan toiminto: katso alta. |
 | `-GameZip` | paikallisen zipin polku | ei mitään | Lähettää pelizipin osissa, joiden lähetystä voi jatkaa. Zipin tiiviste lasketaan ensin omalla koneellasi, ja sen on vastattava kiinnitettyä SHA-256:ta. Jokainen osa tarkistetaan palvelimella enintään 3 yrityksellä, ja koko tiedosto uudelleen kokoamisen jälkeen enintään 4 kierroksella. Aja sama komento uudelleen jatkaaksesi katkennutta lähetystä. |
 | `-GameZipUrl` | `https://`-osoite | ei mitään | Antaa palvelimen ladata zipin itse. Käytä joko `-GameZip`:iä tai `-GameZipUrl`:ia. |
 | `-ChunkSizeMB` | 1-2048 | `256` | Pelizipin lähetyksen osan koko. |
@@ -193,6 +196,7 @@ muutoksia ei asenneta ilman `-WorkingTree`:tä, ja skripti varoittaa niistä.
 | `-Update` | valitsin | Lähettää paketin ja koodin ja ajaa sitten `Update-DauntlessServer.ps1 -Root <InstallRoot>` lähetetyllä zipillä, tai `-Source GitHub`:n kanssa `-Ref`:llä. `-GameZip`, `-GameZipUrl`, `-RestoreFrom` ja `-OwnerName` torjutaan. |
 | `-Status` | valitsin | Ajaa palvelimella `<InstallRoot>\bin\Stack.ps1 status` ja `Get-ServerStatus.ps1`. Paluukoodi on niiden. |
 | `-InviteFor` | teksti ilman ohjausmerkkejä, lainausmerkkejä, takahipsuja tai `$`-merkkiä | Ajaa palvelimella `New-Invite.ps1 -For <teksti>`, tulostaa kutsurivin ja tarkistaa sen sitten omalta koneeltasi komennolla `Get-ServerStatus.ps1 -Invite`. |
+| `-Chat` yksinään | `On` tai `Off` | Ilman asennusparametreja (`-OwnerName`, `-RestoreFrom`, `-GameZip`, `-GameZipUrl`, `-ServerName`, `-AdminIp`, `-Ref`, `-WorkingTree`, `-UploadOnly`) ajaa palvelimella `<InstallRoot>\bin\Set-Chat.ps1 -On` tai `-Off` eikä lähetä mitään. Kokonaisuus käynnistyy uudelleen, joten tee se, kun kukaan ei pelaa. Torjutaan yhdessä parametrien `-Update`, `-Status` tai `-InviteFor` kanssa. |
 | `-UploadOnly` | valitsin | Lähettää kaiken, tulostaa komennon, joka palvelimella ajettaisiin (asennusohjelma, tai `-Update`:n kanssa päivitys), ja pysähtyy. |
 
 **Vain testeille**
@@ -215,6 +219,7 @@ uudelleen:
   Uudelleenasennus ilman sitä nimeää palvelimen uudelleen.
 - `-InteractiveSession`:ia ei muisteta. Uudelleenasennus ilman sitä laittaa automaattisen
   kirjautumisen taas pois.
+- `-Chat` muistetaan tiedostossa `server.json`: uudelleenasennus ilman sitä pitää chatin ennallaan.
 
 Koodimuutoksiin käytä `-Update`:a. Se ei aja asennusohjelmaa, joten mikään tästä ei koske sitä.
 
@@ -235,6 +240,7 @@ Koodimuutoksiin käytä `-Update`:a. Se ei aja asennusohjelmaa, joten mikään t
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Update
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -InviteFor friend1
 .\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Status
+.\deploy\windows-server\Deploy-Remote.ps1 -Server 203.0.113.7 -Chat On
 ```
 
 ### Install-DauntlessServer.ps1 {#install-dauntlessserverps1}
@@ -319,6 +325,12 @@ vaihtaa sen sitten käyttöön. Vanha käännös jää talteen nimellä `app.pre
 |:----------|:-------|:-------|:--------------|
 | `-MetagamePort`, `-DeployPort`, `-ContentPort`, `-AllowlistPort` | 1024-65535 (hiekkalaatikossa 62000-62499) | Tallennettu portti, muuten 61000, 61001, 61002 ja 61005 (hiekkalaatikossa 62000, 62001, 62002 ja 62005) | Osien TCP-portit. Käytössä olevien porttien on oltava keskenään eri portteja ja vapaina. [Portit ja verkko]({{ ports_page.url | relative_url }}) selittää kunkin. |
 
+**Chat**
+
+| Parametri | Tyyppi | Oletus | Mitä se tekee |
+|:----------|:-------|:-------|:--------------|
+| `-Chat` | `On` tai `Off` | Tiedostoon `server.json` tallennettu `"Chat"`, muuten `Off` | Pelin tekstichat. Julkisessa tilassa kirjoittaa tiedostoon `metagame.env` asetukset `CHAT=1` tai `0`, `CHAT_BIND_HOST=127.0.0.1` ja `CHAT_PORT` (61099, hiekkalaatikossa 62099, sama portti kuin yhdyskäytävän `GATEWAY_WS_URL`) ja tallentaa valinnan. Palomuurisääntöä ei lisätä. `-Chat On` yksityisessä tilassa pysäyttää asennuksen: yksityisessä tilassa ei vielä ole chattia. |
+
 **Yksityinen tila (Tailscale)**
 
 | Parametri | Tyyppi | Oletus | Mitä se tekee |
@@ -339,7 +351,7 @@ vaihtaa sen sitten käyttöön. Vanha käännös jää talteen nimellä `app.pre
 
 **Mitä uusi ajo säilyttää.** Kun parametria ei anneta, uusi ajo käyttää `server.json`-tiedostoon
 tallennettua arvoa parametreille `-Mode`, `-PublicHost`, `-GatewayPort`, neljälle muulle portille,
-`-AdminIp`, `-AdvertiseHost`, `-TailscaleShareUrl` ja `-GameDir`. Se säilyttää varmenteen, avaimet,
+`-AdminIp`, `-AdvertiseHost`, `-TailscaleShareUrl`, `-GameDir` ja `-Chat`. Se säilyttää varmenteen, avaimet,
 salaisuudet ja jokaisen `.env`-avaimen, jota se ei itse hallitse (katso
 [Asetukset]({{ config_page.url | relative_url }})). Se **ei** säilytä parametreja `-ServerName`,
 `-InteractiveSession` ja `-AllowlistDryRun`: anna ne joka kerta uudelleen.
@@ -525,6 +537,33 @@ C:\DauntlessRevived\bin\Get-ServerStatus.ps1
 .\Get-ServerStatus.ps1 -Server 203.0.113.7:443 -Fingerprint <64 heksamerkkiä> -Json
 ```
 
+Palvelimella itsellään se tulostaa myös `chat:`-rivin, kuten `Stack.ps1 status`.
+
+### Set-Chat.ps1 {#set-chatps1}
+
+Kytkee pelin tekstichatin päälle tai pois asennetulla julkisen tilan palvelimella
+([Chat]({{ winserver_page.url | relative_url }}#chat)). Se tarvitsee järjestelmänvalvojan
+PowerShellin, paitsi `-Sandbox`-asennuksessa.
+
+| Parametri | Tyyppi | Oletus | Mitä se tekee |
+|:----------|:-------|:-------|:--------------|
+| `-On` / `-Off` | valitsin, toinen niistä **pakollinen** | | Uusi tila. |
+| `-Root` | polku | `C:\DauntlessRevived` | Asennuskansio. |
+
+Se kirjoittaa tiedostoon `metagame.env` asetukset `CHAT=1` tai `0`, `CHAT_BIND_HOST=127.0.0.1` ja
+`CHAT_PORT` (61099, hiekkalaatikossa 62099) sekä tiedostoon `server.json` kohdan `"Chat"`. Sitten se
+ajaa komennot `Stack.ps1 stop` ja `start` tavallisine varmuuskopioineen ja odottaa enintään 30
+sekuntia, että `127.0.0.1:<portti>` alkaa kuunnella (tai lakkaa kuuntelemasta). Jos jokin vaihe
+epäonnistuu, se palauttaa molemmat tiedostot ennalleen, käynnistää kokonaisuuden taas uudelleen ja
+päättyy koodilla `1`. Jos asetus on jo pyydetty, se ei muuta mitään eikä käynnistä mitään uudelleen.
+Uudelleenkäynnistys pudottaa ryhmät ja matchmaking-jonot, jotka ovat vain muistissa: aja se, kun
+kukaan ei pelaa. Omalta koneelta `Deploy-Remote.ps1 -Server <osoite> -Chat On` ajaa sen SSH:n kautta.
+
+```powershell
+C:\DauntlessRevived\bin\Set-Chat.ps1 -On
+C:\DauntlessRevived\bin\Set-Chat.ps1 -Off
+```
+
 ### Backup-DauntlessServer.ps1 ja backup-hidden.vbs {#backup-dauntlessserverps1-and-backup-hiddenvbs}
 
 `Backup-DauntlessServer.ps1` kopioi kaiken palautukseen tarvittavan kansioon
@@ -663,9 +702,9 @@ tiedostojen `*.ps1`, `*.vbs` ja `*.md` rivinvaihdot CRLF-muodossa myös `git arc
 
 | Skripti | Parametrit | Mitä se testaa |
 |:--------|:-----------|:---------------|
-| `tests\Test-KitUnit.ps1` | `-WorkDir` (oletus `%TEMP%\dr-kit-unit`; tyhjennetään alussa, poistetaan lopussa); `-Port` (62000-62499, oletus `62450`; suorituskykytesti käyttää myös sitä seuraavaa porttia) | Jokainen paketin skripti jäsentyy PowerShell 5.1:ssä ja on pelkkää ASCIIta; kutsurivit v1 ja v2 ja kaikki, mikä pitää torjua; osoitteet ja `.env`-säännöt; varmenteiden sormenjäljet; TLS-kiinnitys paikallista testipalvelinta vasten; `Get-ServerStatus.ps1` avaimen kanssa ja ilman; avaintiedostot; lähetysapuri; suorituskykymittari (suoritinlaskut, roolit porttialueesta, kiinteä otsikkorivi, päivätiedostot ja niiden karsinta, pelaajamäärät korvikemetagamesta ilman nimiä tai avaimia tiedostossa, desimaalipiste suomenkielisessä Windowsissa sekä liitoskohdan ja kovan linkin torjunta). Tarvitsee `node`:n `PATH`:issa ja `npm ci`:n kansiossa `UndauntedGateway`. |
-| `tests\Test-DeployRemote.ps1` | `-WorkDir` (oletus `%TEMP%\dr-deploy-test`; tyhjennetään alussa, poistetaan lopussa) | `Deploy-Remote.ps1` ilman palvelinta: parametrien torjunnat, `-WhatIf`, paketin, lähdekoodin ja varmuuskopion lähetys, ja osissa tehtävä lähetys katkenneella yhteydellä ja vahingoittuneilla osilla. Ei verkkoa, ei SSH-avainta. |
-| `tests\Test-Sandbox.ps1` | `-SandboxDir` (oletus `C:\dr\sandbox-ws2019`; kansion nimessä on oltava `sandbox`, koska kansio poistetaan); `-KeepSandbox`; `-SkipRestore` | Täysi julkisen tilan `-Sandbox`-asennus väliaikaiseen kansioon, sitten kutsut, tila, yhdyskäytävän torjunnat, rekisteröityminen yhdyskäytävän kautta, päivitys ja paluu edelliseen, suorituskykymittaus, varmuuskopio, palautus toiseen kansioon ja siivous. Tarvitsee vapaat portit 62000, 62002, 62005 ja 62443 ja kääntää koodin `npm ci`:llä. Loki kopioidaan tiedostoon `%TEMP%\dr-sandbox-test.log`, ellei annettu `-KeepSandbox`. |
+| `tests\Test-KitUnit.ps1` | `-WorkDir` (oletus `%TEMP%\dr-kit-unit`; tyhjennetään alussa, poistetaan lopussa); `-Port` (62000-62499, oletus `62450`; suorituskykytesti käyttää myös sitä seuraavaa porttia) | Jokainen paketin skripti jäsentyy PowerShell 5.1:ssä ja on pelkkää ASCIIta; kutsurivit v1 ja v2 ja kaikki, mikä pitää torjua; osoitteet ja `.env`-säännöt; varmenteiden sormenjäljet; TLS-kiinnitys paikallista testipalvelinta vasten; `Get-ServerStatus.ps1` avaimen kanssa ja ilman; avaintiedostot; lähetysapuri; suorituskykymittari (suoritinlaskut, roolit porttialueesta, kiinteä otsikkorivi, päivätiedostot ja niiden karsinta, pelaajamäärät korvikemetagamesta ilman nimiä tai avaimia tiedostossa, desimaalipiste suomenkielisessä Windowsissa sekä liitoskohdan ja kovan linkin torjunta); chat-asetukset (`CHAT_PORT` sama kuin yhdyskäytävän WebSocket-portti tavallisessa asennuksessa ja hiekkalaatikossa, `-Chat` verrattuna tiedostoon `server.json`, avainten säilyminen uudessa ajossa ja `chat`-tilarivi). Tarvitsee `node`:n `PATH`:issa ja `npm ci`:n kansiossa `UndauntedGateway`. |
+| `tests\Test-DeployRemote.ps1` | `-WorkDir` (oletus `%TEMP%\dr-deploy-test`; tyhjennetään alussa, poistetaan lopussa) | `Deploy-Remote.ps1` ilman palvelinta: parametrien torjunnat, `-WhatIf`, paketin, lähdekoodin ja varmuuskopion lähetys, osissa tehtävä lähetys katkenneella yhteydellä ja vahingoittuneilla osilla sekä `-Chat` (välitetään asennusohjelmalle tai yksinään `Set-Chat.ps1`). Ei verkkoa, ei SSH-avainta. |
+| `tests\Test-Sandbox.ps1` | `-SandboxDir` (oletus `C:\dr\sandbox-ws2019`; kansion nimessä on oltava `sandbox`, koska kansio poistetaan, ja sen on oltava työkopion ulkopuolella, koska asennusohjelma kopioi työkopion); `-KeepSandbox`; `-SkipRestore` | Täysi julkisen tilan `-Sandbox`-asennus chat päällä väliaikaiseen kansioon, sitten kutsut, tila, yhdyskäytävän torjunnat, rekisteröityminen yhdyskäytävän kautta, pelin chat-yhteys yhdyskäytävän kautta (101), päivitys ja paluu edelliseen, `Set-Chat.ps1 -Off` (taas 502), suorituskykymittaus, varmuuskopio, palautus toiseen kansioon ja siivous. Tarvitsee vapaat portit 62000, 62002, 62005, 62099 ja 62443 ja kääntää koodin `npm ci`:llä. Loki kopioidaan tiedostoon `%TEMP%\dr-sandbox-test.log`, ellei annettu `-KeepSandbox`. |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1

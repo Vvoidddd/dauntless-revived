@@ -22,6 +22,7 @@ locale: fi_FI
 {% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 {% assign contract_page = site.pages | where: "path", "fi/findings/backend-contract.md" | first %}
 {% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
+{% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
 
 # HTTP-rajapinta
 {: .no_toc }
@@ -50,6 +51,7 @@ Undauntedista ja tästä forkista.
 | Palvelu | Kansio | Kuuntelee (oletus) | Internetistä julkisessa tilassa | Tunnistautuminen |
 |:--------|:-------|:-------------------|:--------------------------------|:-----------------|
 | Metagame | `UndauntedMetagame/` | `BIND_HOST` (`127.0.0.1`) ja `PORT` (koodissa ei oletusta; ohjeet ja paketti käyttävät porttia 61000) | Vain yhdyskäytävän kautta, suodatettuna | Pelaajan tunniste, tiliavain, ylläpitäjän avain tai pelipalvelinavain reitistä riippuen |
+| Chat (metagamen sisällä, `CHAT=1`) | `UndauntedMetagame/src/realtime/` | `127.0.0.1:61099` (`CHAT_BIND_HOST`, `CHAT_PORT`) | Vain yhdyskäytävän kautta (WebSocket-avaus) | Pelaajan tunniste (SASL PLAIN) |
 | Deploy-palvelin | `UndauntedDeployServer/` | `BIND_HOST` (`127.0.0.1`) ja `PORT` (koodissa ei oletusta; ohjeissa ja paketissa 61001) | Ei koskaan | Ei mitään. Se vastaa vain suoraan loopbackin kautta tuleville kutsujille. |
 | Sisältöpalvelin | `UndauntedContent/` | `127.0.0.1:61002` | Yhdyskäytävän kautta (`/content`) | Tiliavain pelitiedostoihin; muu on julkista |
 | Yhdyskäytävä | `UndauntedGateway/` | HTTPS osoitteessa `0.0.0.0:443` | Kyllä: ainoa julkinen TCP-portti | Omat torjuntansa; välittää tunnistetiedot eteenpäin |
@@ -71,6 +73,7 @@ avaimet palvelinkoneella. Deploy-palvelin pysyy loopbackissa molemmissa tiloissa
 | Kutsuja | Kutsuu | Millä |
 |:--------|:-------|:------|
 | Peliohjelma (1.4.4) | Metagamen pelireittejä. Julkisessa tilassa se kutsuu käynnistimen välitintä, joka välittää pyynnöt TLS:n yli yhdyskäytävälle. | Tiliavaimella kerran (kirjautuminen), sen jälkeen pelaajan tunnisteella |
+| Peliohjelma (1.4.4), chat | [Chat](#chat) XMPP:nä WebSocketin yli, samaa tietä välittimen ja yhdyskäytävän kautta | Pelaajan tunnisteella |
 | Pelipalvelimet (Ramsgate, Training Dojo, metsästykset) | Metagamea, suoraan palvelinkoneella | Pelipalvelinavaimella, ja pelaajan puolesta toimiessaan myös pelaajan tunnisteella |
 | Metagame | Deploy-palvelinta: matchmaking ja pelipalvelinlista | Ei millään (vain loopback) |
 | Sisältöpalvelin | Metagamen reittiä `GET /undaunted/api/GetUserInfo` tarkistaakseen lataajan avaimen | Lataajan tiliavaimella |
@@ -426,7 +429,8 @@ ehdokasta (katso [Asetukset]({{ config_page.url | relative_url }}#metagame-socia
 ### Kaverit {#friends}
 
 Epic-tyylinen kaveripalvelu. Kaveruudet ja estot tallennetaan tietokantaan (kumpaakin enintään 200
-tiliä kohden). Kaikki näkyvät offline-tilassa, koska paikallaolotieto vaatisi chat-palvelimen.
+tiliä kohden). Kaikki näkyvät offline-tilassa: paikalla olo tarvitsee chat-yhteyden
+läsnäolotietoja, joita [chat-palvelin](#chat) ei vielä lähetä.
 
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
@@ -691,6 +695,61 @@ rekisteröitynyt, voi silti lukea palvelimen nimen ja rekisteröintitilan:
 - Kumpaakin muunnelmaa pidetään välimuistissa 5 sekuntia. Vastauksessa on `Cache-Control: no-store`,
   ja sen `Vary`-otsake nimeää avainotsakkeen ja `Authorization`-otsakkeen.
 
+## Chat (XMPP portissa 61099) {#chat}
+
+Pelin tekstichat (Ramsgaten ja metsästysten chat, ryhmächat, kiltachat ja kuiskaukset) on XMPP:tä
+WebSocketin yli, ja sitä palvelee metagame itse, kun `CHAT=1`, osoitteessa `127.0.0.1:61099`. Se ei
+ole HTTP:tä: peliohjelma avaa WebSocketin (pyynnön polku `//`, protokolla `xmpp`) ja vaihtaa yhden
+viestin (stanza) kerrallaan. Julkisessa tilassa yhdyskäytävä välittää avauksen käynnistimen
+välittimeltä. Miksi kukin vastaus on sen muotoinen, ohjelmatiedoston osoitteineen, kerrotaan sivulla
+[Tekstichat]({{ chat_page.url | relative_url }}); asetukset ja rajat ovat sivulla
+[Asetukset]({{ config_page.url | relative_url }}#metagame-chat).
+
+**Kirjautuminen.** `<open>` (verkkotunnus tulee sen `to`-kentästä, oletus `prod.ol.epicgames.com`),
+SASL `PLAIN` tilitunnuksella ja pelaajan tunnisteella (tunnisteen on oltava voimassa ja kuuluttava
+tälle tilille), toinen `<open>` ja sitten sidonta (bind): resurssi palautetaan sellaisenaan. Hylättyyn
+kirjautumiseen vastataan `<failure>` ja `<not-authorized/>` (tai `<temporary-auth-failure/>`, kun
+tiliä tai osoitetta pidätetään); peliohjelman sen jälkeen yrittämä vanha `jabber:iq:auth` saa virheen,
+ja yhteys suljetaan.
+
+**Mitä palvelin vastaa:**
+
+| Peliohjelma lähettää | Palvelin |
+|:---------------------|:---------|
+| `<presence to="Huone@muc.<verkkotunnus>/<nimimerkki>">` (liittyminen) | Tarkistaa huoneen ja nimimerkin. Sitten se lähettää liittyjälle jokaisen muun huoneessa olijan läsnäolotiedon, kertoo jokaiselle muulle liittyjästä ja lähettää liittyjän oman läsnäolotiedon (tilakoodi 110) viimeisenä. Jokaisessa huoneessa olijan läsnäolotiedossa on `<item jid="<tili>@<verkkotunnus>/<resurssi>">`, ja jokainen `from` on huoneen JID ja huoneessa olijan nimimerkki täsmälleen sellaisena kuin se lähetettiin. |
+| `<presence type="unavailable" to="Huone@...">` (poistuminen) | Muut saavat poistujan unavailable-läsnäolotiedon; poistuja saa omansa tilakoodilla 110. |
+| `<message type="groupchat" to="Huone@muc.<verkkotunnus>">` | Toimitetaan jokaiselle huoneessa olijalle lähettäjä mukaan lukien osoitteesta `Huone@muc.<verkkotunnus>/<lähettäjän nimimerkki>` samalla `id`:llä. Ei niille, jotka ovat estäneet lähettäjän. |
+| `<message type="chat" to="<tili>@<verkkotunnus>[/<resurssi>]">` (kuiskaus) | Toimitetaan lähettäjän täydestä JID:stä kyseiselle istunnolle tai tilin jokaiselle istunnolle. Ei toimiteta, eikä virhettä lähetetä, jos pelaaja ei ole paikalla tai jompikumpi on estänyt toisen. |
+| Yleinen `<presence>` (ei `to`-kenttää) | Kirjataan ja pudotetaan: ei koskaan kaiuteta eikä välitetä. Paikalla olon näyttämistä ei ole vielä rakennettu. |
+| `<iq>`: ping, session tai mikä tahansa muu | Tyhjä `result` samalla `id`:llä. |
+| `<close/>` | `<close/>`, sitten yhteys suljetaan. |
+
+Kun peliohjelma on ollut 50 sekuntia hiljaa, palvelin pingaa sitä ja päättää yhteyden, jos vastausta
+ei tule 30 sekunnissa.
+
+**Huoneet.** `City-<tunnus>`, `Hunt-<tunnus>` ja `General<tunnus>` ovat avoimia kaikille
+kirjautuneille pelaajille, `Party-<partyId>` vain sen ryhmän jäsenille ja `Guild-<guildId>` vain sen
+killan jäsenille. Kaikki ovat osoitteessa `muc.<verkkotunnus>`. Pelaaja, joka on lähtenyt ryhmästä tai
+killasta, poistetaan tilakoodilla 307.
+
+**Hylätyt liittymiset** ovat virheläsnäolotieto huoneen JID:stä, ja peliohjelma käsittelee ne
+epäonnistuneena liittymisenä:
+
+| Syy (`chat: join refused ... reason=`) | `<error>` |
+|:----------------------------------------|:----------|
+| Nimimerkki ei ole muotoa `<nimi>:<oma tilitunnus>:<oma resurssi>`, siinä on toisen tilin tunnus tai sen nimi ei ole tilin käyttäjänimi (`nick-account`, `nick-resource`, `nick-format`, `nick-name`); ei ryhmän tai killan jäsen (`not-member`) | `type="auth"`, `<forbidden/>` |
+| Huoneen nimi, jota peliohjelma ei koskaan rakenna, tai eri verkkotunnus (`not-allowed`) | `type="cancel"`, `<not-allowed/>` |
+| Nimimerkki on toisen yhteyden käytössä (`conflict`) | `type="cancel"`, `<conflict/>` |
+| Liikaa huoneita, huoneessa olijoita tai liittymisiä (`limit`) | `type="wait"`, `<service-unavailable/>` |
+
+Huoneviesti, jota ei voi toimittaa (ei huoneessa, tyhjä tai liian pitkä teksti, liikaa viestejä),
+saa vastaukseksi `<message type="error">` ja `<not-acceptable/>`; yhteys pysyy auki.
+
+**Nimet** tulevat kahdelta tilireitiltä, joita peliohjelma kutsuu omalla tunnisteellaan:
+`GET /account/api/public/account/<oma tunnus>` omaa nimeä varten kirjautuessa ja
+`GET /account/api/public/account?accountId=<tunnus>` toisen pelaajan rivin lähettäjää varten (katso
+[Kirjautuminen ja tilit](#login-and-accounts)).
+
 ## Deploy-palvelin {#deploy-server}
 
 Deploy-palvelin käynnistää ja valvoo pelipalvelinprosesseja. Sillä on kaksi reittiä eikä **lainkaan
@@ -764,7 +823,7 @@ allekirjoitetulla varmenteella, jonka käynnistin kiinnittää sormenjäljen per
 | Pyyntö | Menee | Oletus |
 |:-------|:------|:-------|
 | `/content` ja `/content/...` | Sisältöpalvelimelle | `GATEWAY_CONTENT_URL`, `http://127.0.0.1:61002` |
-| `GET` otsakkeella `Upgrade: websocket` | WebSocket-kohteelle | `GATEWAY_WS_URL`, `http://127.0.0.1:61099`. Varattu tulevalle chat-palvelulle: siellä ei vielä kuuntele mikään, joten WebSocket-pyynnöt saavat vastauksen 502. |
+| `GET` otsakkeella `Upgrade: websocket` | WebSocket-kohteelle: metagamen [chat](#chat) | `GATEWAY_WS_URL`, `http://127.0.0.1:61099`. Kun chat on pois päältä, siellä ei kuuntele mikään, ja WebSocket-pyynnöt saavat vastauksen 502. |
 | Kaikki muu | Metagamelle | `GATEWAY_METAGAME_URL`, `http://127.0.0.1:61000` |
 
 Kohdeosoitteiden on oltava tavallisia `http://`-osoitteita tällä koneella, jotta salaisuusotsake ei

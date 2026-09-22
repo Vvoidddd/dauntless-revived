@@ -250,8 +250,8 @@ ServerPort=61099
 bUseSSL=false
 ```
 
-The connection now goes to the host through Tailscale. Until the host runs a chat server it simply fails,
-exactly as it does against Epic today, and the game carries on. The friend kit's `play.ps1` writes this
+The connection now goes to the host through Tailscale. Chat does not work in private mode yet, so it
+simply fails, exactly as it does against Epic today, and the game carries on. The friend kit's `play.ps1` writes this
 block on every launch.
 
 Save this as `play.ps1` anywhere. It checks the three pinned hashes and then starts the game against
@@ -377,7 +377,7 @@ This is a small private revival and a work in progress. As of this writing:
   below. Until parties are proven, you can also queue for the same hunt at about the same time: the
   matchmaker collects players who queue for the same hunt and starts one server for them once 4 have
   joined, or once 20 seconds pass with nobody new joining.
-- There is no text chat yet. Use Discord.
+- Text chat is built but not switched on yet (see below). Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
   been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
@@ -455,8 +455,10 @@ you still accept it in the game. The same goes for guild invites (`GuildInvite`)
 ### What does not work yet
 
 - **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing players as
-  online needs a chat server that is not built yet; it is next on the list once parties work.
-- **Chat**: whispers, party, guild and Ramsgate chat. Use Discord.
+  online needs presence over the chat connection, which is not built yet.
+- **Chat**: whispers, party, guild and Ramsgate chat, with usernames, is built, but the host turns it
+  on only after two players have tried it; until then, use Discord. At first Ramsgate chat reaches
+  only the players who travelled there with you as a party.
 - **Changes show late.** Friend requests, accepted requests and guild changes reach the other player
   at their next login (for guilds, also after travelling), not at once.
 - Voice chat, the friends service's recent players and My Links (Linked Slayers).

@@ -420,6 +420,10 @@ Renaming does exist (`RenameUser`, see [Usernames](#usernames)).
   update without a relog is unverified.
 - There is no rename inside the game: `/account/api/public/account` reports
   `canUpdateDisplayName: false`.
+- **After a rename the player restarts the game before using chat.** The game reads its own name
+  once, at login, and joins chat rooms with it. Until it logs in again the chat server may refuse
+  those joins (`chat: join refused ... reason=nick-name`), because the name no longer matches the
+  account. Other players see the new name as soon as their game looks it up.
 - Our own owner account still carries the placeholder name "Slayer".
 
 To rename, with `$M` and `$h` set as in [Making invite codes](#making-invite-codes):

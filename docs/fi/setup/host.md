@@ -372,10 +372,11 @@ ServerPort=61099
 bUseSSL=false
 ```
 
-Tämä on tuore lisäys. Portissa 61099 ei vielä kuuntele mikään, joten yhteys epäonnistuu samalla
-tavalla kuin se jo epäonnistuu Epicin palvelinta vastaan, ja peli jatkaa normaalisti. Paikallinen
-paikallaolopalvelin voi ottaa portin myöhemmin käyttöön. Osoite on lainausmerkeissä samasta syystä
-kuin vaiheen 8 osoitteet. Olemme varmistaneet, että peli säilyttää tämän osion, kun se kirjoittaa
+Kun metagamen `.env`-tiedostossa on `CHAT=1` (vaihe 9), metagame kuuntelee porttia 61099 ja pelin
+tekstichat toimii: Ramsgate, ryhmä, kilta ja kuiskaukset käyttäjänimin. Ilman sitä portissa ei
+kuuntele mikään, joten yhteys epäonnistuu samalla tavalla kuin se jo epäonnistuu Epicin palvelinta
+vastaan, ja peli jatkaa normaalisti. Osoite on lainausmerkeissä samasta syystä kuin vaiheen 8
+osoitteet. Olemme varmistaneet, että peli säilyttää tämän osion, kun se kirjoittaa
 `Engine.ini`-tiedoston uudelleen. **Varmistettu 21.9.2026:** ensimmäisten 90 sekunnin aikana
 käynnistyksestä peliohjelma ei ottanut yhtään yhteyttä koneen ulkopuolelle. Se yritti sen sijaan
 ottaa yhteyttä saman koneen porttiin 61099. Tämä on merkitty valmiiksi
@@ -544,6 +545,7 @@ se mitä puuttuva arvo tarkoittaa ja kuka kunkin asettaa, ovat [asetusten viites
 
 | Avain | Oletus | Mitä se tekee |
 |---|---|---|
+| `CHAT` | pois | `1` kytkee pelin tekstichatin päälle: metagame kuuntelee myös osoitteessa `127.0.0.1:61099`, johon vaihe 7 ohjaa pelin chat-yhteyden, ja kirjoittaa käynnistyessään rivin `chat: listening on 127.0.0.1:61099 (nick check enforce)`. Oletuksena pois, kunnes kahden pelaajan testi vuokratulla palvelimella on läpäisty. Jos portti on varattu, metagame kirjoittaa yhden virherivin ja toimii ilman chattia. Yksityiskohdat: [Asetukset]({{ config_page.url | relative_url }}#metagame-chat). |
 | `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` | Oikeudet (entitlements), jotka jokaisella tilillä on. Ensimmäinen on Elite Hunt Pass. |
 | `INVENTORY_REFUSE_OVERSPEND` | pois | `1` torjuu tavarapyynnön, joka poistaa enemmän kuin pelaajalla on. Pois päältä, koska torjunta hylkää koko pyynnön palkintoineen, eikä yhtään metsästyksen lopun pyyntöä ole vielä tarkistettu sitä vasten. Siihen asti ylitys pysäytetään nollaan ja kirjataan lokiin tekstillä "Allowing overspend". |
 | `DB_WAL` | pois | `1` vaihtaa tietokannan WAL-tilaan. Pois päältä, koska tässä kuvatut varmuuskopiot kopioivat pelkän tietokantatiedoston, ja äkillinen pysäytys jättää uusimmat tallennukset erilliseen `-wal`-tiedostoon. |
@@ -803,9 +805,9 @@ if ($Graphics -ge 0) {
 # Chat/presence (XMPP): 1.4.4 ships pointed at Epic's live server
 # (wss://xmpp-service-prod.ol.epicgames.com:443) and keeps reconnecting to it,
 # sending the account id and our login token. Point it at this PC instead.
-# Nothing listens on 61099 yet, so the connection fails exactly as it does
-# against Epic today (the game tolerates that); a local presence server can
-# take this port later. URLs MUST be quoted in a user ini.
+# With CHAT=1 in the metagame's .env the metagame's chat listens on 61099;
+# without it the connection fails harmlessly, exactly as it does against
+# Epic (the game tolerates that). URLs MUST be quoted in a user ini.
 $xmpp = @("[OnlineSubsystemMcp.XMPP]", 'ServerAddr="ws://127.0.0.1"', "ServerPort=61099", "bUseSSL=false")
 
 $eng = "$U\Engine.ini"

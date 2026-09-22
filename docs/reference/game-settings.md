@@ -274,9 +274,10 @@ What each writer puts there:
 
 Where the connection ends up:
 
-- **Nothing listens on port 61099 yet**, on any side. The connection fails the same way it already
-  fails against Epic's server, and the game carries on. The port is kept free for a chat server
-  later.
+- **The metagame's chat listens on port 61099 when `CHAT=1`**, on `127.0.0.1` of the server (or of the
+  host PC). It is off by default for now; when nothing listens, the connection fails the same way it
+  already fails against Epic's server, and the game carries on. Private mode has no chat yet. See
+  [Text chat]({{ '/findings/chat.html' | relative_url }}).
 - In public mode the launcher's relay forwards the WebSocket upgrade over its pinned TLS connection
   to the server's gateway, which passes it on to its `GATEWAY_WS_URL` (default
   `http://127.0.0.1:61099`; a `-Sandbox` install uses `http://127.0.0.1:62099`). See

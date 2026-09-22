@@ -76,10 +76,13 @@ higher figure at Cinematic settings).
   built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
   tests, which replay the game's own requests, and it has been running on our rented server since 22 September 2026, but nobody has tried it in the game yet. Players must
   restart their game once after the update. You don't have to be friends to invite someone to a
-  party. Everyone still shows as offline, because that needs the chat server, which is not built;
-  showing players as online is the owner's next wish once parties work (roadmap 3.10). The details
-  are on [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}).
-- **Text chat.** Not built. The design is a small XMPP server. Use Discord meanwhile.
+  party. Everyone still shows as offline, because that needs presence over the chat connection, which
+  is not built yet; showing players as online is the owner's next wish once parties work (roadmap
+  3.10). The details are on [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}).
+- **Text chat.** Built and tested without the game: Ramsgate, hunt, party and guild chat and whispers,
+  with usernames, in the metagame itself. It is off by default until two players have tried it on the
+  rented server. Use Discord meanwhile. The details are on
+  [Text chat]({{ '/findings/chat.html' | relative_url }}).
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
   not been tried yet. Escalation is still stubbed, so its progress does not carry over between

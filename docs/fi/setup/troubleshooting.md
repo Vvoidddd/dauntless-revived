@@ -14,6 +14,9 @@ locale: fi_FI
 {% assign crashes_page = site.pages | where: "path", "fi/findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
 {% assign files_page = site.pages | where: "path", "fi/reference/files.md" | first %}
+{% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign ports_page = site.pages | where: "path", "fi/reference/ports.md" | first %}
 
 # Vianetsintä
 {: .no_toc }
@@ -464,6 +467,104 @@ Lue metagamen lokia siitä hetkestä alkaen, kun käynnistit pelin:
   - pelipalvelinavainta ei rekisteröity (metagamen on täytynyt kirjata kerran
     `Registered 1 new Gameserver API Key(s) on boot!`), tai
   - deploy-palvelimen `.env`-tiedoston `METAGAME_API_KEY` eroaa `gameserver.key`-tiedostosta.
+
+---
+
+## Chat sanoo ”Unable to send message”, tai mitään ei tule perille {#chat-not-connected}
+
+Chat on metagamen oma kuuntelija, joka on pois päältä, ellei `CHAT=1`
+([Tekstichat]({{ chat_page.url | relative_url }}), [Asetukset]({{ config_page.url | relative_url }}#metagame-chat)).
+Metagamen lokissa yksi yhteys näyttää tältä:
+
+```text
+chat: listening on 127.0.0.1:61099 (nick check enforce)        käynnistyksessä
+chat: connect c=3 from=203.0.113.7 via=gateway
+chat: login ok c=3 uid=UID-...
+chat: bound c=3 uid=UID-... resource=V2:...:WIN::... domain=prod.ol.epicgames.com sessions=1
+chat: join room=City-... uid=UID-... name=<käyttäjänimi> occupants=0
+chat: message room=City-... uid=UID-... len=5 to=1
+```
+
+- **Ei riviä `chat: listening`:** chat on pois päältä (`CHAT` ei ole `1`) tai ei käynnistynyt; katso
+  [Chat-kuuntelija ei käynnisty](#chat-not-started). Paketin palvelimella `Stack.ps1 status` näyttää
+  `chat`-rivin.
+- **Ei riviä `chat: connect`:** peli ei koskaan tavoittanut kuuntelijaa. Julkisessa tilassa
+  yhdyskäytävän lokissa on sille `ws`-reitti; 502 siellä tarkoittaa, ettei metagame kuuntele. Yhdellä
+  koneella tarkista, että `Engine.ini` ohjaa chatin osoitteeseen `ws://127.0.0.1:61099`
+  ([Portit ja verkko]({{ ports_page.url | relative_url }}#chat-port)).
+- **`chat: login refused ... reason=...`:** `expired` tarkoittaa, että pelaajan 24 tunnin istunto on
+  päättynyt (käynnistä peli uudelleen); `uid-mismatch`, `bad-token` ja `no-account` tarkoittavat, ettei
+  kirjautuminen kuulu olemassa olevalle tilille; `throttled` tarkoittaa, että tiliä tai osoitetta
+  pidätetään hetken toistuvien epäonnistumisten tai uudelleenyhdistämisten jälkeen (se poistuu itsestään
+  60 sekunnissa, osoitteelta 10 minuutissa). Peli yrittää uudelleen 15-45 sekunnin välein.
+- `MUC: JoinPublicRoom failed. Not currently connected` pelin konsolissa tarkoittaa vain, ettei
+  chat-yhteys ollut sillä hetkellä kirjautuneena; peli liittyy uudelleen, kun se on. Tällä ei ole
+  mitään tekemistä nimien kanssa.
+
+Matchmaking-asetusten muuttaminen ei korjaa chat-ongelmaa, ja 61099:n on pysyttävä paikallisena: älä
+koskaan avaa sitä palomuurista.
+
+### Nimet näkyvät muodossa `UID-...` tai ”[unknown]” {#chat-uid-names}
+
+Palvelimella on chat-versio ajalta ennen käyttäjänimien korjausta (pull requestin #9 ensimmäinen
+kokeiluversio). Päivitä palvelin. Nykyisellä versiolla peli näyttää käyttäjänimet: se lukee ne
+nimimerkistä, jolla se liittyi huoneeseen, ja palvelin pitää nimimerkin muuttamattomana. Miksi vanha
+versio näytti `UID-...`: [Tekstichat]({{ chat_page.url | relative_url }}#why-uid).
+
+### ”Another operation already pending” {#chat-operation-pending}
+
+Peli odottaa omaa huoneen läsnäolotietoaan liittymisen tai poistumisen päättämiseksi, ja siihen asti se
+kieltäytyy uudesta liittymisestä samaan huoneeseen. Nykyinen palvelin lähettää sen aina tai hylkää
+liittymisen suoraan, minkä peli käsittelee siististi. Jos näet tämän nykyisellä versiolla, kytke
+`CHAT_TRACE=1`, käynnistä uudelleen, kun kukaan ei pelaa, toista tilanne kerran ja tallenna huoneen
+`chat: trace` -rivit (niissä ei ole viestien tekstiä eikä tunnisteita). Kytke jäljitys sitten pois.
+
+### `chat: join refused ... reason=...` {#chat-join-refused}
+
+| Syy | Merkitys | Mitä tehdä |
+|:----|:---------|:-----------|
+| `not-member` | `Party-`- tai `Guild-`-huone ryhmästä tai killasta, johon pelaaja ei kuulu. Metagamen uudelleenkäynnistyksen jälkeen ryhmät ovat poissa, joten pelin ensimmäinen liittyminen vanhaan ryhmähuoneeseen hylätään; se siirtyy uuteen ryhmäänsä seuraavalla ryhmäkyselyllä. | Ei mitään, ellei se toistu pelaajalle, joka todella on siinä ryhmässä. |
+| `not-allowed` | Huoneen nimi, jota peli ei koskaan rakenna, tai eri verkkotunnus. | Ei mitään: ei oikea peliohjelma. |
+| `nick-name` | Nimimerkin nimiosa ei ole tilin käyttäjänimi. Heti kun ylläpitäjä on vaihtanut pelaajan nimen, peli käyttää vielä vanhaa nimeä. | Pelaaja käynnistää pelin uudelleen. |
+| `nick-account`, `nick-resource`, `nick-format` | Nimimerkissä ei ole pelaajan omaa tilitunnusta ja resurssia, tai siinä on merkkejä, joita peli ei koskaan kirjoita. | Oikean peliohjelman ei pitäisi koskaan saada näitä. Jos saa, aseta `CHAT_NICK_CHECK=log` tiedostoon `metagame.env`, käynnistä uudelleen, kun kukaan ei pelaa, ja raportoi rivi. |
+| `conflict` | Toinen yhteys pitää samaa nimimerkkiä. | Yleensä vain jäljelle jäänyt yhteys; se pingataan pois minuutin sisällä. |
+| `limit` | Liikaa huoneita, pelaajia huoneessa tai liittymisiä lyhyessä ajassa. | Ei mitään, ellei se toistu. |
+
+Hylkäys kirjataan enintään kerran pelaajaa, huonetta ja syytä kohden 10 minuutissa.
+
+### `name=InvalidMCPUser` liittymisrivillä {#chat-invalid-mcp-user}
+
+Pelin oma tilihaku kirjautuessa epäonnistui, joten sen nimi on varanimi `InvalidMCPUser`. Muut pelaajat
+näkevät silti oikean käyttäjänimen (he hakevat sen), mutta ”liittyi huoneeseen” -ilmoitus voi näyttää
+varanimen. Etsi pelaajan kirjautumisen kohdalta rivi `EOS Account Info for <tunnus> by <tunnus>: found`;
+jos se puuttuu tai sanoo `unknown`, peli ei saanut omia tilitietojaan. Pelin uudelleenkäynnistys
+yleensä korjaa sen.
+
+### Kuiskaukset eivät näy {#chat-whispers}
+
+Kuiskaus näytetään, kun peli on hakenut lähettäjän nimen reitiltä
+`GET /account/api/public/account?accountId=...`; metagame kirjaa rivin
+`Account info for 1 account(s) by userId ...`. Chat-rivi
+`chat: whisper from=... to=... ... reason=offline` tarkoittaa, ettei toinen pelaaja ollut yhteydessä
+chattiin, ja `reason=blocked`, että toinen heistä on estänyt toisen. Kummassakaan tapauksessa
+lähettäjälle ei lähetetä mitään takaisin.
+
+### Ramsgaten chat tavoittaa vain ryhmäsi {#chat-ramsgate-party-only}
+
+Toistaiseksi odotettua. Jokainen pelaaja saa oman Ramsgate-istunnon, ja Normal-kanava on
+istuntokohtainen, joten kaksi pelaajaa jakaa sen vain, kun he matkustivat Ramsgateen yhdessä ryhmänä.
+Käytä sillä välin ryhmächattia. Yhteinen Ramsgate-kanava on tiekartalla (3.10).
+
+### Chat-kuuntelija ei käynnisty {#chat-not-started}
+
+Metagame kirjoittaa yhden virherivin ja jatkaa ilman chattia:
+
+- `chat: not started: could not listen on 127.0.0.1:61099 (EADDRINUSE)`: toinen ohjelma pitää porttia.
+  Etsi se komennolla `Get-NetTCPConnection -LocalPort 61099 -State Listen` ja pysäytä se.
+- `chat: not started: CHAT_BIND_HOST must be 127.0.0.1 in public mode`: korjaa `CHAT_BIND_HOST`
+  (paketti kirjoittaa aina `127.0.0.1`).
+- `chat: EXPERIMENTAL_CHAT is no longer read; the switch is now CHAT=1` (varoitus): nimeä rivi
+  uudelleen.
 
 ---
 

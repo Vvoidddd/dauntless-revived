@@ -14,6 +14,7 @@ ref: findings/social
 {% assign rev_page = site.pages | where: "path", "findings/json-reversing.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
 
 # Friends, parties and guilds in 1.4.4
 {: .no_toc }
@@ -26,8 +27,9 @@ in the metagame.
 **Status (22 September 2026): built, tested without the game and running on our rented server (60955e1), not yet tried by two players.** Every
 fix below passes HTTP tests that replay the client's own requests and check each reply against a model
 of the client's parsing. The next two-player test on the rented server will confirm or correct them;
-[How to verify](#how-to-verify) lists its steps and the log lines to expect. Online status and chat
-are not built (they need an XMPP server, see [Deferred](#deferred)).
+[How to verify](#how-to-verify) lists its steps and the log lines to expect. Online status is not
+built (it needs presence over the chat connection, see [Deferred](#deferred)); text chat is, and has
+a page of its own: [Text chat]({{ chat_page.url | relative_url }}).
 
 <details open markdown="block">
   <summary>Contents</summary>
@@ -60,7 +62,7 @@ The method for reading JSON field names out of the executable is on
 |:---------------------|:------|:----|:-----|
 | A party invite reached the other player's client (the invite poll answered it twice) but never appeared under PARTY INVITES. | Before the panel shows an invite, the client asks `POST /accountinfo/public` about the sender. Our reply, inherited from upstream, described the **caller** instead: the caller's id in `accountId` and in `linkedAccounts`. The client files user info under the reply's `accountId` and keeps the first reply per id, so the sender never got any user info, was invalidated, and the invite was dropped (B `0x140b74870`, `0x1409ede50`). | `/accountinfo/public` answers for the asked account. | H in the code, M that nothing else stands in the way |
 | Add Friends "found nothing". | Add Friends is not a search. It is a name box and an Add button. The name was found (`GET /account/api/public/account/displayName/<name>`), but the next step, `POST /account/mapping`, first got 404 and then a reply shape the client does not read. With no mapping, the client drops the friend request without a message. No friend request ever reached the server (0 calls, L). | `/account/mapping` answers in the shape the client parses. | H |
-| Everyone, the players themselves included, showed as Offline. | Online status comes only from XMPP presence, pushed over the chat connection, and nothing listens there. There is no HTTP presence route. | Not built yet: needs the XMPP server. | H |
+| Everyone, the players themselves included, showed as Offline. | Online status comes only from XMPP presence, pushed over the chat connection. There is no HTTP presence route, and our chat server sends no presence outside chat rooms yet. | Not built yet: needs presence over the chat connection ([Text chat]({{ chat_page.url | relative_url }}#party-safety)). | H |
 | "Unable to create guild." | `POST /guild/validate` (from the client) and `POST /guild` (from the **game server**) both got 404. | The eleven v2 guild routes. | H |
 | Nobody used the in-game party Invite (both invites of the night came from the host's fallback). | The players could not find each other: Hunt Members and friends need the same user-info step as an invite's sender. | Same fix as the first row. | M |
 
@@ -104,7 +106,7 @@ invalidated (B, "SocialToolkit - HandleUserInvalidated called for [%s]").
 
 **On this server every account has exactly one id**, `UID-<uuid>`. It is at once the Epic account id
 (the login answers it as `account_id`), the Phoenix account id (party and guild member ids) and the
-future chat id. So every mapping is the identity. In the original service the Epic id was a separate
+chat id. So every mapping is the identity. In the original service the Epic id was a separate
 32-character id (R: the 2.1.1 client mapped such an id at login), and the client still walks both
 steps, so both must answer correctly even though the ids are equal.
 
@@ -249,8 +251,8 @@ someone's invite, that sender cannot invite them again for 2 minutes (both 409, 
 client). A block removes the pending invites between the two.
 
 The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a
-10-second threshold). It must stay that way when the XMPP server arrives: the server must never echo a
-player's own presence back.
+10-second threshold). The chat server keeps it that way: it sends no presence outside chat rooms and
+never echoes a player's own presence back ([Text chat]({{ chat_page.url | relative_url }}#party-safety)).
 
 ## Guilds
 
@@ -271,7 +273,7 @@ player's own presence back.
   The RPC's validation returns true without checking any item, so **creating a guild costs nothing** in
   1.4.4.
 - There is no message of the day, banner, hall, perk or guild XP in v2. Guild chat is the XMPP room
-  `Guild-<guildId>` (not built). The `[TAG]` over players' heads works by itself once `GET /guild`
+  `Guild-<guildId>` (built, for the guild's members only: [Text chat]({{ chat_page.url | relative_url }}#rooms)). The `[TAG]` over players' heads works by itself once `GET /guild`
   returns a nameplate.
 
 We send every reply wrapped and also copy the payload's fields to the root (G). The envelope reader
@@ -571,7 +573,7 @@ answers to the open questions above; the corrections go into this page and the r
 
 | Item | Why |
 |:-----|:----|
-| **Online status and chat** (an XMPP server) | Online status, EPIC FRIENDS, "In Ramsgate", party, guild and area chat, whispers, and friend requests showing without a new login all ride on XMPP. The launcher already points the game's chat connection at port 61099; nothing listens there yet (roadmap 3.10). It must never echo a player's own presence back (see [Parties](#parties)). |
+| **Online status** (presence over the chat connection) | Online status, EPIC FRIENDS, "In Ramsgate" and friend requests showing without a new login all ride on XMPP presence. The chat server exists ([Text chat]({{ chat_page.url | relative_url }})) but sends no presence outside chat rooms yet (roadmap 3.10). When it does, it must never echo a player's own presence back (see [Parties](#parties)), and the party test must be repeated. |
 | Recent players from the friends service | Never called live; the in-game Recent Players list is kept in the character data. |
 | Other friends routes (settings sources, delete all, email lookups) | Never called live. |
 | Listing sent party invites | The client might misread them as received. |

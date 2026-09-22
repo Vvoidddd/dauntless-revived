@@ -445,6 +445,11 @@ ylläpitäjäksi ylentämiseen. Nimen vaihto on olemassa (`RenameUser`, katso
   nimikyltit ilman uudelleenkirjautumista, on varmistamatta.
 - Pelin sisällä nimeä ei voi vaihtaa: `/account/api/public/account` ilmoittaa
   `canUpdateDisplayName: false`.
+- **Nimen vaihdon jälkeen pelaaja käynnistää pelin uudelleen ennen chatin käyttöä.** Peli lukee oman
+  nimensä kerran, kirjautuessa, ja liittyy chat-huoneisiin sillä. Siihen asti, kun se kirjautuu
+  uudelleen, chat-palvelin voi hylätä nuo liittymiset (`chat: join refused ... reason=nick-name`),
+  koska nimi ei enää vastaa tiliä. Muut pelaajat näkevät uuden nimen heti, kun heidän pelinsä hakee
+  sen.
 - Oma omistajatilimme kantaa yhä paikanpitäjänimeä ”Slayer”.
 
 Nimen vaihtaminen, kun `$M` ja `$h` on asetettu kuten kohdassa

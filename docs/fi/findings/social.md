@@ -16,6 +16,7 @@ description: "Miten Dauntless 1.4.4 hoitaa kaverit, ryhmät ja killat taustapalv
 {% assign rev_page = site.pages | where: "path", "fi/findings/json-reversing.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
+{% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
 
 # Kaverit, ryhmät ja killat versiossa 1.4.4
 {: .no_toc }
@@ -30,8 +31,9 @@ jonka kanssa peli keskustelee).
 Jokainen alla oleva korjaus läpäisee HTTP-testit, jotka toistavat peliohjelman omat pyynnöt ja
 tarkistavat jokaisen vastauksen peliohjelman tulkintaa jäljittelevällä mallilla. Seuraava kahden
 pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne; [Näin se tarkistetaan](#how-to-verify)
-luettelee sen vaiheet ja odotetut lokirivit. Paikalla olon näyttäminen ja chat
-puuttuvat vielä (ne tarvitsevat XMPP-palvelimen, katso [Myöhemmin](#deferred)).
+luettelee sen vaiheet ja odotetut lokirivit. Paikalla olon näyttäminen puuttuu vielä (se tarvitsee
+chat-yhteyden läsnäolotiedot, katso [Myöhemmin](#deferred)); tekstichat on rakennettu, ja sillä on
+oma sivunsa: [Tekstichat]({{ chat_page.url | relative_url }}).
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -65,7 +67,7 @@ Menetelmä, jolla JSON-kenttien nimet luetaan ohjelmatiedostosta, on kuvattu siv
 |:----------------------|:----|:--------|:--------|
 | Ryhmäkutsu tuli toisen pelaajan peliohjelmaan (kutsukysely palautti sen kahdesti), mutta se ei koskaan näkynyt PARTY INVITES -kohdassa. | Ennen kuin paneeli näyttää kutsun, peliohjelma kysyy lähettäjästä reitiltä `POST /accountinfo/public`. Alkuperäiseltä projektilta peritty vastauksemme kuvasi **kysyjää**: kysyjän oma tunnus oli kentissä `accountId` ja `linkedAccounts`. Peliohjelma tallentaa käyttäjätiedot vastauksen `accountId`-tunnuksen alle ja pitää ensimmäisen vastauksen, joten lähettäjä ei koskaan saanut tietoja, se mitätöitiin ja kutsu pudotettiin (B `0x140b74870`, `0x1409ede50`). | `/accountinfo/public` vastaa kysytystä tilistä. | H koodissa, M sille, ettei muuta estettä ole |
 | Kaverin lisääminen (Add Friends) "ei löytänyt mitään". | Add Friends ei ole haku vaan nimikenttä ja Add-painike. Nimi löytyi (`GET /account/api/public/account/displayName/<nimi>`), mutta seuraava vaihe, `POST /account/mapping`, sai ensin 404:n ja sitten vastauksen muodossa, jota peliohjelma ei lue. Ilman yhdistämistä peliohjelma pudottaa kaveripyynnön ilmoittamatta mitään. Yksikään kaveripyyntö ei tullut palvelimelle (0 kutsua, L). | `/account/mapping` vastaa muodossa, jota peliohjelma lukee. | H |
-| Kaikki, myös pelaajat itse, näkyivät tilassa Offline. | Paikalla olo tulee vain XMPP-viestipalvelimen läsnäolotiedoista chat-yhteyden kautta, eikä siellä kuuntele mikään. HTTP-reittiä paikalla ololle ei ole. | Ei vielä rakennettu: vaatii XMPP-palvelimen. | H |
+| Kaikki, myös pelaajat itse, näkyivät tilassa Offline. | Paikalla olo tulee vain XMPP-viestipalvelimen läsnäolotiedoista chat-yhteyden kautta. HTTP-reittiä paikalla ololle ei ole, eikä chat-palvelimemme vielä lähetä läsnäolotietoja chat-huoneiden ulkopuolella. | Ei vielä rakennettu: vaatii chat-yhteyden läsnäolotiedot ([Tekstichat]({{ chat_page.url | relative_url }}#party-safety)). | H |
 | "Unable to create guild." | `POST /guild/validate` (peliohjelmalta) ja `POST /guild` (**pelipalvelimelta**) saivat kumpikin 404:n. | Yksitoista kiltareittiä (versio 2). | H |
 | Kukaan ei käyttänyt pelin omaa Invite to Party -toimintoa (illan molemmat kutsut tulivat ylläpitäjän varareitiltä). | Pelaajat eivät löytäneet toisiaan: Hunt Members ja kaverit tarvitsevat saman käyttäjätietovaiheen kuin kutsun lähettäjä. | Sama korjaus kuin ensimmäisellä rivillä. | M |
 
@@ -112,7 +114,7 @@ mitätöidään (B, "SocialToolkit - HandleUserInvalidated called for [%s]").
 
 **Tällä palvelimella jokaisella tilillä on täsmälleen yksi tunnus**, `UID-<uuid>`. Se on yhtä aikaa
 Epic-tilitunnus (kirjautuminen palauttaa sen kentässä `account_id`), Phoenix-tilitunnus (ryhmän ja
-killan jäsenten tunnukset) ja tuleva chat-tunnus. Jokainen yhdistäminen on siis tunnus itse.
+killan jäsenten tunnukset) ja chat-tunnus. Jokainen yhdistäminen on siis tunnus itse.
 Alkuperäisessä palvelussa Epic-tunnus oli erillinen 32-merkkinen tunnus (R: versio 2.1.1 yhdisti
 sellaisen kirjautuessaan), ja peliohjelma käy yhä läpi molemmat vaiheet, joten kummankin on
 vastattava oikein, vaikka tunnukset ovat samat.
@@ -270,8 +272,8 @@ jonkun kutsun, tämä lähettäjä ei voi kutsua häntä uudelleen 2 minuuttiin 
 peliohjelmalle). Esto poistaa kahden pelaajan väliset odottavat kutsut.
 
 Peliohjelman automaattinen "offline"-jäsenten poisto ryhmästä ei koskaan käynnisty ilman paikalla olotietoa (B `0x1415f6f60`, 10 sekunnin
-raja). Niin on pysyttävä XMPP-palvelimenkin kanssa: palvelin ei saa koskaan lähettää pelaajan omaa
-paikalla olotietoa takaisin hänelle.
+raja). Chat-palvelin pitää sen niin: se ei lähetä läsnäolotietoja chat-huoneiden ulkopuolella eikä
+koskaan palauta pelaajan omaa paikalla olotietoa hänelle ([Tekstichat]({{ chat_page.url | relative_url }}#party-safety)).
 
 ## Killat {#guilds}
 
@@ -296,7 +298,7 @@ paikalla olotietoa takaisin hänelle.
   tällainen kutsu, johon vastattiin 404). Etäkutsun tarkistus palauttaa toden tarkistamatta mitään
   esinettä, joten **killan perustaminen ei maksa mitään** versiossa 1.4.4.
 - Versiossa 2 ei ole päivän viestiä, lippua, kiltasalia, etuja eikä killan kokemuspisteitä. Kiltachat on
-  XMPP-huone `Guild-<guildId>` (ei rakennettu). `[TAG]` pelaajien päiden yllä toimii itsestään, kun
+  XMPP-huone `Guild-<guildId>` (rakennettu, vain killan jäsenille: [Tekstichat]({{ chat_page.url | relative_url }}#rooms)). `[TAG]` pelaajien päiden yllä toimii itsestään, kun
   `GET /guild` palauttaa nimikyltin.
 
 Lähetämme jokaisen vastauksen käärittynä ja kopioimme lisäksi rungon kentät juureen (G). Kuoren lukija
@@ -608,7 +610,7 @@ vastaukset yllä oleviin avoimiin kysymyksiin; korjaukset tulevat tälle sivulle
 
 | Asia | Miksi |
 |:-----|:------|
-| **Paikalla olo ja chat** (XMPP-palvelin) | Paikalla olo, EPIC FRIENDS, "In Ramsgate", ryhmä-, kilta- ja aluechat, kuiskaukset ja kaveripyyntöjen näkyminen ilman uutta kirjautumista kulkevat kaikki XMPP:n kautta. Käynnistin ohjaa jo pelin chat-yhteyden porttiin 61099; siellä ei kuuntele vielä mikään (tiekartan kohta 3.10). Palvelin ei saa koskaan palauttaa pelaajan omaa paikalla olotietoa hänelle (katso [Ryhmät](#parties)). |
+| **Paikalla olo** (chat-yhteyden läsnäolotiedot) | Paikalla olo, EPIC FRIENDS, "In Ramsgate" ja kaveripyyntöjen näkyminen ilman uutta kirjautumista kulkevat kaikki XMPP:n läsnäolotietojen kautta. Chat-palvelin on olemassa ([Tekstichat]({{ chat_page.url | relative_url }})), mutta se ei vielä lähetä läsnäolotietoja chat-huoneiden ulkopuolella (tiekartan kohta 3.10). Kun se lähettää, se ei saa koskaan palauttaa pelaajan omaa paikalla olotietoa hänelle (katso [Ryhmät](#parties)), ja ryhmätesti on tehtävä uudelleen. |
 | Kaveripalvelun viimeaikaiset pelaajat | Ei koskaan kutsuttu oikeasti; pelin Recent Players -lista on hahmon tiedoissa. |
 | Muut kaverireitit (asetusten lähteet, kaikkien poisto, sähköpostihaut) | Ei koskaan kutsuttu oikeasti. |
 | Lähetettyjen ryhmäkutsujen listaaminen | Peliohjelma voisi luulla niitä saapuneiksi. |

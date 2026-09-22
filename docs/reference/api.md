@@ -20,6 +20,7 @@ ref: reference/api
 {% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
+{% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
 
 # HTTP API
 {: .no_toc }
@@ -46,6 +47,7 @@ own. The management routes under `/undaunted/api` come from Undaunted and from t
 | Service | Folder | Listens on (default) | From the internet in public mode | Authentication |
 |:--------|:-------|:---------------------|:---------------------------------|:---------------|
 | Metagame | `UndauntedMetagame/` | `BIND_HOST` (`127.0.0.1`) and `PORT` (no default in code; the guides and the kit use 61000) | Only through the gateway, filtered | Player token, account key, admin key or game-server key, depending on the route |
+| Chat (inside the metagame, `CHAT=1`) | `UndauntedMetagame/src/realtime/` | `127.0.0.1:61099` (`CHAT_BIND_HOST`, `CHAT_PORT`) | Only through the gateway (a WebSocket upgrade) | Player token (SASL PLAIN) |
 | Deploy server | `UndauntedDeployServer/` | `BIND_HOST` (`127.0.0.1`) and `PORT` (no default in code; 61001 in the guides and the kit) | Never | None. It answers only direct callers on loopback. |
 | Content server | `UndauntedContent/` | `127.0.0.1:61002` | Through the gateway (`/content`) | Account key for game files; the rest is public |
 | Gateway | `UndauntedGateway/` | HTTPS on `0.0.0.0:443` | Yes: the only public TCP port | Its own refusals; passes credentials through |
@@ -66,6 +68,7 @@ server stays on loopback in both modes.
 | Caller | Calls | With |
 |:-------|:------|:-----|
 | Game client (1.4.4) | The metagame's game routes. In public mode it calls the launcher relay, which forwards over TLS to the gateway. | The account key once (login), then a player token |
+| Game client (1.4.4), chat | [Chat](#chat) over XMPP on a WebSocket, the same way through the relay and the gateway | The player token |
 | Game servers (Ramsgate, the Training Dojo, hunts) | The metagame, directly on the host | The game-server key, plus the player's token when acting for a player |
 | Metagame | The deploy server: matchmaking and the game-server list | Nothing (loopback only) |
 | Content server | The metagame's `GET /undaunted/api/GetUserInfo`, to check a downloader's key | The downloader's account key |
@@ -405,7 +408,8 @@ a party of one with no candidate instead (see [Configuration]({{ config_page.url
 ### Friends
 
 The Epic-style friends service. Friendships and blocks are stored in the database (at most 200 of
-each per account). Everyone shows as offline, because presence would need a chat server.
+each per account). Everyone shows as offline: online status needs presence over the chat connection,
+which the [chat server](#chat) does not send yet.
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
@@ -658,6 +662,57 @@ read the server's name and registration mode:
 - Each variant is cached for 5 seconds. The reply carries `Cache-Control: no-store` and varies on the
   key header and `Authorization`.
 
+## Chat (XMPP on 61099) {#chat}
+
+The game's text chat (Ramsgate and hunt chat, party chat, guild chat and whispers) is XMPP over
+WebSocket, served by the metagame itself when `CHAT=1`, on `127.0.0.1:61099`. It is not HTTP: the
+client opens a WebSocket (request target `//`, protocol `xmpp`) and exchanges one stanza per message.
+In public mode the gateway forwards that upgrade from the launcher relay. Why each answer has its shape,
+with the addresses in the executable, is on [Text chat]({{ chat_page.url | relative_url }}); the
+settings and limits are on [Configuration]({{ config_page.url | relative_url }}#metagame-chat).
+
+**Login.** `<open>` (the domain comes from its `to`, default `prod.ol.epicgames.com`), SASL `PLAIN`
+with the account id and the player token (the token must be valid and belong to that account), a
+second `<open>`, then a bind: the resource is echoed as sent. A refused login answers `<failure>` with
+`<not-authorized/>` (or `<temporary-auth-failure/>` while that account or address is held back); the
+client's legacy `jabber:iq:auth` try after it gets an error and the connection is closed.
+
+**What the server answers:**
+
+| The client sends | The server |
+|:-----------------|:-----------|
+| `<presence to="Room@muc.<domain>/<nickname>">` (join) | Checks the room and the nickname. Then sends the joiner every other occupant's presence, tells every other occupant about the joiner, and sends the joiner's own presence (status 110) last. Every occupant presence carries `<item jid="<account>@<domain>/<resource>">`, and every `from` is the room JID with the occupant's nickname exactly as sent. |
+| `<presence type="unavailable" to="Room@...">` (leave) | The others get the leaver's unavailable presence; the leaver gets its own with status 110. |
+| `<message type="groupchat" to="Room@muc.<domain>">` | Delivered to every occupant, the sender included, from `Room@muc.<domain>/<sender's nickname>`, with the same `id`. Not to occupants who blocked the sender. |
+| `<message type="chat" to="<account>@<domain>[/<resource>]">` (whisper) | Delivered from the sender's full JID to that session, or to every session of the account. Not delivered, with no error, when the player is offline or either player blocked the other. |
+| A broadcast `<presence>` (no `to`) | Recorded and dropped: never echoed or relayed. Online status is not built yet. |
+| `<iq>` ping, session or anything else | An empty `result` with the same `id`. |
+| `<close/>` | `<close/>`, then the connection closes. |
+
+After 50 s of silence the server pings the client, and ends the connection when 30 s pass without an
+answer.
+
+**Rooms.** `City-<id>`, `Hunt-<id>` and `General<id>` are open to every signed-in player,
+`Party-<partyId>` only to that party's members and `Guild-<guildId>` only to that guild's. All live on
+`muc.<domain>`. A player who left the party or guild is removed with status 307.
+
+**Refused joins** are an error presence from the room JID, which the client handles as a failed join:
+
+| Why (`chat: join refused ... reason=`) | `<error>` |
+|:----------------------------------------|:----------|
+| The nickname is not `<name>:<own account id>:<own resource>`, holds another account id, or its name is not the account's username (`nick-account`, `nick-resource`, `nick-format`, `nick-name`); not a member of the party or guild (`not-member`) | `type="auth"`, `<forbidden/>` |
+| A room name the client never builds, or another domain (`not-allowed`) | `type="cancel"`, `<not-allowed/>` |
+| The nickname is held by another connection (`conflict`) | `type="cancel"`, `<conflict/>` |
+| Too many rooms, occupants or joins (`limit`) | `type="wait"`, `<service-unavailable/>` |
+
+A room message that cannot be delivered (not in the room, an empty or over-long body, too many
+messages) gets `<message type="error">` with `<not-acceptable/>`; the connection stays open.
+
+**Names** come from two account routes the client calls with its own token:
+`GET /account/api/public/account/<own id>` for its own name at login, and
+`GET /account/api/public/account?accountId=<id>` for the sender of another player's line (see
+[Login and accounts](#login-and-accounts)).
+
 ## Deploy server {#deploy-server}
 
 The deploy server starts and watches the game-server processes. It has two routes and **no
@@ -728,7 +783,7 @@ covers its limits, timeouts and access log in more depth.
 | Request | Goes to | Default |
 |:--------|:--------|:--------|
 | `/content` and `/content/...` | The content server | `GATEWAY_CONTENT_URL`, `http://127.0.0.1:61002` |
-| `GET` with `Upgrade: websocket` | The WebSocket upstream | `GATEWAY_WS_URL`, `http://127.0.0.1:61099`. Reserved for a future chat service: nothing listens there yet, so upgrades get 502. |
+| `GET` with `Upgrade: websocket` | The WebSocket upstream: the metagame's [chat](#chat) | `GATEWAY_WS_URL`, `http://127.0.0.1:61099`. With chat off nothing listens there, and upgrades get 502. |
 | Everything else | The metagame | `GATEWAY_METAGAME_URL`, `http://127.0.0.1:61000` |
 
 The upstream addresses must be plain `http://` on this machine, so the secret header never leaves it.
