@@ -19,6 +19,7 @@ ref: reference/api
 {% assign upgrade_page = site.pages | where: "path", "setup/upgrading.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}
+{% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
 
 # HTTP API
 {: .no_toc }
@@ -223,14 +224,15 @@ it, and everyone else gets upstream's fixed max ranks
 - A method and path that match no route get an empty 404 and the log line `Unstubbed route <METHOD> <path>`.
 - Request bodies may be JSON (up to 50 MB) or form-encoded (up to Express's default of 100 kB).
   Through the gateway the limit is 128 KiB.
-- Unparseable JSON sent to `Register`, `CreateInvite`, `RenameUser`, `PartyInvite` or `Friends` gets
-  400 `{"error": "bad_request", ...}`. On any other route it gets Express's HTML 400 page, and any
-  other unexpected error gets Express's HTML 500 page. Both include a stack trace unless
-  `NODE_ENV=production`.
+- Unparseable JSON sent to `Register`, `CreateInvite`, `RenameUser`, `PartyInvite`, `Friends`,
+  `GuildInvite` or `DisbandGuild` gets 400 `{"error": "bad_request", ...}`. On any other route it
+  gets Express's HTML 400 page, and any other unexpected error gets Express's HTML 500 page. Both
+  include a stack trace unless `NODE_ENV=production`.
 - Each request is logged as `<METHOD> <path> gs=0|1` (`gs=1` when it carries the game-server key),
   with tokens in the path replaced; `LOG_REQUESTS=0` turns this off. `LOG_BODIES=1` also writes the
-  bodies of some game routes to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That file
-  still holds player data: keep it private.
+  bodies of some game routes (among them the party, friends, guild, `/account/mapping` and
+  `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That
+  file still holds player data: keep it private.
 - Many game routes answer `{"code": null, "message": "OK", "payload": ...}`, as the original backend
   did. [Backend contract]({{ contract_page.url | relative_url }}) has the shapes the client expects.
 - These settings change which routes answer. Each needs a restart;
@@ -245,6 +247,9 @@ it, and everyone else gets upstream's fixed max ranks
 | `PROGRESSION_ALLOW_DELETE` | unset: off | `1` lets game servers reset a track. |
 | `STATUS_EXTRA` | unset: on | `0` trims `/dauntless-status` to the nine fields the client reads. |
 | `ACCOUNT_DISPLAY_NAME` | unset: on | `0` puts upstream's `{}` back as `displayName` in the account record and the party replies. |
+| `ACCOUNT_MAPPING` | unset: on | `0` makes `POST /account/mapping` map nothing (`accountMappings: {}`), the old effective behaviour. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | unset: off | `1` puts back upstream's `POST /accountinfo/public` reply: the caller's own id, and 200 with an empty name for an unknown id. |
+| `GUILDS` | unset: on | `0` puts back the old guild stubs (`GET /guild` 204, `GET /guild/invite/player` an empty list); every other guild route, and the three guild routes of the management API, answer 404. |
 
 ## Metagame: game routes {#game-routes}
 
@@ -265,14 +270,14 @@ work on the host.
 | GET | `/account/api/public/account/:accountId` | optional token | With a token: `{id, displayName, externalAuths}` of that account, or `{}` if it does not exist. Without a token: `{}`. |
 | GET | `/account/api/public/account/displayName/:name` | optional token | Finds an account by username, regardless of case. Needs a token to find anything; otherwise, or when nothing matches, 404. |
 | GET | `/account/api/public/account/:accountId/externalAuths` | none | Answers `{}`. |
-| POST | `/account/mapping` | optional token | The game's account-mapping lookup (`QueryAccountMappingsEndpoint`), called after a friend search and right after a party invite arrives; upstream answered 404. The 1.4.4 client sends `{"srcAccountType": "epic", "ids": ["<account id>"]}` (the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). The reply is flat and wrapped at once, `{code: "OK", message: "", payload: {accountMappings}, accountMappings}`, because Phoenix services answer either way. With a token, every asked id that is one of this server's accounts maps to itself (a player's Epic id and account id are the same here), in the asked order, as `{accountType: "phoenix", accountId, id, epic, phoenix, srcAccountType, srcAccountId, srcId, dstAccountType: "phoenix", dstAccountId, displayName}`: the likely field spellings side by side. Other ids are left out. Without a token the list is empty. The log records only the body's shape. The first answer (an object keyed by id, 22 September 2026) showed nothing in game; this one is not yet confirmed in game either. |
+| POST | `/account/mapping` | optional token | The client's account-mapping lookup (`QueryAccountMappingsEndpoint`): Epic account ids to Phoenix account ids. It runs for Add Friends (after the name lookup), the chat's `/invite <name>`, the guild add-member box, every id on the friends list and block list, and once at login for the player's own id. Body `{"srcAccountType": "epic", "ids": ["<id>", ...]}` (at most 100 ids, each once; the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). Reply `{"accountMappings": {"<asked id>": {"accountId": "<id>", "accountType": "phoenix"}}, "code": "OK", "message": "", "payload": {"accountMappings": {...}}}`: an object keyed by each asked id, the shape the client parses, with a wrapped copy it ignores. Every id is its own mapping here (a player's Epic id and account id are the same). For `srcAccountType` `phoenix` the entries say `epic`. Ids that are not this server's accounts are left out, and without a valid token the map is empty. `ACCOUNT_MAPPING=0` maps nothing. The log records the body's shape and `-> N of M mapped`. Earlier replies (an object keyed by id without `accountMappings`, then `accountMappings` as an array) mapped nothing in the client; see [Friends, parties and guilds]({{ social_page.url | relative_url }}). |
 | GET | `/features/platform/win` | none | Platform flags: `crossplay` and `crossprogression` true. |
 | GET | `/account/link/epic/:accountId` | none | Answers `isLinked: true`. |
 | POST | `/login` | token | The login queue. The body's `email` must equal the token's account id and the account must exist (otherwise 400). Answers `{"error_code": "TicketRateOk", "state": "OPEN", ...}`. |
 | GET | `/accountinfo` | token | The caller's `accountId` and `username`, with fixed values for the other fields. |
 | GET | `/tags` | token | `{accountId, tags: []}`. |
 | PUT | `/gamesession/epic` | token | Echoes the caller's own bearer token back as `payload.sessionToken`. The reply contains the token. |
-| POST | `/accountinfo/public` | token | The username of `body.accountId` (empty if unknown). Any logged-in player may look up any account's name. |
+| POST | `/accountinfo/public` | token | Another player's user info, which the client needs before it shows that player anywhere (a party invite's sender, party and Hunt Members, friends, blocked players, guild members). Body `{"accountId": "<id>"}` or `{"displayname": "<name>"}` (any case; `accountId` wins when both are given). Reply `{accountId, username, linkedAccounts: [{accountId, accountType: "epic"}], isSubscribed: true, language: null}` for the **asked** account: the client files the reply under its `accountId`. 404 `{}` for an unknown id or name. Any logged-in player may look up any account. Upstream answered with the caller's own id, which is why other players never showed; `ACCOUNTINFO_PUBLIC_LEGACY=1` puts that back. Each lookup is logged as `accountinfo/public by <caller> for <id> -> found` (or `-> 404`). |
 
 ### Status, heartbeat and small fixed replies
 
@@ -292,8 +297,6 @@ work on the host.
 | GET | `/all/` | token | An empty mailbox. |
 | GET | `/game_tuning/seasonal_event_schedule` | none | No scheduled events. |
 | GET | `/game_tuning/huntpass_xp_config` | none | The Hunt Pass XP configuration (`MaxXPAwarded` 200). |
-| GET | `/guild/invite/player` | token | No guild invites. |
-| GET | `/guild` | token | 204: no guild. |
 
 ### Characters, inventory and currency
 
@@ -405,23 +408,107 @@ each per account). Everyone shows as offline, because presence would need a chat
 | GET | `/friends/api/public/blocklist/:userId` | optional token | The caller's own block list `{blockedUsers}`; otherwise an empty list. 404 with `MISC_ROUTES=0`. |
 | POST | `/friends/api/public/friends/:userId/:friendId` | player | Sends a friend request, or accepts the one `friendId` sent. |
 | DELETE | `/friends/api/public/friends/:userId/:friendId` | player | Unfriends, withdraws a request or declines one. |
-| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId`. |
+| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId` and removes any friendship between the two. |
+| PUT | `/friends/api/public/blocklist/:userId/:friendId` | player | The same as the POST. The client's verb for Block is inferred from the executable, not traced, so both are accepted. |
 | DELETE | `/friends/api/public/blocklist/:userId/:friendId` | player | Unblocks `friendId`. |
 | GET | `/friends/api/public/list/:namespace/:userId/recentPlayers` | none | Answers `[]`. 404 with `MISC_ROUTES=0`. |
 | GET | `/friends/api/v1/:userId/settings` | none | Answers `{acceptInvites: "public"}`. 404 with `MISC_ROUTES=0`. |
 
-The four changes answer 204 with no body. `:userId` must be the caller (403 otherwise). A `friendId`
+The changes answer 204 with no body. `:userId` must be the caller (403 otherwise). A `friendId`
 that is not shaped like an account id gets 404. A request or a block also refuses an unknown account
 (404), yourself (400) and the 200 limit (409), and a request refuses a pair where one has blocked
-the other (403). Removing a friend or a block that does not exist still answers 204.
+the other (403). A new request is also refused (409) when the caller already has 50 unanswered
+requests out, or has sent 20 new requests in the last 10 minutes; accepting a request the other
+player sent is never limited. Removing a friend or a block that does not exist still answers 204.
+
+The client reads both lists only at login, so a new request or an accepted one shows for the other
+player at their next login. [Friends, parties and guilds]({{ social_page.url | relative_url }})
+describes what the player sees at each step.
+
+### Guilds
+
+The v2 guild API of the 1.4.4 client, stored in the database (tables `guilds`, `guildmembers` and
+`guildinvites`, see [Files and data]({{ files_page.url | relative_url }})), so guilds and invites
+survive restarts.
+
+- **Replies** are the Phoenix envelope `{"code", "message", "payload"}`. A reply that carries a guild
+  or the invite list also copies the payload's fields to the root. A success always has a JSON body:
+  the client treats a success without one as a failure. The one empty reply is `GET /guild`'s 204
+  for "no guild".
+- **Refusals** are a 4xx with `{"code": "<code>", "message": "<text>", "payload": {}}`. The client maps
+  the code to its own error and shows its own text; an empty code shows as "Unable to create guild."
+- **The guild object** is `{id, name, nameplate, leader_account_id, members: [{phx_account_id, rank}],
+  maximum_guild_members}`. Ranks are `Leader`, `Officer` and `Member`, listed in that order and then
+  by join time. `maximum_guild_members` is `GUILD_MAX_MEMBERS` (default 100), a number.
+- **Nothing is pushed.** Other members and invitees see a change at their next login or world load
+  (the client reads `GET /guild` and `GET /guild/invite/player` then, and after each of its own guild
+  actions).
+- `GUILDS=0` brings back the old stubs for the two reads, and every other guild route answers 404.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/guild` | token | The caller's guild: 200 with the guild object, wrapped and flat. 204 with no body when the caller is in no guild (also for the game-server key without a player token). |
+| GET | `/guild/invite/player` | token | The caller's open invites, newest first: `{code: "OK", message: "", payload: {invites}, invites}`, each `{id, guild_id, guild_name, inviter_account_id}`. |
+| POST | `/guild/validate` | player | `{leader_account_id, name, nameplate}`, sent while the player types in CREATE A GUILD. Checks the rules below for the token's account (a different `leader_account_id` is only logged) and answers `{code: "OK", message: "", payload: {}}` or the refusal. Creates nothing. |
+| POST | `/guild` | game-server key | The create. The Create button is an RPC to the Ramsgate game server, which sends the same body here with its key. Answers the new guild object. See below. |
+| DELETE | `/guild/player` | player | Leave Guild. A Member or Officer leaves; the leader cannot (409 `ChiefAdorableQuillshot`). |
+| DELETE | `/guild/player/:accountId` | player | Kick From Guild. Leader only. Naming yourself is a leave. |
+| PUT | `/guild/invite/:accountId` | player | Invite to Guild, no body. Leader or Officer. |
+| POST | `/guild/invite/accept/:inviteId` | player | Accepts one of the caller's own invites: the caller joins as a Member, and every other invite they had is removed. |
+| DELETE | `/guild/invite/:inviteId` | player | Declines one of the caller's own invites. |
+| PUT | `/guild/rank/:accountId/:rank` | player | `member`, `officer` or `leader`, in any case. Leader only. `leader` hands the guild over, and the old leader becomes an Officer. Setting the rank a member already has changes nothing. |
+| DELETE | `/guild/:guildId` | player | DISBAND GUILD: the caller's own guild, its members and its invites. Leader only. |
+
+`DELETE /guild/player` and `DELETE /guild/player/:accountId` are registered before
+`DELETE /guild/:guildId`, which would otherwise take them.
+
+**Names and nameplates**, checked in this order (the first failure decides):
+
+| Rule | Code | Status |
+|:-----|:-----|:-------|
+| The caller (or, for the create, the leader) is not in a guild | `OccupiedAdorableQuillshot` | 409 |
+| Name: 4 to 15 English letters and digits, nothing else | `ObedientAdorableQuillshot` | 400 |
+| Name: at most 6 digits | `NumberedAdorableQuillshot` | 400 |
+| Name: at most 6 of the same letter in a row, regardless of case | `LetteredAdorableQuillshot` | 400 |
+| Name: no word from the deny list | `NastyAdorableQuillshot` | 400 |
+| Name: not taken, regardless of case | `SeizedAdorableQuillshot` | 409 |
+| Nameplate: empty, or 2 to 6 English letters and digits | `DutifulAdorableQuillshot` | 400 |
+| Nameplate: no word from the deny list | `DirtyAdorableQuillshot` | 400 |
+| Nameplate: not taken, regardless of case (an empty one never is) | `CapturedAdorableQuillshot` | 409 |
+
+The deny list is short and built in; `GUILD_NAME_DENYLIST` adds words. It is compared after lower-casing
+and undoing common digit swaps (`0` for `o`, `3` for `e` and so on).
+
+**The create** (`POST /guild`) takes only the game-server key from this machine: a player's token alone
+gets 403 `{"code": ""}`, the key through the gateway or any proxy 403, and an unregistered key 401. A
+player token the game server forwards is used if it is valid and ignored if not (never a 500). Then,
+in order: `leader_account_id` must be an account (400); a forwarded token of another player gets 403
+`SlyAdorableQuillshot`; the leader must have validated a name in the last 15 minutes or been heard from
+in the last minute (party poll, heartbeat), otherwise 403 `SlyAdorableQuillshot`, logged as "no recent
+validate or activity" (the game server passes on whatever leader id the client sent); the name rules;
+at most one new guild per leader per 10 minutes (429).
+
+**Other refusals:** not in a guild, or a target not in the caller's guild: 404
+`ExcludedAdorableQuillshot`. Not allowed (a Member inviting, anyone but the leader kicking, changing
+ranks or disbanding, the leader's own rank): 403 `SlyAdorableQuillshot`. Inviting yourself or a
+member: 409 `ClonedAdorableQuillshot`. A live invite from the same guild: 409
+`RedundantAdorableQuillshot`. The guild is full (invite and accept): 409 `StuffedAdorableQuillshot`.
+An invite that is missing, expired or someone else's: 404 `UninvitedAdorableQuillshot`. An unknown
+rank: 400 `DocileAdorableQuillshot`. An unknown account (404), a block either way (403) and the
+limits (429) answer an empty code.
+
+**Limits:** `GUILD_MAX_MEMBERS` members per guild; invites stay open `GUILD_INVITE_TTL_DAYS` days (7);
+50 open invites per guild and 30 invites sent per inviter per hour (429); a player keeps at most 20
+open invites (the oldest is dropped). Pending invites do not reserve a place. A player in another guild
+can be invited but must leave it before accepting (409 `OccupiedAdorableQuillshot`).
 
 ## Metagame: the management API {#undaunted-api}
 
 All of these live under `/undaunted/api/` on the metagame; the paths below are relative to it.
 **Through the gateway only four answer:**
 `POST Register` and `GET`/`HEAD` of `GetUserInfo`, `ServerStatus` and `RegistrationStatus`. Every other
-path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite` and
-`Friends`, gets 403 from the gateway. Run the rest on the server itself (in public mode at
+path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite`,
+`Friends` and the guild routes, gets 403 from the gateway. Run the rest on the server itself (in public mode at
 `http://127.0.0.1:61000`), or in private mode from a machine that can reach the metagame.
 
 | Method | Path | Access | Gateway | What it does |
@@ -435,6 +522,9 @@ path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `Pa
 | GET | `PublicOnlineStats` | account key | no | `{NumActivePlayers}`: players with a heartbeat in the last 90 seconds. |
 | POST | `PartyInvite` | account key (admin key for `From`) | no | `{Username, From?}`: the key's owner invites that player to their party; the friend still accepts in the game. Answers `{From, To}`. |
 | POST | `Friends` | account key (admin key for `From`) | no | `{Username, From?}`: sends a friend request, or accepts the one that player sent. Answers `{From, To, Result}`, `Result` = `requested`, `accepted`, `already_friends` or `already_requested`. |
+| POST | `GuildInvite` | account key (admin key for `From`) | no | `{Username, From?}`: the key's owner (or `From`) invites that player to their guild, with the same checks as the game's own invite; the player still accepts in the game. Answers `{From, To, Guild}`. |
+| GET | `Guilds` | admin key | no | Every guild: `[{guildId, name, nameplate, leader, members}]`, `members` being a count. |
+| POST | `DisbandGuild` | admin key | no | `{Guild}` (the id, or the name in any case): removes the guild, its members and its invites. Answers `{Guild, Members}`; 404 `not_found` for an unknown guild. |
 | GET | `InviteCodes` | admin key | no | `{InviteCodes: [{inviteCode, usesRemaining, infiniteUses}]}`. **The reply contains live invite codes.** |
 | POST | `CreateInvite` | admin key | no | `{uses?, name?}` → `{code}`. A random `XXXX-XXXX-XXXX` code from Crockford's base32 alphabet (60 random bits). `uses` is 1 to 1000 (default 1). `name` is a note for the log and is not stored; the log shows only the code's first group. |
 | POST | `RegisterInviteCode` | admin key | no | `{NewInviteCode, Uses, InfiniteUses}`: stores a code you chose (`Uses` a whole number of at least 1 unless `InfiniteUses`). The older way; `New-Invite.ps1` uses it only against a metagame without `CreateInvite`. |
@@ -473,20 +563,23 @@ Admin grants and revokes are recorded in the progression event log like the game
 
 ### Error codes of the account routes
 
-`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite` and `Friends` explain a
-refusal as `{"error": <code>, "message": <text>}`:
+`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite`, `Friends`,
+`GuildInvite`, `DisbandGuild` and `Guilds` explain a refusal as `{"error": <code>, "message": <text>}`:
 
 | Code | Status | Where | Meaning |
 |:-----|:-------|:------|:--------|
 | `registration_closed` | 400 | Register | The registration mode is `NONE`. |
-| `bad_request` | 400 | Register, RenameUser, CreateInvite, and bad JSON on all five POST routes | The body is not JSON, or a field is missing or of the wrong type. |
+| `bad_request` | 400 | Register, RenameUser, CreateInvite, and bad JSON on all seven POST routes | The body is not JSON, or a field is missing or of the wrong type. |
 | `username_invalid` | 400 | Register, RenameUser, UsernameAvailable | The name breaks the rules above. |
 | `invite_invalid` | 401 | Register | The code is missing, wrong or used up. |
 | `username_taken` | 409 | Register, RenameUser, UsernameAvailable | Another account has that name, in any case. |
-| `not_found` | 404 | RenameUser, PartyInvite, Friends | No such account. A name that matches two older accounts in different case matches neither. |
-| `forbidden` | 403 | PartyInvite, Friends | `From` was given by a key that is not an admin's. |
+| `not_found` | 404 | RenameUser, PartyInvite, Friends, GuildInvite, DisbandGuild | No such account. A name that matches two older accounts in different case matches neither. |
+| `forbidden` | 403 | PartyInvite, Friends, GuildInvite | `From` was given by a key that is not an admin's. |
 | `party_invite_refused` | the party's status | PartyInvite | The party refused the invite (full, not the leader, blocked and so on). |
 | `self`, `blocked`, `limit` | 400, 403, 409 | Friends | Yourself; one of the two has blocked the other; 200 friends or requests. |
+| `pending_limit`, `rate` | 409 | Friends | 50 requests sent are still unanswered; 20 new requests in the last 10 minutes. |
+| `guild_refused` | the guild's status | GuildInvite | The guild refused the invite; `message` starts with the guild code (for example `RedundantAdorableQuillshot: ...`) when there is one. |
+| `guilds_off` | 404 | GuildInvite, DisbandGuild, Guilds | `GUILDS=0`. |
 
 `UsernameAvailable` always answers 200, with `available: false` and the code. The other routes of this
 API refuse with a bare status code and no body.

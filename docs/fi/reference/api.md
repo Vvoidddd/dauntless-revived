@@ -21,6 +21,7 @@ locale: fi_FI
 {% assign upgrade_page = site.pages | where: "path", "fi/setup/upgrading.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 {% assign contract_page = site.pages | where: "path", "fi/findings/backend-contract.md" | first %}
+{% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
 
 # HTTP-rajapinta
 {: .no_toc }
@@ -240,13 +241,14 @@ luetellut tilit, ja kaikki muut saavat alkuperäisen projektin kiinteät maksimi
   `Unstubbed route <METHOD> <path>`.
 - Pyyntöjen rungot voivat olla JSONia (enintään 50 Mt) tai lomakemuotoisia (enintään Expressin
   oletus, 100 kt). Yhdyskäytävän kautta raja on 128 KiB.
-- Jäsentymätön JSON reiteille `Register`, `CreateInvite`, `RenameUser`, `PartyInvite` tai `Friends`
-  saa vastauksen 400 `{"error": "bad_request", ...}`. Muilla reiteillä se saa Expressin HTML-muotoisen
-  400-sivun, ja muu odottamaton virhe saa Expressin HTML-muotoisen 500-sivun. Kummassakin on
-  pinojälki (stack trace), ellei `NODE_ENV=production`.
+- Jäsentymätön JSON reiteille `Register`, `CreateInvite`, `RenameUser`, `PartyInvite`, `Friends`,
+  `GuildInvite` tai `DisbandGuild` saa vastauksen 400 `{"error": "bad_request", ...}`. Muilla
+  reiteillä se saa Expressin HTML-muotoisen 400-sivun, ja muu odottamaton virhe saa Expressin
+  HTML-muotoisen 500-sivun. Kummassakin on pinojälki (stack trace), ellei `NODE_ENV=production`.
 - Jokainen pyyntö kirjataan lokiin muodossa `<METHOD> <path> gs=0|1` (`gs=1`, kun pyynnössä on
   pelipalvelinavain), ja polussa olevat tunnisteet korvataan. `LOG_REQUESTS=0` kytkee tämän pois.
-  `LOG_BODIES=1` kirjoittaa lisäksi joidenkin pelireittien rungot tiedostoon `BODY_LOG_FILE`
+  `LOG_BODIES=1` kirjoittaa lisäksi joidenkin pelireittien rungot (muun muassa ryhmä-, kaveri- ja
+  kiltareittien sekä reittien `/account/mapping` ja `/accountinfo/public`) tiedostoon `BODY_LOG_FILE`
   (oletus `bodies.log`) tunnisteet poistettuina. Tiedostossa on silti pelaajien tietoja: pidä se
   yksityisenä.
 - Monet pelireitit vastaavat `{"code": null, "message": "OK", "payload": ...}`, kuten alkuperäinen
@@ -264,6 +266,9 @@ luetellut tilit, ja kaikki muut saavat alkuperäisen projektin kiinteät maksimi
 | `PROGRESSION_ALLOW_DELETE` | puuttuu: pois | `1` sallii pelipalvelinten nollata radan. |
 | `STATUS_EXTRA` | puuttuu: päällä | `0` karsii `/dauntless-status`-vastauksen niihin yhdeksään kenttään, jotka peliohjelma lukee. |
 | `ACCOUNT_DISPLAY_NAME` | puuttuu: päällä | `0` palauttaa alkuperäisen projektin `{}`-arvon `displayName`-kentäksi tilitietueeseen ja ryhmävastauksiin. |
+| `ACCOUNT_MAPPING` | puuttuu: päällä | `0` saa reitin `POST /account/mapping` yhdistämään ei mitään (`accountMappings: {}`), kuten ennen. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | puuttuu: pois | `1` palauttaa alkuperäisen projektin `POST /accountinfo/public` -vastauksen: pyytäjän oma tunnus ja tuntemattomalle tunnukselle 200 tyhjällä nimellä. |
+| `GUILDS` | puuttuu: päällä | `0` palauttaa vanhat kiltatyngät (`GET /guild` 204, `GET /guild/invite/player` tyhjä lista); kaikki muut kiltareitit ja hallintarajapinnan kolme kiltareittiä vastaavat 404. |
 
 ## Metagame: pelireitit {#game-routes}
 
@@ -284,14 +289,14 @@ toimivat vain palvelinkoneella.
 | GET | `/account/api/public/account/:accountId` | valinnainen tunniste | Tunnisteen kanssa: kyseisen tilin `{id, displayName, externalAuths}`, tai `{}`, jos tiliä ei ole. Ilman tunnistetta: `{}`. |
 | GET | `/account/api/public/account/displayName/:name` | valinnainen tunniste | Etsii tilin käyttäjänimellä kirjainkoosta riippumatta. Löytääkseen jotain se tarvitsee tunnisteen; muuten, tai jos mikään ei täsmää, 404. |
 | GET | `/account/api/public/account/:accountId/externalAuths` | ei mitään | Vastaa `{}`. |
-| POST | `/account/mapping` | valinnainen tunniste | Pelin tilien yhdistämishaku (`QueryAccountMappingsEndpoint`), jota peli kutsuu kaverihaun jälkeen ja heti, kun ryhmäkutsu saapuu; alkuperäinen projekti vastasi 404. 1.4.4-asiakasohjelma lähettää `{"srcAccountType": "epic", "ids": ["<tilitunnus>"]}` (aiemmat arvaukset toimivat yhä: pelkkä taulukko, `externalIds`, `accountIds` tai `externalAuthIds` sekä `type`/`externalAuthType`). Vastaus on samassa rungossa sekä litteä että kääritty, `{code: "OK", message: "", payload: {accountMappings}, accountMappings}`, koska Phoenixin palvelut vastaavat kummalla tavalla tahansa. Tunnisteen kanssa jokainen kysytty tunniste, joka on tämän palvelimen tili, yhdistetään itseensä (pelaajan Epic-tunnus ja tilitunnus ovat täällä samat) kysytyssä järjestyksessä muodossa `{accountType: "phoenix", accountId, id, epic, phoenix, srcAccountType, srcAccountId, srcId, dstAccountType: "phoenix", dstAccountId, displayName}`: todennäköiset kenttien nimet rinnakkain. Muut tunnisteet jätetään pois. Ilman tunnistetta luettelo on tyhjä. Lokiin kirjataan vain rungon rakenne. Ensimmäinen vastaus (tunnisteilla avattu olio, 22. syyskuuta 2026) ei näkynyt pelissä mitenkään; tätäkään ei ole vielä vahvistettu pelissä. |
+| POST | `/account/mapping` | valinnainen tunniste | Peliohjelman tilien yhdistämishaku (`QueryAccountMappingsEndpoint`): Epic-tilitunnuksista Phoenix-tilitunnuksiksi. Se ajetaan kaverin lisäämisessä (nimihaun jälkeen), chatin komennossa `/invite <nimi>`, killan jäsenen lisäyskentässä, jokaiselle kaverilistan ja estolistan tunnukselle sekä kerran kirjautuessa pelaajan omalle tunnukselle. Runko `{"srcAccountType": "epic", "ids": ["<tunnus>", ...]}` (enintään 100 tunnusta, kukin kerran; aiemmat arvaukset toimivat yhä: pelkkä taulukko, `externalIds`, `accountIds` tai `externalAuthIds` sekä `type`/`externalAuthType`). Vastaus `{"accountMappings": {"<kysytty tunnus>": {"accountId": "<tunnus>", "accountType": "phoenix"}}, "code": "OK", "message": "", "payload": {"accountMappings": {...}}}`: olio, jonka avaimina ovat kysytyt tunnukset. Tätä muotoa peliohjelma lukee; käärittyä kopiota se ei lue. Jokainen tunnus yhdistyy täällä itseensä (pelaajan Epic-tunnus ja tilitunnus ovat samat). Kun `srcAccountType` on `phoenix`, merkinnöissä lukee `epic`. Tunnukset, jotka eivät ole tämän palvelimen tilejä, jätetään pois, ja ilman kelvollista tunnistetta olio on tyhjä. `ACCOUNT_MAPPING=0` ei yhdistä mitään. Lokiin kirjataan rungon rakenne ja `-> N of M mapped`. Aiemmat vastaukset (tunnuksilla avattu olio ilman `accountMappings`-avainta, sitten `accountMappings` taulukkona) eivät yhdistäneet peliohjelmassa mitään; katso [Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}). |
 | GET | `/features/platform/win` | ei mitään | Alustaliput: `crossplay` ja `crossprogression` ovat true. |
 | GET | `/account/link/epic/:accountId` | ei mitään | Vastaa `isLinked: true`. |
 | POST | `/login` | tunniste | Kirjautumisjono. Rungon `email`-kentän on oltava sama kuin tunnisteen tilitunnus, ja tilin on oltava olemassa (muuten 400). Vastaa `{"error_code": "TicketRateOk", "state": "OPEN", ...}`. |
 | GET | `/accountinfo` | tunniste | Pyytäjän `accountId` ja `username`, muissa kentissä kiinteät arvot. |
 | GET | `/tags` | tunniste | `{accountId, tags: []}`. |
 | PUT | `/gamesession/epic` | tunniste | Palauttaa pyytäjän oman bearer-tunnisteen kentässä `payload.sessionToken`. Vastauksessa on siis tunniste. |
-| POST | `/accountinfo/public` | tunniste | Tilin `body.accountId` käyttäjänimi (tyhjä, jos tiliä ei tunneta). Kuka tahansa kirjautunut pelaaja voi katsoa minkä tahansa tilin nimen. |
+| POST | `/accountinfo/public` | tunniste | Toisen pelaajan käyttäjätiedot, joita peliohjelma tarvitsee ennen kuin se näyttää pelaajan missään (ryhmäkutsun lähettäjä, ryhmän jäsenet ja Hunt Members, kaverit, estetyt pelaajat, killan jäsenet). Runko `{"accountId": "<tunnus>"}` tai `{"displayname": "<nimi>"}` (mikä tahansa kirjainkoko; `accountId` voittaa, jos molemmat annetaan). Vastaus `{accountId, username, linkedAccounts: [{accountId, accountType: "epic"}], isSubscribed: true, language: null}` **kysytystä** tilistä: peliohjelma tallentaa vastauksen sen `accountId`-tunnuksen alle. 404 `{}` tuntemattomalle tunnukselle tai nimelle. Kuka tahansa kirjautunut pelaaja voi katsoa minkä tahansa tilin. Alkuperäinen projekti vastasi pyytäjän omalla tunnuksella, minkä vuoksi muut pelaajat eivät koskaan näkyneet; `ACCOUNTINFO_PUBLIC_LEGACY=1` palauttaa sen. Jokainen haku kirjataan lokiin muodossa `accountinfo/public by <pyytäjä> for <tunnus> -> found` (tai `-> 404`). |
 
 ### Tila, elonmerkki ja pienet kiinteät vastaukset {#status-heartbeat-and-small-fixed-replies}
 
@@ -311,8 +316,6 @@ toimivat vain palvelinkoneella.
 | GET | `/all/` | tunniste | Tyhjä postilaatikko. |
 | GET | `/game_tuning/seasonal_event_schedule` | ei mitään | Ei ajastettuja tapahtumia. |
 | GET | `/game_tuning/huntpass_xp_config` | ei mitään | Hunt Passin XP-asetukset (`MaxXPAwarded` 200). |
-| GET | `/guild/invite/player` | tunniste | Ei kiltakutsuja. |
-| GET | `/guild` | tunniste | 204: ei kiltaa. |
 
 ### Hahmot, tavaraluettelo ja valuutta {#characters-inventory-and-currency}
 
@@ -425,24 +428,114 @@ tiliä kohden). Kaikki näkyvät offline-tilassa, koska paikallaolotieto vaatisi
 | GET | `/friends/api/public/blocklist/:userId` | valinnainen tunniste | Pyytäjän oma estolista `{blockedUsers}`; muuten tyhjä lista. 404 asetuksella `MISC_ROUTES=0`. |
 | POST | `/friends/api/public/friends/:userId/:friendId` | pelaaja | Lähettää kaveripyynnön tai hyväksyy sen, jonka `friendId` lähetti. |
 | DELETE | `/friends/api/public/friends/:userId/:friendId` | pelaaja | Poistaa kaveruuden, peruu pyynnön tai hylkää sen. |
-| POST | `/friends/api/public/blocklist/:userId/:friendId` | pelaaja | Estää tilin `friendId`. |
+| POST | `/friends/api/public/blocklist/:userId/:friendId` | pelaaja | Estää tilin `friendId` ja poistaa kaveruuden heidän väliltään. |
+| PUT | `/friends/api/public/blocklist/:userId/:friendId` | pelaaja | Sama kuin POST. Peliohjelman Block-toiminnon metodi on päätelty ohjelmatiedostosta mutta ei jäljitetty, joten kumpikin kelpaa. |
 | DELETE | `/friends/api/public/blocklist/:userId/:friendId` | pelaaja | Poistaa tilin `friendId` eston. |
 | GET | `/friends/api/public/list/:namespace/:userId/recentPlayers` | ei mitään | Vastaa `[]`. 404 asetuksella `MISC_ROUTES=0`. |
 | GET | `/friends/api/v1/:userId/settings` | ei mitään | Vastaa `{acceptInvites: "public"}`. 404 asetuksella `MISC_ROUTES=0`. |
 
-Neljä muuttavaa reittiä vastaavat 204 ilman runkoa. `:userId`-arvon on oltava pyytäjä itse (muuten
+Muuttavat reitit vastaavat 204 ilman runkoa. `:userId`-arvon on oltava pyytäjä itse (muuten
 403). `friendId`, joka ei ole tilitunnuksen muotoinen, saa vastauksen 404. Kaveripyyntö ja esto
 torjuvat lisäksi tuntemattoman tilin (404), oman tilin (400) ja 200:n rajan ylityksen (409), ja
-kaveripyyntö torjuu parin, jossa toinen on estänyt toisen (403). Kaveruuden tai eston poisto, jota ei
-ole olemassa, vastaa silti 204.
+kaveripyyntö torjuu parin, jossa toinen on estänyt toisen (403). Uusi kaveripyyntö torjutaan (409)
+myös, jos pyytäjällä on jo 50 vastaamatonta lähetettyä pyyntöä tai hän on lähettänyt 20 uutta pyyntöä
+viimeisten 10 minuutin aikana; toisen pelaajan lähettämän pyynnön hyväksymistä ei rajoiteta.
+Kaveruuden tai eston poisto, jota ei ole olemassa, vastaa silti 204.
+
+Peliohjelma lukee kummankin listan vain kirjautuessa, joten uusi tai hyväksytty kaveripyyntö näkyy
+toiselle pelaajalle vasta hänen seuraavalla kirjautumisellaan. Sivu
+[Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}) kertoo, mitä pelaaja näkee missäkin
+vaiheessa.
+
+### Killat {#guilds}
+
+1.4.4-peliohjelman kiltarajapinnan versio 2, tallennettuna tietokantaan (taulut `guilds`,
+`guildmembers` ja `guildinvites`, katso [Tiedostot ja data]({{ files_page.url | relative_url }})),
+joten killat ja kutsut säilyvät uudelleenkäynnistysten yli.
+
+- **Vastaukset** ovat Phoenixin kuori `{"code", "message", "payload"}`. Vastaus, jossa on kilta tai
+  kutsulista, kopioi lisäksi rungon (`payload`) kentät juureen. Onnistuneessa vastauksessa on aina
+  JSON-runko: peliohjelma pitää onnistumista ilman runkoa epäonnistumisena. Ainoa tyhjä vastaus on
+  `GET /guild` -reitin 204, joka tarkoittaa "ei kiltaa".
+- **Torjunnat** ovat 4xx-vastauksia muodossa `{"code": "<koodi>", "message": "<teksti>", "payload": {}}`.
+  Peliohjelma muuttaa koodin omaksi virheekseen ja näyttää oman tekstinsä; tyhjä koodi näkyy tekstinä
+  "Unable to create guild."
+- **Kiltaolio** on `{id, name, nameplate, leader_account_id, members: [{phx_account_id, rank}],
+  maximum_guild_members}`. Arvot ovat `Leader` (johtaja), `Officer` (upseeri) ja `Member` (jäsen)
+  tässä järjestyksessä ja sen jälkeen liittymisajan mukaan. `maximum_guild_members` on
+  `GUILD_MAX_MEMBERS` (oletus 100), numerona.
+- **Mitään ei lähetetä pelaajille itsestään.** Muut jäsenet ja kutsutut näkevät muutoksen seuraavalla
+  kirjautumisellaan tai maailman latautuessa (peliohjelma lukee silloin `GET /guild`- ja
+  `GET /guild/invite/player` -reitit, samoin jokaisen oman kiltatoimintonsa jälkeen).
+- `GUILDS=0` palauttaa kahden lukureitin vanhat tyngät, ja jokainen muu kiltareitti vastaa 404.
+
+| Metodi | Polku | Pääsy | Mitä se tekee |
+|:-------|:------|:------|:--------------|
+| GET | `/guild` | tunniste | Pyytäjän kilta: 200 ja kiltaolio sekä käärittynä että litteänä. 204 ilman runkoa, kun pyytäjä ei ole missään killassa (myös pelipalvelinavaimelle ilman pelaajan tunnistetta). |
+| GET | `/guild/invite/player` | tunniste | Pyytäjän avoimet kutsut uusin ensin: `{code: "OK", message: "", payload: {invites}, invites}`, jokainen muodossa `{id, guild_id, guild_name, inviter_account_id}`. |
+| POST | `/guild/validate` | pelaaja | `{leader_account_id, name, nameplate}`, lähetetään, kun pelaaja kirjoittaa CREATE A GUILD -ikkunaan. Tarkistaa alla olevat säännöt tunnisteen tilille (eri `leader_account_id` vain kirjataan lokiin) ja vastaa `{code: "OK", message: "", payload: {}}` tai torjunnalla. Ei luo mitään. |
+| POST | `/guild` | pelipalvelinavain | Perustaminen. Create-painike lähettää etäkutsun (RPC) Ramsgaten pelipalvelimelle, joka lähettää saman rungon tänne avaimellaan. Vastaa uudella kiltaoliolla. Katso alta. |
+| DELETE | `/guild/player` | pelaaja | Leave Guild. Jäsen tai upseeri lähtee; johtaja ei voi lähteä (409 `ChiefAdorableQuillshot`). |
+| DELETE | `/guild/player/:accountId` | pelaaja | Kick From Guild. Vain johtaja. Oman tunnuksen antaminen tarkoittaa lähtemistä. |
+| PUT | `/guild/invite/:accountId` | pelaaja | Invite to Guild, ei runkoa. Johtaja tai upseeri. |
+| POST | `/guild/invite/accept/:inviteId` | pelaaja | Hyväksyy yhden pyytäjälle osoitetuista kutsuista: pyytäjä liittyy jäseneksi, ja kaikki hänen muut kutsunsa poistetaan. |
+| DELETE | `/guild/invite/:inviteId` | pelaaja | Hylkää yhden pyytäjälle osoitetuista kutsuista. |
+| PUT | `/guild/rank/:accountId/:rank` | pelaaja | `member`, `officer` tai `leader` missä tahansa kirjainkoossa. Vain johtaja. `leader` luovuttaa killan, ja entisestä johtajasta tulee upseeri. Jo olemassa olevan arvon asettaminen ei muuta mitään. |
+| DELETE | `/guild/:guildId` | pelaaja | DISBAND GUILD: pyytäjän oma kilta, sen jäsenet ja kutsut. Vain johtaja. |
+
+`DELETE /guild/player` ja `DELETE /guild/player/:accountId` on rekisteröity ennen reittiä
+`DELETE /guild/:guildId`, joka muuten sieppaisi ne.
+
+**Nimet ja nimikyltit** tarkistetaan tässä järjestyksessä (ensimmäinen hylkäävä sääntö ratkaisee):
+
+| Sääntö | Koodi | Tilakoodi |
+|:-------|:------|:----------|
+| Pyytäjä (perustettaessa johtaja) ei ole jo killassa | `OccupiedAdorableQuillshot` | 409 |
+| Nimi: 4–15 englannin kirjainta ja numeroa, ei muuta | `ObedientAdorableQuillshot` | 400 |
+| Nimi: enintään 6 numeroa | `NumberedAdorableQuillshot` | 400 |
+| Nimi: sama kirjain enintään 6 kertaa peräkkäin kirjainkoosta riippumatta | `LetteredAdorableQuillshot` | 400 |
+| Nimi: ei kieltolistan sanaa | `NastyAdorableQuillshot` | 400 |
+| Nimi: ei varattu kirjainkoosta riippumatta | `SeizedAdorableQuillshot` | 409 |
+| Nimikyltti: tyhjä tai 2–6 englannin kirjainta ja numeroa | `DutifulAdorableQuillshot` | 400 |
+| Nimikyltti: ei kieltolistan sanaa | `DirtyAdorableQuillshot` | 400 |
+| Nimikyltti: ei varattu kirjainkoosta riippumatta (tyhjä ei ole koskaan varattu) | `CapturedAdorableQuillshot` | 409 |
+
+Kieltolista on lyhyt ja sisäänrakennettu; `GUILD_NAME_DENYLIST` lisää sanoja. Vertailu tehdään
+pienaakkosina ja tavalliset numerokorvaukset (`0` kirjaimen `o` tilalla, `3` kirjaimen `e` tilalla ja
+niin edelleen) purettuina.
+
+**Perustaminen** (`POST /guild`) hyväksyy vain tämän koneen pelipalvelinavaimen: pelaajan tunniste
+yksinään saa vastauksen 403 `{"code": ""}`, avain yhdyskäytävän tai muun välityspalvelimen kautta 403
+ja rekisteröimätön avain 401. Pelipalvelimen välittämää pelaajan tunnistetta käytetään, jos se on
+kelvollinen, ja muuten se ohitetaan (ei koskaan 500). Sen jälkeen järjestyksessä:
+`leader_account_id`:n on oltava tili (400); toisen pelaajan välitetty tunniste saa vastauksen 403
+`SlyAdorableQuillshot`; johtajan on pitänyt tarkistaa nimi viimeisten 15 minuutin aikana tai näkyä
+palvelimelle viimeisen minuutin aikana (ryhmäkysely, elonmerkki), muuten 403 `SlyAdorableQuillshot`,
+joka kirjataan lokiin tekstillä "no recent validate or activity" (pelipalvelin välittää sen
+johtajatunnuksen, jonka peliohjelma lähetti); nimisäännöt; enintään yksi uusi kilta johtajaa kohden
+10 minuutissa (429).
+
+**Muut torjunnat:** ei killassa, tai kohde ei ole pyytäjän killassa: 404 `ExcludedAdorableQuillshot`.
+Ei oikeutta (jäsen kutsuu, joku muu kuin johtaja erottaa, muuttaa arvoja tai lakkauttaa, johtajan oma
+arvo): 403 `SlyAdorableQuillshot`. Itsensä tai jäsenen kutsuminen: 409 `ClonedAdorableQuillshot`.
+Saman killan voimassa oleva kutsu: 409 `RedundantAdorableQuillshot`. Kilta on täynnä (kutsu ja
+hyväksyminen): 409 `StuffedAdorableQuillshot`. Puuttuva, vanhentunut tai jonkun toisen kutsu: 404
+`UninvitedAdorableQuillshot`. Tuntematon arvo: 400 `DocileAdorableQuillshot`. Tuntematon tili (404),
+esto kumpaan tahansa suuntaan (403) ja rajat (429) vastaavat tyhjällä koodilla.
+
+**Rajat:** `GUILD_MAX_MEMBERS` jäsentä kiltaa kohden; kutsut ovat voimassa `GUILD_INVITE_TTL_DAYS`
+päivää (7); 50 avointa kutsua kiltaa kohden ja 30 lähetettyä kutsua kutsujaa kohden tunnissa (429);
+pelaajalla on enintään 20 avointa kutsua (vanhin poistetaan). Odottavat kutsut eivät varaa paikkaa.
+Toisen killan jäsenen voi kutsua, mutta hänen on lähdettävä vanhasta killastaan ennen hyväksymistä
+(409 `OccupiedAdorableQuillshot`).
 
 ## Metagame: hallintarajapinta {#undaunted-api}
 
 Kaikki nämä ovat metagamessa polun `/undaunted/api/` alla, ja alla olevat polut ovat suhteessa
 siihen. **Yhdyskäytävän kautta vastaa vain neljä:** `POST Register` sekä `GetUserInfo`,
 `ServerStatus` ja `RegistrationStatus` metodeilla `GET` ja `HEAD`. Jokainen muu polku
-`/undaunted`-alla, myös `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite` ja `Friends`, saa
-yhdyskäytävältä vastauksen 403. Aja loput palvelimella itsellään (julkisessa tilassa osoitteessa
+`/undaunted`-alla, myös `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite`, `Friends` ja
+kiltareitit, saa yhdyskäytävältä vastauksen 403. Aja loput palvelimella itsellään (julkisessa tilassa osoitteessa
 `http://127.0.0.1:61000`) tai yksityisessä tilassa koneelta, joka tavoittaa metagamen.
 
 | Metodi | Polku | Pääsy | Yhdyskäytävä | Mitä se tekee |
@@ -456,6 +549,9 @@ yhdyskäytävältä vastauksen 403. Aja loput palvelimella itsellään (julkises
 | GET | `PublicOnlineStats` | tiliavain | ei | `{NumActivePlayers}`: pelaajat, joilta on tullut elonmerkki viimeisten 90 sekunnin aikana. |
 | POST | `PartyInvite` | tiliavain (`From`-kentälle ylläpitäjän avain) | ei | `{Username, From?}`: avaimen omistaja kutsuu kyseisen pelaajan ryhmäänsä; kaveri hyväksyy kutsun silti pelissä. Vastaa `{From, To}`. |
 | POST | `Friends` | tiliavain (`From`-kentälle ylläpitäjän avain) | ei | `{Username, From?}`: lähettää kaveripyynnön tai hyväksyy sen, jonka kyseinen pelaaja lähetti. Vastaa `{From, To, Result}`, jossa `Result` = `requested`, `accepted`, `already_friends` tai `already_requested`. |
+| POST | `GuildInvite` | tiliavain (`From`-kentälle ylläpitäjän avain) | ei | `{Username, From?}`: avaimen omistaja (tai `From`) kutsuu kyseisen pelaajan kiltaansa samoin tarkistuksin kuin pelin oma kutsu; pelaaja hyväksyy kutsun silti pelissä. Vastaa `{From, To, Guild}`. |
+| GET | `Guilds` | ylläpitäjän avain | ei | Kaikki killat: `[{guildId, name, nameplate, leader, members}]`, jossa `members` on jäsenten määrä. |
+| POST | `DisbandGuild` | ylläpitäjän avain | ei | `{Guild}` (tunnus tai nimi missä tahansa kirjainkoossa): poistaa killan, sen jäsenyydet ja kutsut. Vastaa `{Guild, Members}`; 404 `not_found` tuntemattomalle killalle. |
 | GET | `InviteCodes` | ylläpitäjän avain | ei | `{InviteCodes: [{inviteCode, usesRemaining, infiniteUses}]}`. **Vastauksessa on voimassa olevia kutsukoodeja.** |
 | POST | `CreateInvite` | ylläpitäjän avain | ei | `{uses?, name?}` → `{code}`. Satunnainen `XXXX-XXXX-XXXX`-koodi Crockfordin base32-aakkostosta (60 satunnaista bittiä). `uses` on 1–1000 (oletus 1). `name` on muistiinpano lokiin, eikä sitä tallenneta; lokissa näkyy vain koodin ensimmäinen ryhmä. |
 | POST | `RegisterInviteCode` | ylläpitäjän avain | ei | `{NewInviteCode, Uses, InfiniteUses}`: tallentaa itse valitsemasi koodin (`Uses` on kokonaisluku, vähintään 1, ellei `InfiniteUses`). Vanhempi tapa; `New-Invite.ps1` käyttää sitä vain metagamessa, jossa ei ole `CreateInvite`-reittiä. |
@@ -497,20 +593,23 @@ pelipalvelimen omat.
 
 ### Tilireittien virhekoodit {#error-codes-of-the-account-routes}
 
-`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite` ja `Friends` kertovat
-torjunnan syyn muodossa `{"error": <code>, "message": <text>}`:
+`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite`, `Friends`,
+`GuildInvite`, `DisbandGuild` ja `Guilds` kertovat torjunnan syyn muodossa `{"error": <code>, "message": <text>}`:
 
 | Koodi | Tilakoodi | Missä | Merkitys |
 |:------|:----------|:------|:---------|
 | `registration_closed` | 400 | Register | Rekisteröintitila on `NONE`. |
-| `bad_request` | 400 | Register, RenameUser, CreateInvite sekä virheellinen JSON kaikilla viidellä POST-reitillä | Runko ei ole JSONia, tai kenttä puuttuu tai on väärää tyyppiä. |
+| `bad_request` | 400 | Register, RenameUser, CreateInvite sekä virheellinen JSON kaikilla seitsemällä POST-reitillä | Runko ei ole JSONia, tai kenttä puuttuu tai on väärää tyyppiä. |
 | `username_invalid` | 400 | Register, RenameUser, UsernameAvailable | Nimi rikkoo yllä olevia sääntöjä. |
 | `invite_invalid` | 401 | Register | Koodi puuttuu, on väärä tai on käytetty loppuun. |
 | `username_taken` | 409 | Register, RenameUser, UsernameAvailable | Toisella tilillä on sama nimi missä tahansa kirjainkoossa. |
-| `not_found` | 404 | RenameUser, PartyInvite, Friends | Tiliä ei ole. Nimi, joka vastaa kahta vanhempaa, eri kirjainkoossa kirjoitettua tiliä, ei vastaa kumpaakaan. |
-| `forbidden` | 403 | PartyInvite, Friends | `From` annettiin avaimella, joka ei ole ylläpitäjän. |
+| `not_found` | 404 | RenameUser, PartyInvite, Friends, GuildInvite, DisbandGuild | Tiliä ei ole. Nimi, joka vastaa kahta vanhempaa, eri kirjainkoossa kirjoitettua tiliä, ei vastaa kumpaakaan. |
+| `forbidden` | 403 | PartyInvite, Friends, GuildInvite | `From` annettiin avaimella, joka ei ole ylläpitäjän. |
 | `party_invite_refused` | ryhmän antama tilakoodi | PartyInvite | Ryhmä torjui kutsun (täynnä, ei johtaja, estetty ja niin edelleen). |
 | `self`, `blocked`, `limit` | 400, 403, 409 | Friends | Oma tili; toinen kahdesta on estänyt toisen; 200 kaveria tai pyyntöä. |
+| `pending_limit`, `rate` | 409 | Friends | 50 lähetettyä pyyntöä on yhä vastaamatta; 20 uutta pyyntöä viimeisten 10 minuutin aikana. |
+| `guild_refused` | killan antama tilakoodi | GuildInvite | Kilta torjui kutsun; `message` alkaa killan koodilla (esimerkiksi `RedundantAdorableQuillshot: ...`), kun sellainen on. |
+| `guilds_off` | 404 | GuildInvite, DisbandGuild, Guilds | `GUILDS=0`. |
 
 `UsernameAvailable` vastaa aina 200, jolloin mukana ovat `available: false` ja koodi. Tämän
 rajapinnan muut reitit torjuvat pelkällä tilakoodilla ilman runkoa.

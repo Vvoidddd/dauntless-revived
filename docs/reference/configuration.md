@@ -114,6 +114,8 @@ development are off.
 | `MISC_ROUTES` | metagame | on | `0` | Friends list, block list and a few other routes answer instead of 404. |
 | `STATUS_EXTRA` | metagame | on | `0` | Server name, version, commit and source link in `/dauntless-status`. |
 | `ACCOUNT_DISPLAY_NAME` | metagame | on | `0` | Real usernames in account and party replies. |
+| `ACCOUNT_MAPPING` | metagame | on | `0` | Account mappings for Add Friends and name-based invites. `0` maps nothing, as before. |
+| `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -124,6 +126,7 @@ development are off.
 | Switch | Component | To turn it on | Why it is off |
 |:-------|:----------|:--------------|:--------------|
 | `MATCHMAKING_CANCEL` | metagame | `1` | Experimental. The client sends a cancel right after every queued join, and hunts start only because that cancel gets a 404. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | A rollback only: upstream's account info reply, which hides other players (party invites never show). |
 | `INVENTORY_REFUSE_OVERSPEND` | metagame | `1` | Unproven. A refusal drops the whole transaction, rewards included, and no hunt-end transaction has been checked against it yet. |
 | `PROGRESSION_ALLOW_DELETE` | metagame | `1` | Lets any game-server call wipe a player's progression track. |
 | `DB_WAL` | metagame | `1` | The documented backups copy the database file alone. |
@@ -151,7 +154,7 @@ not: the metagame starts and then fails in the ways the tables describe.
 
 **When read:** at startup. Restart the metagame after any change. A restart does not log anyone
 out (session tokens survive it), but it drops matchmaking queues, parties and the list of who is
-online.
+online. Guilds, friendships and blocks are stored and survive it.
 
 **At startup** the metagame logs the address it listens on and a line
 `Progression mode: real for every account (the default)` (or which mode it is in). In real mode it
@@ -232,6 +235,21 @@ players from `GET /undaunted/api/ServerStatus` (see [HTTP API]({{ api_page.url |
 | `SAVE_HISTORY_DAILY` | `30` (also when empty, negative or not a whole number) | whole number of days, 0 or more (0 turns this tier off) | And the last version of each day for this many days. At the defaults that is at most about 3.5 MB per character. | Nobody by default |
 | `INVENTORY_REFUSE_OVERSPEND` | off | `1` or anything else | `1` refuses (409) an inventory transaction that removes more than the player has. Off because a refusal drops the whole transaction, rewards included; meanwhile an overspend is clamped at 0 and logged. | Nobody by default; kit: kept |
 | `INVENTORY_REPORT_REMOVALS` | on | `0` or anything else | **Fork only.** Inventory replies list every stack the transaction touched with its final count (0 for a used-up stack), so the game server sees what was spent. `0` puts back upstream's additions-only reply, which made upgrades free. | Nobody by default |
+
+### Friends, parties and guilds {#metagame-social}
+
+All **fork only**. The switches are read on every request, so a restart with the new value takes
+effect at once. [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}) explains what
+each reply does in the game.
+
+| Name | Default | Values | What it does | Set by |
+|:-----|:--------|:-------|:-------------|:-------|
+| `ACCOUNT_MAPPING` | on | `0` or anything else | `POST /account/mapping` maps this server's accounts in the shape the client reads, which Add Friends, name-based invites and the friends list need. `0` maps nothing, the old effective behaviour: Add Friends then does nothing in game. | Nobody by default |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | off | `1` or anything else | `1` puts back upstream's `POST /accountinfo/public` reply, which describes the caller instead of the asked player. With it, party invites, Hunt Members and friends do not show in game. A rollback in case the new reply disturbs logins. | Nobody by default |
+| `GUILDS` | on | `0` or anything else | The guild routes. `0` brings back the old stubs (no guild, no invites) and makes every other guild route answer 404; the stored guilds are kept and come back with the switch. | Nobody by default |
+| `GUILD_MAX_MEMBERS` | `100` (also when not a whole number from 1 to 10000) | whole number | Members per guild. The client shows this number and the open positions left. | Nobody by default |
+| `GUILD_INVITE_TTL_DAYS` | `7` (also when not a number above 0 and up to 365) | days | How long a guild invite stays open. | Nobody by default |
+| `GUILD_NAME_DENYLIST` | empty | comma-separated words | Words refused in guild names and nameplates, on top of a short built-in list. Matched anywhere in the name, regardless of case, after undoing digit swaps such as `0` for `o`. | Nobody by default |
 
 ### Compatibility switches {#metagame-compatibility}
 

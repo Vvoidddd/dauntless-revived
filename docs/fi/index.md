@@ -81,15 +81,18 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
   kaverit liittyvät käynnistimellä ja kutsulla ilman Tailscalea. 22.9.2026 omistaja kulki sitä tietä
   kutsusta ensimmäiseen metsästykseen asti, ja myöhemmin samana yönä kaksi pelaajaa näki toisensa
   Ramsgatessa ja metsästi yhdessä, kun he jonottivat samaan metsästykseen muutaman sekunnin sisällä.
-- **Ryhmät (parties) ja kaverilista: rakennettu, estyy pelissä (korjaus valmisteilla).** Kahden
-  pelaajan testissä kaverihaku ja ryhmäkutsut pysähtyivät kutsuun `POST /account/mapping`; korjattu
-  vastaus on valmiina mutta ei vielä palvelimella. Palvelimen puoli on
-  rakennettu: ryhmäkutsut, hyväksyminen ja hylkääminen, johtajaksi nostaminen, poistaminen ja
-  lähteminen, koko ryhmän sijoittaminen samalle metsästyspalvelimelle, yhdessä palaaminen Ramsgateen,
-  pelaajien haku nimellä sekä SQLiteen tallentuva kaverilista ja estolista. Se läpäisee
-  integraatiotestimme simuloiduilla pelaajilla. Ryhmään voi kutsua, vaikka ette olisi kavereita.
-  Kaverit eivät näy paikalla olevina, koska se vaatii chat-palvelimen, jota ei ole vielä rakennettu;
-  pelaajien näkyminen paikalla on omistajan seuraava toive, kun ryhmät toimivat (tiekartan kohta 3.10).
+- **Ryhmät (parties), kaverit ja killat: rakennettu, odottaa testiä kahdella pelaajalla.** Kahden
+  pelaajan testissä 22.9.2026 ryhmäkutsu tuli toisen pelaajan peliin mutta ei koskaan näkynyt, eikä
+  kaverin lisääminen tehnyt mitään. Jäljitimme kummankin pelin koodista: palvelin kuvasi väärää
+  pelaajaa, kun peli kysyi kutsun lähettäjää (`POST /accountinfo/public`), ja vastasi tilihakuun
+  (`POST /account/mapping`) muodossa, jota peli ei lue. Molemmat on korjattu, ja myös killat on
+  rakennettu (perustaminen, kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina
+  SQLiteen). Kaikki läpäisee testimme, jotka toistavat pelin omat pyynnöt, mutta kukaan ei ole vielä
+  kokeillut niitä pelissä. Pelaajien on käynnistettävä peli kerran uudelleen päivityksen jälkeen.
+  Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät yhä poissa olevina (offline), koska
+  paikalla olo vaatii chat-palvelimen, jota ei ole vielä rakennettu; pelaajien näkyminen paikalla on
+  omistajan seuraava toive, kun ryhmät toimivat (tiekartan kohta 3.10). Yksityiskohdat ovat sivulla
+  [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}).
 - **Tekstichat.** Ei rakennettu. Suunnitelma on pieni XMPP-viestipalvelin. Käytä sillä välin Discordia.
 - **Palkkiotehtävät (bounties), odotusajat (cooldowns) ja Escalation.** Oikean etenemisen kanssa
   palkkiotehtävät ja odotusajat tallentuvat tilikohtaisesti, mutta palkkiotehtävän valitsemista ja
@@ -146,7 +149,7 @@ käynnistyy vain silloin, kun sitä tarvitaan. Eteneminen on oletuksena oikeaa, 
 projekti vastasi kiinteällä mallilla eikä tallentanut mitään. Tallennukset ovat turvallisempia:
 toistettu tavaratapahtuma tehdään vain kerran, ja tallennusten historiasta voi palata aiempaan
 versioon. Sen jälkeen olemme lisänneet käyttäjänimet ja kutsukoodit, oikeuksien tarkistuksen jokaiseen
-reittiin, palvelimen puolen ryhmät ja kaverilistan, sisältöpalvelimen, julkisen tilan yhdyskäytävän,
+reittiin, palvelimen puolen ryhmät, kaverilistan ja killat, sisältöpalvelimen, julkisen tilan yhdyskäytävän,
 Undauntedin käynnistimen pohjalta tehdyn kaverikäynnistimen ja Windows-palvelinpaketin.
 Käynnistimessä, pelin tervetulotekstissä ja palvelimen viesteissä lukee Dauntless Revived; kansiot,
 palvelin-DLL:n tiedostonimi, rajapinnan reitit ja otsakkeet pitävät toistaiseksi Undaunted-nimet.

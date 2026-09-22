@@ -53,12 +53,11 @@ Everything on this page is about **build 1.4.4**. The final client, 2.1.1 ("Awak
 work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 executable, so it only
 works with that exact build. That is also why every step below checks a hash.
 
-**Status (22 September 2026).** No friend has played on our server yet. Our server for friends runs
-in public mode on a rented machine. On 22 September 2026 the owner played there over the internet with
-the launcher, from the invite and the game download to the first hunt; a test with a second player is
-next. The manual Tailscale path on this page has not been used by a friend yet (see
-[Run it for a group]({{ admin_page.url | relative_url }})). Every session so far has been played by
-the owner alone.
+**Status (22 September 2026).** Our server for friends runs in public mode on a rented machine. On 22
+September 2026 the owner played there over the internet with the launcher, from the invite and the
+game download to the first hunt. Later that night a second player joined: the two saw each other in
+Ramsgate and hunted together. The manual Tailscale path on this page has not been used by a friend
+yet (see [Run it for a group]({{ admin_page.url | relative_url }})).
 
 **The short way: the friend kit.** The host can give you a small zip, built from the repository's
 [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit) folder. After step 1,
@@ -363,8 +362,9 @@ This is a small private revival and a work in progress. As of this writing:
 
 - On our own servers, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
   and a pursuit on the host PC, and on 22 September 2026 the same path up to the first hunt over the
-  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We
-  have not yet tested that with more than one player.
+  internet on the rented server. Later that night two players hunted together there, after queueing
+  the same hunt within a few seconds of each other. Upstream Undaunted reports hunts in groups of up
+  to 4 working; we have tried two.
 - Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
   1) and are saved, on a server that runs the current code with its default settings. Every account
   owns the Elite Hunt Pass. Slayer level, weapon mastery and behemoth mastery have all been seen going
@@ -372,19 +372,88 @@ This is a small private revival and a work in progress. As of this writing:
   update: ask your host.
 - The pre-hunt airship is very dark for now. It is a short scene; see
   [Troubleshooting]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
-- Parties and the friends list are built on the server and pass our integration tests with
-  simulated players, but they have not been tried with two real game clients yet; that is the next
-  test. You don't have to be friends to invite someone to a party. Friends do not show as online
-  yet, because that needs the chat server, which is not built. Until parties are proven, you can also
-  queue for the same hunt at about the same time: the matchmaker collects players who queue for the
-  same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with nobody new
-  joining.
+- Parties, friends and guilds are built on the server and pass our tests, but have not been tried
+  by two players in the game yet; see [Friends, parties and guilds](#friends-parties-and-guilds)
+  below. Until parties are proven, you can also queue for the same hunt at about the same time: the
+  matchmaker collects players who queue for the same hunt and starts one server for them once 4 have
+  joined, or once 20 seconds pass with nobody new joining.
 - There is no text chat yet. Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
   been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
 - A server hosted on someone's PC is off when that PC is off. A server on a rented machine does not
   depend on anyone's PC.
+
+## Friends, parties and guilds {#friends-parties-and-guilds}
+
+**Status (22 September 2026): built on the server, not yet tried by two players.** In the first test
+with two players, a party invite never showed and Add Friends did nothing. Both causes are found and
+fixed on the server, and guilds are new. Nobody has tried the fixed version in the game yet, so tell
+the host what you see.
+
+**After the host updates the server, restart your game once.** The game remembers what it learned
+about other players until it restarts, including the wrong answers from before.
+
+Everything below is in the **Social** panel, which has the tabs My Friends, Add Friends, My Links and
+Guilds. **Everyone shows as Offline, you included.** That is expected for now (see the end of this
+section); it does not mean the other player is not there.
+
+### Add a friend
+
+1. Open **Add Friends**, type the other player's username and press **Add**. It is not a search: the
+   name must be exact, but upper and lower case do not matter. You get a "friend invite sent"
+   message, and nothing else changes on your screen.
+2. The other player sees your request **the next time they log in**, not straight away, with
+   **Accept** and **Decline**.
+3. Once they accept, you appear under each other's **OFFLINE** list after your next login.
+
+From a friend's menu you can **Remove** them, or **Block** a player (they move to **BLOCKED**, and
+neither of you can send the other friend requests, party invites or guild invites). **Unblock** undoes
+it. A server allows 200 friends, 50 unanswered requests sent, and 20 new requests in 10 minutes.
+
+### Invite someone to your party
+
+You don't have to be friends. Parties have up to 4 players, and only the party leader invites.
+
+1. Open **Social**, find the player under **Hunt Members** (players on your server) or among your
+   friends, and choose **Invite to Party**.
+2. The other player sees the invite under **PARTY INVITES** within about 10 seconds, and chooses
+   **Accept**.
+3. Both party panels show both names. When the leader picks a hunt, the whole party goes to the same
+   hunt server, and comes back to Ramsgate with the leader.
+
+If the in-game invite does not work, the host can send one by name from the server (the
+`PartyInvite` route of the [management API]({{ '/reference/api.html' | relative_url }}#undaunted-api));
+you still accept it in the game. The same goes for guild invites (`GuildInvite`).
+
+### Guilds
+
+- **Create one** in the **Guilds** tab while you are in Ramsgate: **CREATE GUILD**, then a name of
+  4-15 English letters and digits (at most 6 digits, and at most 6 of the same letter in a row) and,
+  if you like, a nameplate of 2-6 letters and digits, which shows as `[TAG]` over your head. The
+  window tells you when a name is taken or not allowed. Creating a guild is free.
+- **Invite** (leader and officers): type the player's username in the add-member box (it says "Enter
+  an Epic Games display name"; on this server that is the username), or choose **Invite to Guild** in
+  any player's menu.
+- **The invited player** sees the invite under **GUILD INVITES** at their next login, or after
+  travelling (to a hunt and back to Ramsgate), with **Accept** and **Decline**. An invite stays open
+  for 7 days. To accept, leave your current guild first.
+- **The leader** can make members officers and back, hand the guild over (**Promote To Guild
+  Leader**; the old leader becomes an officer), kick members and disband the guild. The leader cannot
+  leave: hand the guild over or disband it. Officers can invite; members can leave.
+- A guild has up to 100 members (the host can change that). Other members see changes at their next
+  login or world load.
+
+### What does not work yet
+
+- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing players as
+  online needs a chat server that is not built yet; it is next on the list once parties work.
+- **Chat**: whispers, party, guild and Ramsgate chat. Use Discord.
+- **Changes show late.** Friend requests, accepted requests and guild changes reach the other player
+  at their next login (for guilds, also after travelling), not at once.
+- Voice chat, the friends service's recent players and My Links (Linked Slayers).
+
+If something does not show, tell the host what you did and roughly when; the server logs every step.
 
 ## Troubleshooting
 

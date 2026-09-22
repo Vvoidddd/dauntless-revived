@@ -109,22 +109,33 @@ palvelimella julkisessa tilassa käynnistimen versiolla 0.1.0, jonka hän latasi
   Ramsgatessa, ryhmä ja yhteinen metsästys internetin yli. Tekstichattia ei ole rakennettu, ja
   kavereiden näkyminen paikalla vaatii chat-palvelimen.
 
-**Ryhmät ja kaverilista on rakennettu palvelimen puolelle:** ryhmäkutsut, hyväksyminen ja
+**Ryhmät, kaverit ja killat on rakennettu palvelimen puolelle:** ryhmäkutsut, hyväksyminen ja
 hylkääminen, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle
-metsästyspalvelimelle, yhdessä takaisin Ramsgateen, pelaajan haku nimellä sekä SQLiteen tallentuva
-kaverilista ja estolista. Ne läpäisevät integraatiotestit simuloiduilla pelaajilla, mutta niitä ei ole
-vielä kokeiltu kahdella oikealla peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita.
-Kavereiden näkyminen paikalla vaatii chat-palvelimen, jota ei ole rakennettu. Tekstichattia ei ole
-vielä rakennettu (suunnitelma: XMPP).
+metsästyspalvelimelle, yhdessä takaisin Ramsgateen, pelaajan haku nimellä, SQLiteen tallentuva
+kaverilista ja estolista sekä killat (kohta 3.11: perustaminen Ramsgaten pelipalvelimen kautta,
+kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina SQLiteen). Ne läpäisevät
+testit, jotka toistavat peliohjelman omat pyynnöt, mutta niitä ei ole vielä kokeiltu kahdella oikealla
+peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kavereiden näkyminen paikalla vaatii
+chat-palvelimen, jota ei ole rakennettu. Tekstichattia ei ole vielä rakennettu (suunnitelma: XMPP).
 
 **Kahden pelaajan testi 22.9.2026:** kaksi pelaajaa näki toisensa Ramsgatessa ja päätyi samaan
 metsästyksen aulaan, mutta metsästys ei lähtenyt liikkeelle. Metagame oli merkinnyt yhden pelaajan
 kahdesti odotettujen pelaajien joukkoon, joten metsästyspalvelin odotti kolmatta pelaajaa ja
-ilmalaivan lähtölaskenta jäätyi. Korjaus on tehty erilliseen haaraan, mutta sitä ei ole vielä viety
-palvelimelle. Kaverihaku ja ryhmäkutsut pysähtyvät kutsuun `/account/mapping`; sen vastausmuotoa
-korjataan, eikä korjausta ole vielä vahvistettu pelissä. Aulasta poistuttuaan molemmat jonottivat samaan
+ilmalaivan lähtölaskenta jäätyi. Korjaus (jokainen pelaaja jonossa vain kerran) on nyt
+palvelimella. Kaverihaku ja ryhmäkutsut eivät näkyneet pelissä; syyt on sittemmin jäljitetty
+(katso seuraava kappale). Aulasta poistuttuaan molemmat jonottivat samaan
 metsästykseen noin kahden sekunnin sisällä ilman ryhmää: pelaajia odotettiin tasan kaksi, ja **he
 metsästivät yhdessä internetin yli**, ensimmäistä kertaa vuokrapalvelimella.
+
+**Miksi ryhmäkutsu ja kaveripyyntö eivät näkyneet (jäljitetty 22.9.2026):** ryhmäkutsu tuli toisen
+pelaajan peliohjelmaan, mutta peliohjelma pudottaa kutsun, jonka lähettäjää se ei saa näkyviin, ja
+reitin `POST /accountinfo/public` vastaus (alkuperäisen projektin) kuvasi **kysyjää** eikä lähettäjää.
+Kaverin lisääminen pysähtyi reitille `POST /account/mapping`, jonka vastauksen peliohjelma lukee
+oliona, jonka avaimina ovat kysytyt tunnukset (lähettämämme taulukko luettiin tyhjäksi). Tämä korjaa
+aiemman tiedon, jonka mukaan kumpikin pysähtyi reitille `/account/mapping`. Molemmat on korjattu
+`feature/social`-haarassa, **ei vielä palvelimella**; kummankin pelaajan on käynnistettävä peli kerran
+uudelleen päivityksen jälkeen. Yksityiskohdat ovat sivulla
+[Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}).
 
 **Omistajan toive 22.9.2026:** pelaajat näkyviin paikalla (online) pelissä. Nyt Sosiaalinen-paneeli
 näyttää kaikki, myös sinut itsesi, tilassa "Offline". Se tarvitsee pienen läsnäolopalvelimen (XMPP,
@@ -208,6 +219,10 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 
 ## Työn alla {#in-progress}
 
+- **Kaverit, ryhmät ja killat (1.9, 1.11, 3.11)** on rakennettu ja testattu ilman peliä, mutta niitä
+  ei ole vielä viety palvelimelle. Seuraavassa kahden pelaajan testissä katsotaan, näkyykö ryhmäkutsu
+  kohdassa PARTY INVITES, tuleeko kaveripyyntö perille toisen pelaajan seuraavalla kirjautumisella ja
+  toimiiko killan perustaminen Ramsgatessa.
 - **Kahden pelaajan testi (1.15)** on seuraavana vuorossa vuokratulla palvelimella julkisessa
   tilassa, ja kaverin kutsu on jo annettu. Siinä kokeillaan ensimmäistä kertaa kahta pelaajaa
   Ramsgatessa, ryhmiä (1.9), yhteistä metsästystä internetin yli ja sitä, että kummankin pelaajan
@@ -290,7 +305,8 @@ työn alla.
 Kun perusasiat toimivat, peliin tuodaan takaisin loput: muut metsästystyypit (partiot, vaikeammat
 heroic-takaa-ajot ja tarinatehtävät), lootlaatikoiden eli corejen avaaminen, kaikki kosmeettiset
 esineet, postilaatikko ja lahjat, tervetuloviesti, kauppa, Trials-haasteet tulostauluineen,
-kausitapahtumat, tekstichat, killat (guilds) ja paluu samaan metsästykseen, jos peli kaatuu kesken.
+kausitapahtumat, tekstichat, killat (guilds; rakennettu 22.9.2026, ei vielä kokeiltu pelissä) ja paluu
+samaan metsästykseen, jos peli kaatuu kesken.
 Ensin tarkistetaan, mitkä pelin noin 90 sisäänrakennetusta ominaisuuskytkimestä ovat päällä, koska se
 ratkaisee, kannattaako osaa näistä rakentaa. Tämä vie monta viikkoa, ja osa on tutkimustyötä, jonka
 kestoa ei voi tietää etukäteen. Guild Gauntletia ei rakenneta, koska sitä ei ole versiossa 1.4.4, eikä
@@ -405,9 +421,11 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   korjaus on kohta 4.17. Käynnistimessä on kokeellinen valinnainen asetus (Asetukset > Grafiikka >
   Automaattinen valotus > Mukautuva perusvalotus). Jos Ramsgate tai yömetsästykset näyttävät sen kanssa
   oudoilta, vaihda takaisin asetukseen Pelin oletus.
-- Ryhmät on rakennettu palvelimelle, mutta niitä ei ole vielä kokeiltu kahdella pelaajalla; se on
-  seuraava testi. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä näy paikalla
-  olevina.
+- Ryhmät, kaverit ja killat on rakennettu palvelimelle, mutta niitä ei ole vielä kokeiltu kahdella
+  pelaajalla; se on seuraava testi. Käynnistä peli kerran uudelleen seuraavan päivityksen jälkeen.
+  Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät toistaiseksi poissa olevina
+  (offline), ja kaveripyynnöt ja kiltakutsut näkyvät toiselle pelaajalle hänen seuraavalla
+  kirjautumisellaan.
 - Tekstichattia ei vielä ole. Käytä Discordia.
 
 ## Mitä ei voi palauttaa {#cant-come-back}

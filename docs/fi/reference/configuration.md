@@ -122,6 +122,8 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | `MISC_ROUTES` | metagame | päällä | `0` | Kaverilista, estolista ja muutama muu reitti vastaavat 404:n sijaan. |
 | `STATUS_EXTRA` | metagame | päällä | `0` | Palvelimen nimi, versio, commit ja lähdekoodilinkki `/dauntless-status`-vastauksessa. |
 | `ACCOUNT_DISPLAY_NAME` | metagame | päällä | `0` | Oikeat käyttäjänimet tili- ja ryhmävastauksissa. |
+| `ACCOUNT_MAPPING` | metagame | päällä | `0` | Tilien yhdistäminen kaverin lisäämistä ja nimellä kutsumista varten. `0` ei yhdistä mitään, kuten ennen. |
+| `GUILDS` | metagame | päällä | `0` | Kiltareitit. `0` palauttaa vanhat tyngät: kukaan ei voi perustaa kiltaa tai liittyä siihen. |
 | `PROGRESSION_CONFIRM` | metagame | päällä | `off` | Vain vianetsintään. |
 | `LOG_REQUESTS` | metagame | päällä | `0` | Pyyntöloki on tärkein vianetsintävälineemme; pidä se päällä. |
 | `GATEWAY_ALLOWLIST` | yhdyskäytävä | päällä | `0` | Hätäkatkaisin: kun se on pois päältä, kenenkään peliportit eivät aukea. |
@@ -132,6 +134,7 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | Kytkin | Osa | Näin päälle | Miksi se on pois päältä |
 |:-------|:----|:------------|:------------------------|
 | `MATCHMAKING_CANCEL` | metagame | `1` | Kokeellinen. Peliohjelma lähettää perumisen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että perumiseen vastataan 404. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | Vain paluuta varten: alkuperäisen projektin tilitietovastaus, joka piilottaa muut pelaajat (ryhmäkutsut eivät koskaan näy). |
 | `INVENTORY_REFUSE_OVERSPEND` | metagame | `1` | Todistamaton. Torjunta hylkää koko tavarapyynnön palkintoineen, eikä yhtään metsästyksen lopun pyyntöä ole vielä tarkistettu sitä vasten. |
 | `PROGRESSION_ALLOW_DELETE` | metagame | `1` | Antaa minkä tahansa pelipalvelinkutsun pyyhkiä pelaajan etenemisradan. |
 | `DB_WAL` | metagame | `1` | Ohjeiden varmuuskopiot kopioivat pelkän tietokantatiedoston. |
@@ -160,7 +163,8 @@ eivät pysäytä: metagame käynnistyy ja epäonnistuu sitten taulukoissa kuvatu
 
 **Milloin luetaan:** käynnistyessä. Käynnistä metagame uudelleen jokaisen muutoksen jälkeen.
 Uudelleenkäynnistys ei kirjaa ketään ulos (istuntotunnisteet säilyvät), mutta matchmaking-jonot,
-ryhmät (party) ja tieto paikalla olevista pelaajista katoavat.
+ryhmät (party) ja tieto paikalla olevista pelaajista katoavat. Killat, kaveruudet ja estot on
+tallennettu, ja ne säilyvät.
 
 **Käynnistyessään** metagame kirjaa lokiin osoitteen, jossa se kuuntelee, sekä rivin
 `Progression mode: real for every account (the default)` (tai sen, missä tilassa se on). Oikean
@@ -243,6 +247,21 @@ rekisteröityneet pelaajat osoitteesta `GET /undaunted/api/ServerStatus` (katso
 | `SAVE_HISTORY_DAILY` | `30` (myös kun arvo on tyhjä, negatiivinen tai ei ole kokonaisluku) | päivien määrä kokonaislukuna, 0 tai enemmän (0 ottaa tämän portaan pois käytöstä) | Ja kunkin päivän viimeinen versio näin monta päivää. Oletusarvoilla tämä tekee enintään noin 3,5 Mt hahmoa kohden. | Oletuksena ei kukaan |
 | `INVENTORY_REFUSE_OVERSPEND` | pois | `1` tai mikä tahansa muu | `1` torjuu (409) tavarapyynnön, joka poistaa enemmän kuin pelaajalla on. Pois päältä, koska torjunta hylkää koko pyynnön palkintoineen. Kun asetus on pois, ylitys pysäytetään nollaan ja kirjataan lokiin. | Oletuksena ei kukaan; paketti: säilyttää |
 | `INVENTORY_REPORT_REMOVALS` | päällä | `0` tai mikä tahansa muu | **Vain forkissa.** Tavaravastaukset luettelevat jokaisen tavarapinon, jota pyyntö muutti, lopullisine määrineen (0, jos pino käytettiin loppuun), joten pelipalvelin näkee, mitä kului. `0` palauttaa alkuperäisen projektin vastauksen, jossa oli vain lisäykset ja jonka takia varusteiden parantaminen ei maksanut mitään. | Oletuksena ei kukaan |
+
+### Kaverit, ryhmät ja killat {#metagame-social}
+
+Kaikki ovat **vain forkissa**. Kytkimet luetaan jokaisella pyynnöllä, joten uudelleenkäynnistys
+uudella arvolla tulee voimaan heti. Sivu [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }})
+kertoo, mitä kukin vastaus tekee pelissä.
+
+| Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
+|:-----|:-------|:------|:--------------|:-------------|
+| `ACCOUNT_MAPPING` | päällä | `0` tai mikä tahansa muu | `POST /account/mapping` yhdistää tämän palvelimen tilit muodossa, jota peliohjelma lukee; sitä tarvitsevat kaverin lisääminen, nimellä kutsuminen ja kaverilista. `0` ei yhdistä mitään, kuten ennen: kaverin lisääminen ei silloin tee pelissä mitään. | Oletuksena ei kukaan |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | pois | `1` tai mikä tahansa muu | `1` palauttaa alkuperäisen projektin `POST /accountinfo/public` -vastauksen, joka kuvaa kysyjää eikä kysyttyä pelaajaa. Silloin ryhmäkutsut, Hunt Members ja kaverit eivät näy pelissä. Paluutie siltä varalta, että uusi vastaus häiritsee kirjautumista. | Oletuksena ei kukaan |
+| `GUILDS` | päällä | `0` tai mikä tahansa muu | Kiltareitit. `0` palauttaa vanhat tyngät (ei kiltaa, ei kutsuja), ja kaikki muut kiltareitit vastaavat 404; tallennetut killat säilyvät ja palaavat kytkimen mukana. | Oletuksena ei kukaan |
+| `GUILD_MAX_MEMBERS` | `100` (myös, jos arvo ei ole kokonaisluku 1–10000) | kokonaisluku | Jäseniä kiltaa kohden. Peliohjelma näyttää tämän luvun ja jäljellä olevat vapaat paikat. | Oletuksena ei kukaan |
+| `GUILD_INVITE_TTL_DAYS` | `7` (myös, jos arvo ei ole luku väliltä yli 0 ja enintään 365) | päiviä | Kuinka kauan kiltakutsu on voimassa. | Oletuksena ei kukaan |
+| `GUILD_NAME_DENYLIST` | tyhjä | pilkuilla erotettuja sanoja | Sanat, jotka torjutaan kiltojen nimissä ja nimikylteissä lyhyen sisäänrakennetun listan lisäksi. Sana löydetään mistä kohtaa nimeä tahansa kirjainkoosta riippumatta, kun numerokorvaukset (kuten `0` kirjaimen `o` tilalla) on purettu. | Oletuksena ei kukaan |
 
 ### Yhteensopivuuskytkimet {#metagame-compatibility}
 

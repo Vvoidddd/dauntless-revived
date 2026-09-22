@@ -295,6 +295,7 @@ update; on a hand-built host, back up before you pull new code.
 | `0010_save_history_and_item_log` | Creates `characterhistory`, `loadouthistory`, `inventorytransactions`, and `inventorylog` with its append-only triggers. |
 | `0011_real_progression` | Creates `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft`, `loadoutslots`, and `progression_events` with its append-only triggers. |
 | `0012_friends_and_blocks` | Creates `friendships` and `blocks`. |
+| `0013_guilds` | Creates `guilds`, `guildmembers` and `guildinvites`. Adds tables only. |
 
 To add a migration, change `src/db/schema.ts` and run `npm run db:generate`; see
 [Developer guide]({{ dev_page.url | relative_url }}).
@@ -364,7 +365,18 @@ and change these tables; see [HTTP API]({{ api_page.url | relative_url }}).
 | Table | What it stores |
 |:------|:---------------|
 | `friendships` | One row per pair of accounts (the two ids sorted), who sent the request, `PENDING` or `ACCEPTED`, and the times in milliseconds. At most 200 per account. |
-| `blocks` | Who blocked whom, and when. A block removes the friendship and stops friend requests and party invites both ways. At most 200 per account. |
+| `blocks` | Who blocked whom, and when. A block removes the friendship and stops friend requests, party invites and guild invites both ways. At most 200 per account. |
+
+### Guilds
+
+| Table | What it stores |
+|:------|:---------------|
+| `guilds` | One row per guild: `guildId` (a random UUID), `name`, `nameplate` (the tag, may be empty), lower-case copies `nameKey` and `nameplateKey` with unique indexes (so names and tags are unique regardless of case; an empty tag is stored as NULL there), `leaderId`, and the times in milliseconds. |
+| `guildmembers` | One row per member, keyed by account (one guild per account): `guildId`, `rank` (`Leader`, `Officer` or `Member`) and the times. The leader's row always matches `guilds.leaderId`. |
+| `guildinvites` | Open invites: `inviteId` (a random UUID, the id the client accepts or declines), `guildId`, the invited and the inviting account, and when it was made and expires. One per guild and invited player. Expired rows are ignored and deleted at most once a minute. |
+
+A disband deletes the guild's rows in all three tables. The admin routes `Guilds` and `DisbandGuild`
+list and remove guilds; see [HTTP API]({{ api_page.url | relative_url }}#guilds).
 
 ### Kept only in memory
 
@@ -372,6 +384,8 @@ These are **lost when the metagame restarts**:
 
 - matchmaking queues and results (who waits for which hunt, and where to connect);
 - parties, party invites and party searches;
+- the friend-request rate window, guild name validations (15 minutes) and the guild creation and
+  invite rate windows;
 - who is online and where (a player counts as online for 90 seconds after their game's last heartbeat);
 - a registration mode changed through `POST /undaunted/api/RegistrationStatus`: after a restart the
   `REGISTRATION_MODE` from the settings file applies again;

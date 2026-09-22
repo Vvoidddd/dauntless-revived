@@ -18,6 +18,7 @@ description: "Mitä Dauntlessin verkkopuolesta on saatu selville kahdesta pelive
 {% assign mp_page = site.pages | where: "path", "fi/findings/multiplayer.md" | first %}
 {% assign crashes_page = site.pages | where: "path", "fi/findings/crashes.md" | first %}
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
+{% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
 {% assign tools_page = site.pages | where: "path", "fi/tools.md" | first %}
 
 # Löydökset
@@ -53,6 +54,7 @@ kenttien ja funktioiden nimiä, muistiosoitteita ja lyhyitä koodinpätkiä.
 | [Näin moninpeli toimii]({{ mp_page.url | relative_url }}) | 1.4.4 | Miten Undaunted muuttaa asiakasohjelman ylimääräiset kopiot pelipalvelimiksi ohjaamalla ehjää verkkokerrosta ohjelmaan ujutetun DLL-tiedoston (ohjelmakirjaston) avulla. |
 | [Kaatumisten tutkinta]({{ crashes_page.url | relative_url }}) | Enimmäkseen 2.1.1 | Miten kaatumisraporteista saadaan käskyjen muistiosoitteet, ja mistä kukin kohtaamamme kaatuminen lopulta johtui. |
 | [Version 2.1.1 yksinpelikokeilu]({{ awakening_page.url | relative_url }}) | 2.1.1 | Kuinka pitkälle yksin tehty käynnistys Ramsgateen eteni, mihin se pysähtyi (pelaajalla ei ollut ohjattavaa hahmoa) ja mistä työtä voi jatkaa. |
+| [Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}) | 1.4.4 | Miten peliohjelma löytää muut pelaajat, millaisia vastauksia kaverit, ryhmät ja killat tarvitsevat, miksi ensimmäisessä kahden pelaajan testissä ei näkynyt mitään ja mikä on vielä vahvistamatta. |
 
 Asiakasohjelma tarkoittaa pelaajan omalla koneella toimivaa peliohjelmaa. Suurimmassa osassa
 staattista analyysiä (ohjelman tutkimista sitä ajamatta) käytetyt skriptit on kuvattu sivulla

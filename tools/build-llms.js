@@ -29,15 +29,16 @@ const SUMMARY =
 const FACTS = [
     "It is not a public server. It is run for a few friends, and anyone with their own copy of the 1.4.4 client " +
         `can host the same thing from the source code (${REPO}).`,
-    "Status as of 22 September 2026: one player has played it, first on the host PC and then over the internet " +
-        "on a rented server, from the invite and the game download to the first hunt. For that player, login with " +
+    "Status as of 22 September 2026: the owner played it first on the host PC and then over the internet " +
+        "on a rented server, from the invite and the game download to the first hunt. For the owner, login with " +
         "a personal account key (no Epic account needed), the tutorial, Ramsgate, the Training Dojo, hunts and " +
         "crafting work. Items, gear and quests are saved and backed up hourly. Slayer level, mastery and the Hunt " +
         "Pass (with the Elite pass for every account) are saved too: real progression is on by default and passed " +
-        "an in-game test on a throwaway account. Not yet tested: a second player, so nothing is claimed yet about " +
-        "two players in Ramsgate, parties or hunts together over the internet (parties and the friends list are " +
-        "built on the server side). Not yet working: text chat and bounties. The home page and the roadmap have " +
-        "the current state.",
+        "an in-game test on a throwaway account. Later that night two players saw each other in Ramsgate and hunted " +
+        "together over the internet, after queueing the same hunt. Parties, the friends list and guilds are built on " +
+        "the server side; in that test a party invite and a friend request did not show in game, and the fixes " +
+        "(built, not yet deployed) wait for the next two-player test. Not yet working: text chat, online status and " +
+        "bounties. The home page and the roadmap have the current state.",
     "No game files are distributed by the site or the repository. Every player needs their own copy of the client.",
     "Not affiliated with, endorsed by or supported by Phoenix Labs or Epic Games. \"Dauntless\" is a trademark " +
         "of its owners.",

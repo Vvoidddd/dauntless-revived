@@ -311,6 +311,7 @@ pystytetyllä palvelinkoneella ota varmuuskopio itse ennen kuin haet uutta koodi
 | `0010_save_history_and_item_log` | Luo taulut `characterhistory`, `loadouthistory` ja `inventorytransactions` sekä taulun `inventorylog` ja triggerit, jotka sallivat siihen vain lisäyksiä. |
 | `0011_real_progression` | Luo taulut `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft` ja `loadoutslots` sekä taulun `progression_events` ja triggerit, jotka sallivat siihen vain lisäyksiä. |
 | `0012_friends_and_blocks` | Luo taulut `friendships` ja `blocks`. |
+| `0013_guilds` | Luo taulut `guilds`, `guildmembers` ja `guildinvites`. Lisää vain tauluja. |
 
 Kun haluat lisätä migraation, muuta tiedostoa `src/db/schema.ts` ja aja `npm run db:generate`; katso
 [Kehittäjän opas]({{ dev_page.url | relative_url }}).
@@ -382,7 +383,18 @@ muuttavat näitä tauluja; katso [HTTP-rajapinta]({{ api_page.url | relative_url
 | Taulu | Mitä siihen tallennetaan |
 |:------|:-------------------------|
 | `friendships` | Yksi rivi tiliparia kohden (kahden tilin tunnisteet järjestettyinä): kuka lähetti pyynnön, `PENDING` tai `ACCEPTED` sekä ajat millisekunteina. Enintään 200 tiliä kohden. |
-| `blocks` | Kuka esti kenet ja milloin. Esto poistaa kaveruuden ja estää kaveripyynnöt ja ryhmäkutsut kumpaankin suuntaan. Enintään 200 tiliä kohden. |
+| `blocks` | Kuka esti kenet ja milloin. Esto poistaa kaveruuden ja estää kaveripyynnöt, ryhmäkutsut ja kiltakutsut kumpaankin suuntaan. Enintään 200 tiliä kohden. |
+
+### Killat {#guilds}
+
+| Taulu | Mitä siihen tallennetaan |
+|:------|:-------------------------|
+| `guilds` | Yksi rivi kiltaa kohden: `guildId` (satunnainen UUID), `name`, `nameplate` (nimikyltti, voi olla tyhjä), pienaakkosiset kopiot `nameKey` ja `nameplateKey` yksilöivillä indekseillä (nimet ja kyltit ovat siis ainutlaatuisia kirjainkoosta riippumatta; tyhjä kyltti tallennetaan siihen NULL-arvona), `leaderId` sekä ajat millisekunteina. |
+| `guildmembers` | Yksi rivi jäsentä kohden tilin mukaan (yksi kilta tiliä kohden): `guildId`, `rank` (`Leader`, `Officer` tai `Member`) ja ajat. Johtajan rivi vastaa aina kenttää `guilds.leaderId`. |
+| `guildinvites` | Avoimet kutsut: `inviteId` (satunnainen UUID, jolla peliohjelma hyväksyy tai hylkää kutsun), `guildId`, kutsuttu ja kutsuja sekä milloin kutsu tehtiin ja milloin se vanhenee. Yksi kiltaa ja kutsuttua kohden. Vanhentuneet rivit ohitetaan ja poistetaan enintään kerran minuutissa. |
+
+Killan lakkauttaminen poistaa sen rivit kaikista kolmesta taulusta. Ylläpitoreitit `Guilds` ja
+`DisbandGuild` listaavat ja poistavat kiltoja; katso [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds).
 
 ### Vain muistissa {#kept-only-in-memory}
 
@@ -390,6 +402,8 @@ Nämä **katoavat, kun metagame käynnistyy uudelleen**:
 
 - matchmaking-jonot ja -tulokset (kuka odottaa mitäkin metsästystä ja mihin yhdistetään);
 - ryhmät, ryhmäkutsut ja ryhmähaut;
+- kaveripyyntöjen tahtiraja, kiltojen nimitarkistukset (15 minuuttia) sekä kiltojen perustamisen ja
+  kutsujen tahtirajat;
 - kuka on paikalla ja missä (pelaaja lasketaan paikalla olevaksi 90 sekunnin ajan pelinsä viimeisestä
   elonmerkistä);
 - reitin `POST /undaunted/api/RegistrationStatus` kautta muutettu rekisteröintitila: uudelleenkäynnistyksen

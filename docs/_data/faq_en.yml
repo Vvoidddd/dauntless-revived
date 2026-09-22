@@ -107,18 +107,20 @@
     client into a game server, the deploy server, the metagame backend and the launcher are all theirs.
     Dauntless Revived is a modified fork of it. We started with practical changes (safer network
     defaults, clearer errors and a request log) and have since added saved progression, safer saves,
-    usernames and invite codes, parties and a friends list on the server side, a friend launcher built on
+    usernames and invite codes, parties, a friends list and guilds on the server side, a friend launcher built on
     Undaunted's, a gateway for hosting on a public address, a Windows server kit, documentation in English
     and Finnish, and a [roadmap](roadmap.md) towards playing together with everything saved.
 
 - id: can-you-play-with-friends
   q: "Can you play together with friends?"
   a: >-
-    Not proven yet. On 22 September 2026 one player played over the internet on our rented server, where
-    friends join with the launcher and an invite; a test with a second player is next. Parties and the friends list are built on the
-    server side and pass our integration tests with simulated players, but have not been tried with two
-    real game clients yet. Upstream Undaunted reports hunts with up to 4 players working on the same
-    client, but we have not yet tested that with more than one player. The [roadmap](roadmap.md) tracks
+    Hunting together, yes. On 22 September 2026 two players saw each other in Ramsgate and hunted
+    together over the internet on our rented server, where friends join with the launcher and an invite;
+    they queued for the same hunt within a few seconds of each other. Parties, the friends list and guilds
+    are built on the server side, but in that test a party invite and a friend request did not show in
+    game. The causes are found and fixed, and the fixes pass tests that replay the game's own requests;
+    the next two-player test will show whether they work in game. Upstream Undaunted reports hunts with
+    up to 4 players working on the same client; we have tried two. The [roadmap](roadmap.md) tracks
     this as milestone M1, and [How multiplayer works](findings/multiplayer.md) explains how a client-only
     build can host games at all.
 

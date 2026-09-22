@@ -402,7 +402,7 @@ sandbox install or `Test-Sandbox.ps1` is running. How to run the tests is on
 
 | Suite | Ports |
 |:------|:------|
-| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502 |
+| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904 |
 | `UndauntedDeployServer/`, `npm test` | 62013, 62473 |
 | `UndauntedGateway/`, `npm test` | 62400-62499 (in use: 62400-62405, 62409-62417, 62420-62422, 62430-62436) |
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |

@@ -111,7 +111,7 @@
     Revived on Undauntedista tehty muokattu versio. Aloitimme käytännöllisillä muutoksilla
     (turvallisemmat verkkoasetukset, selvemmät virheilmoitukset ja loki eli kirjanpito palvelimen
     tapahtumista), ja sen jälkeen olemme lisänneet tallentuvan etenemisen, turvallisemmat tallennukset,
-    käyttäjänimet ja kutsukoodit, palvelimen puolen ryhmät ja kaverilistan, Undauntedin käynnistimen
+    käyttäjänimet ja kutsukoodit, palvelimen puolen ryhmät, kaverilistan ja killat, Undauntedin käynnistimen
     pohjalta tehdyn kaverikäynnistimen, yhdyskäytävän julkisessa osoitteessa pyörivää palvelinta varten,
     Windows-palvelinpaketin, ohjeet englanniksi ja suomeksi sekä [tiekartan](fi/roadmap.md) kohti
     yhteispeliä, jossa kaikki tallentuu.
@@ -119,13 +119,14 @@
 - id: voiko-kavereiden-kanssa-pelata
   q: "Voiko kavereiden kanssa pelata yhdessä?"
   a: >-
-    Sitä ei ole vielä todistettu. 22.9.2026 yksi pelaaja pelasi internetin yli vuokratulla
-    palvelimellamme, jolle kaverit liittyvät käynnistimellä ja kutsulla; testi toisen pelaajan kanssa on
-    seuraavana vuorossa. Pelaajaryhmät
-    (parties) ja kaverilista on rakennettu palvelimen puolelle, ja ne läpäisevät integraatiotestimme
-    simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla.
-    Undauntedin tekijöiden mukaan neljän pelaajan metsästykset ovat toimineet samalla pelin versiolla.
-    Me emme ole vielä kokeilleet sitä useammalla kuin yhdellä pelaajalla. [Tiekartalla](fi/roadmap.md)
+    Yhdessä metsästäminen onnistuu. 22.9.2026 kaksi pelaajaa näki toisensa Ramsgatessa ja metsästi
+    yhdessä internetin yli vuokratulla palvelimellamme, jolle kaverit liittyvät käynnistimellä ja
+    kutsulla; he jonottivat samaan metsästykseen muutaman sekunnin sisällä toisistaan. Pelaajaryhmät
+    (parties), kaverilista ja killat on rakennettu palvelimen puolelle, mutta siinä testissä ryhmäkutsu
+    ja kaveripyyntö eivät näkyneet pelissä. Syyt on löydetty ja korjattu, ja korjaukset läpäisevät
+    testit, jotka toistavat pelin omat pyynnöt; seuraava kahden pelaajan testi näyttää, toimivatko ne
+    pelissä. Undauntedin tekijöiden mukaan neljän pelaajan metsästykset ovat toimineet samalla pelin
+    versiolla; me olemme kokeilleet kahta. [Tiekartalla](fi/roadmap.md)
     tämä on välitavoite M1, ja [moninpeliä käsittelevä sivu](fi/findings/multiplayer.md) kertoo, miten
     moninpeli ylipäätään onnistuu.
 

@@ -59,12 +59,11 @@ ohjelmatiedoston sisällä, joten se toimii vain juuri sen version kanssa. Siksi
 vaihe myös tarkistaa tiivisteen (hash). Tiiviste on tiedoston sisällöstä laskettu sormenjälki: jos
 tiedostosta muuttuu yksikin tavu, tiiviste muuttuu.
 
-**Tilanne (22.9.2026).** Yksikään kaveri ei ole vielä pelannut palvelimellamme. Kavereille tarkoitettu
-palvelimemme pyörii julkisessa tilassa vuokratulla koneella. 22.9.2026 omistaja pelasi siellä
-internetin yli käynnistimellä, kutsusta ja pelin latauksesta ensimmäiseen metsästykseen asti; testi
-toisen pelaajan kanssa on seuraavana vuorossa. Tämän sivun käsivaiheista Tailscale-polkua ei ole vielä
-käyttänyt yksikään kaveri (katso [Palvelin ryhmälle]({{ admin_page.url | relative_url }})). Kaikki
-tähänastiset pelikerrat on pelannut omistaja yksin.
+**Tilanne (22.9.2026).** Kavereille tarkoitettu palvelimemme pyörii julkisessa tilassa vuokratulla
+koneella. 22.9.2026 omistaja pelasi siellä internetin yli käynnistimellä, kutsusta ja pelin
+latauksesta ensimmäiseen metsästykseen asti. Myöhemmin samana iltana mukaan tuli toinen pelaaja:
+he näkivät toisensa Ramsgatessa ja metsästivät yhdessä. Tämän sivun käsivaiheista Tailscale-polkua
+ei ole vielä käyttänyt yksikään kaveri (katso [Palvelin ryhmälle]({{ admin_page.url | relative_url }})).
 
 **Lyhyt tapa: kaveripaketti.** Isäntä voi antaa sinulle pienen zip-tiedoston, joka on koottu
 repositorion [`friend-kit/`]({{ site.github.repository_url }}/tree/dauntless-revived/friend-kit)-kansiosta.
@@ -383,9 +382,10 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
 
 - Omilla palvelimillamme yksi pelaaja on pelannut palvelinkoneella opetusjakson, Ramsgaten, Training
   Dojon (harjoitussalin), tavallisen metsästyksen ja takaa-ajon (pursuit), ja 22.9.2026 saman polun
-  ensimmäiseen metsästykseen asti internetin yli vuokratulla palvelimella. Alkuperäinen Undaunted
-  kertoo, että metsästykset enintään neljän hengen ryhmissä toimivat. Emme ole vielä testanneet sitä
-  useamman kuin yhden pelaajan kanssa.
+  ensimmäiseen metsästykseen asti internetin yli vuokratulla palvelimella. Myöhemmin samana iltana
+  kaksi pelaajaa metsästi siellä yhdessä, kun he jonottivat samaan metsästykseen muutaman sekunnin
+  sisällä toisistaan. Alkuperäinen Undaunted kertoo, että metsästykset enintään neljän hengen
+  ryhmissä toimivat; me olemme kokeilleet kahta.
 - Slayer-taso, aseiden ja hirviöiden mestaruus (mastery) ja Hunt Pass alkavat alusta (Slayer-taso 1)
   ja tallentuvat, kun palvelimella on nykyinen koodi oletusasetuksin. Jokaisella tilillä on Elite Hunt
   Pass. Slayer-tason, aseen mestaruuden ja hirviön mestaruuden on kaikkien nähty nousevan pelissä. Jos
@@ -393,11 +393,9 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   isännältä.
 - Ilmalaiva ennen metsästystä on toistaiseksi hyvin pimeä. Se on lyhyt kohtaus; katso
   [Vianetsintä]({{ trouble_page.url | relative_url }}#airship-dark-windows-blown-out).
-- Ryhmät (parties) ja kaverilista on rakennettu palvelimelle, ja ne läpäisevät integraatiotestimme
-  simuloiduilla pelaajilla, mutta niitä ei ole vielä kokeiltu kahdella oikealla peliohjelmalla; se on
-  seuraava testi. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät vielä
-  näy paikalla olevina, koska se vaatii chat-palvelimen, jota ei ole rakennettu. Ennen kuin ryhmät on
-  todettu toimiviksi, voitte myös jonottaa samaan metsästykseen suunnilleen samaan aikaan. Matchmaker
+- Ryhmät (parties), kaverit ja killat on rakennettu palvelimelle, ja ne läpäisevät testimme, mutta
+  kaksi pelaajaa ei ole vielä kokeillut niitä pelissä; katso alta
+  [Kaverit, ryhmät ja killat](#friends-parties-and-guilds). Ennen kuin ryhmät on todettu toimiviksi, voitte myös jonottaa samaan metsästykseen suunnilleen samaan aikaan. Matchmaker
   (pelaajia yhteen sovittava osa) kerää pelaajat, jotka jonottavat samaan metsästykseen, ja
   käynnistää heille yhden palvelimen, kun neljä on liittynyt tai kun 20 sekuntia kuluu ilman, että
   kukaan uusi liittyy.
@@ -409,6 +407,81 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
   Discordia.
 - Jonkun omalla koneella pyörivä palvelin on poissa päältä, kun se kone on sammutettu. Vuokratulla
   koneella pyörivä palvelin ei riipu kenenkään omasta koneesta.
+
+## Kaverit, ryhmät ja killat {#friends-parties-and-guilds}
+
+**Tilanne (22.9.2026): rakennettu palvelimelle, kaksi pelaajaa ei ole vielä kokeillut.** Ensimmäisessä
+kahden pelaajan testissä ryhmäkutsu ei koskaan näkynyt, eikä kaverin lisääminen (Add Friends) tehnyt
+mitään. Kumpikin syy on löydetty ja korjattu palvelimella, ja killat ovat uusia. Kukaan ei ole vielä
+kokeillut korjattua versiota pelissä, joten kerro isännälle, mitä näet.
+
+**Kun isäntä on päivittänyt palvelimen, käynnistä peli kerran uudelleen.** Peli muistaa muista
+pelaajista oppimansa asiat uudelleenkäynnistykseen asti, myös aiemmat väärät vastaukset.
+
+Kaikki alla oleva löytyy **Social**-paneelista (Sosiaalinen), jossa ovat välilehdet My Friends, Add
+Friends, My Links ja Guilds. **Kaikki näkyvät tilassa Offline, myös sinä itse.** Se on toistaiseksi
+odotettua (katso tämän osion loppu); se ei tarkoita, ettei toinen pelaaja olisi paikalla.
+
+### Lisää kaveri {#add-a-friend}
+
+1. Avaa **Add Friends**, kirjoita toisen pelaajan käyttäjänimi ja paina **Add**. Kyseessä ei ole haku:
+   nimen on oltava tarkka, mutta isoilla ja pienillä kirjaimilla ei ole väliä. Saat ilmoituksen
+   "friend invite sent", eikä ruudullasi muutu muuta.
+2. Toinen pelaaja näkee pyyntösi **seuraavalla kirjautumisellaan**, ei heti, ja voi valita
+   **Accept** (hyväksy) tai **Decline** (hylkää).
+3. Kun hän hyväksyy, näette toisenne **OFFLINE**-listalla seuraavan kirjautumisenne jälkeen.
+
+Kaverin valikosta voit **poistaa** kaverin (Remove) tai **estää** pelaajan (Block): estetty siirtyy
+kohtaan **BLOCKED**, eikä kumpikaan voi lähettää toiselle kaveripyyntöjä, ryhmäkutsuja tai
+kiltakutsuja. **Unblock** poistaa eston. Palvelin sallii 200 kaveria, 50 vastaamatonta lähetettyä
+pyyntöä ja 20 uutta pyyntöä 10 minuutissa.
+
+### Kutsu joku ryhmääsi {#invite-someone-to-your-party}
+
+Kavereita ei tarvitse olla. Ryhmässä on enintään 4 pelaajaa, ja vain ryhmän johtaja kutsuu.
+
+1. Avaa **Social**, etsi pelaaja kohdasta **Hunt Members** (palvelimesi pelaajat) tai kavereistasi ja
+   valitse **Invite to Party**.
+2. Toinen pelaaja näkee kutsun kohdassa **PARTY INVITES** noin 10 sekunnin kuluessa ja valitsee
+   **Accept**.
+3. Kummankin ryhmäpaneelissa näkyvät molemmat nimet. Kun johtaja valitsee metsästyksen, koko ryhmä
+   menee samalle metsästyspalvelimelle ja palaa johtajan mukana Ramsgateen.
+
+Jos pelin oma kutsu ei toimi, isäntä voi lähettää kutsun nimellä palvelimelta
+([hallintarajapinnan]({{ '/fi/reference/api.html' | relative_url }}#undaunted-api) `PartyInvite`-reitti);
+hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
+
+### Killat {#guilds}
+
+- **Perusta kilta** **Guilds**-välilehdellä ollessasi Ramsgatessa: **CREATE GUILD**, sitten nimi,
+  jossa on 4–15 englannin kirjainta ja numeroa (enintään 6 numeroa ja sama kirjain enintään 6 kertaa
+  peräkkäin), ja halutessasi nimikyltti (2–6 kirjainta ja numeroa), joka näkyy pääsi yllä muodossa
+  `[TAG]`. Ikkuna kertoo, jos nimi on varattu tai ei kelpaa. Killan perustaminen on ilmaista.
+- **Kutsu** (johtaja ja upseerit): kirjoita pelaajan käyttäjänimi jäsenen lisäyskenttään (siinä lukee
+  "Enter an Epic Games display name"; tällä palvelimella se on käyttäjänimi) tai valitse **Invite to
+  Guild** minkä tahansa pelaajan valikosta.
+- **Kutsuttu pelaaja** näkee kutsun kohdassa **GUILD INVITES** seuraavalla kirjautumisellaan tai
+  matkustettuaan (metsästykseen ja takaisin Ramsgateen), ja voi valita **Accept** tai **Decline**.
+  Kutsu on voimassa 7 päivää. Hyväksyäksesi sinun on ensin lähdettävä nykyisestä killastasi.
+- **Johtaja** voi tehdä jäsenistä upseereita ja takaisin, luovuttaa killan (**Promote To Guild
+  Leader**; entisestä johtajasta tulee upseeri), erottaa jäseniä ja lakkauttaa killan. Johtaja ei voi
+  lähteä: luovuta kilta tai lakkauta se. Upseerit voivat kutsua; jäsenet voivat lähteä.
+- Killassa on enintään 100 jäsentä (isäntä voi muuttaa rajaa). Muut jäsenet näkevät muutokset
+  seuraavalla kirjautumisellaan tai maailman latautuessa.
+
+### Mikä ei vielä toimi {#what-does-not-work-yet}
+
+- **Paikalla olo.** Kaikki näkyvät tilassa Offline, ja EPIC FRIENDS pysyy tyhjänä. Pelaajien
+  näyttäminen paikalla vaatii chat-palvelimen, jota ei ole vielä rakennettu; se on seuraavana
+  vuorossa, kun ryhmät toimivat.
+- **Chat**: kuiskaukset sekä ryhmä-, kilta- ja Ramsgate-chat. Käytä Discordia.
+- **Muutokset näkyvät viiveellä.** Kaveripyynnöt, hyväksytyt pyynnöt ja kiltojen muutokset näkyvät
+  toiselle pelaajalle hänen seuraavalla kirjautumisellaan (killoissa myös matkustamisen jälkeen), eivät
+  heti.
+- Äänichat, kaveripalvelun viimeaikaiset pelaajat ja My Links (Linked Slayers).
+
+Jos jokin ei näy, kerro isännälle, mitä teit ja suunnilleen milloin; palvelin kirjaa jokaisen vaiheen
+lokiin.
 
 ## Vianetsintä {#troubleshooting}
 

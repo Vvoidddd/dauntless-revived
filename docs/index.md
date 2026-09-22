@@ -68,14 +68,17 @@ higher figure at Cinematic settings).
   join with the launcher and an invite, without Tailscale. On 22 September 2026 the owner went that
   way from the invite to the first hunt, and later that night two players saw each other in Ramsgate
   and hunted together, after queueing the same hunt within a few seconds of each other.
-- **Parties and the friends list: built, blocked in game (fix pending).** In the two-player test the
-  friend search and party invites stopped at `POST /account/mapping`; a corrected reply is ready but
-  not deployed yet. The server side is built: party
-  invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
-  returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved
-  in SQLite. It passes our integration tests with simulated players. You don't have to be friends to invite
-  someone to a party. Friends don't show as online, because that needs the chat server, which is not
-  built; showing players as online is the owner's next wish once parties work (roadmap 3.10).
+- **Parties, friends and guilds: built, waiting for a test with two players.** In the two-player
+  test on 22 September 2026 a party invite reached the other player's game but never showed, and
+  Add Friends did nothing. We traced both in the game's code: the server described the wrong player
+  when the game asked who sent the invite (`POST /accountinfo/public`), and answered the account
+  lookup (`POST /account/mapping`) in a shape the game does not read. Both are fixed, and guilds are
+  built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
+  tests, which replay the game's own requests, but nobody has tried it in the game yet. Players must
+  restart their game once after the update. You don't have to be friends to invite someone to a
+  party. Everyone still shows as offline, because that needs the chat server, which is not built;
+  showing players as online is the owner's next wish once parties work (roadmap 3.10). The details
+  are on [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}).
 - **Text chat.** Not built. The design is a small XMPP server. Use Discord meanwhile.
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
@@ -127,8 +130,8 @@ default. A port clash is now a hard error, where it used to be a silent exit. Ev
 logged. The Training Dojo starts only when it is needed. Progression is real by default, where
 upstream answered with a fixed template and saved nothing. Saves are safer: a repeated inventory
 transaction is applied once, and save history can be rolled back. Since then we have added
-usernames and invite codes, a permission check on every route, parties and a friends list on the
-server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
+usernames and invite codes, a permission check on every route, parties, a friends list and guilds on
+the server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
 the Windows server kit. The launcher, the in-game welcome text and the server's messages say
 Dauntless Revived; folders, the server DLL's file name, API routes and headers keep the Undaunted
 names for now. The

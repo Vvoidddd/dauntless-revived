@@ -63,14 +63,17 @@ higher figure at Cinematic settings).
   join with the launcher and an invite, without Tailscale. On 22 September 2026 the owner went that
   way from the invite to the first hunt, and later that night two players saw each other in Ramsgate
   and hunted together, after queueing the same hunt within a few seconds of each other.
-- **Parties and the friends list: built, blocked in game (fix pending).** In the two-player test the
-  friend search and party invites stopped at `POST /account/mapping`; a corrected reply is ready but
-  not deployed yet. The server side is built: party
-  invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
-  returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved
-  in SQLite. It passes our integration tests with simulated players. You don't have to be friends to invite
-  someone to a party. Friends don't show as online, because that needs the chat server, which is not
-  built; showing players as online is the owner's next wish once parties work (roadmap 3.10).
+- **Parties, friends and guilds: built, waiting for a test with two players.** In the two-player
+  test on 22 September 2026 a party invite reached the other player's game but never showed, and
+  Add Friends did nothing. We traced both in the game's code: the server described the wrong player
+  when the game asked who sent the invite (`POST /accountinfo/public`), and answered the account
+  lookup (`POST /account/mapping`) in a shape the game does not read. Both are fixed, and guilds are
+  built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
+  tests, which replay the game's own requests, but nobody has tried it in the game yet. Players must
+  restart their game once after the update. You don't have to be friends to invite someone to a
+  party. Everyone still shows as offline, because that needs the chat server, which is not built;
+  showing players as online is the owner's next wish once parties work (roadmap 3.10). The details
+  are on [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html).
 - **Text chat.** Not built. The design is a small XMPP server. Use Discord meanwhile.
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
@@ -122,8 +125,8 @@ default. A port clash is now a hard error, where it used to be a silent exit. Ev
 logged. The Training Dojo starts only when it is needed. Progression is real by default, where
 upstream answered with a fixed template and saved nothing. Saves are safer: a repeated inventory
 transaction is applied once, and save history can be rolled back. Since then we have added
-usernames and invite codes, a permission check on every route, parties and a friends list on the
-server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
+usernames and invite codes, a permission check on every route, parties, a friends list and guilds on
+the server side, the content server, the public-mode gateway, a friend launcher built on Undaunted's, and
 the Windows server kit. The launcher, the in-game welcome text and the server's messages say
 Dauntless Revived; folders, the server DLL's file name, API routes and headers keep the Undaunted
 names for now. The
@@ -1138,12 +1141,11 @@ Everything on this page is about **build 1.4.4**. The final client, 2.1.1 ("Awak
 work here: `UndauntedInternalServer.dll` hooks fixed addresses inside the 1.4.4 executable, so it only
 works with that exact build. That is also why every step below checks a hash.
 
-**Status (22 September 2026).** No friend has played on our server yet. Our server for friends runs
-in public mode on a rented machine. On 22 September 2026 the owner played there over the internet with
-the launcher, from the invite and the game download to the first hunt; a test with a second player is
-next. The manual Tailscale path on this page has not been used by a friend yet (see
-[Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html)). Every session so far has been played by
-the owner alone.
+**Status (22 September 2026).** Our server for friends runs in public mode on a rented machine. On 22
+September 2026 the owner played there over the internet with the launcher, from the invite and the
+game download to the first hunt. Later that night a second player joined: the two saw each other in
+Ramsgate and hunted together. The manual Tailscale path on this page has not been used by a friend
+yet (see [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html)).
 
 **The short way: the friend kit.** The host can give you a small zip, built from the repository's
 [`friend-kit/`](https://github.com/mixutin/dauntless-revived/tree/dauntless-revived/friend-kit) folder. After step 1,
@@ -1441,8 +1443,9 @@ This is a small private revival and a work in progress. As of this writing:
 
 - On our own servers, one player has played the tutorial, Ramsgate, the Training Dojo, a normal hunt
   and a pursuit on the host PC, and on 22 September 2026 the same path up to the first hunt over the
-  internet on the rented server. Upstream Undaunted reports hunts in groups of up to 4 working. We
-  have not yet tested that with more than one player.
+  internet on the rented server. Later that night two players hunted together there, after queueing
+  the same hunt within a few seconds of each other. Upstream Undaunted reports hunts in groups of up
+  to 4 working; we have tried two.
 - Slayer level, weapon and behemoth mastery and the Hunt Pass start from the beginning (Slayer level
   1) and are saved, on a server that runs the current code with its default settings. Every account
   owns the Elite Hunt Pass. Slayer level, weapon mastery and behemoth mastery have all been seen going
@@ -1450,19 +1453,88 @@ This is a small private revival and a work in progress. As of this writing:
   update: ask your host.
 - The pre-hunt airship is very dark for now. It is a short scene; see
   [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#airship-dark-windows-blown-out).
-- Parties and the friends list are built on the server and pass our integration tests with
-  simulated players, but they have not been tried with two real game clients yet; that is the next
-  test. You don't have to be friends to invite someone to a party. Friends do not show as online
-  yet, because that needs the chat server, which is not built. Until parties are proven, you can also
-  queue for the same hunt at about the same time: the matchmaker collects players who queue for the
-  same hunt and starts one server for them once 4 have joined, or once 20 seconds pass with nobody new
-  joining.
+- Parties, friends and guilds are built on the server and pass our tests, but have not been tried
+  by two players in the game yet; see [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/setup/friends.html#friends-parties-and-guilds)
+  below. Until parties are proven, you can also queue for the same hunt at about the same time: the
+  matchmaker collects players who queue for the same hunt and starts one server for them once 4 have
+  joined, or once 20 seconds pass with nobody new joining.
 - There is no text chat yet. Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
   been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
 - A server hosted on someone's PC is off when that PC is off. A server on a rented machine does not
   depend on anyone's PC.
+
+## Friends, parties and guilds
+
+**Status (22 September 2026): built on the server, not yet tried by two players.** In the first test
+with two players, a party invite never showed and Add Friends did nothing. Both causes are found and
+fixed on the server, and guilds are new. Nobody has tried the fixed version in the game yet, so tell
+the host what you see.
+
+**After the host updates the server, restart your game once.** The game remembers what it learned
+about other players until it restarts, including the wrong answers from before.
+
+Everything below is in the **Social** panel, which has the tabs My Friends, Add Friends, My Links and
+Guilds. **Everyone shows as Offline, you included.** That is expected for now (see the end of this
+section); it does not mean the other player is not there.
+
+### Add a friend
+
+1. Open **Add Friends**, type the other player's username and press **Add**. It is not a search: the
+   name must be exact, but upper and lower case do not matter. You get a "friend invite sent"
+   message, and nothing else changes on your screen.
+2. The other player sees your request **the next time they log in**, not straight away, with
+   **Accept** and **Decline**.
+3. Once they accept, you appear under each other's **OFFLINE** list after your next login.
+
+From a friend's menu you can **Remove** them, or **Block** a player (they move to **BLOCKED**, and
+neither of you can send the other friend requests, party invites or guild invites). **Unblock** undoes
+it. A server allows 200 friends, 50 unanswered requests sent, and 20 new requests in 10 minutes.
+
+### Invite someone to your party
+
+You don't have to be friends. Parties have up to 4 players, and only the party leader invites.
+
+1. Open **Social**, find the player under **Hunt Members** (players on your server) or among your
+   friends, and choose **Invite to Party**.
+2. The other player sees the invite under **PARTY INVITES** within about 10 seconds, and chooses
+   **Accept**.
+3. Both party panels show both names. When the leader picks a hunt, the whole party goes to the same
+   hunt server, and comes back to Ramsgate with the leader.
+
+If the in-game invite does not work, the host can send one by name from the server (the
+`PartyInvite` route of the [management API](https://mixutin.github.io/dauntless-revived/reference/api.html#undaunted-api));
+you still accept it in the game. The same goes for guild invites (`GuildInvite`).
+
+### Guilds
+
+- **Create one** in the **Guilds** tab while you are in Ramsgate: **CREATE GUILD**, then a name of
+  4-15 English letters and digits (at most 6 digits, and at most 6 of the same letter in a row) and,
+  if you like, a nameplate of 2-6 letters and digits, which shows as `[TAG]` over your head. The
+  window tells you when a name is taken or not allowed. Creating a guild is free.
+- **Invite** (leader and officers): type the player's username in the add-member box (it says "Enter
+  an Epic Games display name"; on this server that is the username), or choose **Invite to Guild** in
+  any player's menu.
+- **The invited player** sees the invite under **GUILD INVITES** at their next login, or after
+  travelling (to a hunt and back to Ramsgate), with **Accept** and **Decline**. An invite stays open
+  for 7 days. To accept, leave your current guild first.
+- **The leader** can make members officers and back, hand the guild over (**Promote To Guild
+  Leader**; the old leader becomes an officer), kick members and disband the guild. The leader cannot
+  leave: hand the guild over or disband it. Officers can invite; members can leave.
+- A guild has up to 100 members (the host can change that). Other members see changes at their next
+  login or world load.
+
+### What does not work yet
+
+- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing players as
+  online needs a chat server that is not built yet; it is next on the list once parties work.
+- **Chat**: whispers, party, guild and Ramsgate chat. Use Discord.
+- **Changes show late.** Friend requests, accepted requests and guild changes reach the other player
+  at their next login (for guilds, also after travelling), not at once.
+- Voice chat, the friends service's recent players and My Links (Linked Slayers).
+
+If something does not show, tell the host what you did and roughly when; the server logs every step.
 
 ## Troubleshooting
 
@@ -3290,6 +3362,8 @@ development are off.
 | `MISC_ROUTES` | metagame | on | `0` | Friends list, block list and a few other routes answer instead of 404. |
 | `STATUS_EXTRA` | metagame | on | `0` | Server name, version, commit and source link in `/dauntless-status`. |
 | `ACCOUNT_DISPLAY_NAME` | metagame | on | `0` | Real usernames in account and party replies. |
+| `ACCOUNT_MAPPING` | metagame | on | `0` | Account mappings for Add Friends and name-based invites. `0` maps nothing, as before. |
+| `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -3300,6 +3374,7 @@ development are off.
 | Switch | Component | To turn it on | Why it is off |
 |:-------|:----------|:--------------|:--------------|
 | `MATCHMAKING_CANCEL` | metagame | `1` | Experimental. The client sends a cancel right after every queued join, and hunts start only because that cancel gets a 404. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | A rollback only: upstream's account info reply, which hides other players (party invites never show). |
 | `INVENTORY_REFUSE_OVERSPEND` | metagame | `1` | Unproven. A refusal drops the whole transaction, rewards included, and no hunt-end transaction has been checked against it yet. |
 | `PROGRESSION_ALLOW_DELETE` | metagame | `1` | Lets any game-server call wipe a player's progression track. |
 | `DB_WAL` | metagame | `1` | The documented backups copy the database file alone. |
@@ -3327,7 +3402,7 @@ not: the metagame starts and then fails in the ways the tables describe.
 
 **When read:** at startup. Restart the metagame after any change. A restart does not log anyone
 out (session tokens survive it), but it drops matchmaking queues, parties and the list of who is
-online.
+online. Guilds, friendships and blocks are stored and survive it.
 
 **At startup** the metagame logs the address it listens on and a line
 `Progression mode: real for every account (the default)` (or which mode it is in). In real mode it
@@ -3408,6 +3483,21 @@ players from `GET /undaunted/api/ServerStatus` (see [HTTP API](https://mixutin.g
 | `SAVE_HISTORY_DAILY` | `30` (also when empty, negative or not a whole number) | whole number of days, 0 or more (0 turns this tier off) | And the last version of each day for this many days. At the defaults that is at most about 3.5 MB per character. | Nobody by default |
 | `INVENTORY_REFUSE_OVERSPEND` | off | `1` or anything else | `1` refuses (409) an inventory transaction that removes more than the player has. Off because a refusal drops the whole transaction, rewards included; meanwhile an overspend is clamped at 0 and logged. | Nobody by default; kit: kept |
 | `INVENTORY_REPORT_REMOVALS` | on | `0` or anything else | **Fork only.** Inventory replies list every stack the transaction touched with its final count (0 for a used-up stack), so the game server sees what was spent. `0` puts back upstream's additions-only reply, which made upgrades free. | Nobody by default |
+
+### Friends, parties and guilds
+
+All **fork only**. The switches are read on every request, so a restart with the new value takes
+effect at once. [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html) explains what
+each reply does in the game.
+
+| Name | Default | Values | What it does | Set by |
+|:-----|:--------|:-------|:-------------|:-------|
+| `ACCOUNT_MAPPING` | on | `0` or anything else | `POST /account/mapping` maps this server's accounts in the shape the client reads, which Add Friends, name-based invites and the friends list need. `0` maps nothing, the old effective behaviour: Add Friends then does nothing in game. | Nobody by default |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | off | `1` or anything else | `1` puts back upstream's `POST /accountinfo/public` reply, which describes the caller instead of the asked player. With it, party invites, Hunt Members and friends do not show in game. A rollback in case the new reply disturbs logins. | Nobody by default |
+| `GUILDS` | on | `0` or anything else | The guild routes. `0` brings back the old stubs (no guild, no invites) and makes every other guild route answer 404; the stored guilds are kept and come back with the switch. | Nobody by default |
+| `GUILD_MAX_MEMBERS` | `100` (also when not a whole number from 1 to 10000) | whole number | Members per guild. The client shows this number and the open positions left. | Nobody by default |
+| `GUILD_INVITE_TTL_DAYS` | `7` (also when not a number above 0 and up to 365) | days | How long a guild invite stays open. | Nobody by default |
+| `GUILD_NAME_DENYLIST` | empty | comma-separated words | Words refused in guild names and nameplates, on top of a short built-in list. Matched anywhere in the name, regardless of case, after undoing digit swaps such as `0` for `o`. | Nobody by default |
 
 ### Compatibility switches
 
@@ -4069,7 +4159,7 @@ sandbox install or `Test-Sandbox.ps1` is running. How to run the tests is on
 
 | Suite | Ports |
 |:------|:------|
-| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502 |
+| `UndauntedMetagame/`, `npm test` | 62014, 62015-62016, 62471-62472, 62481-62483, 62501-62502, 62901-62904 |
 | `UndauntedDeployServer/`, `npm test` | 62013, 62473 |
 | `UndauntedGateway/`, `npm test` | 62400-62499 (in use: 62400-62405, 62409-62417, 62420-62422, 62430-62436) |
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
@@ -4300,14 +4390,15 @@ it, and everyone else gets upstream's fixed max ranks
 - A method and path that match no route get an empty 404 and the log line `Unstubbed route <METHOD> <path>`.
 - Request bodies may be JSON (up to 50 MB) or form-encoded (up to Express's default of 100 kB).
   Through the gateway the limit is 128 KiB.
-- Unparseable JSON sent to `Register`, `CreateInvite`, `RenameUser`, `PartyInvite` or `Friends` gets
-  400 `{"error": "bad_request", ...}`. On any other route it gets Express's HTML 400 page, and any
-  other unexpected error gets Express's HTML 500 page. Both include a stack trace unless
-  `NODE_ENV=production`.
+- Unparseable JSON sent to `Register`, `CreateInvite`, `RenameUser`, `PartyInvite`, `Friends`,
+  `GuildInvite` or `DisbandGuild` gets 400 `{"error": "bad_request", ...}`. On any other route it
+  gets Express's HTML 400 page, and any other unexpected error gets Express's HTML 500 page. Both
+  include a stack trace unless `NODE_ENV=production`.
 - Each request is logged as `<METHOD> <path> gs=0|1` (`gs=1` when it carries the game-server key),
   with tokens in the path replaced; `LOG_REQUESTS=0` turns this off. `LOG_BODIES=1` also writes the
-  bodies of some game routes to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That file
-  still holds player data: keep it private.
+  bodies of some game routes (among them the party, friends, guild, `/account/mapping` and
+  `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That
+  file still holds player data: keep it private.
 - Many game routes answer `{"code": null, "message": "OK", "payload": ...}`, as the original backend
   did. [Backend contract](https://mixutin.github.io/dauntless-revived/findings/backend-contract.html) has the shapes the client expects.
 - These settings change which routes answer. Each needs a restart;
@@ -4322,6 +4413,9 @@ it, and everyone else gets upstream's fixed max ranks
 | `PROGRESSION_ALLOW_DELETE` | unset: off | `1` lets game servers reset a track. |
 | `STATUS_EXTRA` | unset: on | `0` trims `/dauntless-status` to the nine fields the client reads. |
 | `ACCOUNT_DISPLAY_NAME` | unset: on | `0` puts upstream's `{}` back as `displayName` in the account record and the party replies. |
+| `ACCOUNT_MAPPING` | unset: on | `0` makes `POST /account/mapping` map nothing (`accountMappings: {}`), the old effective behaviour. |
+| `ACCOUNTINFO_PUBLIC_LEGACY` | unset: off | `1` puts back upstream's `POST /accountinfo/public` reply: the caller's own id, and 200 with an empty name for an unknown id. |
+| `GUILDS` | unset: on | `0` puts back the old guild stubs (`GET /guild` 204, `GET /guild/invite/player` an empty list); every other guild route, and the three guild routes of the management API, answer 404. |
 
 ## Metagame: game routes
 
@@ -4342,14 +4436,14 @@ work on the host.
 | GET | `/account/api/public/account/:accountId` | optional token | With a token: `{id, displayName, externalAuths}` of that account, or `{}` if it does not exist. Without a token: `{}`. |
 | GET | `/account/api/public/account/displayName/:name` | optional token | Finds an account by username, regardless of case. Needs a token to find anything; otherwise, or when nothing matches, 404. |
 | GET | `/account/api/public/account/:accountId/externalAuths` | none | Answers `{}`. |
-| POST | `/account/mapping` | optional token | The game's account-mapping lookup (`QueryAccountMappingsEndpoint`), called after a friend search and right after a party invite arrives; upstream answered 404. The 1.4.4 client sends `{"srcAccountType": "epic", "ids": ["<account id>"]}` (the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). The reply is flat and wrapped at once, `{code: "OK", message: "", payload: {accountMappings}, accountMappings}`, because Phoenix services answer either way. With a token, every asked id that is one of this server's accounts maps to itself (a player's Epic id and account id are the same here), in the asked order, as `{accountType: "phoenix", accountId, id, epic, phoenix, srcAccountType, srcAccountId, srcId, dstAccountType: "phoenix", dstAccountId, displayName}`: the likely field spellings side by side. Other ids are left out. Without a token the list is empty. The log records only the body's shape. The first answer (an object keyed by id, 22 September 2026) showed nothing in game; this one is not yet confirmed in game either. |
+| POST | `/account/mapping` | optional token | The client's account-mapping lookup (`QueryAccountMappingsEndpoint`): Epic account ids to Phoenix account ids. It runs for Add Friends (after the name lookup), the chat's `/invite <name>`, the guild add-member box, every id on the friends list and block list, and once at login for the player's own id. Body `{"srcAccountType": "epic", "ids": ["<id>", ...]}` (at most 100 ids, each once; the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). Reply `{"accountMappings": {"<asked id>": {"accountId": "<id>", "accountType": "phoenix"}}, "code": "OK", "message": "", "payload": {"accountMappings": {...}}}`: an object keyed by each asked id, the shape the client parses, with a wrapped copy it ignores. Every id is its own mapping here (a player's Epic id and account id are the same). For `srcAccountType` `phoenix` the entries say `epic`. Ids that are not this server's accounts are left out, and without a valid token the map is empty. `ACCOUNT_MAPPING=0` maps nothing. The log records the body's shape and `-> N of M mapped`. Earlier replies (an object keyed by id without `accountMappings`, then `accountMappings` as an array) mapped nothing in the client; see [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html). |
 | GET | `/features/platform/win` | none | Platform flags: `crossplay` and `crossprogression` true. |
 | GET | `/account/link/epic/:accountId` | none | Answers `isLinked: true`. |
 | POST | `/login` | token | The login queue. The body's `email` must equal the token's account id and the account must exist (otherwise 400). Answers `{"error_code": "TicketRateOk", "state": "OPEN", ...}`. |
 | GET | `/accountinfo` | token | The caller's `accountId` and `username`, with fixed values for the other fields. |
 | GET | `/tags` | token | `{accountId, tags: []}`. |
 | PUT | `/gamesession/epic` | token | Echoes the caller's own bearer token back as `payload.sessionToken`. The reply contains the token. |
-| POST | `/accountinfo/public` | token | The username of `body.accountId` (empty if unknown). Any logged-in player may look up any account's name. |
+| POST | `/accountinfo/public` | token | Another player's user info, which the client needs before it shows that player anywhere (a party invite's sender, party and Hunt Members, friends, blocked players, guild members). Body `{"accountId": "<id>"}` or `{"displayname": "<name>"}` (any case; `accountId` wins when both are given). Reply `{accountId, username, linkedAccounts: [{accountId, accountType: "epic"}], isSubscribed: true, language: null}` for the **asked** account: the client files the reply under its `accountId`. 404 `{}` for an unknown id or name. Any logged-in player may look up any account. Upstream answered with the caller's own id, which is why other players never showed; `ACCOUNTINFO_PUBLIC_LEGACY=1` puts that back. Each lookup is logged as `accountinfo/public by <caller> for <id> -> found` (or `-> 404`). |
 
 ### Status, heartbeat and small fixed replies
 
@@ -4369,8 +4463,6 @@ work on the host.
 | GET | `/all/` | token | An empty mailbox. |
 | GET | `/game_tuning/seasonal_event_schedule` | none | No scheduled events. |
 | GET | `/game_tuning/huntpass_xp_config` | none | The Hunt Pass XP configuration (`MaxXPAwarded` 200). |
-| GET | `/guild/invite/player` | token | No guild invites. |
-| GET | `/guild` | token | 204: no guild. |
 
 ### Characters, inventory and currency
 
@@ -4482,23 +4574,107 @@ each per account). Everyone shows as offline, because presence would need a chat
 | GET | `/friends/api/public/blocklist/:userId` | optional token | The caller's own block list `{blockedUsers}`; otherwise an empty list. 404 with `MISC_ROUTES=0`. |
 | POST | `/friends/api/public/friends/:userId/:friendId` | player | Sends a friend request, or accepts the one `friendId` sent. |
 | DELETE | `/friends/api/public/friends/:userId/:friendId` | player | Unfriends, withdraws a request or declines one. |
-| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId`. |
+| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId` and removes any friendship between the two. |
+| PUT | `/friends/api/public/blocklist/:userId/:friendId` | player | The same as the POST. The client's verb for Block is inferred from the executable, not traced, so both are accepted. |
 | DELETE | `/friends/api/public/blocklist/:userId/:friendId` | player | Unblocks `friendId`. |
 | GET | `/friends/api/public/list/:namespace/:userId/recentPlayers` | none | Answers `[]`. 404 with `MISC_ROUTES=0`. |
 | GET | `/friends/api/v1/:userId/settings` | none | Answers `{acceptInvites: "public"}`. 404 with `MISC_ROUTES=0`. |
 
-The four changes answer 204 with no body. `:userId` must be the caller (403 otherwise). A `friendId`
+The changes answer 204 with no body. `:userId` must be the caller (403 otherwise). A `friendId`
 that is not shaped like an account id gets 404. A request or a block also refuses an unknown account
 (404), yourself (400) and the 200 limit (409), and a request refuses a pair where one has blocked
-the other (403). Removing a friend or a block that does not exist still answers 204.
+the other (403). A new request is also refused (409) when the caller already has 50 unanswered
+requests out, or has sent 20 new requests in the last 10 minutes; accepting a request the other
+player sent is never limited. Removing a friend or a block that does not exist still answers 204.
+
+The client reads both lists only at login, so a new request or an accepted one shows for the other
+player at their next login. [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html)
+describes what the player sees at each step.
+
+### Guilds
+
+The v2 guild API of the 1.4.4 client, stored in the database (tables `guilds`, `guildmembers` and
+`guildinvites`, see [Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html)), so guilds and invites
+survive restarts.
+
+- **Replies** are the Phoenix envelope `{"code", "message", "payload"}`. A reply that carries a guild
+  or the invite list also copies the payload's fields to the root. A success always has a JSON body:
+  the client treats a success without one as a failure. The one empty reply is `GET /guild`'s 204
+  for "no guild".
+- **Refusals** are a 4xx with `{"code": "<code>", "message": "<text>", "payload": {}}`. The client maps
+  the code to its own error and shows its own text; an empty code shows as "Unable to create guild."
+- **The guild object** is `{id, name, nameplate, leader_account_id, members: [{phx_account_id, rank}],
+  maximum_guild_members}`. Ranks are `Leader`, `Officer` and `Member`, listed in that order and then
+  by join time. `maximum_guild_members` is `GUILD_MAX_MEMBERS` (default 100), a number.
+- **Nothing is pushed.** Other members and invitees see a change at their next login or world load
+  (the client reads `GET /guild` and `GET /guild/invite/player` then, and after each of its own guild
+  actions).
+- `GUILDS=0` brings back the old stubs for the two reads, and every other guild route answers 404.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/guild` | token | The caller's guild: 200 with the guild object, wrapped and flat. 204 with no body when the caller is in no guild (also for the game-server key without a player token). |
+| GET | `/guild/invite/player` | token | The caller's open invites, newest first: `{code: "OK", message: "", payload: {invites}, invites}`, each `{id, guild_id, guild_name, inviter_account_id}`. |
+| POST | `/guild/validate` | player | `{leader_account_id, name, nameplate}`, sent while the player types in CREATE A GUILD. Checks the rules below for the token's account (a different `leader_account_id` is only logged) and answers `{code: "OK", message: "", payload: {}}` or the refusal. Creates nothing. |
+| POST | `/guild` | game-server key | The create. The Create button is an RPC to the Ramsgate game server, which sends the same body here with its key. Answers the new guild object. See below. |
+| DELETE | `/guild/player` | player | Leave Guild. A Member or Officer leaves; the leader cannot (409 `ChiefAdorableQuillshot`). |
+| DELETE | `/guild/player/:accountId` | player | Kick From Guild. Leader only. Naming yourself is a leave. |
+| PUT | `/guild/invite/:accountId` | player | Invite to Guild, no body. Leader or Officer. |
+| POST | `/guild/invite/accept/:inviteId` | player | Accepts one of the caller's own invites: the caller joins as a Member, and every other invite they had is removed. |
+| DELETE | `/guild/invite/:inviteId` | player | Declines one of the caller's own invites. |
+| PUT | `/guild/rank/:accountId/:rank` | player | `member`, `officer` or `leader`, in any case. Leader only. `leader` hands the guild over, and the old leader becomes an Officer. Setting the rank a member already has changes nothing. |
+| DELETE | `/guild/:guildId` | player | DISBAND GUILD: the caller's own guild, its members and its invites. Leader only. |
+
+`DELETE /guild/player` and `DELETE /guild/player/:accountId` are registered before
+`DELETE /guild/:guildId`, which would otherwise take them.
+
+**Names and nameplates**, checked in this order (the first failure decides):
+
+| Rule | Code | Status |
+|:-----|:-----|:-------|
+| The caller (or, for the create, the leader) is not in a guild | `OccupiedAdorableQuillshot` | 409 |
+| Name: 4 to 15 English letters and digits, nothing else | `ObedientAdorableQuillshot` | 400 |
+| Name: at most 6 digits | `NumberedAdorableQuillshot` | 400 |
+| Name: at most 6 of the same letter in a row, regardless of case | `LetteredAdorableQuillshot` | 400 |
+| Name: no word from the deny list | `NastyAdorableQuillshot` | 400 |
+| Name: not taken, regardless of case | `SeizedAdorableQuillshot` | 409 |
+| Nameplate: empty, or 2 to 6 English letters and digits | `DutifulAdorableQuillshot` | 400 |
+| Nameplate: no word from the deny list | `DirtyAdorableQuillshot` | 400 |
+| Nameplate: not taken, regardless of case (an empty one never is) | `CapturedAdorableQuillshot` | 409 |
+
+The deny list is short and built in; `GUILD_NAME_DENYLIST` adds words. It is compared after lower-casing
+and undoing common digit swaps (`0` for `o`, `3` for `e` and so on).
+
+**The create** (`POST /guild`) takes only the game-server key from this machine: a player's token alone
+gets 403 `{"code": ""}`, the key through the gateway or any proxy 403, and an unregistered key 401. A
+player token the game server forwards is used if it is valid and ignored if not (never a 500). Then,
+in order: `leader_account_id` must be an account (400); a forwarded token of another player gets 403
+`SlyAdorableQuillshot`; the leader must have validated a name in the last 15 minutes or been heard from
+in the last minute (party poll, heartbeat), otherwise 403 `SlyAdorableQuillshot`, logged as "no recent
+validate or activity" (the game server passes on whatever leader id the client sent); the name rules;
+at most one new guild per leader per 10 minutes (429).
+
+**Other refusals:** not in a guild, or a target not in the caller's guild: 404
+`ExcludedAdorableQuillshot`. Not allowed (a Member inviting, anyone but the leader kicking, changing
+ranks or disbanding, the leader's own rank): 403 `SlyAdorableQuillshot`. Inviting yourself or a
+member: 409 `ClonedAdorableQuillshot`. A live invite from the same guild: 409
+`RedundantAdorableQuillshot`. The guild is full (invite and accept): 409 `StuffedAdorableQuillshot`.
+An invite that is missing, expired or someone else's: 404 `UninvitedAdorableQuillshot`. An unknown
+rank: 400 `DocileAdorableQuillshot`. An unknown account (404), a block either way (403) and the
+limits (429) answer an empty code.
+
+**Limits:** `GUILD_MAX_MEMBERS` members per guild; invites stay open `GUILD_INVITE_TTL_DAYS` days (7);
+50 open invites per guild and 30 invites sent per inviter per hour (429); a player keeps at most 20
+open invites (the oldest is dropped). Pending invites do not reserve a place. A player in another guild
+can be invited but must leave it before accepting (409 `OccupiedAdorableQuillshot`).
 
 ## Metagame: the management API
 
 All of these live under `/undaunted/api/` on the metagame; the paths below are relative to it.
 **Through the gateway only four answer:**
 `POST Register` and `GET`/`HEAD` of `GetUserInfo`, `ServerStatus` and `RegistrationStatus`. Every other
-path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite` and
-`Friends`, gets 403 from the gateway. Run the rest on the server itself (in public mode at
+path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `PartyInvite`,
+`Friends` and the guild routes, gets 403 from the gateway. Run the rest on the server itself (in public mode at
 `http://127.0.0.1:61000`), or in private mode from a machine that can reach the metagame.
 
 | Method | Path | Access | Gateway | What it does |
@@ -4512,6 +4688,9 @@ path under `/undaunted`, including `UsernameAvailable`, `PublicOnlineStats`, `Pa
 | GET | `PublicOnlineStats` | account key | no | `{NumActivePlayers}`: players with a heartbeat in the last 90 seconds. |
 | POST | `PartyInvite` | account key (admin key for `From`) | no | `{Username, From?}`: the key's owner invites that player to their party; the friend still accepts in the game. Answers `{From, To}`. |
 | POST | `Friends` | account key (admin key for `From`) | no | `{Username, From?}`: sends a friend request, or accepts the one that player sent. Answers `{From, To, Result}`, `Result` = `requested`, `accepted`, `already_friends` or `already_requested`. |
+| POST | `GuildInvite` | account key (admin key for `From`) | no | `{Username, From?}`: the key's owner (or `From`) invites that player to their guild, with the same checks as the game's own invite; the player still accepts in the game. Answers `{From, To, Guild}`. |
+| GET | `Guilds` | admin key | no | Every guild: `[{guildId, name, nameplate, leader, members}]`, `members` being a count. |
+| POST | `DisbandGuild` | admin key | no | `{Guild}` (the id, or the name in any case): removes the guild, its members and its invites. Answers `{Guild, Members}`; 404 `not_found` for an unknown guild. |
 | GET | `InviteCodes` | admin key | no | `{InviteCodes: [{inviteCode, usesRemaining, infiniteUses}]}`. **The reply contains live invite codes.** |
 | POST | `CreateInvite` | admin key | no | `{uses?, name?}` → `{code}`. A random `XXXX-XXXX-XXXX` code from Crockford's base32 alphabet (60 random bits). `uses` is 1 to 1000 (default 1). `name` is a note for the log and is not stored; the log shows only the code's first group. |
 | POST | `RegisterInviteCode` | admin key | no | `{NewInviteCode, Uses, InfiniteUses}`: stores a code you chose (`Uses` a whole number of at least 1 unless `InfiniteUses`). The older way; `New-Invite.ps1` uses it only against a metagame without `CreateInvite`. |
@@ -4550,20 +4729,23 @@ Admin grants and revokes are recorded in the progression event log like the game
 
 ### Error codes of the account routes
 
-`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite` and `Friends` explain a
-refusal as `{"error": <code>, "message": <text>}`:
+`Register`, `RenameUser`, `CreateInvite`, `UsernameAvailable`, `PartyInvite`, `Friends`,
+`GuildInvite`, `DisbandGuild` and `Guilds` explain a refusal as `{"error": <code>, "message": <text>}`:
 
 | Code | Status | Where | Meaning |
 |:-----|:-------|:------|:--------|
 | `registration_closed` | 400 | Register | The registration mode is `NONE`. |
-| `bad_request` | 400 | Register, RenameUser, CreateInvite, and bad JSON on all five POST routes | The body is not JSON, or a field is missing or of the wrong type. |
+| `bad_request` | 400 | Register, RenameUser, CreateInvite, and bad JSON on all seven POST routes | The body is not JSON, or a field is missing or of the wrong type. |
 | `username_invalid` | 400 | Register, RenameUser, UsernameAvailable | The name breaks the rules above. |
 | `invite_invalid` | 401 | Register | The code is missing, wrong or used up. |
 | `username_taken` | 409 | Register, RenameUser, UsernameAvailable | Another account has that name, in any case. |
-| `not_found` | 404 | RenameUser, PartyInvite, Friends | No such account. A name that matches two older accounts in different case matches neither. |
-| `forbidden` | 403 | PartyInvite, Friends | `From` was given by a key that is not an admin's. |
+| `not_found` | 404 | RenameUser, PartyInvite, Friends, GuildInvite, DisbandGuild | No such account. A name that matches two older accounts in different case matches neither. |
+| `forbidden` | 403 | PartyInvite, Friends, GuildInvite | `From` was given by a key that is not an admin's. |
 | `party_invite_refused` | the party's status | PartyInvite | The party refused the invite (full, not the leader, blocked and so on). |
 | `self`, `blocked`, `limit` | 400, 403, 409 | Friends | Yourself; one of the two has blocked the other; 200 friends or requests. |
+| `pending_limit`, `rate` | 409 | Friends | 50 requests sent are still unanswered; 20 new requests in the last 10 minutes. |
+| `guild_refused` | the guild's status | GuildInvite | The guild refused the invite; `message` starts with the guild code (for example `RedundantAdorableQuillshot: ...`) when there is one. |
+| `guilds_off` | 404 | GuildInvite, DisbandGuild, Guilds | `GUILDS=0`. |
 
 `UsernameAvailable` always answers 200, with `available: false` and the code. The other routes of this
 API refuse with a bare status code and no body.
@@ -5064,6 +5246,7 @@ update; on a hand-built host, back up before you pull new code.
 | `0010_save_history_and_item_log` | Creates `characterhistory`, `loadouthistory`, `inventorytransactions`, and `inventorylog` with its append-only triggers. |
 | `0011_real_progression` | Creates `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft`, `loadoutslots`, and `progression_events` with its append-only triggers. |
 | `0012_friends_and_blocks` | Creates `friendships` and `blocks`. |
+| `0013_guilds` | Creates `guilds`, `guildmembers` and `guildinvites`. Adds tables only. |
 
 To add a migration, change `src/db/schema.ts` and run `npm run db:generate`; see
 [Developer guide](https://mixutin.github.io/dauntless-revived/reference/development.html).
@@ -5133,7 +5316,18 @@ and change these tables; see [HTTP API](https://mixutin.github.io/dauntless-revi
 | Table | What it stores |
 |:------|:---------------|
 | `friendships` | One row per pair of accounts (the two ids sorted), who sent the request, `PENDING` or `ACCEPTED`, and the times in milliseconds. At most 200 per account. |
-| `blocks` | Who blocked whom, and when. A block removes the friendship and stops friend requests and party invites both ways. At most 200 per account. |
+| `blocks` | Who blocked whom, and when. A block removes the friendship and stops friend requests, party invites and guild invites both ways. At most 200 per account. |
+
+### Guilds
+
+| Table | What it stores |
+|:------|:---------------|
+| `guilds` | One row per guild: `guildId` (a random UUID), `name`, `nameplate` (the tag, may be empty), lower-case copies `nameKey` and `nameplateKey` with unique indexes (so names and tags are unique regardless of case; an empty tag is stored as NULL there), `leaderId`, and the times in milliseconds. |
+| `guildmembers` | One row per member, keyed by account (one guild per account): `guildId`, `rank` (`Leader`, `Officer` or `Member`) and the times. The leader's row always matches `guilds.leaderId`. |
+| `guildinvites` | Open invites: `inviteId` (a random UUID, the id the client accepts or declines), `guildId`, the invited and the inviting account, and when it was made and expires. One per guild and invited player. Expired rows are ignored and deleted at most once a minute. |
+
+A disband deletes the guild's rows in all three tables. The admin routes `Guilds` and `DisbandGuild`
+list and remove guilds; see [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#guilds).
 
 ### Kept only in memory
 
@@ -5141,6 +5335,8 @@ These are **lost when the metagame restarts**:
 
 - matchmaking queues and results (who waits for which hunt, and where to connect);
 - parties, party invites and party searches;
+- the friend-request rate window, guild name validations (15 minutes) and the guild creation and
+  invite rate windows;
 - who is online and where (a player counts as online for 90 seconds after their game's last heartbeat);
 - a registration mode changed through `POST /undaunted/api/RegistrationStatus`: after a restart the
   `REGISTRATION_MODE` from the settings file applies again;
@@ -7537,6 +7733,7 @@ addresses and short snippets, and only as much as each explanation needs.
 | [How multiplayer works](https://mixutin.github.io/dauntless-revived/findings/multiplayer.html) | 1.4.4 | How Undaunted turns extra copies of the client into game servers by driving the intact network layer from an injected DLL. |
 | [Crash forensics](https://mixutin.github.io/dauntless-revived/findings/crashes.html) | Mostly 2.1.1 | Turning crash reports into instruction addresses, and what each crash we hit turned out to be. |
 | [The 2.1.1 standalone attempt](https://mixutin.github.io/dauntless-revived/findings/awakening-2-1-1.html) | 2.1.1 | How far a solo boot into Ramsgate got, where it stopped (no controllable player), and where to continue. |
+| [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html) | 1.4.4 | How the client finds other players, the exact replies friends, parties and guilds need, why the first two-player test showed nothing, and what is still unconfirmed. |
 
 The scripts used for most of the static analysis are described on
 [Tools](https://mixutin.github.io/dauntless-revived/tools.html).
@@ -11210,6 +11407,410 @@ function. The shipping exe has no symbols.
 - **The cost:** everything released after October 2020 is missing from 1.4.4.
 
 ================================================================================
+URL: https://mixutin.github.io/dauntless-revived/findings/social.html
+================================================================================
+
+# Friends, parties and guilds in 1.4.4
+
+This page describes how the **1.4.4** client handles the Social panel: friends, blocked players,
+parties and party invites, and guilds. It records what the client sends, what it needs back, and why
+the first test with two players on 22 September 2026 showed nothing. It also lists the fixes we built
+in the metagame.
+
+**Status (22 September 2026): built and tested without the game, not yet tried by two players.** Every
+fix below passes HTTP tests that replay the client's own requests and check each reply against a model
+of the client's parsing. The next two-player test on the rented server will confirm or correct them.
+Online status and chat are not built (they need an XMPP server, see [Deferred](https://mixutin.github.io/dauntless-revived/findings/social.html#deferred)).
+
+## Evidence and confidence
+
+Each fact is marked with where it comes from and how sure we are.
+
+| Label | Source |
+|:------|:-------|
+| **B** | The 1.4.4 executable (`Dauntless-Win64-Shipping.exe`, 103 MB): its strings (ASCII and UTF-16), and disassembly of the functions that build requests and parse replies. Addresses are virtual addresses with image base `0x140000000`. |
+| **L** | The live server: a census of every route the real clients and game servers called on 22 September 2026, with counts and unanswered routes, and what the two players reported. |
+| **R** | Requests the 2.1.1 client sent to our research server (the same Phoenix services, recorded with their bodies). |
+| **K** | Reflected class and struct names (the SDK dump of the game's classes), and the endpoint table in `UndauntedInternalServer/dllmain.cpp`. |
+| **C** | Our own code and tests. |
+| **G** | A design decision of ours, where nothing in the client decides it. |
+
+Confidence: **H** high (read in the code, or seen live), **M** medium (one link not traced), **L** low.
+
+The method for reading JSON field names out of the executable is on
+[Reading the JSON contract from the binary](https://mixutin.github.io/dauntless-revived/findings/json-reversing.html).
+
+## What the players saw, and why
+
+| What the players saw | Cause | Fix | Conf |
+|:---------------------|:------|:----|:-----|
+| A party invite reached the other player's client (the invite poll answered it twice) but never appeared under PARTY INVITES. | Before the panel shows an invite, the client asks `POST /accountinfo/public` about the sender. Our reply, inherited from upstream, described the **caller** instead: the caller's id in `accountId` and in `linkedAccounts`. The client files user info under the reply's `accountId` and keeps the first reply per id, so the sender never got any user info, was invalidated, and the invite was dropped (B `0x140b74870`, `0x1409ede50`). | `/accountinfo/public` answers for the asked account. | H in the code, M that nothing else stands in the way |
+| Add Friends "found nothing". | Add Friends is not a search. It is a name box and an Add button. The name was found (`GET /account/api/public/account/displayName/<name>`), but the next step, `POST /account/mapping`, first got 404 and then a reply shape the client does not read. With no mapping, the client drops the friend request without a message. No friend request ever reached the server (0 calls, L). | `/account/mapping` answers in the shape the client parses. | H |
+| Everyone, the players themselves included, showed as Offline. | Online status comes only from XMPP presence, pushed over the chat connection, and nothing listens there. There is no HTTP presence route. | Not built yet: needs the XMPP server. | H |
+| "Unable to create guild." | `POST /guild/validate` (from the client) and `POST /guild` (from the **game server**) both got 404. | The eleven v2 guild routes. | H |
+| Nobody used the in-game party Invite (both invites of the night came from the host's fallback). | The players could not find each other: Hunt Members and friends need the same user-info step as an invite's sender. | Same fix as the first row. | M |
+
+**After the fixes are deployed, both players must restart the game once.** The client keeps the
+first user info and the first mapping per id for the whole session, so wrong entries from before stay
+until it restarts.
+
+**A correction.** Our earlier notes, and roadmap item 1.11, blamed `/account/mapping` for both the
+friend search and the party invite. That is only half right. Add Friends did stop at
+`/account/mapping` (and would next have stopped at `/accountinfo/public`). The received party invite
+never uses the mapping: its sender id is already a Phoenix id, and it was dropped at
+`/accountinfo/public`. The mapping calls seen around the invite that night fit other callers: the
+two Add Friends attempts and the client's own mapping of the local player at login.
+
+## One id, two steps: the identity chain
+
+Every entry in every Social list (friends, friend requests, blocked players, party members, Hunt
+Members, party invites, guild members, guild inviters) is a "social user" keyed by its **Phoenix**
+account id (B `0x1415af620`). It only appears once two lookups have succeeded:
+
+```
+Epic id (friends list, block list, Add Friends, /invite <name>, the guild add-member box)
+   |  POST /account/mapping {"srcAccountType": "epic", "ids": [<epic id>]}      -> Phoenix id
+   v
+Phoenix id (party invite sender, party members, Hunt Members, guild members and inviters)
+   |  POST /accountinfo/public {"accountId": <phoenix id>}                      -> user info
+   |     the reply's accountId must be the asked id (cache key, first reply wins)
+   |     linkedAccounts [{accountType: "epic", accountId: X}] sets the user's Epic id to X
+   v
+the social toolkit checks that the user's Epic id is the Epic id the action started from
+   v
+the entry is shown, or the queued action runs (send the friend request, show the invite ...)
+```
+
+When the mapping yields nothing, the action is dropped quietly (B, log string "Mapping primary Id for
+unknown, unmapped external Id [%s] for user action"). When the user info yields nothing, the user is
+invalidated (B, "SocialToolkit - HandleUserInvalidated called for [%s]").
+
+**On this server every account has exactly one id**, `UID-<uuid>`. It is at once the Epic account id
+(the login answers it as `account_id`), the Phoenix account id (party and guild member ids) and the
+future chat id. So every mapping is the identity. In the original service the Epic id was a separate
+32-character id (R: the 2.1.1 client mapped such an id at login), and the client still walks both
+steps, so both must answer correctly even though the ids are equal.
+
+### `POST /account/mapping`
+
+The client's `QueryAccountMappingsEndpoint` (K `dllmain.cpp`), in Phoenix's own user service.
+
+- **Request** (B, R, L): `{"srcAccountType": "epic", "ids": ["<id>"]}`, JSON with the player's bearer
+  token, at most 100 ids per request. The 2.1.1 client sent exactly this at login (R), and so did the
+  live 1.4.4 clients (L).
+- **Reply the parser reads** (B `0x140b09f60`..`0x140b0afd4`): a root key `accountMappings` holding an
+  **object keyed by each asked id**. Each value is an object with non-empty strings `accountId` and
+  `accountType`; `accountType` is compared without case with `epic` and `phoenix`. Nothing else in an
+  entry is read. The HTTP status is not checked; an empty body fails ("Empty response payload") and so
+  does invalid JSON ("Invalid response payload"). Extra root keys are ignored.
+- **Our reply**: `{"accountMappings": {"<id>": {"accountId": "<id>", "accountType": "phoenix"}}, "code": "OK",
+  "message": "", "payload": {"accountMappings": {...}}}`. The wrapped copy under `payload` costs nothing
+  and covers a reader that expects the Phoenix envelope. For `srcAccountType` `phoenix` the entries say
+  `epic`. Unknown ids are left out; without a valid token the map is empty.
+- **Why the two earlier replies failed**: the first was an object keyed by id at the root, with no
+  `accountMappings` key, so the parser found nothing. The second sent `accountMappings` as an **array**,
+  which the parser reads as an empty object. Either way no mapping was cached. Our client model
+  reproduces both failures (see [Testing without the game](https://mixutin.github.io/dauntless-revived/findings/social.html#testing-without-the-game)).
+- Confidence **H** for the shape (the parser was traced end to end); not yet seen working in game.
+
+### `POST /accountinfo/public`
+
+The client's `PublicAccountInfoEndpoint`, one call per player to show (73 calls live, all answered,
+L). This is the step every other player in the Social panel depends on.
+
+- **Request** (B, R): `{"accountId": "<id>"}`, or from a second request builder `{"displayname": "<name>"}`.
+- **Reply** (B `0x140b69ac0`, a plain object, no envelope, like the other account services on
+  [Backend contract](https://mixutin.github.io/dauntless-revived/findings/backend-contract.html)):
+
+  ```json
+  {
+    "accountId": "UID-B",
+    "username": "Bravo",
+    "linkedAccounts": [ { "accountId": "UID-B", "accountType": "epic" } ],
+    "isSubscribed": true,
+    "language": null
+  }
+  ```
+
+- `accountId` must be the **looked-up** account: it is the key the client files the user info under,
+  and the first reply per key wins (B `0x140b74870`, the early return at `0x140b748f9`).
+- The `epic` entry of `linkedAccounts` becomes the user's Epic id (B `0x140b7499f`), which the
+  toolkit compares with the Epic id the action started from.
+- An unknown id or name answers **404 `{}`**: the client counts a failed lookup and caches nothing (B,
+  "Batch Succeeded, Total = %d, FailureCount = %d"). With the old reply it cached nothing useful either.
+- `isSubscribed` and `language` are not read by the client; they stay because they were harmless live.
+- **Why upstream's reply failed**: it put the caller's own id in `accountId` and `linkedAccounts`. At
+  login the client looks up its own id first, so every later lookup of another player landed on the
+  caller's existing entry and was ignored. The other player never got user info.
+- Confidence **H** for the shape and the cache keying; **M** that this alone makes invite senders,
+  Hunt Members and friends appear.
+
+### Lookups by name (unchanged)
+
+| Route | Used by | Conf |
+|:------|:--------|:-----|
+| `GET /account/api/public/account/displayName/:name` → `{id, displayName, externalAuths: {}}` or 404 | Add Friends, the chat's `/invite <name>`, the guild add-member box (B, L: 2 calls) | M |
+| `GET /account/api/public/account?accountId=A&accountId=B` → an array of the same | The Epic-side name of a social user (B) | M |
+
+A typed name that contains `@` goes to an email lookup, which stays unanswered: our usernames cannot
+contain `@`, and the 404 gives the normal "not found" message.
+
+## Friends
+
+The Epic friends service (`[OnlineSubsystemMcp.OnlineFriendsMcp]`, B), with our player token as the
+bearer. Friendships and blocks are stored in SQLite (built for roadmap 1.9). The routes are on
+[HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#friends).
+
+| Call | When | Request and reply | Evidence | Conf |
+|:-----|:-----|:------------------|:---------|:-----|
+| `GET /friends/api/public/friends/:id?includePending=true` | once per login | A bare **array** of `{accountId, status: ACCEPTED or PENDING, direction: INBOUND or OUTBOUND, created}` (the client wraps it as `{"friends": ...}` itself) | B, L: 8 logins, 8 calls | H |
+| `GET /friends/api/public/blocklist/:id` | once per login | `{"blockedUsers": [...]}` | B, L | H |
+| `POST /friends/api/public/friends/:me/:them` | Add Friends, the Add Friend menu item, Accept | no body (Accept sends an empty JSON body); any 2xx | B | H |
+| `DELETE /friends/api/public/friends/:me/:them` | Decline, Remove Friend | any 2xx | B | H |
+| `POST` (and now also `PUT`) `/friends/api/public/blocklist/:me/:them` | Block, after its dialog | any 2xx | B, the verb inferred | M |
+| `DELETE /friends/api/public/blocklist/:me/:them` | Unblock | any 2xx | B | H |
+
+The client reads both lists **only at login** (L). A friend request or an accept therefore shows for
+the other player at their next login, until the XMPP server can push the change.
+
+**What the player should see** (M unless marked):
+
+| Step | Calls | Result |
+|:-----|:------|:-------|
+| Log in | friends list, block list; per listed id: mapping, user info | Accepted friends under OFFLINE (never under EPIC FRIENDS without presence); a pending request someone sent, with Accept and Decline; blocked players under BLOCKED; requests you sent are not listed |
+| Add Friends: type a name, press Add | name lookup (404: the "unknown player" message; your own name: the "you cannot invite yourself" message), mapping, user info, `POST .../friends/<me>/<them>` | a "friend invite sent" message; nothing new in the lists |
+| The other player logs in again | the login calls | the request, with Accept and Decline (where exactly it is listed is still to be seen) |
+| Accept | `POST .../friends/<me>/<them>` | the friend shows under OFFLINE after the next login |
+| Decline, Remove Friend | `DELETE .../friends/<me>/<them>` | the entry goes (H) |
+| Block, Unblock | `POST`/`DELETE .../blocklist/<me>/<them>` | the entry moves to or from BLOCKED |
+
+**Limits we added** (G): at most 50 unanswered requests sent per account, and at most 20 new requests
+per 10 minutes (409, which the client shows as a failure). Accepting a request is never limited. The
+existing limits stay: 200 friendships and 200 blocks per account.
+
+## Parties
+
+The party service was already built (roadmap 1.9) and matched the client's requests and replies. The
+live census shows it working: 399 party polls and 399 invite polls, and the invite delivered to the
+other player's poll (L). **The only server change parties needed is the `/accountinfo/public` fix.**
+
+| Call | When | Evidence | Conf |
+|:-----|:-----|:---------|:-----|
+| `POST /party` `{buildId, featureOverrides: []}` | the poll, about every 10 seconds, and at login | B `0x140b57600`, L: 399 calls | H |
+| `GET /party/invites` → `{"invitations": [{recipientPlayerId, sendingPlayerId, partyId, sendingPlatform, sendingDisplayName}]}` | the invite poll | B `0x140b675d0`, L: 399 calls | H |
+| `PUT /party/invite` `{recipientPlayerId, partyId, buildId, featureOverrides}` | Invite to Party; the chat's `/invite <name>` | B | H |
+| `PUT /party/invite/accept/:partyId` | Accept | B | H |
+| `DELETE /party/invite` | Decline | B | H |
+| `DELETE /party/member`, `DELETE /party/member/:id`, `PUT /party/member/promote/:id` | leave (also at every login), kick, promote | B, L: 12 leaves in 8 logins | H |
+| `POST /candidate/join` from the leader | the leader picks a hunt; the members follow through their party poll | C, tests | M |
+
+**What the player should see** once the fix is deployed: an invite appears under PARTY INVITES
+within about 10 seconds (the next invite poll), after the client has looked up the sender. Accepting
+shows both names in both party panels. When the leader picks a hunt, the whole party lands on one
+hunt server. Parties live in memory: a metagame restart leaves everyone in a party of one, which the
+client treats as normal.
+
+Two things we deliberately left alone: invites the caller **sent** are not listed in
+`GET /party/invites` (the client might misread them as received), and a party of one keeps the old
+placeholder values, which were harmless live. The client's automatic kick of "offline" party members
+never runs without presence (B `0x1415f6f60`, a 10-second threshold). It must stay that way when the
+XMPP server arrives: the server must never echo a player's own presence back.
+
+## Guilds
+
+### The contract
+
+- **Endpoints** (K `dllmain.cpp`, the cooked `DefaultGame.ini`): eleven `*_v2` keys. The older `v1`
+  keys are compiled in but never called, so we built only v2.
+- **Every reply** is read through the Phoenix envelope `{"code": string, "message": string, "payload":
+  object}` (B `0x140b12170`). Success is a 2xx status **and** a parseable JSON body (B `0x140aae300`),
+  so a 204 is a failure. `GET /guild`'s 204 for "not in a guild" relies on exactly that: the client then
+  clears its guild (B `0x1415c2c90`; L: 34 calls answered 204).
+- **On an error status** the client still reads `code` and maps it to its guild error (B
+  `0x140ade3f0`, K `EGuildRequestError`). An unknown or empty code shows as "Unable to create guild."
+- **Payload fields** are strings, except `maximum_guild_members` (a whole number). Ranks are `Member`,
+  `Officer` and `Leader`, compared without case; the client puts the rank in the URL in lower case.
+- **Creation goes through the game server.** The Create button sends the RPC `ServerCreateGuild` to the
+  Ramsgate game server (B, K), which sends `POST /guild` with its key (L: one such call, answered 404).
+  The RPC's validation returns true without checking any item, so **creating a guild costs nothing** in
+  1.4.4.
+- There is no message of the day, banner, hall, perk or guild XP in v2. Guild chat is the XMPP room
+  `Guild-<guildId>` (not built). The `[TAG]` over players' heads works by itself once `GET /guild`
+  returns a nameplate.
+
+We send every reply wrapped and also copy the payload's fields to the root (G). The envelope reader
+ignores extra root keys, so the copies cost nothing and cover a flat reader in case our reading of the
+code is wrong.
+
+### Error codes
+
+The server sends the `code`; the client shows its own text (from the create-guild widget).
+
+| `code` | Client error | Status we send | Text the client shows |
+|:-------|:-------------|:---------------|:----------------------|
+| `SlyAdorableQuillshot` | InvalidPermission | 403 | |
+| `ExcludedAdorableQuillshot` | NotInAGuild | 404 | |
+| `ObedientAdorableQuillshot` | GuildNameInvalidLength | 400 | Name is invalid. Must contain 4-15 english letters and digits. |
+| `SeizedAdorableQuillshot` | GuildNameTaken | 409 | Guild name already in use. |
+| `NastyAdorableQuillshot` | GuildNameProfane | 400 | Guild name contains profanity. |
+| `NumberedAdorableQuillshot` | GuildNameTooManyNumbers | 400 | Guild name must have 6 numbers or less. |
+| `LetteredAdorableQuillshot` | GuildNameTooManyLetters | 400 | Guild name must not have more than 6 of the same letter in a row. |
+| `DutifulAdorableQuillshot` | GuildNameplateInvalidLength | 400 | Nameplate is invalid. Must contain 2-6 english letters and digits. |
+| `CapturedAdorableQuillshot` | GuildNameplateTaken | 409 | Guild nameplate already in use. |
+| `DirtyAdorableQuillshot` | GuildNameplateProfane | 400 | Guild nameplate contains profanity. |
+| `OccupiedAdorableQuillshot` | YouAlreadyInAGuild | 409 | Unable to create guild. You are already in a guild. |
+| `ClonedAdorableQuillshot` | TargetAlreadyInYourGuild | 409 | |
+| `RedundantAdorableQuillshot` | TargetAlreadyHasGuildInvite | 409 | |
+| `StuffedAdorableQuillshot` | GuildIsFull | 409 | |
+| `UninvitedAdorableQuillshot` | GuildInviteNotFound | 404 | |
+| `ChiefAdorableQuillshot` | GuildLeaderCannotLeaveGuild | 409 | |
+| `DocileAdorableQuillshot` | InvalidGuildRank | 400 | |
+| `""` (empty) | Unknown | as fits | Unable to create guild. |
+
+The seventeen code strings sit together in the executable (B, file offsets `0x447b950` to
+`0x447bca0`), in the same order as the error enum in the SDK (K). The pairing comes from the mapper
+(B, H). The name rules come from the texts above and from the client's own length limits (4 and 15
+for names, 2 and 6 for nameplates, B). The executable also holds older texts with other limits ("4-32"
+and "2-7"); they belong to the unused v1 code.
+
+### Name and nameplate rules
+
+Checked in this order; the first failure decides.
+
+1. The caller (for a create, the leader) is not already in a guild: `Occupied`.
+2. Name: 4 to 15 English letters and digits, nothing else (a space is invalid): `Obedient`.
+3. Name: at most 6 digits: `Numbered`.
+4. Name: at most 6 of the same letter in a row, regardless of case: `Lettered`.
+5. Name: no word from the deny list (G): `Nasty`.
+6. Name: not taken, regardless of case (G): `Seized`.
+7. Nameplate: empty, or 2 to 6 English letters and digits: `Dutiful`. An empty nameplate is allowed
+   (the client skips its own check when it is empty, B), and several guilds may have none.
+8. Nameplate: no word from the deny list: `Dirty`.
+9. Nameplate: not taken, regardless of case: `Captured`.
+
+The client never calls the profanity service (the cooked config turns it off), so the server keeps a
+short built-in deny list; `GUILD_NAME_DENYLIST` adds words (see
+[Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html)).
+
+### The routes
+
+| Route (endpoint key) | Caller | What it does | Conf |
+|:---------------------|:-------|:-------------|:-----|
+| `GET /guild` (`GuildEndpoint_v2`) | the client, at login, at each world load and after every guild action (L: 34 calls in 8 logins) | the caller's guild, or 204 | H |
+| `GET /guild/invite/player` (`GuildViewInvitesEndpoint_v2`) | the same moments | the caller's open invites: `{id, guild_id, guild_name, inviter_account_id}` | H |
+| `POST /guild/validate` (`GuildCreateValidateEndpoint_v2`) | the client, while typing in CREATE A GUILD (L: 2 calls) | `{leader_account_id, name, nameplate}`: checks the rules | H |
+| `POST /guild` (`GuildEndpoint_v2`) | the **game server**, after `ServerCreateGuild` (L: 1 call) | the create; answers the new guild, which the client applies straight away | H |
+| `DELETE /guild/:guildId` (`GuildDisbandEndpoint_v2`) | DISBAND GUILD, leader only | removes the guild | H |
+| `PUT /guild/invite/:accountId` (`GuildInviteEndpoint_v2`) | the add-member box, "Invite to Guild" in any player's menu | invites; Leader or Officer | H |
+| `POST /guild/invite/accept/:guild_invite_id` | Accept Guild Invite | joins as a Member | H |
+| `DELETE /guild/invite/:guild_invite_id` | Decline Guild Invite | removes the invite | H |
+| `DELETE /guild/player` (`GuildLeaveEndpoint_v2`) | Leave Guild | leaves; not the leader | H |
+| `DELETE /guild/player/:accountId` (`GuildKickEndpoint_v2`) | Kick From Guild, leader only | removes a member | H |
+| `PUT /guild/rank/:accountId/:rank` (`GuildChangeRankEndpoint_v2`) | Promote To Guild Officer (`officer`), Demote To Guild Member (`member`), Promote To Guild Leader (`leader`) | changes a rank; `leader` hands the guild over | H (the route), M (the old leader becoming an Officer is our choice) |
+
+The guild object in the replies is `{id, name, nameplate, leader_account_id, members: [{phx_account_id,
+rank}], maximum_guild_members}` (B `0x140b13de0`, K `FGuildData`). The exact checks and codes of each
+route are on [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#guilds).
+
+### Creating a guild through the game server
+
+Because the game server only passes on the leader id the client put in the RPC, the metagame must not
+simply trust it (G):
+
+- `POST /guild` accepts only the game-server key, only from this machine. A player's token alone is
+  refused.
+- A player token the game server forwards is read if valid and ignored otherwise. The shared login
+  check would fail with a server error on a stale token there, so the guild create has its own.
+- The leader must have validated a name in the last 15 minutes, or been heard from in the last minute
+  (party poll, heartbeat). In normal play both are true: the widget validates while the player types,
+  and the client polls its party every 10 seconds in Ramsgate. Otherwise the create is refused and
+  logged as "no recent validate or activity".
+- At most one new guild per leader per 10 minutes, and an admin can disband any guild.
+
+### Storage, limits and permissions
+
+Guilds, members and invites are stored in SQLite (migration `0013_guilds`, three new tables; see
+[Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html)), so a guild survives restarts and an invite waits
+for a player who is offline.
+
+| Limit | Value |
+|:------|:------|
+| Members per guild | `GUILD_MAX_MEMBERS`, default 100 (the client takes whatever number we send) |
+| Invite lifetime | `GUILD_INVITE_TTL_DAYS`, default 7 |
+| Open invites per guild | 50 |
+| Invites sent per inviter | 30 per hour |
+| Open invites per player | 20; the oldest is dropped |
+| Guilds created per leader | 1 per 10 minutes |
+
+| Action | Who |
+|:-------|:----|
+| Read your guild and your invites | you |
+| Invite | Leader, Officer |
+| Accept, decline | the invited player |
+| Leave | Member, Officer |
+| Kick, change ranks, disband | Leader |
+
+A block in either direction refuses a guild invite. A player in another guild can be invited but must
+leave that guild before accepting (the client says so itself, B).
+
+**Nothing is pushed.** Other members and invitees see a change at their next `GET /guild` (login,
+world load, or their own guild action). The panels do not refresh themselves (B).
+
+## Testing without the game
+
+The fixes are tested over HTTP against the real metagame, with the client's own bodies and headers:
+
+- **A model of the client** (`UndauntedMetagame/test/socialclient.ts`) reimplements the parse rules
+  above: the mapping parser, the user-info cache with its first-reply-wins key, the toolkit's Epic id
+  check, the Phoenix envelope, the guild error mapping, the friends list and the party invitations.
+  Fed the replies our server sent on 22 September 2026, it reproduces what the players saw: the array
+  mapping maps nothing, and the old user-info reply leaves the invite's sender invalidated. That checks
+  the model, and guards against the same mistakes coming back.
+- **The social flows** (`test/socialflow.test.ts`): Add Friends by name through the whole chain, a
+  pending request seen at the other player's login, blocked players, a received party invite whose
+  sender is set up, accept, every party member resolving to their own name, the leader queueing with
+  every member expected exactly once, user info filed under the right id in any order, the name form of
+  `/accountinfo/public`, the mapping details, both rollback switches, and the new friend limits.
+- **Guilds** (`test/guildhttp.test.ts`): every route and error code, the game server's create and its
+  checks, invites, expiry, the limits, ranks and hand-over, kick, leave and disband (including the
+  route order), a restart, permissions and `GUILDS=0`. Each reply is checked as exact JSON and through
+  the model.
+
+## Open questions, and the live test
+
+To be checked in the next two-player test, after a deploy and with body logging on for the session:
+
+1. Does the `/accountinfo/public` fix alone make received party invites show? The log should show the
+   invite poll, then `accountinfo/public by <recipient> for <sender> -> found`.
+2. Where does an incoming friend request appear, and is that section hidden while empty?
+3. Does the Block menu reach our friends routes at all (a `POST` or `PUT .../blocklist/...` line)?
+4. What does the guild validate send as `leader_account_id`, and does the game server's `POST /guild`
+   carry the player's token? (The create's log line says "with the player's token" when it does.)
+5. Does `GET /guild` run at every world load (34 calls in 8 logins suggest so)?
+6. Nobody should be kicked from a party after a minute (no `DELETE /party/member/<id>` or
+   `/party/leader/<id>` lines).
+
+Rollback switches, if a fix disturbs something: `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0`
+and `GUILDS=0` (see [Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html)).
+
+## Deferred
+
+| Item | Why |
+|:-----|:----|
+| **Online status and chat** (an XMPP server) | Online status, EPIC FRIENDS, "In Ramsgate", party, guild and area chat, whispers, and friend requests showing without a new login all ride on XMPP. The launcher already points the game's chat connection at port 61099; nothing listens there yet (roadmap 3.10). It must never echo a player's own presence back (see [Parties](https://mixutin.github.io/dauntless-revived/findings/social.html#parties)). |
+| Recent players from the friends service | Never called live; the in-game Recent Players list is kept in the character data. |
+| Other friends routes (settings sources, delete all, email lookups) | Never called live. |
+| Listing sent party invites | The client might misread them as received. |
+| Party finder, console sessions, Phoenix's presence socket | Never called; polling carries all party state. |
+| Voice | Vivox is gone; guild voice is not implemented in 1.4.4 itself. |
+| Linked Slayers (My Links) | Never called live. |
+| The v1 guild API | Never called by 1.4.4. |
+
+The [2.1.1 standalone attempt](https://mixutin.github.io/dauntless-revived/findings/awakening-2-1-1.html) describes the same Phoenix
+services from the final client, including the wrapped and flat reply forms.
+[Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html) explains to players what works today.
+
+================================================================================
 URL: https://mixutin.github.io/dauntless-revived/roadmap.html
 ================================================================================
 
@@ -11254,6 +11855,11 @@ This page is generated from [`ROADMAP.md`](https://github.com/mixutin/dauntless-
 
 ## Where we are (updated 2026-09-22)
 
+> **Update, 2026-09-22 (friends, parties and guilds):**
+> - **Why the two-player test showed no party invite and no friend request, and the fix.** Read from the 1.4.4 executable and the live route census: the invite reached the other player's invite poll, but the client drops an invite whose sender it cannot set up, and `POST /accountinfo/public` (upstream's reply) described the **caller** instead of the sender. Add Friends stopped at `POST /account/mapping`, whose reply the client reads as an object keyed by the asked id (the array we sent read as empty). Both are fixed on the `feature/social` branch, **not deployed yet**; both players must restart the game once after the deploy. This corrects the earlier note that blamed `/account/mapping` for both.
+> - **Guilds are built (3.11):** the eleven v2 routes, stored in SQLite (migration `0013_guilds`). Creating a guild goes through the Ramsgate game server and costs nothing in 1.4.4. Friend requests are now limited (50 unanswered, 20 per 10 minutes).
+> - Everything passes HTTP tests that replay the client's own requests against a model of the client's parsing, which also reproduces what the players saw. Nothing is confirmed in game yet: that is the next two-player test. Online status and chat still need the XMPP server (3.10). Details: [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html).
+
 > **Update, 2026-09-22:**
 > - **The Windows Server 2019 kit runs on a real rented VPS in public mode** (deployed 2026-09-21/22). Checked on the server: the stack starts at boot as the service account in session 0, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup task runs.
 > - The real server found three things the sandbox tests couldn't, all fixed in the kit:
@@ -11268,8 +11874,8 @@ This page is generated from [`ROADMAP.md`](https://github.com/mixutin/dauntless-
 >   - Three game servers ran at once. The UDP allowlist opened the game ports for the player and closed them after they left.
 >   - No "Allowing overspend" warning in the whole session, the hunt end included (the metagame logs it when an inventory transaction removes more than the player has). Several save-version conflicts were refused as designed (older or duplicate full-snapshot saves), and the newest save was kept.
 >   - Launcher 0.1.0's `r.EyeAdaptationQuality=0` made Ramsgate and night scenes far too dark. Launcher 0.1.1, published by CI the same night, no longer writes it and removes the old line on the next launch; with 0.1.1 the owner confirmed Ramsgate looks normal. The dark pre-hunt airship is back: a known, short scene, and a proper fix is 4.17.
->   - **Two players, later the same night:** two players saw each other in Ramsgate and hunted together over the internet, after queueing the same hunt within a few seconds (no party). **Not yet verified:** parties and friends in game (blocked at `POST /account/mapping`, fix pending, see 1.9 and 1.11). Text chat is not built (3.10), and friends' online status needs the chat server.
-> - **Parties and the friends list (1.9): the server side is built** and passes the integration harness with simulated players. It has not been tried with two real game clients yet. Party invites don't require being friends. Showing friends as online needs the chat server (3.10), which isn't built.
+>   - **Two players, later the same night:** two players saw each other in Ramsgate and hunted together over the internet, after queueing the same hunt within a few seconds (no party). **Not yet verified:** parties and friends in game (a party invite was dropped at `POST /accountinfo/public` and Add Friends at `POST /account/mapping`; both fixed but not deployed, see the update above, 1.9 and 1.11). Text chat is not built (3.10), and friends' online status needs the chat server.
+> - **Parties and the friends list (1.9): the server side is built** and passes the integration harness with simulated players. It has not been tried with two real game clients yet. Party invites don't require being friends. Showing friends as online needs the chat server (3.10), which isn't built. *Update: the two causes that blocked them in game are fixed, and guilds are built (see the newest update above).*
 > - The live player list (`/undaunted/api/ServerStatus`) is shown to registered players only, and `/dauntless-status` no longer carries a player count.
 > - Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (4.15).
 > - New items: performance logging and capacity measurement (4.12), more game-server ports (4.13), PostgreSQL before any public release (4.14), rebrand part 2 (4.15), a code-signed launcher (4.16) and a proper fix for the dark pre-hunt airship (4.17).
@@ -11332,8 +11938,8 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 | Currency balance (`/balance`) | Wrong | Reports 0 Notes, 25 weapon tokens and 0 of everything else. Your real Rams are in the inventory. |
 | Store | Broken | The item list returns 400 (15 times today). |
 | Mailbox | Always empty | |
-| Guild | No | |
-| Party, friends list | No, being built elsewhere | *Update 2026-09-22: built on the server side (1.9). Friendships and blocks are saved in SQLite; parties and invites live in memory, so a metagame restart leaves everyone in a party of one. Tested with simulated players only.* |
+| Guild | No | *Update 2026-09-22: built (3.11): guilds, members and invites are stored in SQLite and survive a restart. Not deployed or tried in game yet.* |
+| Party, friends list | No, being built elsewhere | *Update 2026-09-22: built on the server side (1.9). Friendships and blocks are saved in SQLite; parties and invites live in memory, so a metagame restart leaves everyone in a party of one. Tested with simulated players only. The fixes for what blocked them in the two-player test are built, not deployed.* |
 | Trials times, leaderboards, event stats | No | |
 | Backups | Yes, on this PC | *Update: hourly, plus around every start and stop, with a restore test passed (0.1). There are no copies off this PC yet (0.2). The rented server takes its own hourly backups with the kit's task, which is running there.* |
 
@@ -11345,7 +11951,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 - Quit the game at least once a day. Login tokens expire after 24 hours, and saves after that point may fail (1.8).
 - The launcher isn't code-signed yet. If Windows only offers "Don't run", check the installer against `SHA256SUMS.txt` from the same release and unblock it (Properties > Unblock, or `Unblock-File`).
 - The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17. The launcher has an experimental opt-in (Settings > Graphics > Auto exposure > Basic adaptive); if Ramsgate or night hunts look wrong with it, switch back to Game default.
-- Parties are built on the server but haven't been tried with two players yet; that is the next test. You don't have to be friends to invite someone to a party. Friends don't show as online yet.
+- Parties, friends and guilds are built on the server but haven't been tried with two players yet; that is the next test. After the next update, restart the game once. You don't have to be friends to invite someone to a party. Everyone shows as offline for now, and friend requests and guild invites show up at the other player's next login.
 - There is no text chat yet. Use Discord.
 
 ---
@@ -11486,13 +12092,13 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
   - **You'll notice:** a friend who leaves the game open overnight in Ramsgate keeps what they earn afterwards.
   - **Done when:** on a test account with a 5-minute token, a save after 6 minutes either succeeds or fails with a logged 401. It must never be a silent 500.
 
-- [ ] **1.9 Parties and friends list** (L — contract fully mapped) — *Update 2026-09-22: **the server side is built** and passes the integration harness with simulated players: party invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server, returning to Ramsgate together, account lookup by name, and the friends list and blocklist in SQLite. Party invites don't require being friends (a block in either direction stops them). **Not yet tried with two real game clients:** that is the two-player test, next on the rented server. Friends' online status still needs the XMPP server (3.10), which isn't built.* *Two-player test 2026-09-22 (rented server, launcher 0.1.2): the two players saw each other in Ramsgate and ended up in the same hunt lobby, but the hunt did not depart. The metagame had listed one player twice among the expected players (a join that was never matched, plus the same player's new join for the same hunt), so the hunt server waited for a third player and the airship countdown froze. Fixed on the `fix/mapping-matchmaking` branch (one queued join per player, expected players listed once each), not deployed yet. Friend search ("Add Friends") and party invites stop at `POST /account/mapping` (see 1.11): its reply format is being corrected, not yet confirmed in game. After leaving that lobby, both players queued the same hunt within about 2 seconds, without a party: the matchmaker expected exactly the two of them and **they hunted together over the internet**, the first two-player hunt on the rented server.*
+- [ ] **1.9 Parties and friends list** (L — contract fully mapped) — *Update 2026-09-22: **the server side is built** and passes the integration harness with simulated players: party invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server, returning to Ramsgate together, account lookup by name, and the friends list and blocklist in SQLite. Party invites don't require being friends (a block in either direction stops them). **Not yet tried with two real game clients:** that is the two-player test, next on the rented server. Friends' online status still needs the XMPP server (3.10), which isn't built.* *Two-player test 2026-09-22 (rented server, launcher 0.1.2): the two players saw each other in Ramsgate and ended up in the same hunt lobby, but the hunt did not depart. The metagame had listed one player twice among the expected players (a join that was never matched, plus the same player's new join for the same hunt), so the hunt server waited for a third player and the airship countdown froze. Fixed on the `fix/mapping-matchmaking` branch (one queued join per player, expected players listed once each), not deployed yet. Friend search ("Add Friends") and party invites stop at `POST /account/mapping` (see 1.11): its reply format is being corrected, not yet confirmed in game. After leaving that lobby, both players queued the same hunt within about 2 seconds, without a party: the matchmaker expected exactly the two of them and **they hunted together over the internet**, the first two-player hunt on the rented server.* *Friends, parties and guilds, 2026-09-22 (branch `feature/social`, not deployed; the `fix/mapping-matchmaking` fixes above are merged and running on the rented server): the party invite of the two-player test reached the other player's invite poll but the client dropped it at `POST /accountinfo/public`, whose reply (upstream's) described the caller instead of the invite's sender; the client files user info under the reply's id, so the sender was never set up. Fixed: the reply describes the asked account (`ACCOUNTINFO_PUBLIC_LEGACY=1` is the rollback). Add Friends stopped at `POST /account/mapping` (1.11), also fixed. HTTP tests replay the whole chain (invite, invite poll, sender lookup, accept, the leader queueing, one hunt with every member expected once) against a model of the client's parsing (`test/socialclient.ts`, `test/socialflow.test.ts`). **Next:** the two-player test after the deploy, both players restarting the game first: an invite shows under PARTY INVITES, and the party lands on one hunt. See [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html).*
   - **What:** real parties (today a party is always "you, alone"), a friends list and blocklist (`GET /friends/api/public/{friends,blocklist}` return 404 today), and presence. The contract is mapped from the 1.4.4 client: parties, invites and the friends list are plain HTTP routes (party and invite state in memory, friendships and blocks in SQLite). Showing friends as **online** needs a small XMPP presence server (optional, 3.10). Build order: account-lookup fixes, the party and invite loop, putting the whole party on one hunt server, then friends. Test with a second account and a second client on this PC.
   - **You'll notice:** you can invite a friend and go into a hunt together on purpose.
   - **Stopgap until then:** friends who queue the same hunt within 20 seconds land on the same server, up to 4 players (`controllers/matchmaking.ts:72-108`).
   - **Done when:** at minimum, two friends form a party in Ramsgate and land in the same hunt.
 
-- [ ] **1.10 Cancelling matchmaking works** (S) — *Seen in play: "Unable to cancel matchmaking. A match has already been found." — the client sent `DELETE /candidate` and got 404. **Update:** the cancel is built but off unless `MATCHMAKING_CANCEL=1`. In the logs the client sends `DELETE /candidate` 0.2–2.1 s after every queued join, also for hunts that were played to the end, so the upstream 404 stays the default until a session shows when the client really means it. `POST /candidate/player/alive` is answered.*
+- [ ] **1.10 Cancelling matchmaking works** (S) — *Seen in play: "Unable to cancel matchmaking. A match has already been found." — the client sent `DELETE /candidate` and got 404. **Update:** the cancel is built but off unless `MATCHMAKING_CANCEL=1`. In the logs the client sends `DELETE /candidate` 0.2–2.1 s after every queued join, also for hunts that were played to the end, so the upstream 404 stays the default until a session shows when the client really means it. `POST /candidate/player/alive` is answered.* *Update 2026-09-22: the cancel already follows the party design of 1.9 (a party leader's cancel drops the party's whole candidate, a member's cancel takes only that member out). Still off by default; the friends, parties and guilds work did not change it.*
   - **What:**
     - `DELETE /candidate` should remove the player from the queue. It returned 404 once today.
     - Accept and track `POST /candidate/player/alive`, the game server's check on which expected players are still connected. It returned 404 3 times today.
@@ -11500,7 +12106,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
   - **Needs:** agree the design with 1.9. In live Dauntless, a matchmaking entry belonged to the party.
   - **Done when:** you queue, cancel within 20 seconds, and no hunt server starts.
 
-- [ ] **1.11 Other players show up correctly** (S–M) — *Update 2026-09-22: the lookups are built: `GET /account/api/public/account?accountId=…` returns a list, `/account/api/public/account/:id` returns the display name, and `/account/api/public/account/displayName/:name` finds a player by name. `/account/mapping` and `/character/batch/account` are not added. Not yet seen with two players in game.* *Two-player test 2026-09-22: the two players saw each other in Ramsgate. The client calls `POST /account/mapping` (its `QueryAccountMappingsEndpoint`, body `{"srcAccountType": "epic", "ids": ["<account id>"]}`) after a friend search and when a party invite arrives, and both stop there: the search shows no result and the invite never shows under Social > Party Invites. The route is added; its first reply (Epic's shape, keyed by id) still showed nothing, so the `fix/mapping-matchmaking` branch answers `accountMappings`, flat and wrapped at once. Not deployed or confirmed in game yet. `/character/batch/account` is still not added.*
+- [ ] **1.11 Other players show up correctly** (S–M) — *Update 2026-09-22: the lookups are built: `GET /account/api/public/account?accountId=…` returns a list, `/account/api/public/account/:id` returns the display name, and `/account/api/public/account/displayName/:name` finds a player by name. `/account/mapping` and `/character/batch/account` are not added. Not yet seen with two players in game.* *Two-player test 2026-09-22: the two players saw each other in Ramsgate. The client calls `POST /account/mapping` (its `QueryAccountMappingsEndpoint`, body `{"srcAccountType": "epic", "ids": ["<account id>"]}`) after a friend search and when a party invite arrives, and both stop there: the search shows no result and the invite never shows under Social > Party Invites. The route is added; its first reply (Epic's shape, keyed by id) still showed nothing, so the `fix/mapping-matchmaking` branch answers `accountMappings`, flat and wrapped at once. Not deployed or confirmed in game yet. `/character/batch/account` is still not added.* *Update 2026-09-22 (branch `feature/social`, not deployed): **corrected diagnosis.** Add Friends stopped at `/account/mapping`: the client reads `accountMappings` as an object keyed by each asked id with `{accountId, accountType}` values, so both earlier replies mapped nothing (fixed; `ACCOUNT_MAPPING=0` is the rollback). The received party invite never used the mapping: it was dropped at `POST /accountinfo/public`, which answered with the caller's own id, so every other player (invite senders, Hunt Members, friends) was filed under the caller and never shown (fixed). `/character/batch/account` is still not added (never called live). Not yet confirmed in game.*
   - **What:**
     - `GET /account/api/public/account?accountId=…` looks up several players at once and returns a list.
     - `/account/api/public/account/:id` returns a display name.
@@ -11848,14 +12454,14 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.5, 3.7.
   - **Done when:** one event runs start to finish and its currency and rewards are saved.
 
-- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — ***Owner request 2026-09-22: show players as online in game** (the Social panel shows everyone, yourself included, as "Offline" without it). Wanted next, once parties and friends work (1.9, 1.11): a small XMPP presence server on the port the launcher already points the game at (61099, through the launcher relay in public mode), then chat.* ***Status 2026-09-22: not built.** The first friends test runs without it; use Discord meanwhile. The friends list's online status waits for the same server.* *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.* *Before a listener goes up: capture the client's XMPP login (it sends the account id and our login token, see 0.5) and the room-join and presence stanzas with two throwaway accounts, on a test port (for example 62099, as the kit sandbox uses). The service must authenticate every connection with our tokens. In public mode 61099 stays loopback-only behind the gateway; in private mode it opens to Tailscale peers only once it authenticates. (Raised by Vvoidddd, [PR #6](https://github.com/mixutin/dauntless-revived/pull/6).)*
+- [ ] **3.10 Text chat** (M if the presence/XMPP server exists, L otherwise) — ***Owner request 2026-09-22: show players as online in game** (the Social panel shows everyone, yourself included, as "Offline" without it). Wanted next, once parties and friends work (1.9, 1.11): a small XMPP presence server on the port the launcher already points the game at (61099, through the launcher relay in public mode), then chat.* ***Status 2026-09-22: not built.** The first friends test runs without it; use Discord meanwhile. The friends list's online status waits for the same server.* *Owner request (2026-09-21): wanted in-game. 1.4.4 typed chat runs on XMPP multi-user chat rooms (the client has "MUC State", "Known Chatrooms", `[OnlineSubsystemMcp.OnlineChatMcp]`). The game's XMPP connection already points at this PC (0.5, `ws://127.0.0.1:61099`), so one local XMPP server gives both chat and friends' online status. Options: write a small one, or run an existing open-source XMPP server with a plugin that accepts our login tokens (likely less code, and group chat comes built in). Still unknown: the room names the client joins (party, Ramsgate, whispers). Planned right after parties (1.9), so it can be ready for the first friends night; Discord covers voice and fills in until then.* *Before a listener goes up: capture the client's XMPP login (it sends the account id and our login token, see 0.5) and the room-join and presence stanzas with two throwaway accounts, on a test port (for example 62099, as the kit sandbox uses). The service must authenticate every connection with our tokens. In public mode 61099 stays loopback-only behind the gateway; in private mode it opens to Tailscale peers only once it authenticates. (Raised by Vvoidddd, [PR #6](https://github.com/mixutin/dauntless-revived/pull/6).)* *Update 2026-09-22: the design is summarised on [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#deferred): a separate process on 61099 (RFC 7395 framing, SASL PLAIN with the metagame's token), presence relayed between friends and party members and never echoed back to its sender (an echo could wake the client's dormant party auto-kick), rooms `Party-`, `Guild-` and the Ramsgate or hunt room, whispers, and optional friend-list pushes so requests show without a new login. Still not built.*
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
 
-- [ ] **3.11 Guilds** (L)
+- [ ] **3.11 Guilds** (L) — *Update 2026-09-22: **built** on branch `feature/social`, not deployed: the eleven v2 routes the 1.4.4 client uses (validate, create, invites, accept, decline, leave, kick, ranks with leader hand-over, disband), stored in SQLite (migration `0013_guilds`, three new tables), with the client's own error codes and name rules. The Create button is an RPC to the Ramsgate game server, which sends the create with its key; it costs nothing in 1.4.4. The metagame accepts it only for a player who validated a name or was active in the last minute. Other members see changes at their next login or world load (no push). `GUILDS=0` restores the old stubs. Passes HTTP tests with the client's bodies (`test/guildhttp.test.ts`); not yet tried in game. Guild chat waits for 3.10.*
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).
-  - **Needs:** 1.9, 3.10.
+  - **Needs:** 1.9. Guild chat needs 3.10.
   - **Done when:** a friend can be invited to a guild, and the guild survives a restart.
 
 - [ ] **3.12 Rejoining a hunt after a crash** (M)
@@ -12127,11 +12733,11 @@ Mostly. Items, materials, Rams, crafted gear, quests and story progress are save
 
 ## What is Undaunted, and how is Dauntless Revived different?
 
-[Undaunted](https://github.com/SyST3MDeV/Undaunted), by gwog (Gregory Morford) and contributors, is the open-source project that made this possible. The server-mode DLL that turns a copy of the 1.4.4 client into a game server, the deploy server, the metagame backend and the launcher are all theirs. Dauntless Revived is a modified fork of it. We started with practical changes (safer network defaults, clearer errors and a request log) and have since added saved progression, safer saves, usernames and invite codes, parties and a friends list on the server side, a friend launcher built on Undaunted's, a gateway for hosting on a public address, a Windows server kit, documentation in English and Finnish, and a [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) towards playing together with everything saved.
+[Undaunted](https://github.com/SyST3MDeV/Undaunted), by gwog (Gregory Morford) and contributors, is the open-source project that made this possible. The server-mode DLL that turns a copy of the 1.4.4 client into a game server, the deploy server, the metagame backend and the launcher are all theirs. Dauntless Revived is a modified fork of it. We started with practical changes (safer network defaults, clearer errors and a request log) and have since added saved progression, safer saves, usernames and invite codes, parties, a friends list and guilds on the server side, a friend launcher built on Undaunted's, a gateway for hosting on a public address, a Windows server kit, documentation in English and Finnish, and a [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) towards playing together with everything saved.
 
 ## Can you play together with friends?
 
-Not proven yet. On 22 September 2026 one player played over the internet on our rented server, where friends join with the launcher and an invite; a test with a second player is next. Parties and the friends list are built on the server side and pass our integration tests with simulated players, but have not been tried with two real game clients yet. Upstream Undaunted reports hunts with up to 4 players working on the same client, but we have not yet tested that with more than one player. The [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) tracks this as milestone M1, and [How multiplayer works](https://mixutin.github.io/dauntless-revived/findings/multiplayer.html) explains how a client-only build can host games at all.
+Hunting together, yes. On 22 September 2026 two players saw each other in Ramsgate and hunted together over the internet on our rented server, where friends join with the launcher and an invite; they queued for the same hunt within a few seconds of each other. Parties, the friends list and guilds are built on the server side, but in that test a party invite and a friend request did not show in game. The causes are found and fixed, and the fixes pass tests that replay the game's own requests; the next two-player test will show whether they work in game. Upstream Undaunted reports hunts with up to 4 players working on the same client; we have tried two. The [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html) tracks this as milestone M1, and [How multiplayer works](https://mixutin.github.io/dauntless-revived/findings/multiplayer.html) explains how a client-only build can host games at all.
 
 ## Does it work on Linux or the Steam Deck?
 
