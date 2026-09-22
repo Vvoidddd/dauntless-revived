@@ -7,8 +7,8 @@ import crypto from "node:crypto";
 import type { Server } from "node:http";
 import { app } from "../src/app";
 import { GetDb } from "../src/db";
-import { gameserverapikeys, guildinvites, guildmembers, guilds, users } from "../src/db/schema";
-import { SignMetagameJWTForUid } from "../src/controllers/auth";
+import { gameserverapikeys, guildinvites, guildmembers, guilds, userapikeys, users } from "../src/db/schema";
+import { HashUserAPIKey, SignMetagameJWTForUid } from "../src/controllers/auth";
 import { ResetGuildMemoryForTests, SetGuildClockForTests } from "../src/controllers/guild";
 import { FakeDeployServer, StartFakeDeployServer } from "./fakedeploy";
 import { GuildOutcome, ParseGuildData, ParseGuildInvites, ParsePhoenixEnvelope, SocialClient, Transport } from "./socialclient";
@@ -25,17 +25,18 @@ const NAMES: Record<string, string> = { [A]: "Alpha", [B]: "Bravo", [C]: "Charli
 const Tokens: Record<string, string> = {};
 
 type Reply = { status: number, text: string, json: any };
-type CallOptions = { as?: string, token?: string, gs?: boolean, body?: unknown, emptyJson?: boolean };
+type CallOptions = { as?: string, token?: string, gs?: boolean, key?: string, raw?: string, body?: unknown, emptyJson?: boolean, headers?: Record<string, string> };
 
 async function Call(Method: string, Path: string, Options: CallOptions = {}): Promise<Reply> {
-    const Headers: Record<string, string> = {};
+    const Headers: Record<string, string> = { ...(Options.headers ?? {}) };
 
     if(Options.as !== undefined) Headers["authorization"] = `bearer ${Tokens[Options.as]}`;
     if(Options.token !== undefined) Headers["authorization"] = `bearer ${Options.token}`;
     if(Options.gs) Headers["x-undaunted-gameserver-apikey"] = GS_KEY;
-    if(Options.body !== undefined || Options.emptyJson) Headers["content-type"] = "application/json; charset=utf-8";
+    if(Options.key !== undefined) Headers["x-undaunted-user-api-key"] = Options.key;
+    if(Options.body !== undefined || Options.emptyJson || Options.raw !== undefined) Headers["content-type"] = "application/json; charset=utf-8";
 
-    const Response = await fetch(BASE + Path, { method: Method, headers: Headers, body: Options.body === undefined ? (Options.emptyJson ? "" : undefined) : JSON.stringify(Options.body) });
+    const Response = await fetch(BASE + Path, { method: Method, headers: Headers, body: Options.raw ?? (Options.body === undefined ? (Options.emptyJson ? "" : undefined) : JSON.stringify(Options.body)) });
     const Text = await Response.text();
     let Json: any;
 
@@ -543,5 +544,77 @@ describe("10. GUILDS=0", () => {
 
         assert.equal((await GetGuild(F)).status, 200, "and back on");
         assert.equal(GetDb().select().from(guilds).all().some((Row) => Row.name === "Foxes"), true, "nothing was lost while off");
+    });
+});
+
+describe("11. host fallbacks (/undaunted/api)", () => {
+    const Keys: Record<string, string> = {};
+    const ADMIN = "UID-guild-admin";
+
+    before(() => {
+        // Past the invite lifetime: Foxes' 50 open invites from section 8 have expired
+        Offset += 8 * 24 * 60 * 60 * 1000;
+        GetDb().insert(users).values({ userId: ADMIN, name: "Boss", notes: 0, isAdmin: true }).run();
+
+        for(const Who of [F, D, ADMIN]){
+            Keys[Who] = `UUK_${crypto.randomBytes(24).toString("hex")}`;
+            GetDb().insert(userapikeys).values({ userId: Who, keyHash: HashUserAPIKey(Keys[Who]) }).run();
+        }
+    });
+
+    it("GuildInvite: the key's owner invites by name; an admin may name the inviter, directly only", async () => {
+        const ByKey = await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[F], body: { Username: "delta" } });
+        assert.deepEqual([ByKey.status, ByKey.json], [200, { From: "Foxtrot", To: "Delta", Guild: "Foxes" }]);
+        assert.deepEqual((await OwnInvites(D)).map((Entry) => [Entry.guildName, Entry.inviter]), [["Foxes", F]]);
+
+        const Again = await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[F], body: { Username: "Delta" } });
+        assert.equal(Again.status, 409);
+        assert.equal(Again.json.error, "guild_refused");
+        assert.match(Again.json.message, /^RedundantAdorableQuillshot: /);
+
+        const NoGuild = await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[D], body: { Username: "Foxtrot" } });
+        assert.deepEqual([NoGuild.status, NoGuild.json.error], [404, "guild_refused"], "D has no guild");
+
+        assert.equal((await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[D], body: { Username: "Echo", From: "Foxtrot" } })).status, 403, "not an admin");
+        const ForF = await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[ADMIN], body: { Username: "Echo", From: F } });
+        assert.deepEqual([ForF.status, ForF.json], [200, { From: "Foxtrot", To: "Echo", Guild: "Foxes" }]);
+        assert.equal((await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[ADMIN], body: { Username: "Echo", From: F }, headers: { "x-forwarded-for": "203.0.113.9" } })).status, 403, "admin through a proxy");
+
+        assert.equal((await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[F], body: { Username: "Nobody" } })).status, 404);
+        assert.equal((await Call("POST", "/undaunted/api/GuildInvite", { body: { Username: "Delta" } })).status, 401);
+        assert.deepEqual((await Call("POST", "/undaunted/api/GuildInvite", { key: Keys[F], raw: "{nope" })).json, { error: "bad_request", message: "The request body is not valid JSON." });
+    });
+
+    it("Guilds and DisbandGuild: admin only; disband by name or id removes members and invites", async () => {
+        assert.equal((await Call("GET", "/undaunted/api/Guilds", { key: Keys[F] })).status, 403);
+        const List = await Call("GET", "/undaunted/api/Guilds", { key: Keys[ADMIN] });
+        assert.equal(List.status, 200);
+        const Foxes = List.json.find((Entry: any) => Entry.name === "Foxes");
+        assert.deepEqual(Foxes, { guildId: Foxes.guildId, name: "Foxes", nameplate: "FOX", leader: F, members: 1 });
+
+        assert.equal((await Call("POST", "/undaunted/api/DisbandGuild", { key: Keys[F], body: { Guild: "Foxes" } })).status, 403);
+        assert.deepEqual((await Call("POST", "/undaunted/api/DisbandGuild", { key: Keys[ADMIN], body: { Guild: "NoSuchGuild" } })).json.error, "not_found");
+
+        const Done = await Call("POST", "/undaunted/api/DisbandGuild", { key: Keys[ADMIN], body: { Guild: "fOXES" } });
+        assert.deepEqual([Done.status, Done.json], [200, { Guild: "Foxes", Members: 1 }]);
+        assert.equal((await GetGuild(F)).status, 204);
+        assert.deepEqual(await OwnInvites(D), [], "its invites went with it");
+
+        const Echoes = (await Call("GET", "/undaunted/api/Guilds", { key: Keys[ADMIN] })).json.find((Entry: any) => Entry.name === "Echoes");
+        assert.deepEqual((await Call("POST", "/undaunted/api/DisbandGuild", { key: Keys[ADMIN], body: { Guild: Echoes.guildId } })).json, { Guild: "Echoes", Members: 1 });
+    });
+
+    it("GUILDS=0 turns them off too", async () => {
+        process.env.GUILDS = "0";
+
+        try{
+            for(const [Method, Path, Body] of [["POST", "/undaunted/api/GuildInvite", { Username: "Delta" }], ["POST", "/undaunted/api/DisbandGuild", { Guild: "x" }], ["GET", "/undaunted/api/Guilds", undefined]] as [string, string, unknown][]){
+                const Reply = await Call(Method, Path, { key: Keys[ADMIN], body: Body });
+                assert.deepEqual([Reply.status, Reply.json.error], [404, "guilds_off"], Path);
+            }
+        }
+        finally{
+            delete process.env.GUILDS;
+        }
     });
 });

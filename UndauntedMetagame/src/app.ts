@@ -100,7 +100,7 @@ app.use((req, res) => {
 // Unparseable JSON on the account routes the launcher and host scripts call gets the
 // same {"error": "bad_request"} as any other bad body there. Every other route keeps
 // Express's default error handling.
-const JSON_ERROR_ROUTES = new Set(["/undaunted/api/register", "/undaunted/api/createinvite", "/undaunted/api/renameuser", "/undaunted/api/partyinvite", "/undaunted/api/friends"]);
+const JSON_ERROR_ROUTES = new Set(["/undaunted/api/register", "/undaunted/api/createinvite", "/undaunted/api/renameuser", "/undaunted/api/partyinvite", "/undaunted/api/friends", "/undaunted/api/guildinvite", "/undaunted/api/disbandguild"]);
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     if(err?.type === "entity.parse.failed" && JSON_ERROR_ROUTES.has(req.path.toLowerCase().replace(/\/+$/, ""))){

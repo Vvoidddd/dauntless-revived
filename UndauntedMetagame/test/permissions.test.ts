@@ -266,7 +266,11 @@ const EXPECTED_ROUTES = [
     "POST /undaunted/api/GrantEntitlement [HasUndauntedAdminApiKey]",
     "POST /undaunted/api/RevokeEntitlement [HasUndauntedAdminApiKey]",
     "POST /undaunted/api/PartyInvite [HasUndauntedUserApiKey]",
-    "POST /undaunted/api/Friends [HasUndauntedUserApiKey]"
+    "POST /undaunted/api/Friends [HasUndauntedUserApiKey]",
+    // Guild fallbacks on the host (the gateway does not pass /undaunted/api/* except the four public ones)
+    "POST /undaunted/api/GuildInvite [HasUndauntedUserApiKey]",
+    "POST /undaunted/api/DisbandGuild [HasUndauntedAdminApiKey]",
+    "GET /undaunted/api/Guilds [HasUndauntedAdminApiKey]"
 ];
 
 function RegisteredRoutes(){
@@ -427,6 +431,8 @@ const ADMIN_ROUTES = (): [string, string, unknown][] => [
     ["POST", "/undaunted/api/SeedProgression", { UserId: C, Mode: "fresh" }],
     ["POST", "/undaunted/api/GrantEntitlement", { UserId: C, Entitlement: "perm_test" }],
     ["POST", "/undaunted/api/RevokeEntitlement", { UserId: C, Entitlement: "perm_test" }],
+    ["POST", "/undaunted/api/DisbandGuild", { Guild: "NoSuchGuild" }],
+    ["GET", "/undaunted/api/Guilds", undefined],
     ["DELETE", `/progression/${B}/season09b`, undefined]
 ];
 

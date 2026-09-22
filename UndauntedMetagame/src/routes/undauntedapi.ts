@@ -16,6 +16,7 @@ import { logger } from "../logger";
 import { FindAccount } from "../controllers/login";
 import { InviteToParty } from "../controllers/party";
 import { SendOrAcceptFriendRequest } from "../controllers/friends";
+import { DisbandGuildAsAdmin, GuildNameOf, InviteToGuild, ListGuilds } from "../controllers/guild";
 import { RefuseAdminKeyThroughProxy } from "../middleware/RequestOrigin";
 import { IsSoftRegisteredCaller, SoftAccountAuth } from "../middleware/SoftAccountAuth";
 
@@ -582,4 +583,82 @@ undauntedApiRouter.post("/Friends", HasUndauntedUserApiKey, (req: any, res) => {
 
     res.status(200);
     res.json({ From: From.Username, To: To.Username, Result: Result.Result });
+});
+
+// ---- Guilds by name (roadmap 3.11) ----
+// The same kind of fallback for guilds: the key's owner (or, for an admin, "From") invites a player to
+// their guild; the invitee still accepts in game (GUILD INVITES). An admin can list every guild and
+// disband one by id or name. Host only, like the two above. GUILDS=0 turns them off too.
+
+function GuildsOffReply(res: any){
+    if(process.env.GUILDS !== "0"){
+        return false;
+    }
+
+    res.status(404);
+    res.json({ error: "guilds_off", message: "Guilds are turned off on this server (GUILDS=0)." });
+    return true;
+}
+
+// {Username, From?} -> 200 {From, To, Guild}
+undauntedApiRouter.post("/GuildInvite", HasUndauntedUserApiKey, (req: any, res) => {
+    if(GuildsOffReply(res)){
+        return;
+    }
+
+    const From = ActingAccount(req, res);
+
+    if(From === undefined){
+        return;
+    }
+
+    const To = FindAccount(req.body?.Username);
+
+    if(To === undefined){
+        res.status(404);
+        res.json(ErrorBody("not_found"));
+        return;
+    }
+
+    const Result = InviteToGuild(From.UserId, To.UserId);
+
+    logger.info(`guild: /undaunted/api/GuildInvite by key of ${req.UndauntedUserInfo.UserId}: from=${From.UserId} to=${To.UserId} -> ${Result.Status}`);
+
+    if(Result.Status !== 200){
+        const Body = Result.Body as { code?: string, message?: string };
+        res.status(Result.Status);
+        res.json({ error: "guild_refused", message: Body.code ? `${Body.code}: ${Body.message ?? ""}` : Body.message ?? "The invite was refused." });
+        return;
+    }
+
+    res.status(200);
+    res.json({ From: From.Username, To: To.Username, Guild: GuildNameOf(From.UserId) ?? "" });
+});
+
+// {Guild: <id or name>} -> 200 {Guild, Members}
+undauntedApiRouter.post("/DisbandGuild", HasUndauntedAdminApiKey, (req: any, res) => {
+    if(GuildsOffReply(res)){
+        return;
+    }
+
+    const Result = DisbandGuildAsAdmin(req.body?.Guild);
+
+    if(Result === undefined){
+        res.status(404);
+        res.json({ error: "not_found", message: "No such guild." });
+        return;
+    }
+
+    res.status(200);
+    res.json({ Guild: Result.Name, Members: Result.Members });
+});
+
+// -> [{guildId, name, nameplate, leader, members}]
+undauntedApiRouter.get("/Guilds", HasUndauntedAdminApiKey, (req: any, res) => {
+    if(GuildsOffReply(res)){
+        return;
+    }
+
+    res.status(200);
+    res.json(ListGuilds());
 });
