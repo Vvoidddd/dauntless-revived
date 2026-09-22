@@ -15,6 +15,8 @@ const config: ForgeConfig = {
     executableName: "DauntlessRevivedLauncher",
     appBundleId: "io.github.mixutin.dauntlessrevived",
     appCopyright: "Dauntless Revived contributors. Free software under the GNU AGPL-3.0.",
+    // assets/icon.ico (the exe, and below the installer) and assets/icon.png (the window) are copies of
+    // the brand icons in ../brand/launcher/, made by npm run icon.
     icon: "assets/icon",
     // The two pinned DLLs the game needs, the window icon, and the license texts of the third-party
     // software the launcher and the DLLs include. Nothing else ships outside the asar.

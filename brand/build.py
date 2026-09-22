@@ -388,7 +388,8 @@ def build() -> None:
     put(emblem_at(192), "icons/icon-192.png", web=True)
     put(emblem_at(512), "icons/icon-512.png", web=True)
 
-    # Launcher-ready set (copied into UndauntedLauncher/ by a later change, not by this script).
+    # The launcher's set. UndauntedLauncher's `npm run icon` copies these (and web/emblem-32, -64
+    # and -512) into the launcher; this script does not write there.
     app = HERE / "launcher/icon.ico"
     app.parent.mkdir(parents=True, exist_ok=True)
     app.write_bytes(ico([emblem_at(s) for s in (16, 24, 32, 48, 64, 128, 256)]))
