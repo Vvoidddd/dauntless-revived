@@ -110,27 +110,6 @@ export function githubMark(cls = "icon mark"): SVGSVGElement {
   return s("svg", { class: cls, viewBox: "0 0 16 16", fill: "currentColor", "aria-hidden": "true", focusable: "false" }, s("path", { d: GITHUB_MARK_16 }));
 }
 
-// The launcher's own emblem: an aether crystal over a floating island.
-export function emblem(cls = "emblem"): SVGSVGElement {
-  const id = `em${Math.random().toString(36).slice(2, 8)}`;
-  return s(
-    "svg",
-    { class: cls, viewBox: "0 0 100 100", "aria-hidden": "true", focusable: "false" },
-    s(
-      "defs",
-      {},
-      s("linearGradient", { id: `${id}i`, x1: 0, y1: 0, x2: 0, y2: 1 }, s("stop", { offset: 0, "stop-color": "#ffa35c" }), s("stop", { offset: 1, "stop-color": "#c9481a" })),
-      s("linearGradient", { id: `${id}c`, x1: 0, y1: 0, x2: 1, y2: 1 }, s("stop", { offset: 0, "stop-color": "#9ff7ec" }), s("stop", { offset: 1, "stop-color": "#1fb8a8" })),
-    ),
-    s("path", { d: "M50 6 L63 28 L50 47 L37 28 Z", fill: `url(#${id}c)` }),
-    s("path", { d: "M50 6 L50 47 L37 28 Z", fill: "#ffffff", opacity: 0.28 }),
-    s("path", { d: "M14 55 Q50 47 86 55 L77 64 L69 63 L62 78 L55 76 L50 95 L45 77 L38 79 L31 64 L23 65 Z", fill: `url(#${id}i)` }),
-    s("path", { d: "M14 55 Q50 47 86 55 Q50 60 14 55 Z", fill: "#ffd2a8", opacity: 0.55 }),
-    s("circle", { cx: 26, cy: 36, r: 3, fill: "#3ee6d3", opacity: 0.8 }),
-    s("circle", { cx: 76, cy: 30, r: 2.2, fill: "#3ee6d3", opacity: 0.65 }),
-  );
-}
-
 // Rebuilds a region only when its content signature changed, and keeps keyboard focus on the
 // element with the same data-fk key.
 const signatures = new WeakMap<Element, string>();

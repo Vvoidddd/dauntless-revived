@@ -1,32 +1,29 @@
-/* Dauntless Revived Launcher. Palette: deep navy ink, ember orange (primary), aether teal (accents).
+/* Dauntless Revived Launcher. The colours are the eight of the brand palette (brand/palette.json,
+   measured from the logo), defined once below as --dr-* tokens and used by role everywhere else, the
+   same way as the docs site: ink page, navy and deep surfaces, ice for links and primary buttons
+   (ink text), glow for highlights and focus rings, azure for pressed fills, steel for muted text,
+   frost for text. Translucent shades are the tokens mixed with transparent; nothing else is a colour.
+   test/brand.test.ts checks both, and the contrast of every text and control pair used here.
    System fonts only: Segoe UI for text, Bahnschrift for display type. */
 
 :root {
-  --ink-1000: #04060d;
-  --ink-950: #070b16;
-  --ink-900: #0b1120;
-  --ink-850: #0f172b;
-  --ink-800: #131d36;
-  --ink-700: #1c2848;
-  --ink-600: #283659;
-  --line: rgba(160, 180, 230, 0.14);
-  --line-strong: rgba(160, 180, 230, 0.28);
-  --text: #eef2fb;
-  --text-dim: #b3bfd8;
-  --text-mute: #95a2bf;
-  --ember: #ff7a2f;
-  --ember-hi: #ff9a55;
-  --ember-lo: #e5621c;
-  --ember-ink: #1c0c02;
-  --gold: #ffcf7a;
-  --aether: #3ee6d3;
-  --aether-dim: #26b3a4;
-  --danger: #ff8080;
-  --ok: #62e3a0;
-  --warn: #ffc864;
-  --host-accent: var(--aether);
-  --glass: rgba(8, 13, 27, 0.74);
-  --glass-strong: rgba(7, 11, 22, 0.86);
+  --dr-ink: #01090D;
+  --dr-navy: #031523;
+  --dr-deep: #093251;
+  --dr-azure: #0D669C;
+  --dr-ice: #18A7E0;
+  --dr-glow: #78ECF9;
+  --dr-steel: #999FA7;
+  --dr-frost: #F3F4F5;
+
+  /* Roles built from the tokens. */
+  --line: var(--dr-deep); /* decorative dividers between surfaces, never a control's only edge */
+  --edge: var(--dr-steel); /* control edges on navy (6.93:1) and ink (7.52:1) */
+  --glass: color-mix(in srgb, var(--dr-navy) 90%, transparent);
+  --glass-strong: color-mix(in srgb, var(--dr-navy) 96%, transparent);
+  --shadow: color-mix(in srgb, var(--dr-ink) 60%, transparent);
+  --host-accent: var(--dr-glow); /* a host's art pack may set its own (index.ts) */
+
   --rail-w: 232px;
   --panel-w: 336px;
   --title-h: 36px;
@@ -56,8 +53,8 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--ink-950);
-  color: var(--text);
+  background: var(--dr-ink);
+  color: var(--dr-frost);
   font: 14px/1.5 var(--font-ui);
   overflow: hidden;
   user-select: none;
@@ -80,13 +77,24 @@ button:disabled {
   cursor: not-allowed;
 }
 
+img {
+  -webkit-user-drag: none;
+}
+
+/* Keyboard focus: a glow ring, 13:1 or more against ink, navy and deep. */
 :focus-visible {
-  outline: 2px solid var(--aether);
+  outline: 2px solid var(--dr-glow);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: rgba(62, 230, 211, 0.35);
+  color: var(--dr-frost); /* 5.61:1 on azure */
+  background: var(--dr-azure);
+}
+
+::placeholder {
+  color: var(--dr-steel); /* 7.52:1 on ink */
+  opacity: 1;
 }
 
 ::-webkit-scrollbar {
@@ -95,14 +103,14 @@ button:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(160, 180, 230, 0.18);
+  background: var(--dr-deep);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(160, 180, 230, 0.3);
+  background-color: var(--dr-azure);
 }
 
 .selectable {
@@ -136,10 +144,10 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--ink-1000);
+  background: var(--dr-navy);
   border-bottom: 1px solid var(--line);
   -webkit-app-region: drag;
-  padding-left: 12px;
+  padding-left: 10px;
   z-index: 5;
 }
 
@@ -147,15 +155,16 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   font-size: 12.5px;
   letter-spacing: 0.02em;
 }
 
-.titlebar-emblem .emblem {
-  width: 18px;
-  height: 18px;
+.titlebar-emblem {
+  width: 20px;
+  height: 20px;
   display: block;
+  flex: none;
 }
 
 .titlebar-controls {
@@ -169,7 +178,7 @@ button:disabled {
   height: 100%;
   border: 0;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   display: grid;
   place-items: center;
 }
@@ -180,13 +189,13 @@ button:disabled {
 }
 
 .win-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
 }
 
 .win-close:hover {
-  background: #c42b1c;
-  color: #fff;
+  background: var(--dr-azure);
+  color: var(--dr-frost);
 }
 
 .shell {
@@ -200,75 +209,44 @@ button:disabled {
 .rail {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #0a1122 0%, #070b16 60%, #060913 100%);
+  background: var(--dr-navy);
   border-right: 1px solid var(--line);
-  padding: 16px 14px 14px;
+  padding: 12px 14px 14px;
   min-height: 0;
   z-index: 3;
 }
 
+/* The logo on a soft azure halo, as on the docs site's home page. */
 .game-tile {
   position: relative;
-  border-radius: 16px;
-  padding: 16px 14px 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 85% 110%, rgba(255, 122, 47, 0.55) 0%, rgba(255, 122, 47, 0) 60%),
-    radial-gradient(80% 70% at 10% 0%, rgba(62, 230, 211, 0.22) 0%, rgba(62, 230, 211, 0) 70%),
-    linear-gradient(160deg, #18244a 0%, #0d1430 55%, #150f24 100%);
-  border: 1px solid rgba(255, 170, 110, 0.22);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 2px 0 4px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--dr-azure) 35%, transparent), transparent);
 }
 
-.tile-art .emblem {
-  width: 54px;
-  height: 54px;
+.tile-logo {
   display: block;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 4px 12px rgba(255, 122, 47, 0.35));
-}
-
-.tile-word {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-stretch: condensed;
-  font-size: 27px;
-  line-height: 1;
-  letter-spacing: 0.14em;
-  background: linear-gradient(180deg, #fff3e2 0%, #ffcf8f 55%, #ff9a55 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: none;
-}
-
-.tile-sub {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.tile-revived {
-  font-family: var(--font-display);
-  font-size: 11.5px;
-  letter-spacing: 0.46em;
-  color: var(--aether);
-  font-weight: 600;
+  width: 100%;
+  max-width: 188px;
+  height: auto;
 }
 
 .tile-version {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-dim);
-  border: 1px solid var(--line-strong);
-  padding: 1px 7px;
+  letter-spacing: 0.04em;
+  color: var(--dr-steel);
+  border: 1px solid var(--line);
+  background: var(--dr-navy);
+  padding: 1px 9px;
   border-radius: 999px;
 }
 
 .nav {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   padding: 0;
   display: grid;
   gap: 4px;
@@ -285,7 +263,7 @@ button:disabled {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   font-size: 14.5px;
   font-weight: 600;
   text-align: left;
@@ -293,13 +271,14 @@ button:disabled {
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  background: color-mix(in srgb, var(--dr-deep) 55%, transparent);
+  color: var(--dr-frost);
 }
 
+/* The current page: frost on deep (12.02:1) with an ice bar, like the docs site's navigation. */
 .nav-item[aria-current="page"] {
-  background: linear-gradient(90deg, rgba(255, 122, 47, 0.18), rgba(255, 122, 47, 0.03));
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
 }
 
 .nav-item[aria-current="page"]::before {
@@ -310,12 +289,12 @@ button:disabled {
   bottom: 10px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--ember);
-  box-shadow: 0 0 12px rgba(255, 122, 47, 0.8);
+  background: var(--dr-ice);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dr-ice) 80%, transparent);
 }
 
 .nav-item[aria-current="page"] .icon {
-  color: var(--ember-hi);
+  color: var(--dr-glow);
 }
 
 .nav-badge {
@@ -323,8 +302,8 @@ button:disabled {
   min-width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--aether);
-  box-shadow: 0 0 8px var(--aether);
+  background: var(--dr-glow);
+  box-shadow: 0 0 8px var(--dr-glow);
 }
 
 .rail-foot {
@@ -339,7 +318,7 @@ button:disabled {
   gap: 10px;
   padding: 10px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--dr-ink);
   border: 1px solid var(--line);
   min-height: 56px;
 }
@@ -354,13 +333,13 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 16px;
-  color: var(--ember-ink);
-  background: linear-gradient(160deg, var(--gold), var(--ember));
+  color: var(--dr-ink);
+  background: linear-gradient(160deg, var(--dr-glow), var(--dr-ice));
 }
 
 .avatar.empty {
-  background: var(--ink-700);
-  color: var(--text-mute);
+  background: var(--dr-deep);
+  color: var(--dr-steel);
 }
 
 .account-text {
@@ -370,7 +349,7 @@ button:disabled {
 
 .account-label {
   font-size: 11.5px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
 }
 
 .account-name {
@@ -383,7 +362,7 @@ button:disabled {
 .lang-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--dr-ink);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 3px;
@@ -392,16 +371,20 @@ button:disabled {
 .lang-btn {
   border: 0;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   border-radius: 7px;
   padding: 5px 0;
   font-size: 12.5px;
   font-weight: 600;
 }
 
+.lang-btn:hover {
+  color: var(--dr-frost);
+}
+
 .lang-btn[aria-pressed="true"] {
-  background: var(--ink-700);
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
 }
 
 /* Credits and the GitHub button, under the language switch. */
@@ -422,20 +405,20 @@ button:disabled {
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   font-size: 13px;
   font-weight: 600;
   transition: background 0.15s, color 0.15s;
 }
 
 .rail-link:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  background: color-mix(in srgb, var(--dr-deep) 55%, transparent);
+  color: var(--dr-frost);
 }
 
 .rail-link[aria-current="page"] {
-  background: rgba(255, 122, 47, 0.14);
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
 }
 
 .rail-link .icon {
@@ -444,7 +427,7 @@ button:disabled {
 }
 
 .rail-link[aria-current="page"] .icon {
-  color: var(--ember-hi);
+  color: var(--dr-glow);
 }
 
 .icon-btn {
@@ -456,15 +439,15 @@ button:disabled {
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text-dim);
+  background: var(--dr-ink);
+  color: var(--dr-steel);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--line-strong);
-  color: var(--text);
+  background: var(--dr-deep);
+  border-color: var(--edge);
+  color: var(--dr-frost);
 }
 
 .icon-btn .mark {
@@ -500,14 +483,7 @@ button:disabled {
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: var(--ink-950);
-}
-
-.scene {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  background: var(--dr-ink);
 }
 
 .art {
@@ -527,9 +503,20 @@ button:disabled {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(5, 8, 17, 0.84) 0%, rgba(5, 8, 17, 0.5) 34%, rgba(5, 8, 17, 0.08) 56%, rgba(5, 8, 17, 0) 68%),
-    linear-gradient(0deg, rgba(5, 8, 17, 0.92) 0%, rgba(5, 8, 17, 0.35) 22%, rgba(5, 8, 17, 0) 45%),
-    linear-gradient(180deg, rgba(5, 8, 17, 0.5) 0%, rgba(5, 8, 17, 0) 18%);
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--dr-ink) 86%, transparent) 0%,
+      color-mix(in srgb, var(--dr-ink) 52%, transparent) 34%,
+      color-mix(in srgb, var(--dr-ink) 8%, transparent) 56%,
+      transparent 68%
+    ),
+    linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--dr-ink) 92%, transparent) 0%,
+      color-mix(in srgb, var(--dr-ink) 38%, transparent) 22%,
+      transparent 45%
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--dr-ink) 50%, transparent) 0%, transparent 18%);
 }
 
 .art-credit {
@@ -537,74 +524,261 @@ button:disabled {
   right: calc(var(--panel-w) + 16px);
   bottom: 116px;
   font-size: 11.5px;
-  color: rgba(238, 242, 251, 0.78);
-  text-shadow: 0 1px 3px #000;
+  color: var(--dr-frost);
+  text-shadow: 0 1px 3px var(--dr-ink), 0 0 8px var(--dr-ink);
 }
 
-.stars circle {
+/* ------------------------------------------------------------------ the built-in background
+   Drawn by scene.ts. Night sky from ink to deep, stars, a faint aurora, the faded emblem, two jagged
+   ranges with snow, mist between them, the forest, falling snow. Only whole layers move (transform
+   and opacity), so the compositor does the work and nothing is repainted; the motion stops for
+   prefers-reduced-motion, while the game runs, and while a host's art covers the scene. */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: strict;
+  background:
+    radial-gradient(ellipse 60% 42% at 46% 64%, color-mix(in srgb, var(--dr-azure) 45%, transparent), transparent 72%),
+    linear-gradient(180deg, var(--dr-ink) 0%, var(--dr-navy) 38%, var(--dr-deep) 68%, var(--dr-navy) 88%);
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.star {
+  fill: var(--dr-frost);
+}
+
+.star-glow {
+  fill: var(--dr-glow);
+}
+
+.aurora {
+  overflow: visible;
   opacity: 0.7;
 }
 
-.mote {
-  transform-box: fill-box;
-  animation: rise var(--dur, 16s) linear var(--delay, 0s) infinite;
-  opacity: 0;
+.au-clear {
+  stop-color: var(--dr-glow);
+  stop-opacity: 0;
 }
 
-@keyframes rise {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0;
+.au-glow {
+  stop-color: var(--dr-glow);
+  stop-opacity: 0.42;
+}
+
+.au-ice {
+  stop-color: var(--dr-ice);
+  stop-opacity: 0.4;
+}
+
+.au-edge {
+  stop-color: var(--dr-ice);
+  stop-opacity: 0;
+}
+
+.aurora-a {
+  fill: url(#g-aurora-a);
+}
+
+.aurora-b {
+  fill: url(#g-aurora-b);
+}
+
+.motif {
+  opacity: 0.09;
+}
+
+.far-top {
+  stop-color: var(--dr-deep);
+}
+
+.far-foot {
+  stop-color: var(--dr-navy);
+}
+
+.ridge-far {
+  fill: url(#g-far);
+}
+
+.snow-top {
+  stop-color: var(--dr-frost);
+  stop-opacity: 0.5;
+}
+
+.snow-foot {
+  stop-color: var(--dr-steel);
+  stop-opacity: 0.12;
+}
+
+.snow-far {
+  fill: url(#g-snow-far);
+}
+
+.shade-far,
+.gully-far {
+  fill: var(--dr-ink);
+  opacity: 0.34;
+}
+
+.rim-far {
+  fill: none;
+  stroke: var(--dr-ice);
+  stroke-opacity: 0.25;
+  stroke-width: 1.2;
+}
+
+.mist-core {
+  stop-color: var(--dr-steel);
+  stop-opacity: 0.16;
+}
+
+.mist-clear {
+  stop-color: var(--dr-steel);
+  stop-opacity: 0;
+}
+
+.mist-puff {
+  fill: url(#g-mist);
+}
+
+.mist {
+  overflow: visible;
+}
+
+.mid-top {
+  stop-color: var(--dr-navy);
+}
+
+.mid-foot {
+  stop-color: var(--dr-ink);
+}
+
+.ridge-mid {
+  fill: url(#g-mid);
+}
+
+.snow-mid {
+  fill: url(#g-snow-mid);
+  opacity: 0.8;
+}
+
+.shade-mid,
+.gully-mid {
+  fill: var(--dr-ink);
+  opacity: 0.42;
+}
+
+.rim-mid {
+  fill: none;
+  stroke: var(--dr-azure);
+  stroke-opacity: 0.6;
+  stroke-width: 1.2;
+}
+
+.trees-mid,
+.trees-back,
+.trees-front,
+.ground {
+  fill: var(--dr-ink);
+}
+
+.trees-back {
+  opacity: 0.92;
+}
+
+.snowfall {
+  inset: auto 0;
+  top: -100%;
+  height: 200%;
+  opacity: 0.55;
+}
+
+.snowfall svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.flakes {
+  fill: var(--dr-frost);
+}
+
+/* Motion: slow and small. Only these layers move, so only they get compositor layers; there is no
+   will-change, so with reduced motion the scene stays one flat picture. */
+.twinkle {
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+
+.aurora {
+  animation: aurora 40s ease-in-out infinite alternate;
+}
+
+.mist-far {
+  animation: drift 70s ease-in-out infinite alternate;
+}
+
+.mist-near {
+  opacity: 0.75;
+  animation: drift 50s ease-in-out -20s infinite alternate-reverse;
+}
+
+.snowfall {
+  animation: fall 70s linear infinite;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 0.35;
   }
-  12% {
-    opacity: var(--o, 0.8);
-  }
-  85% {
-    opacity: var(--o, 0.8);
-  }
-  100% {
-    transform: translate(var(--dx, 24px), -300px);
-    opacity: 0;
+  to {
+    opacity: 1;
   }
 }
 
-.drift-slow {
-  animation: bob 18s ease-in-out infinite alternate;
+@keyframes aurora {
+  from {
+    transform: translateX(-2.5%);
+    opacity: 0.55;
+  }
+  to {
+    transform: translateX(2.5%);
+    opacity: 0.85;
+  }
 }
 
-.drift-mid {
-  animation: bob 12s ease-in-out -4s infinite alternate;
+@keyframes drift {
+  from {
+    transform: translateX(-3%);
+  }
+  to {
+    transform: translateX(3%);
+  }
 }
 
-.drift-near {
-  animation: bob 9s ease-in-out -2s infinite alternate;
-}
-
-@keyframes bob {
+@keyframes fall {
   from {
     transform: translateY(0);
   }
   to {
-    transform: translateY(-9px);
+    transform: translateY(50%);
   }
 }
 
-.stream {
-  stroke-dasharray: 60 36;
-  animation: flow 9s linear infinite;
-  opacity: 0.55;
+/* Held still while the game runs next to the launcher, and under a host's art. */
+.hero.game-running .scene *,
+.hero.has-art .scene * {
+  animation-play-state: paused !important;
 }
 
-.stream-2 {
-  animation-duration: 13s;
-  opacity: 0.35;
-}
-
-@keyframes flow {
-  to {
-    stroke-dashoffset: -960;
-  }
-}
+/* ------------------------------------------------------------------ stage */
 
 .stage {
   position: relative;
@@ -652,7 +826,8 @@ button:disabled {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--dr-ice);
+  text-shadow: 0 1px 6px var(--dr-ink);
 }
 
 .badge {
@@ -665,9 +840,10 @@ button:disabled {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: none;
-  border: 1px solid var(--line-strong);
-  background: rgba(7, 11, 22, 0.6);
-  color: var(--text-dim);
+  border: 1px solid var(--dr-azure);
+  background: var(--dr-ink);
+  color: var(--dr-frost);
+  text-shadow: none;
 }
 
 .badge .icon {
@@ -676,13 +852,11 @@ button:disabled {
 }
 
 .badge-public {
-  color: var(--aether);
-  border-color: rgba(62, 230, 211, 0.4);
+  color: var(--dr-glow);
 }
 
 .badge-private {
-  color: var(--gold);
-  border-color: rgba(255, 207, 122, 0.4);
+  color: var(--dr-ice);
 }
 
 .hero-title {
@@ -693,24 +867,23 @@ button:disabled {
   font-size: 46px;
   line-height: 1.02;
   letter-spacing: 0.01em;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 2px 18px var(--shadow);
 }
 
 .hero-text {
   margin: 0;
   font-size: 15.5px;
-  color: var(--text-dim);
+  color: var(--dr-frost);
   max-width: 580px;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 8px var(--dr-ink);
 }
 
 .card {
   background: var(--glass);
-  backdrop-filter: blur(16px) saturate(125%);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px 20px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 40px var(--shadow);
 }
 
 .card + .card {
@@ -725,7 +898,7 @@ button:disabled {
 
 .card-text {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--dr-frost);
 }
 
 .card-row {
@@ -735,30 +908,37 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.card-warn {
-  border-color: rgba(255, 200, 100, 0.4);
-}
-
-.card-warn .card-title {
-  color: var(--warn);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Warnings and problems. The palette has no red or amber, so they are told apart by their sign (a
+   warning or shield icon in the title), a bar on the left edge and a brighter edge: ice for a
+   warning, glow for a problem. */
+.card-warn,
+.card-danger {
+  box-shadow: inset 3px 0 0 var(--dr-ice), 0 18px 40px var(--shadow);
+  border-color: var(--dr-azure);
 }
 
 .card-danger {
-  border-color: rgba(255, 128, 128, 0.45);
+  box-shadow: inset 3px 0 0 var(--dr-glow), 0 18px 40px var(--shadow);
+  border-color: var(--dr-glow);
 }
 
+.card-warn .card-title,
 .card-danger .card-title {
-  color: var(--danger);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.card-warn .card-title .icon {
+  color: var(--dr-ice);
+}
+
+.card-danger .card-title {
+  color: var(--dr-glow);
+}
+
 .card-accent {
-  border-color: rgba(62, 230, 211, 0.35);
+  border-color: var(--dr-azure);
 }
 
 .field {
@@ -769,16 +949,18 @@ button:disabled {
 .field-label {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   letter-spacing: 0.02em;
 }
 
+/* Inputs are ink wells on navy cards: a steel edge (6.93:1 on navy, 7.52:1 on ink), glow when
+   focused. */
 .input,
 .textarea,
 .select {
   width: 100%;
-  background: rgba(3, 6, 13, 0.72);
-  border: 1px solid var(--line-strong);
+  background: var(--dr-ink);
+  border: 1px solid var(--edge);
   border-radius: 10px;
   padding: 11px 14px;
   outline: none;
@@ -789,8 +971,8 @@ button:disabled {
 .input:focus,
 .textarea:focus,
 .select:focus {
-  border-color: var(--aether);
-  box-shadow: 0 0 0 3px rgba(62, 230, 211, 0.18);
+  border-color: var(--dr-glow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dr-glow) 30%, transparent);
 }
 
 .textarea {
@@ -807,14 +989,16 @@ button:disabled {
   letter-spacing: 0.01em;
 }
 
+/* Invalid: a frost edge (16.80:1) and the hint below in glow with its warning sign. */
 .input[aria-invalid="true"],
 .textarea[aria-invalid="true"] {
-  border-color: rgba(255, 128, 128, 0.7);
+  border-color: var(--dr-frost);
+  border-style: dashed;
 }
 
 .hint {
   font-size: 12.5px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -827,11 +1011,11 @@ button:disabled {
 }
 
 .hint-ok {
-  color: var(--ok);
+  color: var(--dr-ice);
 }
 
 .hint-bad {
-  color: var(--danger);
+  color: var(--dr-glow);
 }
 
 .preview {
@@ -840,8 +1024,12 @@ button:disabled {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(62, 230, 211, 0.08);
-  border: 1px solid rgba(62, 230, 211, 0.3);
+  background: var(--dr-deep);
+  border: 1px solid var(--dr-azure);
+}
+
+.preview > .icon {
+  color: var(--dr-glow);
 }
 
 .preview-text {
@@ -853,10 +1041,12 @@ button:disabled {
 }
 
 .preview-host {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-size: 12.5px;
 }
 
+/* Buttons, as on the docs site. Default: ice on navy (6.73:1) with a steel edge; hovered glow on
+   deep (9.56:1); pressed frost on azure (5.61:1). */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -865,24 +1055,33 @@ button:disabled {
   min-height: 36px;
   padding: 7px 16px;
   border-radius: 10px;
-  border: 1px solid var(--line-strong);
-  background: rgba(28, 40, 72, 0.85);
-  color: var(--text);
+  border: 1px solid var(--edge);
+  background: var(--dr-navy);
+  color: var(--dr-ice);
   font-weight: 600;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
 }
 
 .btn:hover:not(:disabled) {
-  background: var(--ink-600);
-  border-color: rgba(160, 180, 230, 0.4);
+  background: var(--dr-deep);
+  border-color: var(--dr-ice);
+  color: var(--dr-glow);
 }
 
 .btn:active:not(:disabled) {
   transform: translateY(1px);
+  background: var(--dr-azure);
+  color: var(--dr-frost);
 }
 
+/* Disabled: still readable, steel on navy (6.93:1), inside a dashed steel edge (6.93:1) that says
+   "not now" without relying on colour. */
 .btn:disabled {
-  opacity: 0.5;
+  background: var(--dr-navy);
+  border-color: var(--edge);
+  border-style: dashed;
+  color: var(--dr-steel);
+  box-shadow: none;
 }
 
 .btn .icon {
@@ -890,41 +1089,69 @@ button:disabled {
   height: 17px;
 }
 
-.btn-ember {
-  background: linear-gradient(180deg, var(--ember-hi), var(--ember-lo));
-  border-color: transparent;
-  color: var(--ember-ink);
+/* Primary: ink on ice (7.31:1), ink on glow when hovered (14.50:1), frost on azure when pressed. */
+.btn-primary {
+  background: var(--dr-ice);
+  border-color: var(--dr-ice);
+  color: var(--dr-ink);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--dr-ice) 25%, transparent);
 }
 
-.btn-ember:hover:not(:disabled) {
-  background: linear-gradient(180deg, #ffab70, var(--ember));
+.btn-primary:hover:not(:disabled) {
+  background: var(--dr-glow);
+  border-color: var(--dr-glow);
+  color: var(--dr-ink);
 }
 
+.btn-primary:active:not(:disabled) {
+  background: var(--dr-azure);
+  border-color: var(--dr-azure);
+  color: var(--dr-frost);
+}
+
+/* Risky (log out, accept a changed certificate): frost with a frost edge and the warning sign, so it
+   reads as serious and never as the inviting primary; hovered, ink on frost (18.23:1). */
 .btn-danger {
-  background: rgba(140, 30, 30, 0.6);
-  border-color: rgba(255, 128, 128, 0.45);
+  background: var(--dr-ink);
+  border-color: var(--dr-frost);
+  color: var(--dr-frost);
+}
+
+.btn-danger .icon {
+  color: var(--dr-glow);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: rgba(170, 40, 40, 0.75);
+  background: var(--dr-frost);
+  border-color: var(--dr-frost);
+  color: var(--dr-ink);
+}
+
+.btn-danger:hover:not(:disabled) .icon {
+  color: var(--dr-ink);
+}
+
+.btn-danger:active:not(:disabled) .icon {
+  color: var(--dr-frost);
 }
 
 .link-btn {
   border: 0;
   background: none;
   padding: 2px 0;
-  color: var(--aether);
+  color: var(--dr-ice);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   text-decoration: underline;
-  text-decoration-color: rgba(62, 230, 211, 0.35);
+  text-decoration-color: color-mix(in srgb, var(--dr-ice) 55%, transparent);
   text-underline-offset: 3px;
 }
 
 .link-btn:hover:not(:disabled) {
-  text-decoration-color: var(--aether);
+  color: var(--dr-glow);
+  text-decoration-color: var(--dr-glow);
 }
 
 .link-btn .icon {
@@ -933,7 +1160,8 @@ button:disabled {
 }
 
 .link-btn:disabled {
-  color: var(--text-mute);
+  color: var(--dr-steel);
+  text-decoration-color: transparent;
 }
 
 .steps-list {
@@ -962,9 +1190,9 @@ button:disabled {
   place-items: center;
   font-weight: 700;
   font-size: 13px;
-  background: rgba(255, 122, 47, 0.16);
-  color: var(--ember-hi);
-  border: 1px solid rgba(255, 122, 47, 0.4);
+  background: var(--dr-deep);
+  color: var(--dr-glow);
+  border: 1px solid var(--dr-azure);
 }
 
 .check-list {
@@ -978,7 +1206,7 @@ button:disabled {
 .check-list li {
   display: flex;
   gap: 8px;
-  color: var(--text-dim);
+  color: var(--dr-frost);
 }
 
 .check-list li::before {
@@ -988,7 +1216,7 @@ button:disabled {
   height: 6px;
   margin-top: 8px;
   border-radius: 50%;
-  background: var(--aether);
+  background: var(--dr-ice);
 }
 
 .stats {
@@ -1002,14 +1230,14 @@ button:disabled {
   gap: 2px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--dr-ink);
   border: 1px solid var(--line);
   min-width: 0;
 }
 
 .stat-label {
   font-size: 11.5px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
@@ -1032,8 +1260,8 @@ button:disabled {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2.5px solid rgba(62, 230, 211, 0.25);
-  border-top-color: var(--aether);
+  border: 2.5px solid var(--dr-deep);
+  border-top-color: var(--dr-glow);
   animation: spin 0.9s linear infinite;
   flex: none;
 }
@@ -1051,7 +1279,7 @@ button:disabled {
 
 .news-teaser-date {
   font-size: 11.5px;
-  color: var(--gold);
+  color: var(--dr-ice);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1080,9 +1308,8 @@ button:disabled {
   padding: 11px 14px;
   border-radius: 12px;
   background: var(--glass-strong);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--dr-azure);
+  box-shadow: 0 10px 30px var(--shadow);
   animation: drop 0.25s ease-out;
 }
 
@@ -1091,23 +1318,24 @@ button:disabled {
 }
 
 .banner-error {
-  border-color: rgba(255, 128, 128, 0.55);
+  border-color: var(--dr-glow);
+  box-shadow: inset 3px 0 0 var(--dr-glow), 0 10px 30px var(--shadow);
 }
 
 .banner-error > .icon {
-  color: var(--danger);
+  color: var(--dr-glow);
 }
 
 .banner-notice > .icon {
-  color: var(--aether);
+  color: var(--dr-ice);
 }
 
 .banner-update {
-  border-color: rgba(255, 154, 85, 0.55);
+  border-color: var(--dr-ice);
 }
 
 .banner-update > .icon {
-  color: var(--ember-hi);
+  color: var(--dr-ice);
 }
 
 @keyframes drop {
@@ -1126,9 +1354,8 @@ button:disabled {
   gap: 28px;
   padding: 18px 40px 22px;
   min-height: 104px;
-  background: linear-gradient(180deg, rgba(5, 8, 17, 0.35), rgba(5, 8, 17, 0.8));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dr-ink) 55%, transparent), color-mix(in srgb, var(--dr-ink) 88%, transparent));
   border-top: 1px solid var(--line);
-  backdrop-filter: blur(10px);
 }
 
 /* Never drawn over the big button, whatever the language and window width. The clip margin keeps
@@ -1139,6 +1366,8 @@ button:disabled {
   overflow-clip-margin: 6px;
 }
 
+/* The big button is the primary button, larger: ink on ice to glow (7.31:1 at worst), ink on glow
+   when hovered, frost on azure when pressed. */
 .big-button {
   position: relative;
   min-width: 250px;
@@ -1150,47 +1379,53 @@ button:disabled {
   font-weight: 700;
   font-size: 23px;
   letter-spacing: 0.14em;
-  color: var(--ember-ink);
-  background: linear-gradient(180deg, #ffb070 0%, var(--ember) 45%, var(--ember-lo) 100%);
+  color: var(--dr-ink);
+  background: linear-gradient(180deg, var(--dr-glow) 0%, var(--dr-ice) 55%, var(--dr-ice) 100%);
   box-shadow:
-    0 10px 30px rgba(255, 122, 47, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-  transition: filter 0.15s, transform 0.1s, box-shadow 0.2s;
+    0 10px 30px color-mix(in srgb, var(--dr-ice) 32%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--dr-frost) 55%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--dr-azure) 70%, transparent);
+  transition: transform 0.1s, box-shadow 0.2s;
 }
 
 .big-button:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--dr-glow);
   box-shadow:
-    0 12px 36px rgba(255, 122, 47, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+    0 12px 36px color-mix(in srgb, var(--dr-glow) 40%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--dr-frost) 60%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--dr-ice) 70%, transparent);
 }
 
 .big-button:active:not(:disabled) {
   transform: translateY(2px);
+  background: var(--dr-azure);
+  color: var(--dr-frost);
 }
 
+/* Disabled: steel on deep (4.96:1) inside an azure edge (3.25:1 against the ink bar). */
 .big-button:disabled {
-  background: var(--ink-700);
-  color: var(--text-mute);
-  box-shadow: none;
+  background: var(--dr-deep);
+  color: var(--dr-steel);
+  box-shadow: inset 0 0 0 1px var(--dr-azure);
 }
 
-.big-button.is-running {
-  background: rgba(62, 230, 211, 0.1);
-  color: var(--aether);
-  box-shadow: inset 0 0 0 1.5px rgba(62, 230, 211, 0.6), 0 0 26px rgba(62, 230, 211, 0.2);
+/* The game is running: glow on navy (13.36:1) with a glow edge. */
+.big-button.is-running,
+.big-button.is-running:disabled {
+  background: var(--dr-navy);
+  color: var(--dr-glow);
+  box-shadow: inset 0 0 0 1.5px var(--dr-glow), 0 0 26px color-mix(in srgb, var(--dr-glow) 20%, transparent);
 }
 
 .big-button.is-pause {
-  background: var(--ink-700);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .big-button.is-pause:hover:not(:disabled) {
-  background: var(--ink-600);
+  background: var(--dr-azure);
+  color: var(--dr-frost);
 }
 
 .big-button.is-ready::after {
@@ -1198,7 +1433,7 @@ button:disabled {
   position: absolute;
   inset: -3px;
   border-radius: 16px;
-  box-shadow: 0 0 0 2px rgba(255, 154, 85, 0.5);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dr-glow) 60%, transparent);
   animation: pulse 2.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1226,7 +1461,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-weight: 600;
   font-size: 13px;
   white-space: nowrap;
@@ -1238,7 +1473,7 @@ button:disabled {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid var(--edge);
   font-size: 12px;
   flex: none;
 }
@@ -1249,41 +1484,41 @@ button:disabled {
 }
 
 .step.done {
-  color: var(--text-dim);
+  color: var(--dr-steel);
 }
 
 .step.done .step-dot {
-  background: rgba(62, 230, 211, 0.16);
-  border-color: rgba(62, 230, 211, 0.6);
-  color: var(--aether);
+  background: var(--dr-deep);
+  border-color: var(--dr-ice);
+  color: var(--dr-glow);
 }
 
 .step.current {
-  color: var(--text);
+  color: var(--dr-frost);
 }
 
 .step.current .step-dot {
-  background: var(--ember);
-  border-color: var(--ember);
-  color: var(--ember-ink);
-  box-shadow: 0 0 14px rgba(255, 122, 47, 0.6);
+  background: var(--dr-ice);
+  border-color: var(--dr-ice);
+  color: var(--dr-ink);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--dr-ice) 60%, transparent);
 }
 
 .step-line {
   width: 34px;
   height: 1.5px;
   margin: 0 10px;
-  background: var(--line-strong);
+  background: var(--dr-deep);
 }
 
 .step-line.done {
-  background: rgba(62, 230, 211, 0.6);
+  background: var(--dr-ice);
 }
 
 .action-hint {
   margin-top: 8px;
   font-size: 12.5px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
 }
 
 .progress {
@@ -1312,17 +1547,18 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 18px;
-  color: var(--gold);
+  color: var(--dr-glow);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   flex: none;
 }
 
+/* The fill against its track: ice on deep is 4.82:1. */
 .bar {
   position: relative;
   height: 8px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--dr-deep);
   overflow: hidden;
 }
 
@@ -1331,8 +1567,8 @@ button:disabled {
   inset: 0 auto 0 0;
   width: 0;
   border-radius: 8px;
-  background: linear-gradient(90deg, var(--ember-lo), var(--ember) 60%, var(--gold));
-  box-shadow: 0 0 12px rgba(255, 122, 47, 0.6);
+  background: linear-gradient(90deg, var(--dr-ice), var(--dr-ice) 60%, var(--dr-glow));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dr-ice) 60%, transparent);
   transition: width 0.3s ease;
 }
 
@@ -1340,13 +1576,14 @@ button:disabled {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--dr-frost) 40%, transparent), transparent);
   transform: translateX(-100%);
   animation: shimmer 2s ease-in-out infinite;
 }
 
+/* Paused: steel on deep (4.96:1). */
 .bar.paused .bar-fill {
-  background: var(--ink-600);
+  background: var(--dr-steel);
   box-shadow: none;
 }
 
@@ -1380,7 +1617,7 @@ button:disabled {
   gap: 2px 16px;
   flex-wrap: wrap;
   font-size: 12.5px;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1393,7 +1630,7 @@ button:disabled {
 
 .progress-file {
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1437,9 +1674,8 @@ button:disabled {
     font-size: 14px;
   }
 
-  .tile-word {
-    font-size: 23px;
-    letter-spacing: 0.1em;
+  .tile-logo {
+    max-width: 168px;
   }
 }
 
@@ -1452,8 +1688,7 @@ button:disabled {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(8, 12, 25, 0.9), rgba(6, 9, 19, 0.94));
-  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, var(--glass), var(--glass-strong));
   border-left: 1px solid var(--line);
   padding: 22px 20px 18px;
   gap: 18px;
@@ -1483,7 +1718,7 @@ button:disabled {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-mute);
+  color: var(--dr-steel);
 }
 
 .sp-name {
@@ -1499,25 +1734,27 @@ button:disabled {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   flex-wrap: wrap;
 }
 
+/* Online: a lit glow dot. Offline: an empty steel ring. The words next to it say which. */
 .dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--text-mute);
+  background: var(--dr-steel);
   flex: none;
 }
 
 .dot.online {
-  background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(98, 227, 160, 0.18), 0 0 10px rgba(98, 227, 160, 0.8);
+  background: var(--dr-glow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dr-glow) 20%, transparent), 0 0 10px color-mix(in srgb, var(--dr-glow) 80%, transparent);
 }
 
 .dot.offline {
-  background: var(--danger);
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--dr-steel);
 }
 
 .sp-section {
@@ -1533,7 +1770,7 @@ button:disabled {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-mute);
+  color: var(--dr-steel);
 }
 
 .sp-count {
@@ -1547,12 +1784,12 @@ button:disabled {
   font-size: 34px;
   font-weight: 700;
   line-height: 1;
-  color: var(--text);
+  color: var(--dr-frost);
   font-variant-numeric: tabular-nums;
 }
 
 .sp-count-label {
-  color: var(--text-dim);
+  color: var(--dr-steel);
 }
 
 .players {
@@ -1572,7 +1809,7 @@ button:disabled {
 }
 
 .player:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--dr-deep) 55%, transparent);
 }
 
 .player-avatar {
@@ -1583,8 +1820,8 @@ button:disabled {
   place-items: center;
   font-weight: 700;
   font-size: 12px;
-  background: var(--ink-700);
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
   flex: none;
 }
 
@@ -1602,30 +1839,32 @@ button:disabled {
 
 .player-where {
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.w-city .player-avatar {
-  background: rgba(255, 122, 47, 0.2);
-  color: var(--ember-hi);
+/* Where a player is, and the kind of a world: the icon or initial on deep, in one of four palette
+   colours (glow 9.56:1, frost 12.02:1, ice 4.82:1, steel 4.96:1 on deep). */
+.w-hunt .player-avatar,
+.k-hunt .instance-icon {
+  color: var(--dr-glow);
 }
 
-.w-hunt .player-avatar {
-  background: rgba(255, 128, 128, 0.18);
-  color: #ffadad;
+.w-city .player-avatar,
+.k-city .instance-icon {
+  color: var(--dr-ice);
 }
 
-.w-dojo .player-avatar {
-  background: rgba(62, 230, 211, 0.16);
-  color: var(--aether);
+.w-dojo .player-avatar,
+.k-dojo .instance-icon {
+  color: var(--dr-frost);
 }
 
-.w-tutorial .player-avatar {
-  background: rgba(255, 207, 122, 0.18);
-  color: var(--gold);
+.w-tutorial .player-avatar,
+.k-tutorial .instance-icon {
+  color: var(--dr-steel);
 }
 
 .instances {
@@ -1639,7 +1878,7 @@ button:disabled {
   gap: 4px 12px;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--dr-ink);
   border: 1px solid var(--line);
 }
 
@@ -1650,27 +1889,7 @@ button:disabled {
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: var(--ink-700);
-}
-
-.k-city .instance-icon {
-  background: rgba(255, 122, 47, 0.16);
-  color: var(--ember-hi);
-}
-
-.k-hunt .instance-icon {
-  background: rgba(255, 128, 128, 0.15);
-  color: #ffadad;
-}
-
-.k-dojo .instance-icon {
-  background: rgba(62, 230, 211, 0.14);
-  color: var(--aether);
-}
-
-.k-tutorial .instance-icon {
-  background: rgba(255, 207, 122, 0.15);
-  color: var(--gold);
+  background: var(--dr-deep);
 }
 
 .instance-title {
@@ -1685,14 +1904,14 @@ button:disabled {
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-variant-numeric: tabular-nums;
 }
 
 .instance-bar {
   height: 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--dr-deep);
   overflow: hidden;
 }
 
@@ -1700,26 +1919,26 @@ button:disabled {
   display: block;
   height: 100%;
   width: 0;
-  background: var(--aether);
+  background: var(--dr-ice);
   border-radius: 4px;
 }
 
-.k-city .instance-bar > span {
-  background: var(--ember);
+.k-hunt .instance-bar > span {
+  background: var(--dr-glow);
 }
 
 .sp-empty {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-size: 13px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--dr-azure);
 }
 
 .sp-empty.sp-problem {
-  color: var(--danger);
+  color: var(--dr-glow);
   border-style: solid;
-  border-color: rgba(255, 128, 128, 0.45);
+  border-color: var(--dr-glow);
 }
 
 .sp-foot {
@@ -1729,7 +1948,7 @@ button:disabled {
   display: grid;
   gap: 6px;
   font-size: 12.5px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
 }
 
 .sp-foot-row {
@@ -1754,12 +1973,13 @@ button:disabled {
   font-stretch: condensed;
   font-size: 36px;
   line-height: 1.05;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 14px var(--shadow);
 }
 
 .page-sub {
   margin: -8px 0 0;
-  color: var(--text-dim);
+  color: var(--dr-steel);
+  text-shadow: 0 1px 6px var(--dr-ink);
 }
 
 .news-item {
@@ -1770,7 +1990,7 @@ button:disabled {
 .news-date {
   font-size: 12px;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--dr-ice);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1783,7 +2003,7 @@ button:disabled {
 
 .news-body {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--dr-frost);
   white-space: pre-line;
   overflow-wrap: anywhere;
   user-select: text;
@@ -1797,7 +2017,7 @@ button:disabled {
 }
 
 .kv dt {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-weight: 600;
   font-size: 13px;
 }
@@ -1817,7 +2037,7 @@ button:disabled {
 .fingerprint {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--aether);
+  color: var(--dr-ice);
   letter-spacing: 0.04em;
   word-spacing: 0.3em;
   line-height: 1.7;
@@ -1858,7 +2078,7 @@ button:disabled {
 }
 
 .settings-row-sub {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
@@ -1875,7 +2095,7 @@ button:disabled {
   min-width: 200px;
   padding: 8px 12px;
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%), linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--dr-steel) 50%), linear-gradient(135deg, var(--dr-steel) 50%, transparent 50%);
   background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
   background-size: 5px 5px;
   background-repeat: no-repeat;
@@ -1883,18 +2103,20 @@ button:disabled {
 }
 
 .select option {
-  background: var(--ink-900);
+  background: var(--dr-navy);
+  color: var(--dr-frost);
 }
 
+/* Off: a steel knob in a steel-edged track. On: an ink knob on ice (7.31:1). */
 .switch {
   position: relative;
   width: 46px;
   height: 26px;
   flex: none;
   border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--ink-700);
-  transition: background 0.15s;
+  border: 1px solid var(--edge);
+  background: var(--dr-ink);
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .switch::after {
@@ -1905,28 +2127,32 @@ button:disabled {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--text-dim);
+  background: var(--dr-steel);
   transition: transform 0.15s, background 0.15s;
 }
 
+.switch:hover {
+  border-color: var(--dr-glow);
+}
+
 .switch[aria-checked="true"] {
-  background: rgba(62, 230, 211, 0.3);
-  border-color: rgba(62, 230, 211, 0.6);
+  background: var(--dr-ice);
+  border-color: var(--dr-ice);
 }
 
 .switch[aria-checked="true"]::after {
   transform: translateX(20px);
-  background: var(--aether);
+  background: var(--dr-ink);
 }
 
 .about-text {
-  color: var(--text-dim);
+  color: var(--dr-frost);
   margin: 0;
 }
 
 .small-print {
   font-size: 12px;
-  color: var(--text-mute);
+  color: var(--dr-steel);
   margin: 0;
 }
 
@@ -1956,14 +2182,14 @@ button:disabled {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 16px;
-  background: var(--ink-700);
-  color: var(--text);
+  background: var(--dr-deep);
+  color: var(--dr-frost);
 }
 
 .credit-avatar.role-maintainer,
 .credit-avatar.role-creator {
-  color: var(--ember-ink);
-  background: linear-gradient(160deg, var(--gold), var(--ember));
+  color: var(--dr-ink);
+  background: linear-gradient(160deg, var(--dr-glow), var(--dr-ice));
 }
 
 .credit-text {
@@ -1985,19 +2211,18 @@ button:disabled {
 }
 
 .credit-handle {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-size: 12.5px;
 }
 
 .credit-role.role-maintainer,
 .credit-role.role-creator {
-  color: var(--gold);
-  border-color: rgba(255, 207, 122, 0.4);
+  color: var(--dr-glow);
 }
 
 .credit-note {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--dr-steel);
   font-size: 13px;
 }
 
@@ -2013,8 +2238,7 @@ button:disabled {
 }
 
 .software-license {
-  color: var(--aether);
-  border-color: rgba(62, 230, 211, 0.4);
+  color: var(--dr-ice);
 }
 
 /* Register page: whether the invite code goes with the registration, set apart from the hint above. */
@@ -2033,7 +2257,7 @@ button:disabled {
 }
 
 .reg-invite.included .icon {
-  color: var(--ok);
+  color: var(--dr-ice);
 }
 
 /* ------------------------------------------------------------------ modal */
@@ -2044,18 +2268,17 @@ button:disabled {
   z-index: 20;
   display: grid;
   place-items: center;
-  background: rgba(2, 4, 10, 0.7);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--dr-ink) 78%, transparent);
   animation: fade 0.18s ease-out;
 }
 
 .modal {
   width: min(480px, calc(100vw - 48px));
-  background: var(--ink-850);
-  border: 1px solid var(--line-strong);
+  background: var(--dr-navy);
+  border: 1px solid var(--dr-azure);
   border-radius: 18px;
   padding: 24px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 30px 80px var(--shadow);
   display: grid;
   gap: 12px;
 }
@@ -2069,7 +2292,7 @@ button:disabled {
 
 .modal-text {
   margin: 0;
-  color: var(--text-dim);
+  color: var(--dr-frost);
 }
 
 .modal-actions {
@@ -2086,26 +2309,28 @@ button:disabled {
 
 .modal-danger {
   width: min(560px, calc(100vw - 48px));
-  border-color: rgba(255, 128, 128, 0.55);
+  border-color: var(--dr-glow);
+  box-shadow: inset 0 3px 0 var(--dr-glow), 0 30px 80px var(--shadow);
 }
 
 .modal-danger .modal-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--danger);
+  color: var(--dr-glow);
 }
 
 .modal-warn {
   display: flex;
   gap: 8px;
-  color: var(--warn);
+  color: var(--dr-frost);
 }
 
 .modal-warn .icon {
   width: 18px;
   height: 18px;
   margin-top: 1px;
+  color: var(--dr-glow);
 }
 
 .fp-compare {
@@ -2115,12 +2340,12 @@ button:disabled {
   margin: 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(3, 6, 13, 0.6);
+  background: var(--dr-ink);
   border: 1px solid var(--line);
 }
 
 .fp-compare dt {
-  color: var(--text-mute);
+  color: var(--dr-steel);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -2133,7 +2358,7 @@ button:disabled {
 }
 
 .fp-compare .fp-new {
-  color: var(--warn);
+  color: var(--dr-glow);
 }
 
 @keyframes fade {
@@ -2153,16 +2378,9 @@ button:disabled {
     transition-duration: 0.001ms !important;
   }
 
-  .mote,
-  .stream,
-  .drift-slow,
-  .drift-mid,
-  .drift-near {
+  /* The background stands still, as drawn. */
+  .scene * {
     animation: none !important;
-  }
-
-  .mote {
-    opacity: var(--o, 0.6);
   }
 
   .spinner {
@@ -2173,6 +2391,6 @@ button:disabled {
     animation: none !important;
     left: 0;
     width: 100% !important;
-    opacity: 0.5;
+    opacity: 0.7;
   }
 }

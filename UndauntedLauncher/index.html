@@ -15,7 +15,7 @@
     <div class="app" id="app">
       <header class="titlebar">
         <div class="titlebar-brand">
-          <span class="titlebar-emblem" id="titlebar-emblem"></span>
+          <img class="titlebar-emblem" src="./src/renderer/brand/emblem-32.png" srcset="./src/renderer/brand/emblem-32.png 1x, ./src/renderer/brand/emblem-64.png 2x" width="20" height="20" alt="" draggable="false" />
           <span class="titlebar-title" data-i18n="app_title">Dauntless Revived Launcher</span>
         </div>
         <div class="titlebar-controls">
@@ -28,9 +28,17 @@
       <div class="shell">
         <nav class="rail" id="rail" data-i18n-aria="nav_label">
           <div class="game-tile" id="game-tile">
-            <div class="tile-art" id="tile-art"></div>
-            <div class="tile-word">DAUNTLESS</div>
-            <div class="tile-sub"><span class="tile-revived">REVIVED</span><span class="tile-version">1.4.4</span></div>
+            <img
+              class="tile-logo"
+              src="./src/renderer/brand/logo-inapp.png"
+              srcset="./src/renderer/brand/logo-inapp.png 1x, ./src/renderer/brand/logo-inapp@2x.png 2x"
+              width="320"
+              height="256"
+              alt="Dauntless Revived logo"
+              data-i18n-alt="logo_alt"
+              draggable="false"
+            />
+            <div class="tile-version" data-i18n="tile_sub">Game 1.4.4</div>
           </div>
           <ul class="nav" id="nav"></ul>
           <div class="rail-foot">
@@ -47,90 +55,70 @@
         </nav>
 
         <div class="world">
-          <div class="hero" aria-hidden="true">
-            <svg class="scene" id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
-              <defs>
-                <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#050812" />
-                  <stop offset="0.3" stop-color="#0e1733" />
-                  <stop offset="0.54" stop-color="#2a2150" />
-                  <stop offset="0.72" stop-color="#6e2f3c" />
-                  <stop offset="0.86" stop-color="#c2542a" />
-                  <stop offset="1" stop-color="#f08a3a" />
-                </linearGradient>
-                <radialGradient id="sunglow" cx="0.58" cy="0.8" r="0.6">
-                  <stop offset="0" stop-color="#ffb46e" stop-opacity="0.75" />
-                  <stop offset="0.35" stop-color="#ff7a2f" stop-opacity="0.28" />
-                  <stop offset="1" stop-color="#ff7a2f" stop-opacity="0" />
-                </radialGradient>
-                <linearGradient id="isle-far" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#3a2a52" />
-                  <stop offset="1" stop-color="#1a1735" />
-                </linearGradient>
-                <linearGradient id="isle-mid" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#1d1a38" />
-                  <stop offset="1" stop-color="#0c0f22" />
-                </linearGradient>
-                <linearGradient id="isle-near" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#0d1124" />
-                  <stop offset="1" stop-color="#05070f" />
-                </linearGradient>
-                <linearGradient id="stream" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#3ee6d3" stop-opacity="0" />
-                  <stop offset="0.5" stop-color="#3ee6d3" stop-opacity="0.55" />
-                  <stop offset="1" stop-color="#3ee6d3" stop-opacity="0" />
-                </linearGradient>
-                <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#f08a3a" stop-opacity="0" />
-                  <stop offset="1" stop-color="#f08a3a" stop-opacity="0.22" />
-                </linearGradient>
-                <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="6" />
-                </filter>
-                <symbol id="isle" viewBox="0 0 240 170" overflow="visible">
-                  <path d="M0 22 Q120 -8 240 22 L222 40 L204 36 L190 70 L170 62 L156 112 L138 96 L122 168 L108 100 L90 110 L78 64 L58 72 L44 38 L22 44 Z" />
-                </symbol>
-                <symbol id="isle-top" viewBox="0 0 240 170" overflow="visible">
-                  <path d="M0 22 Q120 -8 240 22 Q120 8 0 22 Z" />
-                </symbol>
-              </defs>
-              <rect width="1600" height="900" fill="url(#sky)" />
-              <rect width="1600" height="900" fill="url(#sunglow)" />
-              <g id="stars" fill="#dfe7ff"></g>
-              <path class="drift drift-slow" d="M-100 560 Q300 520 700 548 T1500 530 L1700 640 L-100 660 Z" fill="#f4a37a" opacity="0.07" />
-              <g class="drift drift-slow" fill="url(#isle-far)" opacity="0.85">
-                <use href="#isle" x="150" y="330" width="150" height="106" />
-                <use href="#isle" x="560" y="280" width="110" height="78" />
-                <use href="#isle" x="1150" y="300" width="170" height="120" />
-              </g>
-              <path class="stream" d="M-60 470 C300 380 560 540 880 440 S1380 330 1680 420" fill="none" stroke="url(#stream)" stroke-width="3" />
-              <path class="stream stream-2" d="M-60 500 C320 430 600 580 900 480 S1400 380 1680 460" fill="none" stroke="url(#stream)" stroke-width="1.5" />
-              <g class="aether-crystal drift drift-mid">
-                <circle cx="890" cy="112" r="96" fill="#3ee6d3" opacity="0.16" filter="url(#soft)" />
-                <path d="M890 34 L926 100 L890 164 L854 100 Z" fill="#3ee6d3" opacity="0.9" />
-                <path d="M890 34 L890 164 L854 100 Z" fill="#d6fffa" opacity="0.35" />
-              </g>
-              <g class="drift drift-mid" fill="url(#isle-mid)">
-                <use href="#isle" x="690" y="188" width="400" height="283" />
-                <use href="#isle" x="230" y="470" width="240" height="170" />
-                <use href="#isle" x="1180" y="430" width="260" height="184" />
-              </g>
-              <g class="drift drift-mid" fill="#ff9a55" opacity="0.38">
-                <use href="#isle-top" x="690" y="188" width="400" height="283" />
-                <use href="#isle-top" x="230" y="470" width="240" height="170" />
-                <use href="#isle-top" x="1180" y="430" width="260" height="184" />
-              </g>
-              <rect y="520" width="1600" height="380" fill="url(#haze)" />
-              <g class="drift drift-near" fill="url(#isle-near)">
-                <use href="#isle" x="960" y="690" width="600" height="425" />
-                <use href="#isle" x="-160" y="720" width="460" height="326" />
-              </g>
-              <g class="drift drift-near" fill="#ff8a45" opacity="0.42">
-                <use href="#isle-top" x="960" y="690" width="600" height="425" />
-                <use href="#isle-top" x="-160" y="720" width="460" height="326" />
-              </g>
-              <g id="motes"></g>
-            </svg>
+          <!-- The built-in background: src/renderer/scene.ts draws into these layers, styles.css colours
+               and moves them. A host's art pack fades in over it (#art-a, #art-b). -->
+          <div class="hero" id="hero" aria-hidden="true">
+            <div class="scene" id="scene">
+              <svg class="layer" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false"><g id="sc-stars"></g></svg>
+              <svg class="layer twinkle" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false"><g id="sc-twinkle"></g></svg>
+              <svg class="layer aurora" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <defs>
+                  <linearGradient id="g-aurora-a" x1="0" y1="0" x2="0" y2="1">
+                    <stop class="au-clear" offset="0" />
+                    <stop class="au-glow" offset="0.72" />
+                    <stop class="au-edge" offset="1" />
+                  </linearGradient>
+                  <linearGradient id="g-aurora-b" x1="0" y1="0" x2="0" y2="1">
+                    <stop class="au-clear" offset="0" />
+                    <stop class="au-ice" offset="0.78" />
+                    <stop class="au-edge" offset="1" />
+                  </linearGradient>
+                  <filter id="f-aurora" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="14" /></filter>
+                </defs>
+                <g id="sc-aurora" filter="url(#f-aurora)"></g>
+              </svg>
+              <svg class="layer" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <defs>
+                  <linearGradient id="g-far" x1="0" y1="0" x2="0" y2="1">
+                    <stop class="far-top" offset="0.3" />
+                    <stop class="far-foot" offset="0.75" />
+                  </linearGradient>
+                  <linearGradient id="g-snow-far" gradientUnits="userSpaceOnUse" x1="0" y1="270" x2="0" y2="560">
+                    <stop class="snow-top" offset="0" />
+                    <stop class="snow-foot" offset="1" />
+                  </linearGradient>
+                </defs>
+                <image class="motif" href="./src/renderer/brand/emblem-512.png" x="468" y="70" width="330" height="330" />
+                <g id="sc-far"></g>
+              </svg>
+              <svg class="layer mist mist-far" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <defs>
+                  <radialGradient id="g-mist">
+                    <stop class="mist-core" offset="0" />
+                    <stop class="mist-clear" offset="1" />
+                  </radialGradient>
+                </defs>
+                <g id="sc-mist-far"></g>
+              </svg>
+              <svg class="layer" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+                <defs>
+                  <linearGradient id="g-mid" x1="0" y1="0" x2="0" y2="1">
+                    <stop class="mid-top" offset="0.45" />
+                    <stop class="mid-foot" offset="0.8" />
+                  </linearGradient>
+                  <linearGradient id="g-snow-mid" gradientUnits="userSpaceOnUse" x1="0" y1="460" x2="0" y2="690">
+                    <stop class="snow-top" offset="0" />
+                    <stop class="snow-foot" offset="1" />
+                  </linearGradient>
+                </defs>
+                <g id="sc-mid"></g>
+              </svg>
+              <svg class="layer mist mist-near" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false"><g id="sc-mist-near"></g></svg>
+              <svg class="layer" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false"><g id="sc-forest"></g></svg>
+              <div class="layer snowfall">
+                <svg viewBox="0 0 1600 1800" preserveAspectRatio="xMidYMid slice" focusable="false"><g class="flakes" id="sc-snow"></g></svg>
+              </div>
+            </div>
             <div class="art art-a" id="art-a"></div>
             <div class="art art-b" id="art-b"></div>
             <div class="hero-shade"></div>

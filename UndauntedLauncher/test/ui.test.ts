@@ -101,7 +101,7 @@ test("every key referenced in the page and the main process exists", () => {
   for (const dir of ["src/renderer", "src/main", "src/shared"]) {
     for (const f of readdirSync(path.join(ROOT, dir))) if (f.endsWith(".ts")) files.push(path.join(ROOT, dir, f));
   }
-  const patterns = [/\bt\("([a-z0-9_]+)"/g, /translate\([^,()]+,\s*"([a-z0-9_]+)"/g, /data-i18n(?:-aria)?="([a-z0-9_]+)"/g, /(?:labelKey|titleKey|key): "([a-z0-9_]+)"/g];
+  const patterns = [/\bt\("([a-z0-9_]+)"/g, /translate\([^,()]+,\s*"([a-z0-9_]+)"/g, /data-i18n(?:-aria|-alt)?="([a-z0-9_]+)"/g, /(?:labelKey|titleKey|key): "([a-z0-9_]+)"/g];
   let checked = 0;
   for (const file of files) {
     const text = readFileSync(file, "utf8");

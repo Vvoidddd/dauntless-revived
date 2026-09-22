@@ -2,7 +2,8 @@
 // small set of calls in preload.ts. It has no network access of its own: news, art and status
 // all come through the main process.
 
-import { $, emblem, forceRender, githubMark, h, icon, renderRegion, s, type IconName } from "./dom";
+import { $, forceRender, githubMark, h, icon, renderRegion, type IconName } from "./dom";
+import { buildScene } from "./scene";
 import { isStringKey, translate, type StringKey } from "../shared/i18n";
 import { localized, PROJECT_PEOPLE, SOFTWARE, UPSTREAM_PEOPLE, type CreditPerson, type CreditRole } from "../shared/credits";
 import { parseInvite } from "../shared/invite";
@@ -206,8 +207,10 @@ function linkButton(label: string, onClick: () => void, opts: { icon?: IconName;
   return b;
 }
 
+// A risky action (btn-danger) always shows the warning sign, so it does not rely on its colour alone.
 function button(label: string, onClick: () => void, opts: { cls?: string; icon?: IconName; fk?: string; disabled?: boolean } = {}): HTMLButtonElement {
-  const b = h("button", { type: "button", class: `btn ${opts.cls ?? ""}`.trim(), "data-fk": opts.fk, disabled: opts.disabled }, opts.icon ? icon(opts.icon) : null, label);
+  const glyph = opts.icon ?? (opts.cls === "btn-danger" ? "warning" : undefined);
+  const b = h("button", { type: "button", class: `btn ${opts.cls ?? ""}`.trim(), "data-fk": opts.fk, disabled: opts.disabled }, glyph ? icon(glyph) : null, label);
   b.addEventListener("click", onClick);
   return b;
 }
@@ -376,7 +379,7 @@ function playRegister(snap: Snapshot): HTMLElement[] {
         { class: "field" },
         h("label", { class: "field-label", for: "key-input" }, t("reg_key_label")),
         keyInput,
-        h("div", { class: "card-row" }, button(t("reg_key_use"), () => void useKey(), { cls: "btn-ember", icon: "key", fk: "key-use", disabled: snap.busy }), button(t("reg_key_file"), () => void api.importKeyFile(), { icon: "folder", fk: "key-file", disabled: snap.busy })),
+        h("div", { class: "card-row" }, button(t("reg_key_use"), () => void useKey(), { cls: "btn-primary", icon: "key", fk: "key-use", disabled: snap.busy }), button(t("reg_key_file"), () => void api.importKeyFile(), { icon: "folder", fk: "key-file", disabled: snap.busy })),
         h("p", { class: "small-print" }, t("reg_key_note")),
       )
     : null;
@@ -493,7 +496,7 @@ function playReady(snap: Snapshot): HTMLElement[] {
         "card-accent",
         h("h3", { class: "card-title" }, t("backup_title")),
         h("p", { class: "card-text" }, t("backup_text")),
-        h("div", { class: "card-row" }, button(t("backup_save"), () => void api.saveKeyBackup(), { cls: "btn-ember", icon: "key", fk: "backup-save" }), button(t("backup_later"), () => void api.dismissBackupOffer(), { fk: "backup-later" })),
+        h("div", { class: "card-row" }, button(t("backup_save"), () => void api.saveKeyBackup(), { cls: "btn-primary", icon: "key", fk: "backup-save" }), button(t("backup_later"), () => void api.dismissBackupOffer(), { fk: "backup-later" })),
       ),
     );
   }
@@ -1049,7 +1052,7 @@ function renderSettings(): void {
       h("div", { class: "card-row" }, h("span", { class: "small-print" }, t("about_credits")), linkButton(t("nav_credits"), () => setView("credits"), { fk: "about-credits" })),
       h("p", { class: "small-print" }, t("about_disclaimer")),
       h("p", { class: "small-print" }, snap.app.packaged ? t("about_auto_updates") : t("about_dev_build")),
-      snap.app.updateReady ? h("div", { class: "card-row" }, button(t("update_restart"), () => void api.installUpdate(), { cls: "btn-ember", fk: "about-update", disabled: snap.game.running })) : null,
+      snap.app.updateReady ? h("div", { class: "card-row" }, button(t("update_restart"), () => void api.installUpdate(), { cls: "btn-primary", fk: "about-update", disabled: snap.game.running })) : null,
     );
 
     return [h("div", { class: "page" }, h("h1", { class: "page-title", id: "settings-title" }, t("set_title")), game, graphics, language, account, about)];
@@ -1197,7 +1200,7 @@ function renderBanners(): void {
           { class: "banner banner-update", role: "status" },
           icon("refresh"),
           h("span", { class: "banner-text" }, t("update_ready")),
-          button(t("update_restart"), () => void api.installUpdate(), { cls: "btn-ember", fk: "update-restart", disabled: snap.game.running }),
+          button(t("update_restart"), () => void api.installUpdate(), { cls: "btn-primary", fk: "update-restart", disabled: snap.game.running }),
         ),
       );
     }
@@ -1289,6 +1292,7 @@ function applyStaticI18n(): void {
   document.title = t("app_title");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-i18n]"))) el.textContent = tk(el.dataset.i18n ?? "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-i18n-aria]"))) el.setAttribute("aria-label", tk(el.dataset.i18nAria ?? ""));
+  for (const el of Array.from(document.querySelectorAll<HTMLImageElement>("img[data-i18n-alt]"))) el.alt = tk(el.dataset.i18nAlt ?? "");
   inviteInput.placeholder = t("join_placeholder");
   usernameInput.placeholder = t("reg_placeholder");
   keyInput.placeholder = t("reg_key_placeholder");
@@ -1337,7 +1341,7 @@ function renderModal(): void {
   let title = "";
   let text: HTMLElement[] = [];
   let confirmLabel = "";
-  let confirmCls = "btn-ember";
+  let confirmCls = "btn-primary";
   // Resolves to the next modal to show (a changed certificate), or null to close.
   let onConfirm: () => Promise<Modal | null> = async () => null;
   // Show an error from an action whose main-process side did not already report it.
@@ -1486,7 +1490,7 @@ async function checkInviteLink(): Promise<void> {
   if (m) showModal(m);
 }
 
-// ------------------------------------------------------------------ hero art and scene
+// ------------------------------------------------------------------ hero art (the host's art pack)
 
 function showArt(index: number): void {
   const list = state.branding.backgrounds.filter((b) => ART_URL.test(b.url));
@@ -1495,6 +1499,7 @@ function showArt(index: number): void {
   if (list.length === 0) {
     layers.forEach((l) => l.classList.remove("show"));
     credit.textContent = "";
+    $("#hero").classList.remove("has-art");
     return;
   }
   const item = list[index % list.length];
@@ -1505,6 +1510,8 @@ function showArt(index: number): void {
     next.classList.add("show");
     layers[state.artLayer].classList.remove("show");
     state.artLayer = 1 - state.artLayer;
+    // The built-in scene is covered now: stop its animation (styles.css).
+    $("#hero").classList.add("has-art");
     credit.textContent = item.credit ? t("art_credit", { credit: item.credit }) : "";
   };
   img.src = item.url;
@@ -1524,35 +1531,6 @@ function startArt(): void {
   const accent = state.branding.accent;
   if (accent && /^#[0-9a-f]{6}$/.test(accent)) document.documentElement.style.setProperty("--host-accent", accent);
   else document.documentElement.style.removeProperty("--host-accent");
-}
-
-function buildScene(): void {
-  const stars = $("#stars") as unknown as SVGGElement;
-  const motes = $("#motes") as unknown as SVGGElement;
-  let seed = 7;
-  const rnd = () => {
-    seed = (seed * 16807) % 2147483647;
-    return (seed - 1) / 2147483646;
-  };
-  for (let i = 0; i < 90; i++) {
-    stars.appendChild(s("circle", { cx: (rnd() * 1600).toFixed(1), cy: (rnd() * 380).toFixed(1), r: (0.4 + rnd() * 1.3).toFixed(2), opacity: (0.25 + rnd() * 0.6).toFixed(2) }));
-  }
-  for (let i = 0; i < 38; i++) {
-    const teal = rnd() > 0.25;
-    const c = s("circle", {
-      class: "mote",
-      cx: (rnd() * 1600).toFixed(1),
-      cy: (520 + rnd() * 380).toFixed(1),
-      r: (1 + rnd() * 2.6).toFixed(2),
-      fill: teal ? "#7ff5e8" : "#ffc58a",
-    });
-    const dur = 11 + rnd() * 12;
-    c.style.setProperty("--dur", `${dur.toFixed(1)}s`);
-    c.style.setProperty("--delay", `${(-rnd() * dur).toFixed(1)}s`);
-    c.style.setProperty("--dx", `${(-40 + rnd() * 80).toFixed(0)}px`);
-    c.style.setProperty("--o", (0.35 + rnd() * 0.55).toFixed(2));
-    motes.appendChild(c);
-  }
 }
 
 // ------------------------------------------------------------------ data flow
@@ -1592,13 +1570,13 @@ function onSnapshot(snap: Snapshot): void {
   if (langChanged) {
     forceRender($("#view-play"));
   }
+  // The game runs next to the launcher: the background holds still meanwhile (styles.css).
+  $("#hero").classList.toggle("game-running", snap.game.running);
   renderAll();
   void loadExtras(snap);
 }
 
 function initChrome(): void {
-  $("#titlebar-emblem").appendChild(emblem());
-  $("#tile-art").appendChild(emblem());
   const min = $("#win-min");
   const max = $("#win-max");
   const close = $("#win-close");

@@ -90,7 +90,8 @@ function createWindow(): void {
     minHeight: Math.min(640, work.height),
     frame: false,
     show: false,
-    backgroundColor: "#070b16",
+    // The page's ink (styles.css), so nothing flashes before it paints.
+    backgroundColor: "#01090D",
     title: "Dauntless Revived Launcher",
     icon: existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
