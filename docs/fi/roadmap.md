@@ -194,6 +194,9 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
   (21.–22.9.2026), ja palvelimella tarkistetut asiat on lueteltu yllä.
 - **Kaverikäynnistin 0.1.0** on julkaistu GitHubin julkaisuihin CI:n ensimmäisenä automaattisena
   julkaisuna, ja asennetut käynnistimet päivittävät itsensä. Versio 0.1.1 seurasi 22.9.2026.
+  Seuraavassa versiossa pelaaja, jolla peli jo on, voi liittää `BaseGame144`-kansionsa polun tai
+  selata siihen, ja käynnistin käyttää peliä siinä kansiossa, jossa se on, ja lataa vain puuttuvat
+  tiedostot (Vvoidddd, [PR #8](https://github.com/mixutin/dauntless-revived/pull/8)).
 - **Ensimmäinen oikea testi yhdellä pelaajalla (22.9.2026):** omistaja kulki vuokratulla
   palvelimella internetin yli käynnistimen latauksesta ja kutsusta pelin lataukseen, opetusjaksoon,
   Ramsgateen, Training Dojoon ja ensimmäiseen metsästykseen. Yksityiskohdat ovat yllä.

@@ -29,6 +29,16 @@ olevia käsivaiheita. Asenna käynnistin osoitteesta
 tiliavain, valitse **"Minulla on jo tiliavain"** ja liitä `account.key`-tiedostosi rekisteröitymisen
 sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaiheinen Tailscale-polku.
 
+**Jos sinulla on jo peli.** Valitse asennusnäkymässä **"Minulla on jo pelitiedostot"** ja liitä
+1.4.4-kansiosi polku (esimerkiksi `C:\Pelit\BaseGame144` tai sen sisällä oleva `Dauntless`-kansio),
+tai selaa siihen. Käynnistin löytää pelin ja käyttää sitä siinä kansiossa, jossa se on: se tarkistaa
+jokaisen tiedoston kiinnitettyä luetteloa vasten, korvaa tiedostot, jotka eroavat 1.4.4:stä, ja
+laittaa omat `dxgi.dll`- ja `UndauntedInternalServer.dll`-tiedostonsa kansioon
+`Archon\Binaries\Win64`. Puuttuvat tiedostot ladataan vain, jos isäntä on avannut pelin latauksen.
+Jos jokin toinen asennus (esimerkiksi alla oleva kaveripaketti) käyttää kansiota yhä, kopioi se
+ensin. Polun liittämisen lisäsi Vvoidddd
+([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
+
 **Jos Windows estää asennusohjelman.** Käynnistintä ei ole vielä allekirjoitettu, joten Windows
 SmartScreen varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. Koneella, jossa
 tunnistamattomat sovellukset on asetettu estettäviksi, SmartScreen estää sen kokonaan, eikä Suorita

@@ -27,6 +27,15 @@ have an account key, choose **"I already have an account key"** and paste your `
 of registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale
 path.
 
+**If you already have the game.** On the install screen, choose **"I already have the game files"**
+and paste the path of your 1.4.4 folder (for example `C:\Games\BaseGame144`, or the `Dauntless`
+folder inside it), or browse to it. The launcher finds the game there and uses it in place: it checks
+every file against its pinned manifest, replaces any file that differs from 1.4.4, and puts its own
+`dxgi.dll` and `UndauntedInternalServer.dll` in `Archon\Binaries\Win64`. Missing files are downloaded
+only if your host has switched on game downloads. If another setup (for example the friend kit below)
+still uses that folder, copy it first. Vvoidddd added the pasted path
+([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
+
 **If Windows blocks the installer.** The launcher is not code-signed yet, so Windows SmartScreen warns
 the first time: **More info > Run anyway**. On a PC set to block unrecognised apps, SmartScreen blocks
 it outright and there is no Run anyway. Then:

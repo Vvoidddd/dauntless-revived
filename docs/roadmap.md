@@ -372,6 +372,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
        - interrupted downloads resume (HTTP Range)
        - several files download at once
        - **Repair** re-checks everything and fetches only broken files
+       - **Already installed:** a player can paste the path of `BaseGame144` (or its `Dauntless` folder, or `Archon` or `Win64` inside it) or browse to it; the launcher finds `Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe`, uses the game where it is, checks it against the pinned manifest and fetches only missing or damaged files before installing the pinned DLLs. Only drive-letter paths are accepted, so a pasted network path is never looked at. "Change folder..." on such a folder uses the game there instead of downloading a second copy. *Built 2026-09-22 from Vvoidddd's [PR #8](https://github.com/mixutin/dauntless-revived/pull/8); ships with the next launcher release.*
     4. **Install:** the two DLLs (pinned hashes), the VC++ runtime check, and the user config: graphics preset (Cinematic by default, with a menu), chat (XMPP) pointed at the host instead of Epic, and the memory settings from `play.ps1`.
     5. **Launch:** starts `Dauntless-Win64-Shipping.exe` directly with the key passed as today. It shows whether the server is up.
     6. **Updates:** builds come from GitHub Actions using the public source and are published as GitHub Releases with SHA-256 sums. The launcher updates itself from there.
