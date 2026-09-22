@@ -545,6 +545,17 @@ undauntedApiRouter.post("/PartyInvite", HasUndauntedUserApiKey, (req: any, res) 
     res.json({ From: From.Username, To: To.Username });
 });
 
+function FriendErrorMessage(Error: string){
+    switch(Error){
+        case "blocked": return "One of the two has blocked the other.";
+        case "self": return "That is the same account.";
+        case "limit": return "Too many friends or requests.";
+        case "pending_limit": return "Too many friend requests are still unanswered.";
+        case "rate": return "Too many friend requests in the last 10 minutes; try again later.";
+        default: return "No such account.";
+    }
+}
+
 // {Username, From?} -> 200 {From, To, Result: requested | accepted | already_friends | already_requested}
 undauntedApiRouter.post("/Friends", HasUndauntedUserApiKey, (req: any, res) => {
     const From = ActingAccount(req, res);
@@ -565,7 +576,7 @@ undauntedApiRouter.post("/Friends", HasUndauntedUserApiKey, (req: any, res) => {
 
     if(!Result.ok){
         res.status(Result.Status);
-        res.json({ error: Result.Error, message: Result.Error === "blocked" ? "One of the two has blocked the other." : Result.Error === "self" ? "That is the same account." : Result.Error === "limit" ? "Too many friends or requests." : "No such account." });
+        res.json({ error: Result.Error, message: FriendErrorMessage(Result.Error) });
         return;
     }
 

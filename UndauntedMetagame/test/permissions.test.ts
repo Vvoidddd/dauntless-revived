@@ -174,6 +174,8 @@ const EXPECTED_ROUTES = [
     "POST /friends/api/public/friends/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "DELETE /friends/api/public/friends/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "POST /friends/api/public/blocklist/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    // The same block as POST: the client's verb for Block is inferred, not traced
+    "PUT /friends/api/public/blocklist/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "DELETE /friends/api/public/blocklist/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "GET /friends/api/public/list/:namespace/:userId/recentPlayers [MiscRoutesOn]",
     "GET /friends/api/v1/:userId/settings [MiscRoutesOn]",

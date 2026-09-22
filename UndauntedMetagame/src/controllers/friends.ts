@@ -9,11 +9,54 @@ import type { Tx } from "./savehistory";
 // friends routes (routes/friends.ts); nobody shows as online without an XMPP presence server.
 //
 // One friendships row per pair, ids sorted: status PENDING (requesterId asked) or ACCEPTED.
-// A block removes any friendship between the two and stops requests and party invites
-// in both directions.
+// A block removes any friendship between the two and stops requests, party invites and guild
+// invites in both directions.
+//
+// Limits on new requests (docs/findings/social.md): at most MAX_PENDING_OUTGOING unanswered
+// requests an account has sent, and at most MAX_REQUESTS_PER_WINDOW new requests per
+// REQUEST_WINDOW_MS (in memory; accepting a request the other player sent never counts). Both
+// answer 409, which the client shows as a failure toast.
 
 export const MAX_FRIENDSHIPS_PER_ACCOUNT = 200;
 export const MAX_BLOCKS_PER_ACCOUNT = 200;
+export const MAX_PENDING_OUTGOING = 50;
+export const MAX_REQUESTS_PER_WINDOW = 20;
+export const REQUEST_WINDOW_MS = 10 * 60 * 1000;
+
+// Times of each account's recent new requests (sliding window)
+const RecentRequests = new Map<string, number[]>();
+let Clock: () => number = () => Date.now();
+
+// Tests only: a controllable clock for the request window, and an empty window
+export function SetFriendsClockForTests(NewClock?: () => number){
+    Clock = NewClock ?? (() => Date.now());
+}
+
+export function ResetFriendsMemoryForTests(){
+    RecentRequests.clear();
+}
+
+function RecentRequestTimes(AccountId: string, Now: number){
+    const Recent = (RecentRequests.get(AccountId) ?? []).filter((At) => Now - At < REQUEST_WINDOW_MS);
+
+    if(Recent.length > 0){
+        RecentRequests.set(AccountId, Recent);
+    }
+    else{
+        RecentRequests.delete(AccountId);
+    }
+
+    // Accounts that stopped sending are forgotten once the map grows
+    if(RecentRequests.size > 1000){
+        for(const [Other, Times] of [...RecentRequests.entries()]){
+            if(Times.every((At) => Now - At >= REQUEST_WINDOW_MS)){
+                RecentRequests.delete(Other);
+            }
+        }
+    }
+
+    return Recent;
+}
 
 export type FriendEntry = {
     accountId: string,
@@ -76,7 +119,7 @@ export function ListBlocked(AccountId: string): string[] {
 
 export type FriendResult =
     | { ok: true, Result: "requested" | "accepted" | "already_friends" | "already_requested" | "removed" | "not_friends" | "blocked" | "unblocked" | "already_blocked" | "not_blocked" }
-    | { ok: false, Status: 400 | 403 | 404 | 409, Error: "bad_request" | "self" | "not_found" | "blocked" | "limit" };
+    | { ok: false, Status: 400 | 403 | 404 | 409, Error: "bad_request" | "self" | "not_found" | "blocked" | "limit" | "pending_limit" | "rate" };
 
 // POST /friends/api/public/friends/:me/:them. A request the other side already sent is
 // accepted; asking again, or asking an existing friend, changes nothing.
@@ -114,9 +157,24 @@ export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResul
             return { ok: false, Status: 409, Error: "limit" };
         }
 
+        const PendingOutgoing = tx.select({ n: sql<number>`count(*)` }).from(friendships)
+            .where(and(eq(friendships.requesterId, Me), eq(friendships.status, "PENDING"))).get()?.n ?? 0;
+
+        if(PendingOutgoing >= MAX_PENDING_OUTGOING){
+            return { ok: false, Status: 409, Error: "pending_limit" };
+        }
+
+        const WindowNow = Clock();
+        const Recent = RecentRequestTimes(Me, WindowNow);
+
+        if(Recent.length >= MAX_REQUESTS_PER_WINDOW){
+            return { ok: false, Status: 409, Error: "rate" };
+        }
+
         const [Low, High] = Pair(Me, Them);
 
         tx.insert(friendships).values({ userLow: Low, userHigh: High, requesterId: Me, status: "PENDING", createdAt: Now, updatedAt: Now }).run();
+        RecentRequests.set(Me, [...Recent, WindowNow]);
         return { ok: true, Result: "requested" };
     });
 

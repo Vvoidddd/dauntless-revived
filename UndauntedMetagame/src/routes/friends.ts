@@ -101,7 +101,13 @@ friendsRouter.delete("/friends/api/public/friends/:userId/:friendId", HasUndaunt
     SendChange(req, res, RemoveFriend);
 });
 
+// Block. The verb is inferred from the exe (the Block request's code was not fully traced), so PUT on
+// the same path does the same; unblock is DELETE (traced).
 friendsRouter.post("/friends/api/public/blocklist/:userId/:friendId", HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
+    SendChange(req, res, BlockPlayer);
+});
+
+friendsRouter.put("/friends/api/public/blocklist/:userId/:friendId", HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
     SendChange(req, res, BlockPlayer);
 });
 

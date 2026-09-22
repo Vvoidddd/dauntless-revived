@@ -9,6 +9,7 @@ import { app } from "../src/app";
 import { GetDb } from "../src/db";
 import { blocks, gameserverapikeys, users } from "../src/db/schema";
 import { SignMetagameJWTForUid } from "../src/controllers/auth";
+import { ResetFriendsMemoryForTests, SetFriendsClockForTests } from "../src/controllers/friends";
 import { RecordingDeploy, StartRecordingDeploy } from "./partyenv";
 import {
     AddUserInfo, ParseAccountMappings, ParseBlockList, ParseFriendsList, ParseInvitations, ParsePhoenixEnvelope, GuildErrorOf,
@@ -353,5 +354,72 @@ describe("8-9. mapping details and the legacy switch", () => {
         finally{
             delete process.env.ACCOUNTINFO_PUBLIC_LEGACY;
         }
+    });
+});
+
+describe("10. friends limits and the block alias", () => {
+    after(() => SetFriendsClockForTests());
+
+    it("PUT on the blocklist path blocks like POST (friend requests refused), and DELETE unblocks", async () => {
+        assert.equal((await Call("PUT", `/friends/api/public/blocklist/${A}/${D}`, { as: A })).status, 204);
+        assert.deepEqual(ParseBlockList((await Call("GET", `/friends/api/public/blocklist/${A}`, { as: A })).text), [D]);
+        assert.equal((await Call("POST", `/friends/api/public/friends/${D}/${A}`, { as: D })).status, 403);
+        assert.equal((await Call("PUT", `/friends/api/public/blocklist/${D}/${A}`, { as: A })).status, 403, "only the caller's own list");
+        assert.equal((await Call("PUT", `/friends/api/public/blocklist/${A}/${D}`)).status, 401);
+        assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${A}/${D}`, { as: A })).status, 204);
+        assert.deepEqual(ParseBlockList((await Call("GET", `/friends/api/public/blocklist/${A}`, { as: A })).text), []);
+    });
+
+    it("20 new requests per 10 minutes, at most 50 unanswered; accepting an inbound request is never limited", async () => {
+        let Offset = 0;
+        SetFriendsClockForTests(() => Date.now() + Offset);
+        ResetFriendsMemoryForTests();
+
+        const E = "UID-social-e", X = "UID-social-x";
+        const Targets: string[] = [];
+
+        for(const [Id, Name] of [[E, "Echo"], [X, "Xray"]]){
+            GetDb().insert(users).values({ userId: Id, name: Name, notes: 0 }).run();
+            Tokens[Id] = SignMetagameJWTForUid(Id);
+        }
+
+        for(let Index = 0; Index < 52; Index++){
+            const Id = `UID-social-cap-${String(Index).padStart(2, "0")}`;
+            GetDb().insert(users).values({ userId: Id, name: `Cap${Index}`, notes: 0 }).run();
+            Targets.push(Id);
+        }
+
+        const Ask = async (Target: string) => (await Call("POST", `/friends/api/public/friends/${E}/${Target}`, { as: E })).status;
+
+        // X asks E first: E's accept later must not count against E's limits
+        assert.equal((await Call("POST", `/friends/api/public/friends/${X}/${E}`, { as: X })).status, 204);
+
+        for(let Index = 0; Index < 20; Index++){
+            assert.equal(await Ask(Targets[Index]), 204, `request ${Index + 1}`);
+        }
+
+        assert.equal(await Ask(Targets[20]), 409, "the 21st in 10 minutes");
+        assert.equal(await Ask(Targets[0]), 204, "asking again changes nothing and is not refused");
+        assert.equal((await Call("POST", `/friends/api/public/friends/${E}/${X}`, { as: E, emptyJson: true })).status, 204, "accepting X's request while the window is full");
+
+        Offset += 10 * 60 * 1000 + 1;
+        for(let Index = 20; Index < 40; Index++){
+            assert.equal(await Ask(Targets[Index]), 204, `request ${Index + 1}, after the window moved`);
+        }
+
+        Offset += 10 * 60 * 1000 + 1;
+        for(let Index = 40; Index < 50; Index++){
+            assert.equal(await Ask(Targets[Index]), 204, `request ${Index + 1}`);
+        }
+
+        assert.equal(await Ask(Targets[50]), 409, "the 51st unanswered request");
+        assert.equal((await FriendsList(E)).filter((Entry) => Entry.status === "PENDING" && Entry.direction === "OUTBOUND").length, 50);
+
+        // Withdrawing one frees a place
+        assert.equal((await Call("DELETE", `/friends/api/public/friends/${E}/${Targets[0]}`, { as: E })).status, 204);
+        assert.equal(await Ask(Targets[50]), 204);
+
+        assert.equal(await Ask(Targets[51]), 409, "full again");
+        assert.equal((await Call("POST", `/friends/api/public/friends/${Targets[51]}/${E}`, { as: E })).status, 403, "the URL's first id must be the caller");
     });
 });
