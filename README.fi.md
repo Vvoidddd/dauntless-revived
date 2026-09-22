@@ -275,7 +275,9 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
   kirjoitti ensimmäisen suorituskykymittarin, jonka pohjalle palvelimen suorituskykyloki rakennettiin
   ([#6](https://github.com/mixutin/dauntless-revived/pull/6)); lisäsi käynnistimeen valinnaisen
   ”mukautuvan perusvalotuksen” asetuksen ilmalaivaa varten, oletuksena pois päältä
-  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)).
+  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)); teki käynnistimelle mahdolliseksi
+  käyttää valmista Dauntless 1.4.4 -kansiota liittämällä sen polun
+  ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
 
 Kaikki osallistujat näkyvät [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 

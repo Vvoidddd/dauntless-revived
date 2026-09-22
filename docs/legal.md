@@ -45,7 +45,8 @@ And **Phoenix Labs**, who made Dauntless. Nothing here would be worth preserving
   ([#5](https://github.com/mixutin/dauntless-revived/pull/5)); wrote the first performance sampler,
   the base of the server's performance log ([#6](https://github.com/mixutin/dauntless-revived/pull/6));
   added the launcher's opt-in "Basic adaptive" auto exposure setting for the airship, off by default
-  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)).
+  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)); let the launcher use an existing
+  Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
 
 Everyone who has contributed is on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors). The launcher
