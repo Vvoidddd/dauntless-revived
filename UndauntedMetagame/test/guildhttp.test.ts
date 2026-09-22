@@ -1,0 +1,547 @@
+import { RemoveTestDb } from "./setup";
+import "./authenv";
+import { GUILD_API_PORT, GUILD_DEPLOYSERVER_PORT } from "./guildenv";
+import { after, before, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+import type { Server } from "node:http";
+import { app } from "../src/app";
+import { GetDb } from "../src/db";
+import { gameserverapikeys, guildinvites, guildmembers, guilds, users } from "../src/db/schema";
+import { SignMetagameJWTForUid } from "../src/controllers/auth";
+import { ResetGuildMemoryForTests, SetGuildClockForTests } from "../src/controllers/guild";
+import { FakeDeployServer, StartFakeDeployServer } from "./fakedeploy";
+import { GuildOutcome, ParseGuildData, ParseGuildInvites, ParsePhoenixEnvelope, SocialClient, Transport } from "./socialclient";
+
+// Guilds over HTTP (roadmap 3.11): the v2 routes with the 1.4.4 client's own bodies and headers, and
+// the create as the Ramsgate game server sends it. Every reply is checked twice: the exact JSON, and
+// what the client makes of it (socialclient.ts: success or the EGuildRequestError it shows).
+// GUILD_MAX_MEMBERS is 3 in this file. The app listens on a spare loopback port.
+
+const BASE = `http://127.0.0.1:${GUILD_API_PORT}`;
+const GS_KEY = crypto.randomBytes(24).toString("hex");
+const A = "UID-guild-a", B = "UID-guild-b", C = "UID-guild-c", D = "UID-guild-d", E = "UID-guild-e", F = "UID-guild-f";
+const NAMES: Record<string, string> = { [A]: "Alpha", [B]: "Bravo", [C]: "Charlie", [D]: "Delta", [E]: "Echo", [F]: "Foxtrot" };
+const Tokens: Record<string, string> = {};
+
+type Reply = { status: number, text: string, json: any };
+type CallOptions = { as?: string, token?: string, gs?: boolean, body?: unknown, emptyJson?: boolean };
+
+async function Call(Method: string, Path: string, Options: CallOptions = {}): Promise<Reply> {
+    const Headers: Record<string, string> = {};
+
+    if(Options.as !== undefined) Headers["authorization"] = `bearer ${Tokens[Options.as]}`;
+    if(Options.token !== undefined) Headers["authorization"] = `bearer ${Options.token}`;
+    if(Options.gs) Headers["x-undaunted-gameserver-apikey"] = GS_KEY;
+    if(Options.body !== undefined || Options.emptyJson) Headers["content-type"] = "application/json; charset=utf-8";
+
+    const Response = await fetch(BASE + Path, { method: Method, headers: Headers, body: Options.body === undefined ? (Options.emptyJson ? "" : undefined) : JSON.stringify(Options.body) });
+    const Text = await Response.text();
+    let Json: any;
+
+    try{ Json = Text.length > 0 ? JSON.parse(Text) : undefined; } catch { Json = undefined; }
+
+    return { status: Response.status, text: Text, json: Json };
+}
+
+// The client's calls. Empty-bodied calls go out with and without the JSON content type.
+const Validate = (Who: string, Name: unknown, Nameplate: unknown = "") => Call("POST", "/guild/validate", { as: Who, body: { leader_account_id: Who, name: Name, nameplate: Nameplate } });
+const Create = (Leader: string, Name: unknown, Nameplate: unknown = "", Options: CallOptions = {}) => Call("POST", "/guild", { gs: true, body: { leader_account_id: Leader, name: Name, nameplate: Nameplate }, ...Options });
+const GetGuild = (Who: string) => Call("GET", "/guild", { as: Who });
+const GetInvites = (Who: string) => Call("GET", "/guild/invite/player", { as: Who });
+const Invite = (Who: string, Target: string, Json = false) => Call("PUT", `/guild/invite/${Target}`, { as: Who, emptyJson: Json });
+const AcceptInvite = (Who: string, InviteId: string, Json = true) => Call("POST", `/guild/invite/accept/${InviteId}`, { as: Who, emptyJson: Json });
+const DeclineInvite = (Who: string, InviteId: string) => Call("DELETE", `/guild/invite/${InviteId}`, { as: Who });
+const Leave = (Who: string) => Call("DELETE", "/guild/player", { as: Who });
+const Kick = (Who: string, Target: string) => Call("DELETE", `/guild/player/${Target}`, { as: Who });
+const Rank = (Who: string, Target: string, NewRank: string) => Call("PUT", `/guild/rank/${Target}/${NewRank}`, { as: Who, emptyJson: true });
+const Disband = (Who: string, GuildId: string) => Call("DELETE", `/guild/${GuildId}`, { as: Who });
+const PartyPoll = (Who: string) => Call("POST", "/party", { as: Who, body: { buildId: "239827_rel-1.4.4_shipping", featureOverrides: [] } });
+
+const ACK = { code: "OK", message: "", payload: {} };
+
+function ExpectAck(Reply: Reply, What: string){
+    assert.equal(Reply.status, 200, `${What}: ${Reply.text}`);
+    assert.deepEqual(Reply.json, ACK, What);
+    assert.equal(GuildOutcome(Reply.status, Reply.text).ok, true, `${What}: the client reads a success`);
+}
+
+// A refusal: the status, the envelope with the code and an empty payload, and the client's reading of it
+function ExpectRefusal(Reply: Reply, Status: number, ClientError: string, What: string){
+    assert.equal(Reply.status, Status, `${What}: ${Reply.text}`);
+    assert.deepEqual(Object.keys(Reply.json ?? {}), ["code", "message", "payload"], What);
+    assert.equal(typeof Reply.json.message, "string");
+    assert.deepEqual(Reply.json.payload, {});
+    const Outcome = GuildOutcome(Reply.status, Reply.text);
+    assert.deepEqual([Outcome.ok, Outcome.error], [false, ClientError], What);
+}
+
+// A guild reply: wrapped, with flat copies of the payload at the root; the client parses it
+function ExpectGuild(Reply: Reply, Expected: object, What: string){
+    assert.equal(Reply.status, 200, `${What}: ${Reply.text}`);
+    assert.deepEqual(Reply.json, { code: "OK", message: "", payload: Expected, ...Expected }, What);
+    const Envelope = ParsePhoenixEnvelope(Reply.status, Reply.text);
+    assert.ok(Envelope.ok, What);
+    return ParseGuildData(Envelope.payload)!;
+}
+
+function GuildObject(Id: string, Name: string, Nameplate: string, Leader: string, Members: [string, string][]){
+    return { id: Id, name: Name, nameplate: Nameplate, leader_account_id: Leader, members: Members.map(([Account, Rank]) => ({ phx_account_id: Account, rank: Rank })), maximum_guild_members: 3 };
+}
+
+async function OwnInvites(Who: string){
+    const Reply = await GetInvites(Who);
+    assert.equal(Reply.status, 200);
+    assert.deepEqual(Reply.json.invites, Reply.json.payload.invites, "flat copy");
+    return ParseGuildInvites(ParsePhoenixEnvelope(Reply.status, Reply.text).payload)!;
+}
+
+function ClientOf(Who: string){
+    const Send: Transport = async (Method, Path, Body) => {
+        const Reply = await Call(Method, Path, { as: Who, body: Body });
+        return { status: Reply.status, text: Reply.text };
+    };
+
+    return new SocialClient(Who, Send);
+}
+
+function AddAccount(Id: string, Name: string){
+    GetDb().insert(users).values({ userId: Id, name: Name, notes: 0 }).run();
+    Tokens[Id] = SignMetagameJWTForUid(Id);
+}
+
+let Offset = 0;
+let Fake: FakeDeployServer | undefined;
+let Listening: Server | undefined;
+let Slayers = "";
+
+before(async () => {
+    for(const [UserId, Name] of Object.entries(NAMES)){
+        AddAccount(UserId, Name);
+    }
+
+    GetDb().insert(gameserverapikeys).values({ keyHash: crypto.createHash("sha256").update(GS_KEY, "utf8").digest("hex") }).run();
+    SetGuildClockForTests(() => Date.now() + Offset);
+
+    Fake = await StartFakeDeployServer(GUILD_DEPLOYSERVER_PORT, []);
+    Listening = await new Promise<Server>((Resolve, Reject) => {
+        const Started = app.listen(GUILD_API_PORT, "127.0.0.1", (Error?: Error) => Error ? Reject(Error) : Resolve(Started));
+    });
+});
+
+after(async () => {
+    SetGuildClockForTests();
+    Listening?.closeAllConnections();
+    await new Promise<void>((Resolve) => Listening ? Listening.close(() => Resolve()) : Resolve());
+    await Fake?.Close();
+    RemoveTestDb(() => GetDb().$client.close());
+});
+
+describe("1. no guild", () => {
+    it("GET /guild is 204 with no body (the client clears its guild); GET /guild/invite/player is the wrapped empty list", async () => {
+        const Mine = await GetGuild(A);
+        assert.deepEqual([Mine.status, Mine.text], [204, ""]);
+        assert.equal(ParsePhoenixEnvelope(Mine.status, Mine.text).ok, false, "not in a guild");
+
+        const Invites = await GetInvites(A);
+        assert.equal(Invites.status, 200);
+        assert.equal(Invites.text, JSON.stringify({ code: "OK", message: "", payload: { invites: [] }, invites: [] }));
+        assert.deepEqual(ParseGuildInvites(ParsePhoenixEnvelope(Invites.status, Invites.text).payload), []);
+
+        assert.deepEqual([(await Call("GET", "/guild", { gs: true })).status], [204], "the game-server key alone: no guild");
+        assert.deepEqual((await Call("GET", "/guild/invite/player", { gs: true })).json.invites, []);
+    });
+});
+
+describe("2. POST /guild/validate", () => {
+    it("every name and nameplate rule answers its code; valid pairs answer the ack and create nothing", async () => {
+        const Cases: [unknown, unknown, number, string][] = [
+            ["Abc", "SLY", 400, "GuildNameInvalidLength"],
+            ["Abcdefghijklmnop", "", 400, "GuildNameInvalidLength"],
+            ["Ab cd", "", 400, "GuildNameInvalidLength"],
+            [" Slayers", "", 400, "GuildNameInvalidLength"],
+            ["Slayers!", "", 400, "GuildNameInvalidLength"],
+            [undefined, "", 400, "GuildNameInvalidLength"],
+            [12345, "", 400, "GuildNameInvalidLength"],
+            ["Guild1234567", "", 400, "GuildNameTooManyNumbers"],
+            ["Gaaaaaaa", "", 400, "GuildNameTooManyLetters"],
+            ["GaAaAaAa", "", 400, "GuildNameTooManyLetters"],
+            ["Sh1tHeads", "", 400, "GuildNameProfane"],
+            ["Slayers", "ABCDEFG", 400, "GuildNameplateInvalidLength"],
+            ["Slayers", "A", 400, "GuildNameplateInvalidLength"],
+            ["Slayers", "A-B", 400, "GuildNameplateInvalidLength"],
+            ["Slayers", 42, 400, "GuildNameplateInvalidLength"],
+            ["Slayers", "P0RN", 400, "GuildNameplateProfane"]
+        ];
+
+        for(const [Name, Nameplate, Status, ClientError] of Cases){
+            ExpectRefusal(await Validate(A, Name, Nameplate), Status, ClientError, `${JSON.stringify(Name)} / ${JSON.stringify(Nameplate)}`);
+        }
+
+        for(const [Name, Nameplate] of [["Guild123456", ""], ["Gaaaaaa", "AB"], ["Slayers", "SLY"], ["Slayers", ""], ["Slayers", null], ["ABCDEFGHIJKLMNO", "ABCDEF"]] as [string, unknown][]){
+            ExpectAck(await Validate(A, Name, Nameplate), `${Name} / ${JSON.stringify(Nameplate)}`);
+        }
+
+        ExpectAck(await Call("POST", "/guild/validate", { as: A, body: { name: "Slayers" } }), "no nameplate key at all");
+        assert.equal((await GetGuild(A)).status, 204, "validating creates nothing");
+        assert.equal(GetDb().select().from(guilds).all().length, 0);
+    });
+
+    it("GUILD_NAME_DENYLIST adds words, digit swaps included", async () => {
+        process.env.GUILD_NAME_DENYLIST = "grief, b4d";
+
+        try{
+            ExpectRefusal(await Validate(A, "GriefGuild"), 400, "GuildNameProfane", "a listed word");
+            ExpectRefusal(await Validate(A, "Bad1Guild"), 400, "GuildNameProfane", "b4d matches bad");
+            ExpectRefusal(await Validate(A, "Fine", "GRIEF"), 400, "GuildNameplateProfane", "in the nameplate");
+        }
+        finally{
+            delete process.env.GUILD_NAME_DENYLIST;
+        }
+
+        ExpectAck(await Validate(A, "GriefGuild"), "without the list");
+    });
+
+    it("needs a player's token", async () => {
+        assert.equal((await Call("POST", "/guild/validate", { body: { leader_account_id: A, name: "Slayers", nameplate: "" } })).status, 401);
+        assert.equal((await Call("POST", "/guild/validate", { gs: true, body: { leader_account_id: A, name: "Slayers", nameplate: "" } })).status, 403);
+    });
+});
+
+describe("3. the game server's create (POST /guild)", () => {
+    it("refuses a player's token, and a leader with no recent validate and no recent activity (403 InvalidPermission)", async () => {
+        const PlayerOnly = await Call("POST", "/guild", { as: D, body: { leader_account_id: D, name: "Deltas", nameplate: "" } });
+        ExpectRefusal(PlayerOnly, 403, "Unknown", "a player's token alone");
+
+        ExpectRefusal(await Create(D, "Deltas"), 403, "InvalidPermission", "D never validated and was never heard from");
+        assert.equal((await GetGuild(D)).status, 204);
+    });
+
+    it("after A's validate, creates the guild and answers it in full; A's GET /guild answers the same", async () => {
+        ExpectAck(await Validate(A, "Slayers", "SLY"), "validate");
+
+        const Created = await Create(A, "Slayers", "SLY");
+        Slayers = Created.json?.payload?.id;
+        assert.match(Slayers, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+
+        const Expected = GuildObject(Slayers, "Slayers", "SLY", A, [[A, "Leader"]]);
+        const Parsed = ExpectGuild(Created, Expected, "create");
+        assert.deepEqual(Object.keys(Created.json.payload), ["id", "name", "nameplate", "leader_account_id", "members", "maximum_guild_members"]);
+        assert.equal(typeof Created.json.payload.maximum_guild_members, "number");
+        assert.deepEqual(Parsed, { id: Slayers, name: "Slayers", nameplate: "SLY", leader: A, members: [{ id: A, rank: "Leader" }], max: 3 });
+
+        const Mine = await GetGuild(A);
+        assert.equal(Mine.text, Created.text);
+    });
+
+    it("A cannot create a second guild (409 YouAlreadyInAGuild), and names and nameplates are taken regardless of case", async () => {
+        await PartyPoll(A);
+        ExpectRefusal(await Create(A, "Another"), 409, "YouAlreadyInAGuild", "second create");
+        ExpectRefusal(await Validate(A, "Another"), 409, "YouAlreadyInAGuild", "validate while in a guild");
+        ExpectRefusal(await Validate(A, "x"), 409, "YouAlreadyInAGuild", "checked before the name rules");
+
+        ExpectRefusal(await Validate(B, "sLAYERS"), 409, "GuildNameTaken", "name");
+        ExpectRefusal(await Validate(B, "Others", "sly"), 409, "GuildNameplateTaken", "nameplate");
+        ExpectAck(await Validate(B, "Others", ""), "an empty nameplate is never taken");
+    });
+
+    it("an unknown leader is 400; a forwarded token of another player is 403; a bad forwarded token is ignored, never a 500", async () => {
+        ExpectRefusal(await Create("UID-nobody", "Nobodies"), 400, "Unknown", "no such account");
+        ExpectRefusal(await Create("not an id!", "Nobodies"), 400, "Unknown", "not an account id");
+
+        ExpectAck(await Validate(B, "Bravos", "BRV"), "B validates");
+        ExpectRefusal(await Create(B, "Bravos", "BRV", { as: A }), 403, "InvalidPermission", "A's token forwarded for B");
+
+        const BadToken = await Create(B, "Bravos", "BRV", { token: "not.a.token" });
+        assert.equal(BadToken.status, 200, BadToken.text);
+        assert.equal(BadToken.json.payload.leader_account_id, B);
+        ExpectAck(await Disband(B, BadToken.json.payload.id), "B disbands");
+
+        const Leaders = GetDb().select().from(guildmembers).all();
+        assert.deepEqual(Leaders.map((Row) => [Row.accountId, Row.rank]), [[A, "Leader"]]);
+    });
+
+    it("one guild per leader per 10 minutes (429); the leader's own forwarded token is fine", async () => {
+        ExpectAck(await Validate(B, "BravosTwo"), "validate");
+        ExpectRefusal(await Create(B, "BravosTwo"), 429, "Unknown", "a second guild within 10 minutes");
+
+        Offset += 10 * 60 * 1000 + 1;
+        const Later = await Create(B, "BravosTwo", "", { as: B });
+        assert.equal(Later.status, 200, Later.text);
+        ExpectAck(await Disband(B, Later.json.payload.id), "disband");
+    });
+
+    it("recent activity alone (a party poll within the last minute) is enough", async () => {
+        await PartyPoll(C);
+        const Created = await Create(C, "Charlies");
+        assert.equal(Created.status, 200, Created.text);
+        ExpectAck(await Disband(C, Created.json.payload.id), "disband");
+    });
+});
+
+describe("4. invites", () => {
+    it("A invites B; B's list shows it with the guild's name and the inviter, whom B's client sets up by id", async () => {
+        ExpectAck(await Invite(A, B), "invite without a content type");
+
+        const Raw = await GetInvites(B);
+        const Invites = await OwnInvites(B);
+        assert.equal(Invites.length, 1);
+        assert.deepEqual(Object.keys(Raw.json.payload.invites[0]), ["id", "guild_id", "guild_name", "inviter_account_id"]);
+        assert.deepEqual({ ...Invites[0], id: "" }, { id: "", guildId: Slayers, guildName: "Slayers", inviter: A });
+
+        const ClientB = await ClientOf(B).Login();
+        assert.equal(await ClientB.ResolveFromPhoenix(Invites[0].inviter), "initialised");
+        assert.equal(ClientB.NameOf(A), "Alpha");
+
+        assert.deepEqual(await OwnInvites(A), [], "the inviter sees nothing");
+    });
+
+    it("refuses a second invite (Redundant), oneself (Cloned), an unknown account, and a block either way", async () => {
+        ExpectRefusal(await Invite(A, B, true), 409, "TargetAlreadyHasGuildInvite", "again");
+        ExpectRefusal(await Invite(A, A), 409, "TargetAlreadyInYourGuild", "oneself");
+        ExpectRefusal(await Invite(A, "UID-nobody"), 404, "Unknown", "unknown account");
+        ExpectRefusal(await Invite(C, D), 404, "NotInAGuild", "C has no guild");
+
+        assert.equal((await Call("POST", `/friends/api/public/blocklist/${D}/${A}`, { as: D })).status, 204);
+        ExpectRefusal(await Invite(A, D), 403, "Unknown", "D blocked A");
+        assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${D}/${A}`, { as: D })).status, 204);
+    });
+});
+
+describe("5. accept and decline", () => {
+    it("B accepts A's invite: B is a Member, and every other invite B had is gone", async () => {
+        ExpectAck(await Validate(E, "Echoes", "ECH"), "E validates");
+        assert.equal((await Create(E, "Echoes", "ECH")).status, 200);
+        ExpectAck(await Invite(E, B), "E invites B");
+
+        const Both = await OwnInvites(B);
+        assert.deepEqual(Both.map((Entry) => Entry.guildName), ["Echoes", "Slayers"], "newest first");
+
+        ExpectAck(await AcceptInvite(B, Both[1].id), "accept, empty JSON body");
+        assert.deepEqual(await OwnInvites(B), []);
+        ExpectGuild(await GetGuild(B), GuildObject(Slayers, "Slayers", "SLY", A, [[A, "Leader"], [B, "Member"]]), "B's guild");
+        ExpectRefusal(await AcceptInvite(B, Both[0].id), 404, "GuildInviteNotFound", "E's invite went with the accept");
+    });
+
+    it("C declines; nobody accepts or declines another player's invite; a member of a guild cannot accept another", async () => {
+        ExpectAck(await Invite(E, C), "E invites C");
+        const ForC = (await OwnInvites(C))[0];
+        ExpectRefusal(await AcceptInvite(D, ForC.id, false), 404, "GuildInviteNotFound", "D accepting C's invite");
+        ExpectRefusal(await DeclineInvite(D, ForC.id), 404, "GuildInviteNotFound", "D declining C's invite");
+        ExpectAck(await DeclineInvite(C, ForC.id), "decline, no body");
+        assert.deepEqual(await OwnInvites(C), []);
+        ExpectRefusal(await DeclineInvite(C, ForC.id), 404, "GuildInviteNotFound", "declined twice");
+
+        ExpectAck(await Invite(E, B), "a player in another guild may be invited");
+        const ForB = (await OwnInvites(B))[0];
+        ExpectRefusal(await AcceptInvite(B, ForB.id), 409, "YouAlreadyInAGuild", "B is in Slayers");
+        ExpectAck(await DeclineInvite(B, ForB.id), "B declines");
+        ExpectRefusal(await AcceptInvite(C, "not-an-invite"), 404, "GuildInviteNotFound", "a made-up id");
+    });
+
+    it("an invite expires after GUILD_INVITE_TTL_DAYS (7): it leaves the list and cannot be accepted", async () => {
+        ExpectAck(await Invite(A, C), "A invites C");
+        const Old = (await OwnInvites(C))[0];
+
+        Offset += 7 * 24 * 60 * 60 * 1000 + 60 * 1000;
+        assert.deepEqual(await OwnInvites(C), []);
+        ExpectRefusal(await AcceptInvite(C, Old.id), 404, "GuildInviteNotFound", "expired");
+        ExpectAck(await Invite(A, C), "a new invite replaces the expired one");
+    });
+
+    it("the guild is full at GUILD_MAX_MEMBERS (3): accepting and inviting answer 409 GuildIsFull", async () => {
+        ExpectAck(await Invite(A, D), "A invites D while there is room");
+        ExpectAck(await AcceptInvite(C, (await OwnInvites(C))[0].id), "C joins: three members");
+
+        ExpectRefusal(await AcceptInvite(D, (await OwnInvites(D))[0].id), 409, "GuildIsFull", "D's accept");
+        ExpectRefusal(await Invite(A, F), 409, "GuildIsFull", "a new invite");
+
+        const Full = ExpectGuild(await GetGuild(A), GuildObject(Slayers, "Slayers", "SLY", A, [[A, "Leader"], [B, "Member"], [C, "Member"]]), "full");
+        assert.equal(Full.max - Full.members.length, 0, "the client shows 0 open positions");
+    });
+});
+
+describe("6. ranks", () => {
+    it("the leader promotes and demotes (rank in any case); Members cannot invite, Officers can", async () => {
+        ExpectRefusal(await Invite(C, F), 403, "InvalidPermission", "a Member invites");
+
+        ExpectAck(await Rank(A, B, "officer"), "Promote To Guild Officer");
+        ExpectRefusal(await Invite(B, F), 409, "GuildIsFull", "an Officer may invite (the guild is full)");
+        ExpectAck(await Rank(A, C, "OFFICER"), "upper case");
+        ExpectGuild(await GetGuild(C), GuildObject(Slayers, "Slayers", "SLY", A, [[A, "Leader"], [B, "Officer"], [C, "Officer"]]), "two officers");
+        ExpectAck(await Rank(A, C, "Member"), "Demote To Guild Member");
+        ExpectAck(await Rank(A, B, "officer"), "the same rank again changes nothing");
+
+        ExpectRefusal(await Rank(A, C, "captain"), 400, "InvalidGuildRank", "no such rank");
+        ExpectRefusal(await Rank(B, C, "officer"), 403, "InvalidPermission", "an Officer changes ranks");
+        ExpectRefusal(await Rank(A, A, "member"), 403, "InvalidPermission", "the leader's own rank");
+        ExpectRefusal(await Rank(A, D, "officer"), 404, "NotInAGuild", "not a member");
+        ExpectRefusal(await Rank(D, A, "member"), 404, "NotInAGuild", "the caller has no guild");
+    });
+
+    it("Promote To Guild Leader hands the guild over; the old leader becomes an Officer", async () => {
+        ExpectAck(await Rank(A, B, "leader"), "hand-over");
+        const After = ExpectGuild(await GetGuild(A), GuildObject(Slayers, "Slayers", "SLY", B, [[B, "Leader"], [A, "Officer"], [C, "Member"]]), "after");
+        assert.equal(After.leader, B);
+        assert.equal(GetDb().select().from(guilds).all().find((Row) => Row.guildId === Slayers)?.leaderId, B);
+        ExpectRefusal(await Rank(A, C, "officer"), 403, "InvalidPermission", "the old leader no longer changes ranks");
+    });
+
+    it("everything is read back from the database after the in-memory state is cleared (a restart)", async () => {
+        const Before = (await GetGuild(C)).text;
+        ResetGuildMemoryForTests();
+        assert.equal((await GetGuild(C)).text, Before);
+        assert.equal((await OwnInvites(D)).length, 1, "D's invite survived too");
+    });
+});
+
+describe("7. kick, leave, disband", () => {
+    it("the leader cannot leave; an Officer cannot kick; a Member leaves through DELETE /guild/player (not the disband route)", async () => {
+        ExpectRefusal(await Leave(B), 409, "GuildLeaderCannotLeaveGuild", "the leader leaves");
+        ExpectRefusal(await Kick(B, B), 409, "GuildLeaderCannotLeaveGuild", "the leader kicks themself");
+        ExpectRefusal(await Kick(A, C), 403, "InvalidPermission", "an Officer kicks");
+
+        ExpectAck(await Leave(C), "Leave Guild");
+        assert.equal((await GetGuild(C)).status, 204);
+        ExpectGuild(await GetGuild(B), GuildObject(Slayers, "Slayers", "SLY", B, [[B, "Leader"], [A, "Officer"]]), "the guild is still there");
+        ExpectRefusal(await Leave(C), 404, "NotInAGuild", "leaving again");
+    });
+
+    it("the leader kicks; a kick of someone outside the guild is 404; a member naming themself leaves", async () => {
+        ExpectAck(await Kick(B, A), "Kick From Guild");
+        assert.equal((await GetGuild(A)).status, 204);
+        ExpectRefusal(await Kick(B, D), 404, "NotInAGuild", "not a member");
+        ExpectRefusal(await Kick(C, B), 404, "NotInAGuild", "the caller has no guild");
+
+        ExpectAck(await Invite(B, A), "B invites A back");
+        ExpectAck(await AcceptInvite(A, (await OwnInvites(A))[0].id), "A accepts");
+        ExpectAck(await Kick(A, A), "a Member naming themself leaves");
+        assert.equal((await GetGuild(A)).status, 204);
+    });
+
+    it("only the leader disbands, only their own guild; afterwards nobody is in it, its invites are gone and the name is free", async () => {
+        ExpectAck(await Invite(B, A), "B invites A");
+        ExpectAck(await AcceptInvite(A, (await OwnInvites(A))[0].id), "A accepts");
+        ExpectAck(await Invite(B, C), "B invites C (left open)");
+
+        ExpectRefusal(await Disband(A, Slayers), 403, "InvalidPermission", "a Member disbands");
+        ExpectRefusal(await Disband(B, crypto.randomUUID()), 404, "NotInAGuild", "a wrong id");
+        ExpectRefusal(await Disband(C, Slayers), 404, "NotInAGuild", "not a member");
+
+        ExpectAck(await Disband(B, Slayers), "DISBAND GUILD");
+
+        for(const Who of [A, B]){
+            assert.equal((await GetGuild(Who)).status, 204, Who);
+        }
+
+        assert.deepEqual(await OwnInvites(C), []);
+        assert.deepEqual(await OwnInvites(D), []);
+        assert.equal(GetDb().select().from(guildinvites).all().filter((Row) => Row.guildId === Slayers).length, 0);
+        ExpectAck(await Validate(A, "slayers", "SLY"), "the name and nameplate are free again");
+    });
+});
+
+describe("8. limits on invites", () => {
+    it("30 invites per inviter per hour, then at most 50 open invites per guild (429)", async () => {
+        ExpectAck(await Validate(F, "Foxes", "FOX"), "F validates");
+        assert.equal((await Create(F, "Foxes", "FOX")).status, 200);
+
+        const Many: string[] = [];
+
+        for(let Index = 0; Index < 52; Index++){
+            const Id = `UID-guild-many-${String(Index).padStart(2, "0")}`;
+            AddAccount(Id, `Many${Index}`);
+            Many.push(Id);
+        }
+
+        for(let Index = 0; Index < 30; Index++){
+            ExpectAck(await Invite(F, Many[Index]), `invite ${Index + 1}`);
+        }
+
+        ExpectRefusal(await Invite(F, Many[30]), 429, "Unknown", "the 31st within an hour");
+
+        Offset += 60 * 60 * 1000 + 1;
+        for(let Index = 30; Index < 50; Index++){
+            ExpectAck(await Invite(F, Many[Index]), `invite ${Index + 1}, an hour later`);
+        }
+
+        ExpectRefusal(await Invite(F, Many[50]), 429, "Unknown", "the 51st open invite");
+        ExpectAck(await DeclineInvite(Many[0], (await OwnInvites(Many[0]))[0].id), "one declines");
+        ExpectAck(await Invite(F, Many[50]), "room again");
+    });
+
+    it("a player keeps at most 20 open invites; the oldest gives way", async () => {
+        const Target = "UID-guild-target";
+        AddAccount(Target, "Target");
+
+        const Leaders: string[] = [];
+
+        for(let Index = 0; Index < 21; Index++){
+            const Leader = `UID-guild-lead-${String(Index).padStart(2, "0")}`;
+            AddAccount(Leader, `Lead${Index}`);
+            ExpectAck(await Validate(Leader, `Band${String.fromCharCode(65 + Index)}Guild`), `validate ${Index}`);
+            assert.equal((await Create(Leader, `Band${String.fromCharCode(65 + Index)}Guild`)).status, 200);
+            Offset += 1000;
+            ExpectAck(await Invite(Leader, Target), `invite ${Index + 1}`);
+            Leaders.push(Leader);
+        }
+
+        const Open = await OwnInvites(Target);
+        assert.equal(Open.length, 20);
+        assert.equal(Open[0].inviter, Leaders[20], "newest first");
+        assert.ok(!Open.some((Entry) => Entry.inviter === Leaders[0]), "the oldest was dropped");
+    });
+});
+
+describe("9. permissions", () => {
+    it("no token is 401 and the game-server key alone is 403 on every client route; the reads answer only the token's own data", async () => {
+        const Routes: [string, string][] = [["POST", "/guild/validate"], ["PUT", `/guild/invite/${A}`], ["POST", "/guild/invite/accept/x"], ["DELETE", "/guild/invite/x"], ["DELETE", "/guild/player"], ["DELETE", `/guild/player/${A}`], ["PUT", `/guild/rank/${A}/officer`], ["DELETE", "/guild/x"]];
+
+        for(const [Method, Path] of Routes){
+            assert.equal((await Call(Method, Path, { emptyJson: true })).status, 401, `${Method} ${Path}`);
+            assert.equal((await Call(Method, Path, { gs: true, emptyJson: true })).status, 403, `${Method} ${Path}`);
+        }
+
+        assert.equal((await Call("GET", "/guild")).status, 401);
+        assert.equal((await Call("GET", "/guild/invite/player")).status, 401);
+        assert.equal((await Call("GET", "/guild", { token: "not.a.token" })).status, 401);
+
+        const Foxes = await GetGuild(F);
+        assert.equal(Foxes.json.payload.leader_account_id, F);
+        assert.equal((await GetGuild(E)).json.payload.name, "Echoes", "each token its own guild");
+        assert.equal((await Call("GET", "/guild", { gs: true, as: F })).text, Foxes.text, "a game server forwarding F's token reads F's guild");
+    });
+});
+
+describe("10. GUILDS=0", () => {
+    it("brings back the old stubs, and every other guild route 404s", async () => {
+        process.env.GUILDS = "0";
+
+        try{
+            const Mine = await GetGuild(F);
+            assert.deepEqual([Mine.status, Mine.text], [204, ""]);
+            assert.equal((await GetInvites(A)).text, JSON.stringify({ code: null, message: "OK", payload: { invites: [] } }));
+
+            for(const [Method, Path, Options] of [
+                ["POST", "/guild/validate", { as: A, body: { leader_account_id: A, name: "Slayers", nameplate: "" } }],
+                ["POST", "/guild", { gs: true, body: { leader_account_id: A, name: "Slayers", nameplate: "" } }],
+                ["PUT", `/guild/invite/${B}`, { as: F }],
+                ["POST", "/guild/invite/accept/x", { as: A }],
+                ["DELETE", "/guild/invite/x", { as: A }],
+                ["DELETE", "/guild/player", { as: F }],
+                ["DELETE", `/guild/player/${A}`, { as: F }],
+                ["PUT", `/guild/rank/${A}/officer`, { as: F }],
+                ["DELETE", "/guild/x", { as: F }]
+            ] as [string, string, CallOptions][]){
+                const Reply = await Call(Method, Path, Options);
+                assert.deepEqual([Reply.status, Reply.text], [404, ""], `${Method} ${Path}`);
+            }
+        }
+        finally{
+            delete process.env.GUILDS;
+        }
+
+        assert.equal((await GetGuild(F)).status, 200, "and back on");
+        assert.equal(GetDb().select().from(guilds).all().some((Row) => Row.name === "Foxes"), true, "nothing was lost while off");
+    });
+});
