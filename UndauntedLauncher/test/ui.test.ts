@@ -35,6 +35,7 @@ const ERROR_CODES: Record<ErrorCode, true> = {
   manifest_unavailable: true,
   disk_space: true,
   folder_invalid: true,
+  game_folder_not_found: true,
   folder_not_empty: true,
   download_failed: true,
   file_missing_on_server: true,

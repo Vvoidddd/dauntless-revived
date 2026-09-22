@@ -53,6 +53,7 @@ export type ErrorCode =
   | "manifest_unavailable"
   | "disk_space"
   | "folder_invalid"
+  | "game_folder_not_found" // "I already have the game files": no 1.4.4 game in the layouts looked at
   | "folder_not_empty"
   | "download_failed"
   | "file_missing_on_server"
@@ -201,6 +202,7 @@ export const IPC = {
   dismissBackupOffer: "dr:dismiss-backup-offer",
   chooseInstallDir: "dr:choose-install-dir",
   useExistingGameFolder: "dr:use-existing-game-folder",
+  useExistingGamePath: "dr:use-existing-game-path",
   startInstall: "dr:start-install",
   pauseTask: "dr:pause-task",
   resumeTask: "dr:resume-task",

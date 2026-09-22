@@ -51,6 +51,7 @@ import { DownloadError, DownloadJob } from "./downloader";
 import { AbortedError, hashFile, removePartFiles, verifyInstall, VerifiedCache } from "./verify";
 import { dllStatus, installPinnedDlls, DllError, win64Dir } from "./dlls";
 import { applyGameConfig } from "./engineini";
+import { locateExistingGame } from "./game-folder";
 import { buildLaunchArgs, describeLaunch, GameProcess, type SpawnFn } from "./launch";
 import { backupFileText, KeyStore, KeyStoreError, serverId, type Encryptor, type KeySlot } from "./keystore";
 import { SettingsStore, type StoredServer, type StoredSettings } from "./settings";
@@ -790,16 +791,22 @@ export class Controller {
     if (this.task || this.busy || this.game.running) return err("busy");
     const picked = await this.p.chooseFolder("install", this.installDir);
     if (!picked) return err("cancelled");
-    let dir = path.resolve(picked);
+    // A folder that already holds the game (BaseGame144, its Dauntless folder, or Archon or Win64
+    // inside it) is used as that game: no second copy is downloaded next to it.
+    const existing = await locateExistingGame(picked);
+    if (this.task || this.busy || this.game.running) return err("busy");
+    let dir = existing.ok ? existing.root : path.resolve(picked);
     if (!path.win32.isAbsolute(dir) || dir.length > 150) return this.fail("folder_invalid");
-    // An empty folder or an existing game folder is used as is; anything else gets a subfolder.
-    let entries: string[] = [];
-    try {
-      entries = await fsp.readdir(dir);
-    } catch {
-      entries = [];
+    // Otherwise an empty folder is used as is, and anything else gets a subfolder.
+    if (!existing.ok) {
+      let entries: string[] = [];
+      try {
+        entries = await fsp.readdir(dir);
+      } catch {
+        entries = [];
+      }
+      if (entries.length > 0 && !entries.some((e) => e.toLowerCase() === "archon")) dir = path.join(dir, "DauntlessRevived");
     }
-    if (entries.length > 0 && !entries.some((e) => e.toLowerCase() === "archon")) dir = path.join(dir, "DauntlessRevived");
     await this.settings.update((s) => {
       s.installDir = dir === this.p.defaultInstallDir ? null : dir;
     });
@@ -812,11 +819,20 @@ export class Controller {
     if (this.task || this.busy || this.game.running) return err("busy");
     const picked = await this.p.chooseFolder("existing", this.installDir);
     if (!picked) return err("cancelled");
-    const candidates = [picked, path.join(picked, "Dauntless")];
-    const dir = candidates.find((c) => existsSync(path.join(c, ...EXE_RELATIVE_PATH.split("/"))));
-    if (!dir) return this.fail("folder_invalid");
+    return this.useExistingGamePath(picked);
+  }
+
+  // "I already have the game files", from a pasted path or a picked folder (Vvoidddd, #8). The game
+  // is used where it is: Repair checks every file against the manifest, fetches only what is missing
+  // or different, and installs the pinned DLLs.
+  async useExistingGamePath(input: string): Promise<ActionResult> {
+    if (this.task || this.busy || this.game.running) return err("busy");
+    const found = await locateExistingGame(input);
+    // Unlike the folder dialog, a pasted path leaves the window usable while the folder is looked at.
+    if (this.task || this.busy || this.game.running) return err("busy");
+    if (!found.ok) return this.fail(found.reason === "not_found" ? "game_folder_not_found" : "folder_invalid");
     await this.settings.update((s) => {
-      s.installDir = path.resolve(dir);
+      s.installDir = found.root;
       s.verifiedDir = null;
     });
     await this.inspectInstall();

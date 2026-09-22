@@ -10,7 +10,7 @@ import http from "node:http";
 import https from "node:https";
 import net from "node:net";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Controller, type Platform } from "../src/main/controller";
@@ -55,7 +55,7 @@ function temp(prefix: string): string {
 before(async () => {
   cert = makeTestCert();
   other = makeTestCert();
-  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE", "EXPOSURE-CODE"]) });
+  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE", "EXPOSURE-CODE", "EXISTING-CODE", "PICKED-CODE"]) });
   content = new FakeContentServer({ key: "unused", files });
   gateway = https.createServer({ cert: cert.certPem, key: cert.keyPem }, (req, res) => {
     gatewayRequests.push(`${req.method} ${req.url}`);
@@ -91,7 +91,8 @@ interface Harness {
 }
 
 // userDataDir: reuse another harness's settings and keys (the launcher opened again).
-function harness(relayPort = RELAY_PORT, userDataDir?: string): Harness {
+// chooseFolder: what the folder dialog answers (default: cancelled).
+function harness(relayPort = RELAY_PORT, userDataDir?: string, chooseFolder: Platform["chooseFolder"] = async () => null): Harness {
   let snap: Snapshot | null = null;
   const spawns: Harness["spawns"] = [];
   let child: EventEmitter | null = null;
@@ -121,7 +122,7 @@ function harness(relayPort = RELAY_PORT, userDataDir?: string): Harness {
     gameConfigDir: configDir,
     relayPort,
     exePin: { relativePath: EXE, sha256: sha256(files.find((f) => f.path === EXE)!.data) },
-    chooseFolder: async () => null,
+    chooseFolder,
     chooseSaveFile: async () => null,
     chooseOpenFile: async () => null,
     openExternal: async () => undefined,
@@ -252,6 +253,68 @@ test("auto exposure: off by default; Basic is stored and written at the next PLA
   hx.child()!.emit("exit", 0);
   await new Promise((r) => setTimeout(r, 100));
   await hx.c.shutdown();
+});
+
+// A BaseGame144 folder as the 1.4.4 zip unpacks it: <base>\Dauntless\Archon\..., with every manifest file.
+function existingGame(): { base: string; game: string } {
+  const base = temp("dr-basegame144-");
+  const game = path.join(base, "Dauntless");
+  const shipping = path.join(game, "Archon", "Binaries", "Win64", "Dauntless-Win64-Shipping.exe");
+  mkdirSync(path.dirname(shipping), { recursive: true });
+  writeFileSync(shipping, "layout marker");
+  for (const f of files) {
+    const target = path.join(game, ...f.path.split("/"));
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, f.data);
+  }
+  return { base, game };
+}
+
+test("an existing BaseGame144 folder, pasted, is checked in place and launched from its Dauntless folder", async () => {
+  const hx = harness();
+  await hx.c.init();
+  assert.deepEqual(await hx.c.submitInvite(invite(cert.fingerprint, "EXISTING-CODE")), { ok: true });
+  assert.deepEqual(await hx.c.register("ExistingSlayer"), { ok: true, username: "ExistingSlayer" });
+  const dirBefore = hx.last().install.dir;
+
+  // Refused before anything else happens: a network path, and a folder without the game.
+  assert.deepEqual(await hx.c.useExistingGamePath("\\\\host.invalid\\share\\BaseGame144"), { ok: false, error: { code: "folder_invalid" } });
+  assert.deepEqual(await hx.c.useExistingGamePath(temp("dr-empty-")), { ok: false, error: { code: "game_folder_not_found" } });
+  assert.equal(hx.last().install.dir, dirBefore, "a refused path changes nothing");
+
+  const { base, game } = existingGame();
+  const before = gatewayRequests.length;
+  assert.deepEqual(await hx.c.useExistingGamePath(`"${base}"`), { ok: true });
+  assert.equal(hx.last().install.dir, game);
+  assert.equal(hx.last().phase, "ready");
+  assert.ok(!gatewayRequests.slice(before).some((r) => r.startsWith("GET /content/v1/files/")), "no game download for complete files");
+  for (const dll of ["dxgi.dll", "UndauntedInternalServer.dll"]) assert.ok(existsSync(path.join(game, "Archon", "Binaries", "Win64", dll)), dll);
+  assert.deepEqual(await hx.c.play(), { ok: true });
+  assert.equal(hx.spawns[0].cwd, path.join(game, "Archon", "Binaries", "Win64"));
+  hx.child()!.emit("exit", 0);
+  await new Promise((r) => setTimeout(r, 100));
+  await hx.c.shutdown();
+});
+
+test("Change folder... on an existing game uses that game instead of a DauntlessRevived subfolder", async () => {
+  const { base, game } = existingGame();
+  const hx = harness(RELAY_PORT, undefined, async () => path.join(game, "Archon", "Binaries", "Win64"));
+  await hx.c.init();
+  assert.deepEqual(await hx.c.submitInvite(invite(cert.fingerprint, "PICKED-CODE")), { ok: true });
+  assert.deepEqual(await hx.c.register("PickedSlayer"), { ok: true, username: "PickedSlayer" });
+  assert.deepEqual(await hx.c.chooseInstallDir(), { ok: true });
+  assert.equal(hx.last().install.dir, game, "Win64 inside the game resolves to the game root");
+  assert.ok(!existsSync(path.join(base, "DauntlessRevived")) && !existsSync(path.join(game, "DauntlessRevived")));
+  await hx.c.shutdown();
+
+  // A folder with other things in it still gets a subfolder, as before.
+  const other = temp("dr-other-");
+  writeFileSync(path.join(other, "notes.txt"), "x");
+  const hy = harness(RELAY_PORT, undefined, async () => other);
+  await hy.c.init();
+  assert.deepEqual(await hy.c.chooseInstallDir(), { ok: true });
+  assert.equal(hy.last().install.dir, path.join(other, "DauntlessRevived"));
+  await hy.c.shutdown();
 });
 
 test("public mode: a certificate that does not match the invite stops everything before any request", async () => {

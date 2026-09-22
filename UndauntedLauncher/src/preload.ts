@@ -31,6 +31,7 @@ const api = {
   dismissBackupOffer: (): Promise<void> => ipcRenderer.invoke(IPC.dismissBackupOffer),
   chooseInstallDir: (): Promise<ActionResult> => ipcRenderer.invoke(IPC.chooseInstallDir),
   useExistingGameFolder: (): Promise<ActionResult> => ipcRenderer.invoke(IPC.useExistingGameFolder),
+  useExistingGamePath: (gamePath: string): Promise<ActionResult> => ipcRenderer.invoke(IPC.useExistingGamePath, String(gamePath)),
   startInstall: (): Promise<ActionResult> => ipcRenderer.invoke(IPC.startInstall),
   pauseTask: (): Promise<void> => ipcRenderer.invoke(IPC.pauseTask),
   resumeTask: (): Promise<void> => ipcRenderer.invoke(IPC.resumeTask),

@@ -33,6 +33,7 @@ const state = {
   inviteText: "",
   username: "",
   keyFormOpen: false,
+  existingFormOpen: false,
   news: [] as NewsItem[],
   newsSeen: false,
   branding: { backgrounds: [], accent: null } as Branding,
@@ -92,6 +93,23 @@ const keyInput = h("input", {
   spellcheck: "false",
   autocomplete: "off",
   "data-fk": "key",
+});
+
+// "I already have the game files": a path to paste (Vvoidddd, #8). The main process checks it again.
+const existingGameInput = h("input", {
+  class: "input",
+  id: "existing-game-path",
+  type: "text",
+  maxlength: 260,
+  spellcheck: "false",
+  autocomplete: "off",
+  "data-fk": "existing-path",
+});
+existingGameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    void useExistingPath();
+  }
 });
 
 inviteInput.addEventListener("input", () => {
@@ -364,6 +382,55 @@ async function useKey(): Promise<void> {
   renderAll();
 }
 
+async function useExistingPath(): Promise<void> {
+  if (!existingGameInput.value.trim()) {
+    existingGameInput.focus();
+    return;
+  }
+  const r = await api.useExistingGamePath(existingGameInput.value);
+  if (r.ok) {
+    existingGameInput.value = "";
+    state.existingFormOpen = false;
+    state.localError = null;
+  } else if (!state.snap?.lastError) {
+    state.localError = r.error;
+  }
+  renderAll();
+}
+
+// The "I already have the game files" card: a link that opens a form to paste the folder or browse to it.
+function existingGameCard(snap: Snapshot): HTMLElement {
+  const form = state.existingFormOpen
+    ? h(
+        "div",
+        { class: "field" },
+        h("label", { class: "field-label", for: "existing-game-path" }, t("install_existing_path")),
+        existingGameInput,
+        h(
+          "div",
+          { class: "card-row" },
+          button(t("install_existing_use"), () => void useExistingPath(), { cls: "btn-primary", icon: "check", fk: "existing-use", disabled: snap.busy }),
+          button(t("install_existing_browse"), () => void api.useExistingGameFolder(), { icon: "folder", fk: "existing-browse", disabled: snap.busy }),
+        ),
+        h("p", { class: "small-print" }, t("install_existing_note")),
+      )
+    : null;
+  return card(
+    "",
+    h(
+      "div",
+      { class: "card-row" },
+      linkButton(state.existingFormOpen ? t("install_existing_hide") : t("install_existing"), () => {
+        state.existingFormOpen = !state.existingFormOpen;
+        renderPlay();
+        if (state.existingFormOpen) existingGameInput.focus();
+      }, { icon: "folder", fk: "existing", disabled: snap.busy }),
+      h("span", { class: "hint" }, t("install_existing_text")),
+    ),
+    form,
+  );
+}
+
 function playRegister(snap: Snapshot): HTMLElement[] {
   const name = serverName();
   const out: HTMLElement[] = [eyebrow(snap), ...heading(t("reg_title"), t("reg_text", { name }))];
@@ -440,7 +507,7 @@ function playInstall(snap: Snapshot): HTMLElement[] {
   if (!snap.install.contentAvailable) out.push(card("card-warn", h("h3", { class: "card-title" }, icon("warning"), t("install_no_content_title")), h("p", { class: "card-text" }, t("install_no_content"))));
   const vc = vcWarning(snap);
   if (vc) out.push(vc);
-  out.push(h("div", { class: "card-row" }, linkButton(t("install_existing"), () => void api.useExistingGameFolder(), { icon: "folder", fk: "existing", disabled: snap.busy }), h("span", { class: "hint" }, t("install_existing_text"))));
+  out.push(existingGameCard(snap));
   return out;
 }
 
@@ -456,6 +523,7 @@ function playUpdate(snap: Snapshot): HTMLElement[] {
   const out: HTMLElement[] = [eyebrow(snap), ...heading(t("update_title"), text)];
   const vc = vcWarning(snap);
   if (vc) out.push(vc);
+  out.push(existingGameCard(snap));
   return out;
 }
 
@@ -535,6 +603,7 @@ function renderPlay(): void {
     snap.status?.name ?? null,
     snap.lastError?.code === "key_rejected",
     state.keyFormOpen,
+    state.existingFormOpen,
     state.news[0]?.title ?? null,
     snap.phase === "installing" ? state.task?.kind ?? snap.task?.kind : null,
   ]);
@@ -1306,6 +1375,7 @@ function applyStaticI18n(): void {
   inviteInput.placeholder = t("join_placeholder");
   usernameInput.placeholder = t("reg_placeholder");
   keyInput.placeholder = t("reg_key_placeholder");
+  existingGameInput.placeholder = t("install_existing_placeholder");
   $("#win-max").setAttribute("aria-label", t(state.maximized ? "window_restore" : "window_maximize"));
   $("#github-btn").title = t("github_link");
 }

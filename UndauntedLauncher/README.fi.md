@@ -24,7 +24,14 @@ Palvelin, joka tarjoaa jotain muuta, hylätään.
 2. Avaa ylläpitäjän lähettämä kutsulinkki tai liitä se Pelaa-sivulle ja paina **LIITY**.
 3. Valitse käyttäjänimi ja paina **REKISTERÖIDY**. Tallenna avaimesta varmuuskopio, kun käynnistin
    tarjoaa sitä.
-4. Paina **ASENNA** (noin 11 Gt). Voit pitää tauon, sulkea käynnistimen ja jatkaa myöhemmin.
+4. Paina **ASENNA** (noin 11 Gt). Voit pitää tauon, sulkea käynnistimen ja jatkaa myöhemmin. Jos
+   sinulla on jo Dauntless 1.4.4, valitse sen sijaan **Minulla on jo pelitiedostot** ja liitä
+   `BaseGame144`-kansiosi (tai sen sisällä olevan `Dauntless`-kansion) polku, tai selaa siihen.
+   Käynnistin käyttää peliä siinä kansiossa, jossa se on: se tarkistaa jokaisen tiedoston
+   kiinnitettyä luetteloa vasten, korvaa tiedostot, jotka eroavat 1.4.4:stä, ja laittaa omat
+   `dxgi.dll`- ja `UndauntedInternalServer.dll`-tiedostonsa kansioon `Archon\Binaries\Win64`.
+   Puuttuvat tiedostot ladataan vain, jos ylläpitäjä on avannut pelin latauksen. Kopioi kansio ensin,
+   jos jokin toinen asennus käyttää sitä yhä.
 5. Paina **PELAA**.
 
 Vasemman reunan palkin alaosassa, joka sivulla (myös ennen kuin liityt palvelimelle), GitHub-painike
