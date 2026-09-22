@@ -654,6 +654,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **What:** whispers, party chat, guild chat and the Ramsgate channel. Voice can't come back; use Discord.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
+  - **Test wiring (2026-09-22):** public Windows Server installs can opt in with `Set-ExperimentalChat.ps1 -Enable`; it binds only to loopback behind the existing WebSocket gateway, restarts the stack, and checks the listener. Client login, Ramsgate room join and message delivery remain unverified. Guild endpoints are still stubs.
 
 - [ ] **3.11 Guilds** (L)
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).

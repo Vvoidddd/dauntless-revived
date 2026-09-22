@@ -342,6 +342,7 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
 | `Write-PerformanceLog.ps1 -Once` | A performance sample now (run it as administrator). The stack takes one every minute by itself, into `data\logs\performance\`: CPU and memory per game server and component, the machine's CPU, RAM, disk and network, and player counts. See [Measure it]({{ admin_page.url | relative_url }}#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
+| `Set-ExperimentalChat.ps1 -Enable` / `-Disable` | Opt in or out of the unverified chat prototype; restarts the stack and checks the loopback listener. Public mode only. |
 
 From your PC, `Deploy-Remote.ps1 -Server <address> -Status` shows the status without logging in.
 
@@ -356,6 +357,23 @@ itself. `Update-DauntlessServer.ps1 -Rollback` does the same by hand. Settings (
 the game files and the service account's `Game.ini` and `Engine.ini` are left alone; run the
 installer again for those. Do that after an update that changes the DLL's endpoint table, and in
 private mode when the server's Tailscale address changes.
+
+### Test the experimental chat listener
+
+After installing this version of the server code, an administrator on the **VPS** can opt in:
+
+```powershell
+C:\DauntlessRevived\bin\Set-ExperimentalChat.ps1 -Enable
+```
+
+This sets `EXPERIMENTAL_CHAT=1`, `CHAT_BIND_HOST=127.0.0.1` and `CHAT_PORT=61099` in the private
+`metagame.env` file. The public gateway already forwards WebSocket upgrades to that loopback port;
+do **not** open 61099 in the firewall. The command restarts the stack and checks the listener,
+restoring the old settings if startup fails. To stop the experiment, run the same script with
+`-Disable`. It is not yet evidence that the 1.4.4 client can authenticate, join Ramsgate's room or
+send a message: check the client and metagame logs during a two-account test, and do not use a real
+player account for first-response testing. Guilds are **not** enabled by this switch; the guild
+API is still stubbed, so guild creation and invites remain expected to fail.
 
 **The player list is for registered players only: the launcher comes first.** The server shows who
 is online only to a caller with an account key, and the launcher sends the player's key to see the
