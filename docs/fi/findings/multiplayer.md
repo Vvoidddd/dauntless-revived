@@ -281,6 +281,14 @@ client                     metagame                      deploy server          
   viimeisen pelaajan liittymisestä on kulunut 20 sekuntia. 20 sekunnin tarkistus ajetaan vain, kun
   joku asiakas kysyy tilaa osoitteesta `/candidate/status`. Metsästystunnukset, joissa on `Ramsgate`
   tai `Dojo`, sekä tyhjät metsästystunnukset ohittavat jonon ja menevät deploy-palvelimelle heti.
+- **Yksi jonottava liittyminen pelaajaa kohden.** Metsästyspalvelin odottaa jokaista pelaajaa, jota
+  sen on käsketty odottaa. Siksi pelaajan uusi liittyminen korvaa hänen vanhemman, yhä odottavan
+  liittymisensä missä tahansa jonossa, ja samoin tekee liittyminen Ramsgateen, Dojoon tai ryhmän
+  metsästykseen. Odotettujen pelaajien luettelossa jokainen tili on vain kerran. Ennen 22.9.2026
+  liittyminen, jota ei koskaan yhdistetty, jäi jonoon, saman pelaajan seuraava liittyminen lisättiin
+  sen viereen, ja kahden pelaajan metsästys odotti kolmea pelaajaa: ilmalaivan lähtölaskenta jäätyi,
+  vaikka molemmat oikeat pelaajat olivat valmiina. Ryhmän jäseniä odotetaan edelleen yhdessä, kutakin
+  kerran.
 - **Asiakasohjelman puoli (2.1.1).** Selvitimme yksityiskohtaisesti, miten asiakasohjelma käsittelee
   tämän vastauksen, mutta vain versiossa 2.1.1:
   - HTTP-tilakoodin on oltava 200–206.

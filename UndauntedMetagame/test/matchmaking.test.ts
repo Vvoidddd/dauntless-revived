@@ -2,7 +2,7 @@ import { RemoveTestDb } from "./setup";
 import "./matchmakingenv";
 import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { CancelMatchmaking, CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } from "../src/controllers/matchmaking";
+import { CancelMatchmaking, CheckAndUpdateQueueStatus, DistinctPlayers, HandlePlayerMatchmaking } from "../src/controllers/matchmaking";
 import { GetDb } from "../src/db";
 
 // Matchmaking looks up the player's party (controllers/party.ts), which loads the database
@@ -26,5 +26,14 @@ describe("CancelMatchmaking (DELETE /candidate)", () => {
 
     it("is a no-op for a player who is not queued", () => {
         assert.equal(CancelMatchmaking("UID-nobody"), undefined);
+    });
+});
+
+describe("DistinctPlayers (the expected-player list sent to the deploy server)", () => {
+    it("lists each account once, in first-seen order", () => {
+        // The live list on 22 September 2026 was V, V, O: the hunt server waited for a third player
+        assert.deepEqual(DistinctPlayers(["UID-v", "UID-v", "UID-o"]), ["UID-v", "UID-o"]);
+        assert.deepEqual(DistinctPlayers(["UID-o", "UID-v", "UID-o", "UID-v"]), ["UID-o", "UID-v"]);
+        assert.deepEqual(DistinctPlayers([]), []);
     });
 });

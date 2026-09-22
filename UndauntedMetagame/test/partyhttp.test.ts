@@ -10,6 +10,7 @@ import { app } from "../src/app";
 import { GetDb } from "../src/db";
 import { gameserverapikeys, userapikeys, users } from "../src/db/schema";
 import { HashUserAPIKey, SignMetagameJWTForUid } from "../src/controllers/auth";
+import { SetPartyClockForTests } from "../src/controllers/party";
 
 // Parties over HTTP (roadmap 1.9): three players' clients (A, B, C; tokens for throwaway
 // accounts in this test's own database) walk the plan's tests T1-T7 that need no game,
@@ -416,5 +417,43 @@ describe("heartbeats", () => {
         assert.deepEqual((await Call("POST", "/heartbeat", { as: A, body: { map: "/Game/Maps/ramsgate/ramsgate_01_persistent" } })).text, "20000");
         const Players = await Call("GET", "/undaunted/api/PrivateOnlineStats", { key: Keys[ADMIN] });
         assert.deepEqual(Players.json.map((Player: any) => Player.UserId), [A], "only the player's own heartbeat");
+    });
+});
+
+// Last: it moves the matchmaking clock. Everyone is in a party of one by now.
+describe("one queued join per player (the 22 September 2026 two-player test)", () => {
+    after(() => SetPartyClockForTests());
+
+    it("a stale join, the same player's new join and a second player's join for the same hunt: one server expecting two accounts", async () => {
+        let Offset = 0;
+        SetPartyClockForTests(() => Date.now() + Offset);
+
+        const LIVE_HUNT = "CR19_PlayerHunt_FTUE_Pursuit_Beta_LeRawr";
+        const HuntJoin = (Who: string) => Join(Who, { gameMode: "ISLAND", isPrivate: false, hunts: ["CR19_MatchmakerHunt_Lerawr_Beta"], playerHuntId: LIVE_HUNT });
+        const Before = Deploy.Calls.length;
+
+        // V (A here) joins after a metagame restart, and the client's cancel right after keeps its 404
+        const Stale = await HuntJoin(A);
+        assert.deepEqual([Stale.status, Stale.json.status], [200, "MATCHING"]);
+        assert.equal((await Call("DELETE", "/candidate", { as: A })).status, 404);
+
+        // That join is never matched. Over three minutes later V joins again, then O (B here)
+        Offset += 192 * 1000;
+        const Again = await HuntJoin(A);
+        assert.equal((await Call("DELETE", "/candidate", { as: A })).status, 404);
+        assert.notEqual(Again.json.candidateId, Stale.json.candidateId);
+        Offset += 17 * 1000;
+        assert.equal((await HuntJoin(B)).status, 200);
+        assert.equal((await Call("DELETE", "/candidate", { as: B })).status, 404);
+        assert.equal(Deploy.Calls.length, Before, "the queue waits 20 s after its last join");
+
+        Offset += 21 * 1000;
+        const PolledO = await Status(B);
+        const PolledV = await Status(A);
+        assert.equal(Deploy.Calls.length, Before + 1, "one hunt server");
+        assert.deepEqual(Deploy.Calls[Before], { GameMode: "ISLAND", GameArgs: "", HuntId: LIVE_HUNT, ExpectedPlayers: [A, B] });
+        assert.deepEqual([PolledV.json.status, PolledO.json.status], ["IN_PROGRESS", "IN_PROGRESS"]);
+        assert.equal(PolledV.json.serverInfo.port, PolledO.json.serverInfo.port, "both on the same server");
+        assert.equal(PolledV.json.candidateId, Again.json.candidateId, "V follows their new join");
     });
 });

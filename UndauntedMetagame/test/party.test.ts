@@ -536,3 +536,85 @@ describe("solo matchmaking fixes", () => {
         assert.deepEqual([Entry?.HuntId, Entry?.PartyCandidate, Entry?.Ready], [HUNT, true, true]);
     });
 });
+
+// The 22 September 2026 two-player test: after a metagame restart V's join (01:31:21) was never
+// matched; V joined again at 01:34:33 and O at 01:34:50, both for the same hunt. The deploy server was
+// asked for a server expecting V, V, O, the hunt server waited for a third player, and the airship
+// countdown froze with both real players ready. A player now has at most one queued join.
+describe("one queued join per player", () => {
+    const V = D, O = E;
+
+    it("a stale join, the same player's new join and a second player's join: one server expecting the two accounts once each", async () => {
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, V), true);
+        const Stale = (await CheckAndUpdateQueueStatus(V))?.CandidateId;
+        // The client's DELETE /candidate right after the join keeps its 404, so nothing else takes this join out
+
+        Advance(192);
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, V), true);
+        Advance(17);
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, O), true);
+        assert.equal(Deploy.Calls.length, 0, "the queue waits 20 s after its last join");
+
+        Advance(21);
+        const SentO = await DecideCandidateStatus(O);
+        const SentV = await DecideCandidateStatus(V);
+        assert.equal(Deploy.Calls.length, 1, "one hunt server");
+        assert.deepEqual(Deploy.Calls[0], { GameMode: "ISLAND", GameArgs: "", HuntId: HUNT, ExpectedPlayers: [V, O] });
+        assert.ok(SentV.Kind === "travel" && SentO.Kind === "travel", "both are sent");
+        assert.equal(SentV.Entry.Port, SentO.Entry.Port, "to the same server");
+        assert.notEqual(SentV.Entry.CandidateId, Stale, "V follows their new join");
+    });
+
+    it("a player who joins again does not count twice toward a full queue", async () => {
+        for(const Player of [V, V, O, C]){
+            assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, Player), true, Player);
+        }
+
+        assert.equal(Deploy.Calls.length, 0, "three players, not four");
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, B), true);
+        assert.equal(Deploy.Calls.length, 1, "the 4th distinct player fills it");
+        assert.deepEqual(Deploy.Calls[0].ExpectedPlayers, [V, O, C, B]);
+    });
+
+    it("a join for another hunt, or for Ramsgate, also replaces the older queued join", async () => {
+        const OTHER = "CR19_PlayerHunt_Other";
+
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", OTHER, V), true);
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, V), true, "V changes their mind");
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, C), true);
+        assert.equal(await HandlePlayerMatchmaking("CITY", "", "ShatteredIsles_ReturnToRamsgate", C), true, "C goes back to Ramsgate instead");
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", OTHER, O), true);
+        Deploy.Calls.length = 0;
+
+        Advance(21);
+        assert.equal((await DecideCandidateStatus(V)).Kind, "travel");
+        assert.equal((await DecideCandidateStatus(O)).Kind, "travel");
+        const ToRamsgate = await DecideCandidateStatus(C);
+        assert.equal(ToRamsgate.Kind === "travel" && ToRamsgate.Entry.Port, 8777, "C is sent to Ramsgate");
+        assert.deepEqual(Deploy.Calls.map((Call) => [Call.HuntId, Call.ExpectedPlayers]), [[HUNT, [V]], [OTHER, [O]]]);
+    });
+
+    it("a party's members are expected together and once each, even with older solo joins of their own still queued", async () => {
+        // B and a stranger (V) queued for the hunt on their own; then B's party leader A starts it for the party
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, B), true);
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, V), true);
+        await FormParty(A, B, C);
+
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, A), true);
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, A), true, "the leader's second join starts nothing");
+        assert.equal(await HandlePlayerMatchmaking("ISLAND", "", HUNT, B), true, "nor a member's own join of the party's hunt");
+        assert.equal(Deploy.Calls.length, 1);
+        assert.deepEqual(Deploy.Calls[0], { GameMode: "ISLAND", GameArgs: "", HuntId: HUNT, ExpectedPlayers: [A, B, C] });
+
+        for(const Member of [A, B, C]){
+            const Sent = await DecideCandidateStatus(Member);
+            assert.equal(Sent.Kind === "travel" && Sent.Entry.Port, 8775, Member);
+        }
+
+        // The stranger's queue goes on without B
+        Advance(21);
+        const Stranger = await DecideCandidateStatus(V);
+        assert.equal(Stranger.Kind === "travel" && Stranger.Entry.Port, 8774);
+        assert.deepEqual(Deploy.Calls[1], { GameMode: "ISLAND", GameArgs: "", HuntId: HUNT, ExpectedPlayers: [V] });
+    });
+});

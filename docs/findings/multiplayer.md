@@ -246,6 +246,13 @@ client                     metagame                      deploy server          
   deploy server when it reaches 4 players, or 20 seconds after the last player joined. The
   20-second check only runs when a client polls `/candidate/status`. Hunt ids containing `Ramsgate`
   or `Dojo`, and empty hunt ids, skip the queue and go to the deploy server at once.
+- **One queued join per player.** The hunt server waits for every player it was told to expect. A
+  player's new join therefore replaces any older join of theirs that is still waiting, in any queue,
+  and so does a join for Ramsgate, the Dojo or a party's hunt. The expected-player list names each
+  account once. Before 22 September 2026 a join that was never matched stayed in the queue, the
+  same player's next join was added next to it, and a two-player hunt expected three players: the
+  airship countdown froze with both real players ready. A party's members are still expected
+  together, once each.
 - **The client's side (2.1.1).** We mapped the client's handling of this reply in detail, but only
   on 2.1.1:
   - The HTTP status must be 200–206.
