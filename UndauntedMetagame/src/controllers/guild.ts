@@ -974,6 +974,12 @@ export function GuildNameOf(UserId: string): string | undefined {
 }
 
 // Every guild, by name
+// Chat (src/realtime/muc.ts): whether this account may use the room Guild-<GuildId>
+export function IsGuildMember(AccountId: string, GuildId: string): boolean {
+    return GetDb().select({ guildId: guildmembers.guildId }).from(guildmembers)
+        .where(and(eq(guildmembers.accountId, AccountId), eq(guildmembers.guildId, GuildId))).get() !== undefined;
+}
+
 export function ListGuilds(): GuildSummary[] {
     return GetDb().transaction((tx) => tx.select().from(guilds).orderBy(asc(guilds.nameKey)).all().map((Row) => ({
         guildId: Row.guildId,

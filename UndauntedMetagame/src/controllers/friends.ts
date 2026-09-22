@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { GetDb } from "../db";
 import { blocks, friendships, guildinvites, users } from "../db/schema";
 import { logger } from "../logger";
@@ -96,6 +96,18 @@ export function IsBlockedEitherWayInTx(tx: Tx, A: string, B: string){
 
 export function IsBlockedEitherWay(A: string, B: string){
     return GetDb().transaction((tx) => IsBlockedEitherWayInTx(tx, A, B));
+}
+
+// Chat (src/realtime/muc.ts): which of these recipients have blocked the sender, in one query per message
+export function BlockersAmong(Sender: string, Recipients: string[]): Set<string> {
+    const Ids = [...new Set(Recipients)].filter((Id) => Id !== Sender);
+
+    if(Ids.length === 0){
+        return new Set();
+    }
+
+    return new Set(GetDb().select({ blockerId: blocks.blockerId }).from(blocks)
+        .where(and(eq(blocks.blockedId, Sender), inArray(blocks.blockerId, Ids))).all().map((Row) => Row.blockerId));
 }
 
 function CountFriendships(tx: Tx, AccountId: string){

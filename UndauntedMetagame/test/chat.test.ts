@@ -19,8 +19,11 @@ import {
     Base64Plain, CaptureLogs, ClientFrame, DOMAIN, FRAMING, GameResource, Login, LoginOptions, LogCapture, RawClosed, RawUpgrade,
     WireClient
 } from "./chatwire";
+import { eq } from "drizzle-orm";
 import { GetDb } from "../src/db";
-import { users } from "../src/db/schema";
+import { guildmembers, guilds, users } from "../src/db/schema";
+import { BlockPlayer, UnblockPlayer } from "../src/controllers/friends";
+import { AcceptPartyInvite, InviteToParty, KickPartyMember, PollParty, ResetPartiesForTests } from "../src/controllers/party";
 import { SignMetagameJWTForUid } from "../src/controllers/auth";
 
 const A = "UID-chat-a";
@@ -723,7 +726,7 @@ describe("chat listener", () => {
         it("two sessions of one account never see each other in a room; a third replaces the silent one; a ghost is pinged out in 10 s", async () => {
             const First = await Player(D, "Delta");
             const Second = await Player(D, "Delta");
-            const Room = "Party-7d1f0000-0000-4000-8000-00000000000d";
+            const Room = "City-7d1f0000-0000-4000-8000-00000000000d";
 
             JoinAs(First, Room);
             await Settle(First);
@@ -816,6 +819,179 @@ describe("chat listener", () => {
             const Next = await Connected();
             assert.match(await SaslAnswer(Next, Base64Plain("", FLOOD, SignMetagameJWTForUid(FLOOD))), /temporary-auth-failure/);
             Next.Close();
+        });
+
+        // ---- Who may join, and blocks ----
+
+        function Evicted(Room: string, Nick: string, Occupant: Player_, To: Player_, Self: boolean){
+            return `<presence xmlns="jabber:client" type="unavailable" from="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Nick}`)}" to="${EscapeXml(`${To.Wire.Uid}@${DOMAIN}/${To.Wire.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="none" role="none" jid="${EscapeXml(`${Occupant.Wire.Uid}@${DOMAIN}/${Occupant.Wire.Resource}`)}"/>${Self ? `<status code="110"/>` : ""}<status code="307"/></x></presence>`;
+        }
+
+        async function PartyOf(Leader: string, ...Members: string[]){
+            const PartyId = ((await PollParty(Leader)) as { partyId: string }).partyId;
+
+            for(const Member of Members){
+                await PollParty(Member);
+                assert.equal(InviteToParty(Leader, Member, PartyId).Status, 200);
+                assert.equal((await AcceptPartyInvite(Member, PartyId)).Status, 200);
+            }
+
+            return PartyId;
+        }
+
+        it("party rooms: members only; a kicked member is removed at their next message, or by the 60 s sweep", async () => {
+            ResetPartiesForTests();
+            const PartyId = await PartyOf(A, B);
+            await PollParty(C);
+            const Room = `Party-${PartyId}`;
+            const Alpha = await Player(A, "Alpha");
+            const Bravo = await Player(B, "Bravo");
+            const Charlie = await Player(C, "Charlie");
+
+            JoinAs(Alpha, Room);
+            await Settle(Alpha);
+            JoinAs(Bravo, Room);
+            await Settle(Bravo, Alpha);
+            assert.equal(Bravo.Model.RoomOf(Room)!.State, JOINED);
+
+            JoinAs(Charlie, Room);
+            const [Refused] = await Settle(Charlie);
+            assert.match(Refused[0], /<error type="auth"><forbidden xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/);
+            assert.equal(Charlie.Model.RoomOf(Room), undefined, "the client drops the room");
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=${Room} uid=${C} reason=not-member`));
+
+            // The leader kicks B: B's next line is refused and B is removed; A sees B go (307)
+            assert.equal(KickPartyMember(A, B).Status, 200);
+            Bravo.Wire.Send(Bravo.Model.RoomMessage(Room, "marker-kicked", "k1"));
+            const [ForBravo, ForAlpha] = await Settle(Bravo, Alpha);
+            assert.match(ForBravo[0], /^<message xmlns="jabber:client" type="error" id="k1"/);
+            assert.equal(ForBravo[1], Evicted(Room, Bravo.Model.Nickname("Bravo"), Bravo, Bravo, true));
+            assert.deepEqual(ForAlpha, [Evicted(Room, Bravo.Model.Nickname("Bravo"), Bravo, Alpha, false)]);
+            assert.equal(Bravo.Model.RoomOf(Room)!.State, NOT_JOINED, "server initiated room exit");
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: leave room=${Room} uid=${B} reason=evicted`));
+
+            // C joins the party, then is kicked without saying anything: the sweep removes it
+            assert.equal(InviteToParty(A, C, PartyId).Status, 200);
+            assert.equal((await AcceptPartyInvite(C, PartyId)).Status, 200);
+            JoinAs(Charlie, Room);
+            await Settle(Charlie, Alpha);
+            assert.equal(Charlie.Model.RoomOf(Room)!.State, JOINED);
+            assert.equal(KickPartyMember(A, C).Status, 200);
+            Now += 60 * 1000;
+            Wire.Tick();
+            const [SweptC, SweptA] = await Settle(Charlie, Alpha);
+            assert.deepEqual(SweptC, [Evicted(Room, Charlie.Model.Nickname("Charlie"), Charlie, Charlie, true)]);
+            assert.deepEqual(SweptA, [Evicted(Room, Charlie.Model.Nickname("Charlie"), Charlie, Alpha, false)]);
+            ResetPartiesForTests();
+        });
+
+        it("guild rooms: members only; a member whose row is gone is removed at the next message", async () => {
+            const GuildId = crypto.randomUUID();
+            const Stamp = Date.now();
+            GetDb().insert(guilds).values({ guildId: GuildId, name: "Chatters", nameKey: "chatters", leaderId: A, createdAt: Stamp, updatedAt: Stamp }).run();
+            GetDb().insert(guildmembers).values([
+                { accountId: A, guildId: GuildId, rank: "Leader", joinedAt: Stamp, updatedAt: Stamp },
+                { accountId: B, guildId: GuildId, rank: "Member", joinedAt: Stamp, updatedAt: Stamp }
+            ]).run();
+
+            const Room = `Guild-${GuildId}`;
+            const Alpha = await Player(A, "Alpha");
+            const Bravo = await Player(B, "Bravo");
+            const Charlie = await Player(C, "Charlie");
+
+            JoinAs(Alpha, Room);
+            await Settle(Alpha);
+            JoinAs(Bravo, Room);
+            await Settle(Bravo, Alpha);
+            JoinAs(Charlie, Room);
+            await Settle(Charlie);
+            assert.equal(Alpha.Model.RoomOf(Room)!.State, JOINED);
+            assert.equal(Bravo.Model.RoomOf(Room)!.State, JOINED);
+            assert.equal(Charlie.Model.RoomOf(Room), undefined, "not a member");
+
+            GetDb().delete(guildmembers).where(eq(guildmembers.accountId, B)).run();
+            Alpha.Wire.Send(Alpha.Model.RoomMessage(Room, "marker-guild", "gm1"));
+            const [ForAlpha, ForBravo] = await Settle(Alpha, Bravo);
+            assert.deepEqual(ForBravo, [Evicted(Room, Bravo.Model.Nickname("Bravo"), Bravo, Bravo, true)], "removed, not served");
+            assert.equal(ForAlpha.length, 2, "A's own line and B's removal");
+            assert.ok(ForAlpha.some((Frame) => Frame.includes("marker-guild")));
+            GetDb().delete(guildmembers).run();
+            GetDb().delete(guilds).run();
+        });
+
+        it("refuses rooms the client never names (Lobby-, other case, bad ids), the 9th room, and joins past the rate", async () => {
+            const Alpha = await Player(A, "Alpha");
+
+            for(const Room of ["Lobby-x", "party-x", "CITY-x", "City-", "Hunt-a_b", "Whatever"]){
+                Alpha.Wire.Send(`<presence to="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Alpha.Model.Nickname("Alpha")}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                const [Frames] = await Settle(Alpha);
+                assert.match(Frames[0], /<error type="cancel"><not-allowed xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/, Room);
+            }
+
+            for(let Index = 1; Index <= 8; Index++){
+                JoinAs(Alpha, `City-room${Index}`);
+                await Settle(Alpha);
+                assert.equal(Alpha.Model.RoomOf(`City-room${Index}`)!.State, JOINED);
+            }
+
+            JoinAs(Alpha, "City-room9");
+            const [Ninth] = await Settle(Alpha);
+            assert.match(Ninth[0], /<error type="wait"><service-unavailable xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/);
+
+            // A tenth join fits the burst of 10 joins (after a leave); the eleventh does not
+            Alpha.Wire.Send(Alpha.Model.ExitRoom("City-room8")!);
+            await Settle(Alpha);
+            JoinAs(Alpha, "City-room10");
+            await Settle(Alpha);
+            assert.equal(Alpha.Model.RoomOf("City-room10")!.State, JOINED);
+            Alpha.Wire.Send(Alpha.Model.ExitRoom("City-room7")!);
+            await Settle(Alpha);
+            JoinAs(Alpha, "City-room11");
+            const [Eleventh] = await Settle(Alpha);
+            assert.match(Eleventh[0], /<error type="wait"><service-unavailable/);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=City-room11 uid=${A} reason=limit`));
+        });
+
+        it("blocks: a room line skips whoever blocked its sender; whispers need neither player to have blocked the other", async () => {
+            const Alpha = await Player(A, "Alpha");
+            const Bravo = await Player(B, "Bravo");
+            const Charlie = await Player(C, "Charlie");
+            const Room = "City-blocks";
+
+            for(const Each of [Alpha, Bravo, Charlie]){
+                JoinAs(Each, Room);
+                await Settle(Each);
+                await Settle(Alpha, Bravo, Charlie);
+            }
+
+            assert.ok(BlockPlayer(B, A).ok);
+
+            try{
+                Alpha.Wire.Send(Alpha.Model.RoomMessage(Room, "marker-blocked", "b1"));
+                const [FromA, ToB, ToC] = await Settle(Alpha, Bravo, Charlie);
+                assert.equal(FromA.length, 1, "A still sees its own line");
+                assert.equal(ToB.length, 0, "B blocked A");
+                assert.equal(ToC.length, 1);
+                assert.ok(Logs.Lines.some((Line) => Line === `info chat: message room=${Room} uid=${A} len=14 to=2 blocked=1`));
+
+                Charlie.Wire.Send(Charlie.Model.RoomMessage(Room, "marker-free", "b2"));
+                const [, ToB2] = await Settle(Charlie, Bravo, Alpha);
+                assert.equal(ToB2.length, 1, "C's lines still reach B");
+
+                Alpha.Wire.Send(`<message type="chat" to="${B}@${DOMAIN}"><body>marker-w1</body></message>`);
+                Bravo.Wire.Send(`<message type="chat" to="${A}@${DOMAIN}"><body>marker-w2</body></message>`);
+                const [WA, WB] = await Settle(Alpha, Bravo);
+                assert.deepEqual([WA, WB], [[], []]);
+                assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${A} to=${B} len=9 reason=blocked`));
+                assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${B} to=${A} len=9 reason=blocked`));
+            }
+            finally{
+                assert.ok(UnblockPlayer(B, A).ok);
+            }
+
+            Alpha.Wire.Send(Alpha.Model.RoomMessage(Room, "marker-again", "b3"));
+            const [, Again] = await Settle(Alpha, Bravo, Charlie);
+            assert.equal(Again.length, 1, "after the unblock the lines arrive again");
         });
     });
 

@@ -86,9 +86,10 @@ describe("chat names through the real account routes", () => {
         assert.equal(Alpha.Name, "Alpha");
         assert.equal(Bravo.Name, "Bravo");
 
+        // The sender's own connection settles first, so everything it caused is in the others' queues
         for(const Each of Players){
             Each.Wire.Send(Each.Model.JoinPublicRoom(ROOM, Each.Name)!);
-            for(const Other of Players) Other.Model.ReceiveAll(await Other.Wire.Barrier());
+            for(const Other of [Each, ...Players.filter((Player) => Player !== Each)]) Other.Model.ReceiveAll(await Other.Wire.Barrier());
         }
 
         assert.equal(Alpha.Model.RoomOf(ROOM)!.State, JOINED, "the join built from the account route's name is accepted");

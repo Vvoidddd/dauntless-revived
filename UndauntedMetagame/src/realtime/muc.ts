@@ -19,6 +19,13 @@ import { Bucket, ChildNamed, EscapeXml, Jid, NS, TakeToken, TextOf } from "./xmp
 // <item jid>; occupants learn about each other in both directions; every message goes back to its sender
 // too; and a refused join is an error presence, never a rewritten nickname. Two sessions of one account
 // never see each other in a room: the client's self test would take the other one's presence for its own.
+//
+// Who may join (docs/findings/chat.md, "Rooms"): the client names its rooms itself (builders 0x141568c20,
+// 0x1415669e0, 0x1415ad14f, 0x1415bb270). City-<id>, Hunt-<id> and General<id> are open to every signed-in
+// player; Party-<partyId> only to that party's members and Guild-<guildId> only to that guild's; anything
+// else is refused. Membership is checked at the join, at every message (sender and recipients) and every
+// 60 s; a player who lost it is removed from the room (status 307). Room messages skip recipients who
+// blocked the sender.
 
 export const MAX_ROOMS_PER_SESSION = 8;
 export const MAX_OCCUPANTS = 128;
@@ -49,7 +56,30 @@ export type MucSession = {
     Messages: Bucket
 };
 
+// Who belongs where, and who blocked whom (the metagame's parties, guilds and blocks)
+export type RoomAccess = {
+    PartyIdOf(Uid: string): string | undefined,
+    IsGuildMember(Uid: string, GuildId: string): boolean,
+    BlockersAmong(Sender: string, Recipients: string[]): Set<string>
+};
+
+export type RoomClass = "zone" | "general" | "party" | "guild";
+
+// The class of a room by its local part, exactly as the client builds it (case included), or undefined
+export function RoomClassOf(Local: string): { Class: RoomClass, Id: string } | undefined {
+    const Match = /^(City-|Hunt-|General|Party-|Guild-)([A-Za-z0-9-]*)$/.exec(Local);
+
+    if(Match === null || Match[2].length > 64 || (Match[1] !== "General" && Match[2].length === 0)){
+        return undefined;
+    }
+
+    const Class: RoomClass = Match[1] === "City-" || Match[1] === "Hunt-" ? "zone" : Match[1] === "General" ? "general" : Match[1] === "Party-" ? "party" : "guild";
+
+    return { Class, Id: Match[2] };
+}
+
 export type MucHost = {
+    Access: RoomAccess,
     Send(Session: MucSession, Stanza: string): void,
     Clock(): number,
     LogOnce(Key: string, WindowMs?: number): boolean,
@@ -60,6 +90,8 @@ export type MucHost = {
 type Room = {
     Jid: string,     // <local>@muc.<domain>, the local part as the client sent it
     Local: string,
+    Class: RoomClass,
+    ClassId: string, // the party or guild id
     // Join order
     Occupants: Map<MucSession, string>
 };
@@ -138,7 +170,9 @@ export class MucService {
         const RoomJid = `${To.Local}@${To.Domain}`;
         const Now = this.host.Clock();
 
-        if(!this.IsMucDomain(Session, To.Domain)){
+        const Kind = RoomClassOf(To.Local);
+
+        if(!this.IsMucDomain(Session, To.Domain) || Kind === undefined){
             this.refuse(Session, RoomJid, To.Local, Nick, "not-allowed");
             return;
         }
@@ -176,6 +210,11 @@ export class MucService {
             }
         }
 
+        if(!this.mayUse(Uid, Kind.Class, Kind.Id)){
+            this.refuse(Session, RoomJid, To.Local, Nick, "not-member");
+            return;
+        }
+
         // A different nickname in a room this session is already in: leave with the old one first
         if(Existing !== undefined && Held !== undefined){
             this.remove(Session, Existing, "left");
@@ -195,7 +234,7 @@ export class MucService {
             return;
         }
 
-        const Joined = Room ?? { Jid: RoomJid, Local: To.Local, Occupants: new Map<MucSession, string>() };
+        const Joined = Room ?? { Jid: RoomJid, Local: To.Local, Class: Kind.Class, ClassId: Kind.Id, Occupants: new Map<MucSession, string>() };
         const Others = this.others(Joined, Session);
 
         this.rooms.set(RoomJid, Joined);
@@ -214,6 +253,34 @@ export class MucService {
         Session.Rooms.set(RoomJid, Nick);
         this.host.Send(Session, this.occupantPresence(Joined, Nick, Session, Session, { Self: true }));
         logger.info(`chat: join room=${To.Local} uid=${Uid} name=${Check.Ok ? Check.Name : (NamePartOf(Nick) ?? "?")} occupants=${Others.length}`);
+    }
+
+    private mayUse(Uid: string, Class: RoomClass, Id: string): boolean {
+        switch(Class){
+            case "party": return this.host.Access.PartyIdOf(Uid) === Id;
+            case "guild": return this.host.Access.IsGuildMember(Uid, Id);
+            default: return true;
+        }
+    }
+
+    private stillAllowed(Session: MucSession, Room: Room): boolean {
+        return Session.Uid !== undefined && this.mayUse(Session.Uid, Room.Class, Room.ClassId);
+    }
+
+    // Party and guild rooms: anyone who left the party or guild (a kick, a stale client) is removed. The
+    // client normally leaves by itself when its party or guild changes (0x1415ad136, 0x1415bb270).
+    Sweep(): void {
+        for(const Room of [...this.rooms.values()]){
+            if(Room.Class !== "party" && Room.Class !== "guild"){
+                continue;
+            }
+
+            for(const Occupant of [...Room.Occupants.keys()]){
+                if(!this.stillAllowed(Occupant, Room)){
+                    this.remove(Occupant, Room, "evicted");
+                }
+            }
+        }
     }
 
     // Everyone in the room this session may see: not the session itself, not its own account's others
@@ -310,6 +377,12 @@ export class MucService {
             return;
         }
 
+        if(!this.stillAllowed(Session, Room)){
+            this.messageError(Session, RoomJid, Id);
+            this.remove(Session, Room, "evicted");
+            return;
+        }
+
         if(!TakeMessageToken(Session, this.host.Clock())){
             if(this.host.LogOnce(`message-rate|${Session.Id}`, 60 * 1000)){
                 logger.warn(`chat: message limit c=${Session.Id} uid=${Session.Uid} room=${Room.Local}`);
@@ -321,10 +394,20 @@ export class MucService {
 
         const From = EscapeXml(`${Room.Jid}/${Nick}`);
         const Text = EscapeXml(Body);
+        const Recipients = [...Room.Occupants.keys()].filter((Recipient) => Recipient === Session || Recipient.Uid !== Session.Uid);
+        const Blockers = this.host.Access.BlockersAmong(Session.Uid!, Recipients.map((Recipient) => Recipient.Uid!));
         let Delivered = 0;
+        let Blocked = 0;
 
-        for(const [Recipient] of Room.Occupants){
-            if(Recipient !== Session && Recipient.Uid === Session.Uid){
+        for(const Recipient of Recipients){
+            // A recipient who left the party or guild is removed instead of served
+            if(Recipient !== Session && !this.stillAllowed(Recipient, Room)){
+                this.remove(Recipient, Room, "evicted");
+                continue;
+            }
+
+            if(Blockers.has(Recipient.Uid!)){
+                Blocked++;
                 continue;
             }
 
@@ -332,7 +415,7 @@ export class MucService {
             Delivered++;
         }
 
-        logger.info(`chat: message room=${Room.Local} uid=${Session.Uid} len=${Length} to=${Delivered}`);
+        logger.info(`chat: message room=${Room.Local} uid=${Session.Uid} len=${Length} to=${Delivered}${Blocked > 0 ? ` blocked=${Blocked}` : ""}`);
     }
 }
 

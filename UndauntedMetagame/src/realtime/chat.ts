@@ -5,10 +5,13 @@ import type { Request } from "express";
 import { Element } from "ltx";
 import WebSocket, { RawData, WebSocketServer } from "ws";
 import { ValidateMetagameJWTAndGetPayload } from "../controllers/auth";
+import { BlockersAmong, IsBlockedEitherWay } from "../controllers/friends";
+import { IsGuildMember } from "../controllers/guild";
 import { FindUsernameForUserId, IsAccountIdShape } from "../controllers/login";
+import { GetPartyOf } from "../controllers/party";
 import { logger } from "../logger";
 import { ClientAddressOf, IsTrustedGatewayRequest } from "../middleware/RequestOrigin";
-import { BodyLength, JOIN_BURST, MESSAGE_BURST, MucService, NickCheckMode, TakeMessageToken } from "./muc";
+import { BodyLength, JOIN_BURST, MESSAGE_BURST, MucService, NickCheckMode, RoomAccess, TakeMessageToken } from "./muc";
 import {
     AttrOf, Bucket, ChildNamed, DEFAULT_DOMAIN, EscapeXml, HasMarkupDeclaration, IsHostName, LocalName, NewBucket, NS,
     ParseFrame, ParseJid, RedactFrame, TakeToken, TextOf
@@ -53,11 +56,14 @@ const MAX_SESSIONS_PER_ACCOUNT = 2;
 const GHOST_PING_MS = 10 * 1000;
 const LOOP_REPLACEMENTS = 3;
 const LOOP_WINDOW_MS = 60 * 1000;
+const SWEEP_MS = 60 * 1000;
 const CONTROL_CHARACTER = /\p{Cc}/u;
 
 export type ChatOptions = {
     Trace?: boolean,
     NickCheck?: NickCheckMode,
+    // Tests: other party, guild and block lookups
+    Access?: RoomAccess,
     // Tests: a controllable clock, and no timer of its own (the test calls Tick)
     Clock?: () => number,
     AutoTick?: boolean
@@ -117,12 +123,18 @@ export class ChatServer {
     private readonly ticker?: NodeJS.Timeout;
     private nextId = 1;
     private nextPing = 1;
+    private lastSweep = 0;
 
     constructor(Options: ChatOptions = {}) {
         this.clock = Options.Clock ?? (() => Date.now());
         this.trace = Options.Trace === true;
         this.nickCheck = Options.NickCheck ?? "enforce";
         this.muc = new MucService({
+            Access: Options.Access ?? {
+                PartyIdOf: (Uid) => GetPartyOf(Uid)?.PartyId,
+                IsGuildMember: (Uid, GuildId) => IsGuildMember(Uid, GuildId),
+                BlockersAmong: (Sender, Recipients) => BlockersAmong(Sender, Recipients)
+            },
             Send: (Session, Stanza) => this.send(Session as ChatSession, Stanza),
             Clock: () => this.clock(),
             LogOnce: (Key, WindowMs) => this.logOnce(Key, WindowMs),
@@ -211,6 +223,11 @@ export class ChatServer {
                     this.ping(Session, PING_TIMEOUT_MS);
                 }
             }
+        }
+
+        if(Now - this.lastSweep >= SWEEP_MS){
+            this.lastSweep = Now;
+            this.muc.Sweep();
         }
 
         this.prune(Now);
@@ -777,6 +794,12 @@ export class ChatServer {
 
         if(Sessions.length === 0){
             Refused("offline");
+            return;
+        }
+
+        // Either player blocked the other: not delivered (the same rule as party invites)
+        if(IsBlockedEitherWay(Uid, Target)){
+            Refused("blocked");
             return;
         }
 
