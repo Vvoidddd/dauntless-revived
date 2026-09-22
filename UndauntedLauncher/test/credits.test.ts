@@ -29,6 +29,9 @@ test("the credits name every contributor, in order, with their role", () => {
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /\.gitignore/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /performance sampler/); // #6
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /suorituskykymittarin/);
+  // #7: the exposure setting is an opt-in experiment, off by default; the note must say so.
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /opt-in Basic adaptive exposure setting for the airship \(off by default\)/);
+  assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /valinnaisen mukautuvan perusvalotuksen asetuksen ilmalaivaa varten \(oletuksena pois päältä\)/);
   // The exposure change was taken back out in 0.1.1 (it darkened Ramsgate); the note must not
   // suggest the airship is fixed.
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /reverted in launcher 0\.1\.1/);

@@ -43,7 +43,9 @@ And **Phoenix Labs**, who made Dauntless. Nothing here would be worth preserving
   automatic exposure; the setting was reverted in launcher 0.1.1 because it darkened Ramsgate), hid
   the console windows of temporary hunt servers, and added the repository's `.gitignore`
   ([#5](https://github.com/mixutin/dauntless-revived/pull/5)); wrote the first performance sampler,
-  the base of the server's performance log ([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
+  the base of the server's performance log ([#6](https://github.com/mixutin/dauntless-revived/pull/6));
+  added the launcher's opt-in "Basic adaptive" auto exposure setting for the airship, off by default
+  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)).
 
 Everyone who has contributed is on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors). The launcher

@@ -273,7 +273,9 @@ pelin tiedostoja. Tarkemmat ohjeet ovat tiedostoissa [CONTRIBUTING.md](CONTRIBUT
   se pimensi Ramsgaten), piilotti tilapäisten metsästyspalvelimien konsoli-ikkunat ja lisäsi
   projektin `.gitignore`-tiedoston ([#5](https://github.com/mixutin/dauntless-revived/pull/5));
   kirjoitti ensimmäisen suorituskykymittarin, jonka pohjalle palvelimen suorituskykyloki rakennettiin
-  ([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
+  ([#6](https://github.com/mixutin/dauntless-revived/pull/6)); lisäsi käynnistimeen valinnaisen
+  ”mukautuvan perusvalotuksen” asetuksen ilmalaivaa varten, oletuksena pois päältä
+  ([#7](https://github.com/mixutin/dauntless-revived/pull/7)).
 
 Kaikki osallistujat näkyvät [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 
