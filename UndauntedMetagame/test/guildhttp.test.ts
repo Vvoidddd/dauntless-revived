@@ -9,7 +9,7 @@ import { app } from "../src/app";
 import { GetDb } from "../src/db";
 import { gameserverapikeys, guildinvites, guildmembers, guilds, userapikeys, users } from "../src/db/schema";
 import { HashUserAPIKey, SignMetagameJWTForUid } from "../src/controllers/auth";
-import { ResetGuildMemoryForTests, SetGuildClockForTests } from "../src/controllers/guild";
+import { GuildNow, ResetGuildMemoryForTests, SetGuildClockForTests } from "../src/controllers/guild";
 import { FakeDeployServer, StartFakeDeployServer } from "./fakedeploy";
 import { GuildOutcome, ParseGuildData, ParseGuildInvites, ParsePhoenixEnvelope, SocialClient, Transport } from "./socialclient";
 
@@ -203,6 +203,46 @@ describe("2. POST /guild/validate", () => {
         ExpectAck(await Validate(A, "GriefGuild"), "without the list");
     });
 
+    it("staff and project words are \"already in use\"; short offensive tags are profane; GUILD_RESERVED_NAMES=0 frees only the reserved words", async () => {
+        const Reserved: [string, string, number, string][] = [
+            ["ServerAdmins", "", 409, "GuildNameTaken"],
+            ["Moderators", "", 409, "GuildNameTaken"],
+            ["TheOfficials", "", 409, "GuildNameTaken"],
+            ["St4ffOnly", "", 409, "GuildNameTaken"],
+            ["TheGameMasters", "", 409, "GuildNameTaken"],
+            ["Dauntless", "", 409, "GuildNameTaken"],
+            ["Phoenix", "", 409, "GuildNameTaken"],
+            ["Slayers", "GM", 409, "GuildNameplateTaken"],
+            ["Slayers", "dev", 409, "GuildNameplateTaken"],
+            ["Slayers", "ADMIN", 409, "GuildNameplateTaken"],
+            ["Slayers", "M0D", 409, "GuildNameplateTaken"],
+            ["Slayers", "KKK", 400, "GuildNameplateProfane"],
+            ["Slayers", "FAG", 400, "GuildNameplateProfane"],
+            ["Slayers", "SS", 400, "GuildNameplateProfane"],
+            ["Slayers", "1488", 400, "GuildNameplateProfane"],
+            ["KkkRiders", "", 400, "GuildNameProfane"]
+        ];
+
+        for(const [Name, Nameplate, Status, ClientError] of Reserved){
+            ExpectRefusal(await Validate(A, Name, Nameplate), Status, ClientError, `${Name} / ${Nameplate}`);
+        }
+
+        for(const [Name, Nameplate] of [["DauntlessCrew", ""], ["PhoenixRising", ""], ["Slayers", "NIGHT"], ["Slayers", "GMX"], ["Slayers", "DEVS1"]]){
+            ExpectAck(await Validate(A, Name, Nameplate), `${Name} / ${Nameplate}: only whole words are reserved there`);
+        }
+
+        process.env.GUILD_RESERVED_NAMES = "0";
+
+        try{
+            ExpectAck(await Validate(A, "Moderators"), "reserved words allowed");
+            ExpectAck(await Validate(A, "Slayers", "GM"), "reserved nameplates allowed");
+            ExpectRefusal(await Validate(A, "Slayers", "KKK"), 400, "GuildNameplateProfane", "offensive tags stay refused");
+        }
+        finally{
+            delete process.env.GUILD_RESERVED_NAMES;
+        }
+    });
+
     it("needs a player's token", async () => {
         assert.equal((await Call("POST", "/guild/validate", { body: { leader_account_id: A, name: "Slayers", nameplate: "" } })).status, 401);
         assert.equal((await Call("POST", "/guild/validate", { gs: true, body: { leader_account_id: A, name: "Slayers", nameplate: "" } })).status, 403);
@@ -210,11 +250,15 @@ describe("2. POST /guild/validate", () => {
 });
 
 describe("3. the game server's create (POST /guild)", () => {
-    it("refuses a player's token, and a leader with no recent validate and no recent activity (403 InvalidPermission)", async () => {
+    it("refuses a player's token, and a leader who did not validate this name: 403 with no code, which the client shows as \"Unable to create guild.\"", async () => {
         const PlayerOnly = await Call("POST", "/guild", { as: D, body: { leader_account_id: D, name: "Deltas", nameplate: "" } });
         ExpectRefusal(PlayerOnly, 403, "Unknown", "a player's token alone");
 
-        ExpectRefusal(await Create(D, "Deltas"), 403, "InvalidPermission", "D never validated and was never heard from");
+        ExpectRefusal(await Create(D, "Deltas"), 403, "Unknown", "D never validated");
+        await PartyPoll(D);
+        ExpectRefusal(await Create(D, "Deltas"), 403, "Unknown", "being online (a party poll a moment ago) is not enough");
+        ExpectRefusal(await Create(D, "x"), 400, "GuildNameInvalidLength", "a name the rules refuse keeps its own text");
+        ExpectRefusal(await Create(D, "Deltas", "GM"), 409, "GuildNameplateTaken", "so does a reserved nameplate");
         assert.equal((await GetGuild(D)).status, 204);
     });
 
@@ -235,48 +279,85 @@ describe("3. the game server's create (POST /guild)", () => {
         assert.equal(Mine.text, Created.text);
     });
 
-    it("A cannot create a second guild (409 YouAlreadyInAGuild), and names and nameplates are taken regardless of case", async () => {
+    it("A cannot validate or create a second guild, and names and nameplates are taken regardless of case", async () => {
         await PartyPoll(A);
-        ExpectRefusal(await Create(A, "Another"), 409, "YouAlreadyInAGuild", "second create");
         ExpectRefusal(await Validate(A, "Another"), 409, "YouAlreadyInAGuild", "validate while in a guild");
         ExpectRefusal(await Validate(A, "x"), 409, "YouAlreadyInAGuild", "checked before the name rules");
+        ExpectRefusal(await Create(A, "Another"), 403, "Unknown", "no validate of that name (a member of a guild gets none)");
 
         ExpectRefusal(await Validate(B, "sLAYERS"), 409, "GuildNameTaken", "name");
         ExpectRefusal(await Validate(B, "Others", "sly"), 409, "GuildNameplateTaken", "nameplate");
         ExpectAck(await Validate(B, "Others", ""), "an empty nameplate is never taken");
     });
 
-    it("an unknown leader is 400; a forwarded token of another player is 403; a bad forwarded token is ignored, never a 500", async () => {
+    it("the create must be what the leader validated: another name, another nameplate or another leader is refused; the last five pairs count, in any case", async () => {
+        ExpectAck(await Validate(B, "Bravos", "BRV"), "B validates");
+        ExpectRefusal(await Create(B, "Other", "BRV"), 403, "Unknown", "another name for B");
+        ExpectRefusal(await Create(B, "Bravos", "XYZ"), 403, "Unknown", "another nameplate");
+        ExpectRefusal(await Create(B, "Bravos", ""), 403, "Unknown", "no nameplate");
+        ExpectRefusal(await Create(C, "Bravos", "BRV"), 403, "Unknown", "B's name for C, who validated nothing");
+        assert.equal((await GetGuild(C)).status, 204);
+
+        for(const Name of ["BravoOne", "BravoTwo", "BravoThree", "BravoFour", "BravoFive", "BravoSix"]){
+            ExpectAck(await Validate(B, Name), Name);
+        }
+
+        ExpectRefusal(await Create(B, "BravoOne"), 403, "Unknown", "only the last five validated pairs are kept");
+        ExpectRefusal(await Create(B, "Bravos", "BRV"), 403, "Unknown", "older still");
+
+        const Created = await Create(B, "bravotwo");
+        assert.equal(Created.status, 200, Created.text);
+        assert.equal(Created.json.payload.name, "bravotwo", "the name as the create sends it");
+        ExpectAck(await Disband(B, Created.json.payload.id), "B disbands");
+        ExpectRefusal(await Create(B, "BravoThree"), 403, "Unknown", "a create uses up the validated names");
+    });
+
+    it("an unknown leader is 400; a token that comes along is only logged (it is the game server's own); a bad one never causes a 500", async () => {
         ExpectRefusal(await Create("UID-nobody", "Nobodies"), 400, "Unknown", "no such account");
         ExpectRefusal(await Create("not an id!", "Nobodies"), 400, "Unknown", "not an account id");
 
-        ExpectAck(await Validate(B, "Bravos", "BRV"), "B validates");
-        ExpectRefusal(await Create(B, "Bravos", "BRV", { as: A }), 403, "InvalidPermission", "A's token forwarded for B");
+        ExpectAck(await Validate(C, "Charlies", "CHR"), "C validates");
+        const WithOther = await Create(C, "Charlies", "CHR", { as: A });
+        assert.equal(WithOther.status, 200, WithOther.text);
+        assert.equal(WithOther.json.payload.leader_account_id, C, "A's token changes nothing");
+        ExpectAck(await Disband(C, WithOther.json.payload.id), "C disbands");
 
-        const BadToken = await Create(B, "Bravos", "BRV", { token: "not.a.token" });
+        ExpectAck(await Validate(E, "Echoing"), "E validates");
+        const BadToken = await Create(E, "Echoing", "", { token: "not.a.token" });
         assert.equal(BadToken.status, 200, BadToken.text);
-        assert.equal(BadToken.json.payload.leader_account_id, B);
-        ExpectAck(await Disband(B, BadToken.json.payload.id), "B disbands");
+        ExpectAck(await Disband(E, BadToken.json.payload.id), "E disbands");
 
         const Leaders = GetDb().select().from(guildmembers).all();
         assert.deepEqual(Leaders.map((Row) => [Row.accountId, Row.rank]), [[A, "Leader"]]);
     });
 
-    it("one guild per leader per 10 minutes (429); the leader's own forwarded token is fine", async () => {
+    it("one guild per leader per 10 minutes (429), even with a validated name", async () => {
         ExpectAck(await Validate(B, "BravosTwo"), "validate");
         ExpectRefusal(await Create(B, "BravosTwo"), 429, "Unknown", "a second guild within 10 minutes");
 
         Offset += 10 * 60 * 1000 + 1;
-        const Later = await Create(B, "BravosTwo", "", { as: B });
+        const Later = await Create(B, "BravosTwo");
         assert.equal(Later.status, 200, Later.text);
         ExpectAck(await Disband(B, Later.json.payload.id), "disband");
     });
 
-    it("recent activity alone (a party poll within the last minute) is enough", async () => {
-        await PartyPoll(C);
-        const Created = await Create(C, "Charlies");
-        assert.equal(Created.status, 200, Created.text);
-        ExpectAck(await Disband(C, Created.json.payload.id), "disband");
+    it("GUILD_CREATE_ACTIVITY_FALLBACK=1 also accepts a leader heard from in the last minute; nobody else", async () => {
+        process.env.GUILD_CREATE_ACTIVITY_FALLBACK = "1";
+
+        try{
+            await PartyPoll(D);
+            const Created = await Create(D, "Deltas");
+            assert.equal(Created.status, 200, Created.text);
+            ExpectAck(await Disband(D, Created.json.payload.id), "disband");
+
+            ExpectRefusal(await Create(F, "Foxtrots"), 403, "Unknown", "F never validated and was never heard from");
+        }
+        finally{
+            delete process.env.GUILD_CREATE_ACTIVITY_FALLBACK;
+        }
+
+        await PartyPoll(D);
+        ExpectRefusal(await Create(D, "Deltas"), 403, "Unknown", "off again");
     });
 });
 
@@ -616,5 +697,86 @@ describe("11. host fallbacks (/undaunted/api)", () => {
         finally{
             delete process.env.GUILDS;
         }
+    });
+});
+
+describe("12. blocks, declines and officers", () => {
+    const L = "UID-guild-l1", O = "UID-guild-o1", P = "UID-guild-p1", Q = "UID-guild-p2", R = "UID-guild-p3";
+    let Lancers = "";
+
+    before(async () => {
+        for(const [Id, Name] of [[L, "Lancer"], [O, "Oscar"], [P, "Papa"], [Q, "Quebec"], [R, "Romeo"]]){
+            AddAccount(Id, Name);
+        }
+
+        ExpectAck(await Validate(L, "Lancers", "LNC"), "L validates");
+        const Created = await Create(L, "Lancers", "LNC");
+        assert.equal(Created.status, 200, Created.text);
+        Lancers = Created.json.payload.id;
+    });
+
+    it("a block removes the guild invites between the two; an older invite from a blocked inviter is never listed and cannot be accepted", async () => {
+        ExpectAck(await Invite(L, P), "L invites P");
+        assert.equal((await OwnInvites(P)).length, 1);
+
+        assert.equal((await Call("POST", `/friends/api/public/blocklist/${P}/${L}`, { as: P })).status, 204);
+        assert.deepEqual(await OwnInvites(P), [], "gone with the block");
+        assert.equal(GetDb().select().from(guildinvites).all().filter((Row) => Row.inviteeId === P).length, 0, "deleted, not only hidden");
+
+        const Blocked = await Invite(L, P);
+        ExpectRefusal(Blocked, 403, "Unknown", "no new invite while blocked");
+        assert.equal(Blocked.json.message, "The invite could not be sent.", "the reply does not say why");
+
+        // An invite written before the block existed (as after an update): hidden, and accepting it is 404
+        const Old = crypto.randomUUID();
+        GetDb().insert(guildinvites).values({ inviteId: Old, guildId: Lancers, inviteeId: P, inviterId: L, createdAt: GuildNow(), expiresAt: GuildNow() + 60 * 60 * 1000 }).run();
+        assert.deepEqual(await OwnInvites(P), []);
+        ExpectRefusal(await AcceptInvite(P, Old), 404, "GuildInviteNotFound", "blocked");
+        assert.equal(GetDb().select().from(guildinvites).all().some((Row) => Row.inviteId === Old), false, "and removed");
+
+        assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${P}/${L}`, { as: P })).status, 204);
+        ExpectAck(await Invite(L, P), "unblocked: invites work again");
+    });
+
+    it("a guild whose invite was declined cannot invite that player again for 24 hours", async () => {
+        ExpectAck(await DeclineInvite(P, (await OwnInvites(P))[0].id), "P declines");
+        ExpectRefusal(await Invite(L, P), 429, "Unknown", "at once");
+        Offset += 23 * 60 * 60 * 1000;
+        ExpectRefusal(await Invite(L, P), 429, "Unknown", "23 hours later");
+        Offset += 60 * 60 * 1000 + 1;
+        ExpectAck(await Invite(L, P), "a day later");
+    });
+
+    it("an Officer's invites go when the Officer is demoted, kicked or leaves; an invite whose inviter lost the right cannot be accepted", async () => {
+        ExpectAck(await Invite(L, O), "L invites O");
+        ExpectAck(await AcceptInvite(O, (await OwnInvites(O))[0].id), "O joins");
+        ExpectAck(await Rank(L, O, "officer"), "O is an Officer");
+
+        ExpectAck(await Invite(O, Q), "the Officer invites Q");
+        assert.equal((await OwnInvites(Q)).length, 1);
+        ExpectAck(await Rank(L, O, "member"), "demoted");
+        assert.deepEqual(await OwnInvites(Q), [], "demoted: the invite is gone");
+
+        ExpectAck(await Rank(L, O, "officer"), "an Officer again");
+        ExpectAck(await Invite(O, Q), "invites Q again");
+        ExpectAck(await Kick(L, O), "kicked");
+        assert.deepEqual(await OwnInvites(Q), [], "kicked: gone");
+
+        ExpectAck(await Invite(L, O), "back in");
+        ExpectAck(await AcceptInvite(O, (await OwnInvites(O))[0].id), "O joins again");
+        ExpectAck(await Rank(L, O, "officer"), "Officer");
+        ExpectAck(await Invite(O, Q), "invites Q a third time");
+        ExpectAck(await Leave(O), "O leaves");
+        assert.deepEqual(await OwnInvites(Q), [], "left: gone");
+        assert.equal((await OwnInvites(P)).length, 1, "the leader's own invite to P stays");
+
+        // A row whose inviter is only a Member (as if written before this rule): hidden, and 404 on accept
+        ExpectAck(await Invite(L, O), "O comes back as a Member");
+        ExpectAck(await AcceptInvite(O, (await OwnInvites(O))[0].id), "joins");
+        const Stale = crypto.randomUUID();
+        GetDb().insert(guildinvites).values({ inviteId: Stale, guildId: Lancers, inviteeId: R, inviterId: O, createdAt: GuildNow(), expiresAt: GuildNow() + 60 * 60 * 1000 }).run();
+        assert.deepEqual(await OwnInvites(R), []);
+        ExpectRefusal(await AcceptInvite(R, Stale), 404, "GuildInviteNotFound", "the inviter is only a Member");
+        assert.equal((await GetGuild(R)).status, 204);
     });
 });

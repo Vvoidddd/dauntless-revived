@@ -76,9 +76,10 @@ guildRouter.post("/guild/validate", GuildsOn, HasUndauntedMetagameAuth, PlayerTo
     Send(res, ValidateGuildCreate(req.AuthData.userId, req.body?.leader_account_id, req.body?.name, req.body?.nameplate));
 });
 
-// The game server's create: the same body, the game-server key, perhaps the player's token
+// The game server's create: the same body and the game-server key. A token that comes along is the game
+// server's own login's, never the leader's (controllers/guild.ts), so it is only logged.
 guildRouter.post("/guild", GuildsOn, GameServerKeyAuth, (req: any, res) => {
-    Send(res, CreateGuild(req.body?.leader_account_id, Caller(req), req.body?.name, req.body?.nameplate));
+    Send(res, CreateGuild(req.body?.leader_account_id, req.AuthData?.ForwardedUserId, req.body?.name, req.body?.nameplate));
 });
 
 // Leave Guild (no body)

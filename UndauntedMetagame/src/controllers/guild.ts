@@ -20,14 +20,18 @@ import { SeenWithinMs } from "./party";
 // - Replies that carry a guild or the invite list also copy the payload's fields to the root, in case
 //   the client reads them flat (the envelope reader ignores extra root keys).
 // - A guild is created by the Ramsgate game server (the Create button is an RPC to it), with the
-//   game-server key. The game server passes on the leader id the client sent, so a create is only
-//   accepted for a player who validated a name in the last 15 minutes or was heard from in the last
-//   minute (party polls, heartbeats).
+//   game-server key. The game server passes on the leader id the client sent and no token of that
+//   player (a token it sends is its own login's, exe 0x140ac78a4), so a create is only accepted when
+//   the leader validated that same name and nameplate with their own token in the last 15 minutes.
+//   GUILD_CREATE_ACTIVITY_FALLBACK=1 also accepts a leader heard from in the last minute (party polls,
+//   heartbeats), with a warning in the log.
+// - A block removes the guild invites between the two players, and an invite whose inviter is no
+//   longer a Leader or Officer of the guild (demoted, kicked, left) goes too.
 // - Other members and invitees see a change at their next GET /guild or GET /guild/invite/player
 //   (login, world load, or their own guild action): the client gets no push.
 //
 // In memory only (losing them on a restart is harmless): validate tickets, the creation and invite
-// rate windows.
+// rate windows, and the pause on re-inviting a player who declined.
 
 // The codes the server sends, and the EGuildRequestError each maps to in the client
 export const GUILD_CODE = {
@@ -82,6 +86,11 @@ export const MAX_INVITES_PER_INVITER_PER_HOUR = 30;
 export const CREATE_INTERVAL_MS = 10 * 60 * 1000;
 export const VALIDATE_TICKET_MS = 15 * 60 * 1000;
 export const CREATE_ACTIVITY_MS = 60 * 1000;
+// Validated name and nameplate pairs kept per account, in case Create is pressed before the validate
+// of the final name has come back
+export const MAX_TICKETS_PER_ACCOUNT = 5;
+// After a player declines a guild's invite, that guild cannot invite them again for this long
+export const DECLINE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export type GuildRank = "Member" | "Officer" | "Leader";
 
@@ -116,13 +125,28 @@ export function GuildInviteTtlMs(){
     return Math.round(Days * 24 * 60 * 60 * 1000);
 }
 
+// Opt-in: also accept a create for a leader who validated any name, or was heard from in the last
+// minute, when there is no validate of the exact name (only if the live test shows the client never
+// validates the final name). Read on every request.
+function ActivityFallbackOn(){
+    return process.env.GUILD_CREATE_ACTIVITY_FALLBACK === "1";
+}
+
+// GUILD_RESERVED_NAMES=0 turns off the reserved staff and project words (the offensive tags stay)
+function ReservedNamesOn(){
+    return process.env.GUILD_RESERVED_NAMES !== "0";
+}
+
 // ---- In memory ----
 
 type ValidateTicket = { NameKey: string, NameplateKey: string, At: number };
 
-const Tickets = new Map<string, ValidateTicket>();
+// Per account, oldest first, at most MAX_TICKETS_PER_ACCOUNT
+const Tickets = new Map<string, ValidateTicket[]>();
 const LastCreated = new Map<string, number>();
 const InvitesSent = new Map<string, number[]>();
+// "<guildId>|<inviteeId>" -> when the invitee declined that guild's invite
+const Declined = new Map<string, number>();
 let Clock: () => number = () => Date.now();
 let LastSweep = 0;
 
@@ -139,12 +163,24 @@ export function ResetGuildMemoryForTests(){
     Tickets.clear();
     LastCreated.clear();
     InvitesSent.clear();
+    Declined.clear();
     LastSweep = 0;
 }
 
+function LiveTickets(Account: string, Now: number){
+    return (Tickets.get(Account) ?? []).filter((Ticket) => Now - Ticket.At <= VALIDATE_TICKET_MS);
+}
+
 function ForgetOldMemory(Now: number){
-    for(const [Account, Ticket] of [...Tickets.entries()]){
-        if(Now - Ticket.At > VALIDATE_TICKET_MS) Tickets.delete(Account);
+    for(const Account of [...Tickets.keys()]){
+        const Live = LiveTickets(Account, Now);
+
+        if(Live.length > 0) Tickets.set(Account, Live);
+        else Tickets.delete(Account);
+    }
+
+    for(const [Pair, At] of [...Declined.entries()]){
+        if(Now - At >= DECLINE_COOLDOWN_MS) Declined.delete(Pair);
     }
 
     for(const [Account, At] of [...LastCreated.entries()]){
@@ -229,10 +265,37 @@ function Denylist(){
     return [...BUILT_IN_DENYLIST, ...Extra];
 }
 
+// Offensive words too short for the substring list, refused only as the whole name or nameplate
+// (compared as typed and after undoing digit swaps). "kkk" never occurs in an ordinary word, so it is
+// also refused anywhere in the text.
+const OFFENSIVE_WHOLE = ["kkk", "fag", "fags", "nig", "nigs", "fck", "fuk", "rape", "isis", "ss", "1488", "hh88"];
+const OFFENSIVE_ANYWHERE = ["kkk"];
+
 export function IsProfaneGuildText(Text: string){
+    const Lower = Text.toLowerCase();
     const Plain = Unleet(Text);
 
-    return Denylist().some((Word) => Plain.includes(Word));
+    return Denylist().some((Word) => Plain.includes(Word))
+        || OFFENSIVE_ANYWHERE.some((Word) => Plain.includes(Word))
+        || OFFENSIVE_WHOLE.includes(Lower) || OFFENSIVE_WHOLE.includes(Plain);
+}
+
+// Words that would let a guild pose as the server's staff or the project. Compared lowercased and after
+// undoing digit swaps: the first list anywhere in a name or nameplate, the second as the whole name,
+// the third as the whole nameplate. They answer "already in use". GUILD_RESERVED_NAMES=0 turns them off.
+const RESERVED_ANYWHERE = ["admin", "moderator", "official", "gamemaster", "staff", "dauntlessrevived", "phoenixlabs"];
+const RESERVED_WHOLE_NAME = ["dauntless", "phoenix", "revived", "support", "system", "server", "servers", "mods", "developer", "developers", "devteam"];
+const RESERVED_WHOLE_NAMEPLATE = ["gm", "gms", "dev", "devs", "mod", "mods", "sys", "phx", "dr", "drev", "undt"];
+
+export function IsReservedGuildText(Text: string, IsNameplate: boolean){
+    if(!ReservedNamesOn()){
+        return false;
+    }
+
+    const Forms = [Text.toLowerCase(), Unleet(Text)];
+    const Whole = IsNameplate ? RESERVED_WHOLE_NAMEPLATE : RESERVED_WHOLE_NAME;
+
+    return Forms.some((Form) => RESERVED_ANYWHERE.some((Word) => Form.includes(Word)) || Whole.includes(Form));
 }
 
 function LongestRun(Text: string){
@@ -250,9 +313,8 @@ function LongestRun(Text: string){
 
 type CheckedName = { Name: string, NameKey: string, Nameplate: string, NameplateKey: string | null };
 
-// The name and nameplate rules, in the order the first failure decides. The caller checks
-// "already in a guild" first. An empty nameplate is allowed (the client skips it when empty).
-function CheckNameAndNameplate(tx: Tx, Name: unknown, Nameplate: unknown): CheckedName | GuildReply {
+// The rules on the name alone, without the database
+function CheckNameRules(Name: unknown): GuildReply | undefined {
     if(typeof Name !== "string" || !NAME_RULE.test(Name)){
         return Refuse(400, GUILD_CODE.NameInvalidLength);
     }
@@ -269,24 +331,66 @@ function CheckNameAndNameplate(tx: Tx, Name: unknown, Nameplate: unknown): Check
         return Refuse(400, GUILD_CODE.NameProfane);
     }
 
-    const NameKey = Name.toLowerCase();
-
-    if(tx.select({ guildId: guilds.guildId }).from(guilds).where(eq(guilds.nameKey, NameKey)).get() !== undefined){
+    if(IsReservedGuildText(Name, false)){
         return Refuse(409, GUILD_CODE.NameTaken);
     }
 
-    const Plate = Nameplate === undefined || Nameplate === null ? "" : Nameplate;
+    return undefined;
+}
+
+// An empty nameplate is allowed (the client skips it when empty)
+function PlateOf(Nameplate: unknown){
+    return Nameplate === undefined || Nameplate === null ? "" : Nameplate;
+}
+
+// The rules on the nameplate alone, without the database
+function CheckNameplateRules(Nameplate: unknown): GuildReply | undefined {
+    const Plate = PlateOf(Nameplate);
 
     if(typeof Plate !== "string" || (Plate.length > 0 && !NAMEPLATE_RULE.test(Plate))){
         return Refuse(400, GUILD_CODE.NameplateInvalidLength);
     }
 
     if(Plate.length === 0){
-        return { Name: Name, NameKey: NameKey, Nameplate: "", NameplateKey: null };
+        return undefined;
     }
 
     if(IsProfaneGuildText(Plate)){
         return Refuse(400, GUILD_CODE.NameplateProfane);
+    }
+
+    if(IsReservedGuildText(Plate, true)){
+        return Refuse(409, GUILD_CODE.NameplateTaken);
+    }
+
+    return undefined;
+}
+
+// The name and nameplate rules, in the order the first failure decides. The caller checks
+// "already in a guild" first.
+function CheckNameAndNameplate(tx: Tx, Name: unknown, Nameplate: unknown): CheckedName | GuildReply {
+    const NameRefusal = CheckNameRules(Name);
+
+    if(NameRefusal !== undefined){
+        return NameRefusal;
+    }
+
+    const NameKey = (Name as string).toLowerCase();
+
+    if(tx.select({ guildId: guilds.guildId }).from(guilds).where(eq(guilds.nameKey, NameKey)).get() !== undefined){
+        return Refuse(409, GUILD_CODE.NameTaken);
+    }
+
+    const PlateRefusal = CheckNameplateRules(Nameplate);
+
+    if(PlateRefusal !== undefined){
+        return PlateRefusal;
+    }
+
+    const Plate = PlateOf(Nameplate) as string;
+
+    if(Plate.length === 0){
+        return { Name: Name as string, NameKey: NameKey, Nameplate: "", NameplateKey: null };
     }
 
     const NameplateKey = Plate.toLowerCase();
@@ -295,7 +399,14 @@ function CheckNameAndNameplate(tx: Tx, Name: unknown, Nameplate: unknown): Check
         return Refuse(409, GUILD_CODE.NameplateTaken);
     }
 
-    return { Name: Name, NameKey: NameKey, Nameplate: Plate, NameplateKey: NameplateKey };
+    return { Name: Name as string, NameKey: NameKey, Nameplate: Plate, NameplateKey: NameplateKey };
+}
+
+// The ticket key of a typed name and nameplate (lowercase; an empty nameplate is "")
+function TicketKeys(Name: unknown, Nameplate: unknown){
+    const Plate = PlateOf(Nameplate);
+
+    return typeof Name === "string" && typeof Plate === "string" ? { NameKey: Name.toLowerCase(), NameplateKey: Plate.toLowerCase() } : undefined;
 }
 
 function IsReply(Value: CheckedName | GuildReply): Value is GuildReply {
@@ -371,19 +482,34 @@ export function GetOwnGuild(UserId: string | undefined): GuildReply {
     return Data === undefined ? { Status: 204, Body: undefined } : WithPayload(Data);
 }
 
-// GET /guild/invite/player: the caller's open invites, newest first
+// The inviter still leads or officers the invite's guild (an invite dies with that right)
+function InviterStillMayInvite(tx: Tx, InviterId: string, GuildId: string){
+    const Inviter = MembershipOf(tx, InviterId);
+
+    return Inviter !== undefined && Inviter.guildId === GuildId && (Inviter.rank === "Leader" || Inviter.rank === "Officer");
+}
+
+// Invites sent by this account for this guild go (it was demoted to Member, kicked or left)
+function DropInvitesSentBy(tx: Tx, InviterId: string, GuildId: string){
+    return tx.delete(guildinvites).where(and(eq(guildinvites.guildId, GuildId), eq(guildinvites.inviterId, InviterId))).returning({ inviteId: guildinvites.inviteId }).all().length;
+}
+
+// GET /guild/invite/player: the caller's open invites, newest first. Invites between players who
+// blocked each other, and invites whose inviter lost the right to invite, are left out (they are
+// removed when that happens; this is the safety net).
 export function ListOwnGuildInvites(UserId: string | undefined): GuildReply {
     Sweep();
 
     const Now = Clock();
-    const Invites: GuildInviteData[] = UserId === undefined ? [] : GetDb()
+    const Invites: GuildInviteData[] = UserId === undefined ? [] : GetDb().transaction((tx) => tx
         .select({ inviteId: guildinvites.inviteId, guildId: guildinvites.guildId, guildName: guilds.name, inviterId: guildinvites.inviterId })
         .from(guildinvites)
         .innerJoin(guilds, eq(guilds.guildId, guildinvites.guildId))
         .where(and(eq(guildinvites.inviteeId, UserId), gt(guildinvites.expiresAt, Now)))
         .orderBy(desc(guildinvites.createdAt), asc(guildinvites.inviteId))
         .all()
-        .map((Row) => ({ id: Row.inviteId, guild_id: Row.guildId, guild_name: Row.guildName, inviter_account_id: Row.inviterId }));
+        .filter((Row) => !IsBlockedEitherWayInTx(tx, UserId, Row.inviterId) && InviterStillMayInvite(tx, Row.inviterId, Row.guildId))
+        .map((Row) => ({ id: Row.inviteId, guild_id: Row.guildId, guild_name: Row.guildName, inviter_account_id: Row.inviterId })));
 
     return WithPayload({ invites: Invites });
 }
@@ -413,37 +539,71 @@ export function ValidateGuildCreate(UserId: string, BodyLeader: unknown, Name: u
         return Result;
     }
 
-    Tickets.set(UserId, { NameKey: Result.NameKey, NameplateKey: Result.NameplateKey ?? "", At: Now });
+    const Keys = { NameKey: Result.NameKey, NameplateKey: Result.NameplateKey ?? "" };
+    const Kept = LiveTickets(UserId, Now).filter((Ticket) => Ticket.NameKey !== Keys.NameKey || Ticket.NameplateKey !== Keys.NameplateKey);
+
+    Tickets.set(UserId, [...Kept, { ...Keys, At: Now }].slice(-MAX_TICKETS_PER_ACCOUNT));
     logger.info(`guild: validate by ${UserId} name=${Quoted(Name)} tag=${Quoted(Nameplate ?? "")} -> ok`);
 
     return Ack();
 }
 
+// How a create is tied to the leader's own action: "ticket" when the leader validated this very name
+// and nameplate with their own token in the last 15 minutes; with GUILD_CREATE_ACTIVITY_FALLBACK=1 also
+// "fallback" for any recent validate or activity; otherwise undefined.
+function CreateBinding(Leader: string, Name: unknown, Nameplate: unknown, Now: number): "ticket" | "fallback" | undefined {
+    const Keys = TicketKeys(Name, Nameplate);
+    const Live = LiveTickets(Leader, Now);
+
+    if(Keys !== undefined && Live.some((Ticket) => Ticket.NameKey === Keys.NameKey && Ticket.NameplateKey === Keys.NameplateKey)){
+        return "ticket";
+    }
+
+    if(ActivityFallbackOn() && (Live.length > 0 || SeenWithinMs(Leader, CREATE_ACTIVITY_MS))){
+        return "fallback";
+    }
+
+    return undefined;
+}
+
 // POST /guild from the game server (the client's Create button is the RPC ServerCreateGuild on the
-// Ramsgate server, which sends this with the game-server key). BearerUserId is the player token the
-// game server may have forwarded (undefined without one or when it was not valid).
-export function CreateGuild(Leader: unknown, BearerUserId: string | undefined, Name: unknown, Nameplate: unknown): GuildReply {
+// Ramsgate server, which sends this with the game-server key and the leader id the client put in the
+// RPC). ForwardedUserId is whose token came along, if any: the game server's own login's (exe
+// 0x140ac78a4 takes the token of the server's local user), never the leader's, so it is only logged.
+//
+// Refusals that are server policy (no validate of this name, the creation pause) answer code ""
+// (the client shows "Unable to create guild."); the precise reason is in the log line.
+export function CreateGuild(Leader: unknown, ForwardedUserId: string | undefined, Name: unknown, Nameplate: unknown): GuildReply {
     Sweep();
 
     const Now = Clock();
+    const LeaderShown = IsAccountIdShape(Leader) ? Leader : "<not an account id>";
     const LogRefusal = (Reply: GuildReply, Why: string) => {
-        logger.info(`guild: create for ${IsAccountIdShape(Leader) ? Leader : "<not an account id>"} name=${Quoted(Name)} tag=${Quoted(Nameplate ?? "")} refused ${Describe(Reply)}: ${Why}`);
+        logger.info(`guild: create for ${LeaderShown} name=${Quoted(Name)} tag=${Quoted(Nameplate ?? "")} refused ${Describe(Reply)}: ${Why}`);
         return Reply;
     };
+
+    if(ForwardedUserId !== undefined && ForwardedUserId !== Leader){
+        logger.info(`guild: create for ${LeaderShown}: the game server's token names ${ForwardedUserId} (its own login, not the leader's); not used`);
+    }
 
     if(!IsAccountIdShape(Leader) || !GetDb().transaction((tx) => AccountExists(tx, Leader))){
         return LogRefusal(Refuse(400, GUILD_CODE.Unknown, "No such account."), "no such account");
     }
 
-    if(BearerUserId !== undefined && BearerUserId !== Leader){
-        return LogRefusal(Refuse(403, GUILD_CODE.InvalidPermission), `the forwarded token is ${BearerUserId}'s`);
+    const Binding = CreateBinding(Leader, Name, Nameplate, Now);
+
+    if(Binding === undefined){
+        // A name the rules refuse anyway gets that rule's own text; otherwise the plain failure
+        const RuleRefusal = CheckNameRules(Name) ?? CheckNameplateRules(Nameplate);
+        const Others = LiveTickets(Leader, Now).length;
+        const Why = `no validate of this name and nameplate by the leader in the last 15 minutes${Others > 0 ? ` (${Others} other validated name(s))` : ""}`;
+
+        return LogRefusal(RuleRefusal ?? Refuse(403, GUILD_CODE.Unknown, "Check the name in the create window, then try again."), Why);
     }
 
-    const Ticket = Tickets.get(Leader);
-    const HasTicket = Ticket !== undefined && Now - Ticket.At <= VALIDATE_TICKET_MS;
-
-    if(!HasTicket && !SeenWithinMs(Leader, CREATE_ACTIVITY_MS)){
-        return LogRefusal(Refuse(403, GUILD_CODE.InvalidPermission), "no recent validate or activity");
+    if(Binding === "fallback"){
+        logger.warn(`guild: create for ${Leader} name=${Quoted(Name)} accepted without a validate of this name (GUILD_CREATE_ACTIVITY_FALLBACK=1)`);
     }
 
     let Result: GuildData | GuildReply;
@@ -493,7 +653,7 @@ export function CreateGuild(Leader: unknown, BearerUserId: string | undefined, N
 
     LastCreated.set(Leader, Now);
     Tickets.delete(Leader);
-    logger.info(`guild: created G=${Data.id} name=${Data.name} tag=${Data.nameplate} leader=${Leader}${BearerUserId !== undefined ? " (with the player's token)" : ""}`);
+    logger.info(`guild: created G=${Data.id} name=${Data.name} tag=${Data.nameplate} leader=${Leader} (${Binding === "ticket" ? "validated name" : "activity fallback"}${ForwardedUserId !== undefined ? `, a token of ${ForwardedUserId} came along` : ", no token"})`);
 
     return WithPayload(Data);
 }
@@ -540,6 +700,7 @@ export function InviteToGuild(UserId: string, TargetId: unknown): GuildReply {
     Sweep();
 
     const Now = Clock();
+    let Why = "";
     const Result = GetDb().transaction((tx): GuildReply => {
         const Membership = MembershipOf(tx, UserId);
 
@@ -561,8 +722,10 @@ export function InviteToGuild(UserId: string, TargetId: unknown): GuildReply {
             return Refuse(409, GUILD_CODE.TargetAlreadyInYourGuild);
         }
 
+        // The same answer as the friends and party routes (403), with a message that does not say why
         if(IsBlockedEitherWayInTx(tx, UserId, TargetId)){
-            return Refuse(403, GUILD_CODE.Unknown, "One of the two has blocked the other.");
+            Why = "blocked";
+            return Refuse(403, GUILD_CODE.Unknown, "The invite could not be sent.");
         }
 
         if(MemberCount(tx, Membership.guildId) >= MaxGuildMembers()){
@@ -571,6 +734,13 @@ export function InviteToGuild(UserId: string, TargetId: unknown): GuildReply {
 
         if(LiveInvite(tx, Membership.guildId, TargetId, Now) !== undefined){
             return Refuse(409, GUILD_CODE.TargetAlreadyHasGuildInvite);
+        }
+
+        const DeclinedAt = Declined.get(`${Membership.guildId}|${TargetId}`);
+
+        if(DeclinedAt !== undefined && Now - DeclinedAt < DECLINE_COOLDOWN_MS){
+            Why = "declined this guild's invite in the last 24 hours";
+            return Refuse(429, GUILD_CODE.Unknown, "That player turned down an invite from this guild recently; try again later.");
         }
 
         const OpenForGuild = tx.select({ n: sql<number>`count(*)` }).from(guildinvites)
@@ -604,7 +774,7 @@ export function InviteToGuild(UserId: string, TargetId: unknown): GuildReply {
         InvitesSent.set(UserId, [...RecentInvitesBy(UserId, Now), Now]);
     }
 
-    logger.info(`guild: invite by=${UserId} to=${IsAccountIdShape(TargetId) ? TargetId : "<not an account id>"} -> ${Describe(Result)}`);
+    logger.info(`guild: invite by=${UserId} to=${IsAccountIdShape(TargetId) ? TargetId : "<not an account id>"} -> ${Describe(Result)}${Why !== "" ? `: ${Why}` : ""}`);
 
     return Result;
 }
@@ -613,6 +783,7 @@ export function InviteToGuild(UserId: string, TargetId: unknown): GuildReply {
 export function AcceptGuildInvite(UserId: string, InviteId: unknown): GuildReply {
     const Now = Clock();
     let GuildId = "";
+    let Why = "";
 
     const Result = GetDb().transaction((tx): GuildReply => {
         const Invite = typeof InviteId === "string" ? tx.select().from(guildinvites).where(eq(guildinvites.inviteId, InviteId)).get() : undefined;
@@ -627,7 +798,14 @@ export function AcceptGuildInvite(UserId: string, InviteId: unknown): GuildReply
             return Refuse(409, GUILD_CODE.AlreadyInAGuild, "You need to leave your guild before accepting another guild invite.");
         }
 
-        if(tx.select({ guildId: guilds.guildId }).from(guilds).where(eq(guilds.guildId, Invite.guildId)).get() === undefined){
+        // Gone with its guild, a block between the two, or an inviter no longer Leader or Officer there
+        const Stale = tx.select({ guildId: guilds.guildId }).from(guilds).where(eq(guilds.guildId, Invite.guildId)).get() === undefined ? "the guild is gone"
+            : IsBlockedEitherWayInTx(tx, UserId, Invite.inviterId) ? "blocked"
+            : !InviterStillMayInvite(tx, Invite.inviterId, Invite.guildId) ? "the inviter may no longer invite"
+            : undefined;
+
+        if(Stale !== undefined){
+            Why = Stale;
             tx.delete(guildinvites).where(eq(guildinvites.inviteId, Invite.inviteId)).run();
             return Refuse(404, GUILD_CODE.InviteNotFound);
         }
@@ -642,13 +820,15 @@ export function AcceptGuildInvite(UserId: string, InviteId: unknown): GuildReply
         return Ack();
     });
 
-    logger.info(`guild: accept by=${UserId}${GuildId !== "" ? ` G=${GuildId}` : ""} -> ${Describe(Result)}`);
+    logger.info(`guild: accept by=${UserId}${GuildId !== "" ? ` G=${GuildId}` : ""} -> ${Describe(Result)}${Why !== "" ? `: ${Why}` : ""}`);
 
     return Result;
 }
 
-// DELETE /guild/invite/:guild_invite_id: the invitee declines (an expired invite of theirs is simply removed)
+// DELETE /guild/invite/:guild_invite_id: the invitee declines (an expired invite of theirs is simply
+// removed). A declined guild cannot invite the same player again for DECLINE_COOLDOWN_MS.
 export function DeclineGuildInvite(UserId: string, InviteId: unknown): GuildReply {
+    const Now = Clock();
     const Result = GetDb().transaction((tx): GuildReply => {
         const Invite = typeof InviteId === "string" ? tx.select().from(guildinvites).where(eq(guildinvites.inviteId, InviteId)).get() : undefined;
 
@@ -657,6 +837,11 @@ export function DeclineGuildInvite(UserId: string, InviteId: unknown): GuildRepl
         }
 
         tx.delete(guildinvites).where(eq(guildinvites.inviteId, Invite.inviteId)).run();
+
+        if(Invite.expiresAt > Now){
+            Declined.set(`${Invite.guildId}|${UserId}`, Now);
+        }
+
         return Ack();
     });
 
@@ -665,12 +850,13 @@ export function DeclineGuildInvite(UserId: string, InviteId: unknown): GuildRepl
     return Result;
 }
 
-function LeaveInTx(tx: Tx, UserId: string, Membership: { rank: string }): GuildReply {
+function LeaveInTx(tx: Tx, UserId: string, Membership: { rank: string, guildId: string }): GuildReply {
     if(Membership.rank === "Leader"){
         return Refuse(409, GUILD_CODE.LeaderCannotLeave);
     }
 
     tx.delete(guildmembers).where(eq(guildmembers.accountId, UserId)).run();
+    DropInvitesSentBy(tx, UserId, Membership.guildId);
     return Ack();
 }
 
@@ -711,6 +897,7 @@ export function KickGuildMember(UserId: string, TargetId: unknown): GuildReply {
         }
 
         tx.delete(guildmembers).where(eq(guildmembers.accountId, Target.accountId)).run();
+        DropInvitesSentBy(tx, Target.accountId, Membership.guildId);
         return Ack();
     });
 
@@ -755,6 +942,11 @@ export function ChangeGuildRank(UserId: string, TargetId: unknown, RankValue: un
         }
 
         tx.update(guildmembers).set({ rank: Rank, updatedAt: Now }).where(eq(guildmembers.accountId, Target.accountId)).run();
+
+        // A Member may not invite: the invites they sent as an Officer go
+        if(Rank === "Member"){
+            DropInvitesSentBy(tx, Target.accountId, Membership.guildId);
+        }
 
         if(Rank === "Leader"){
             tx.update(guildmembers).set({ rank: "Officer", updatedAt: Now }).where(eq(guildmembers.accountId, UserId)).run();

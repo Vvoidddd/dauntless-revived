@@ -9,9 +9,12 @@ import { RefuseGameserverKeyFromOutside } from "./RequestOrigin";
 // ServerCreateGuild RPC). Unlike HasUndauntedMetagameAuth:
 // - a request without the game-server key is refused (403), whatever bearer it carries: a player's
 //   token alone never reaches the route;
-// - a bearer the game server forwards is read softly: a valid one sets AuthData.userId, a bad or
-//   expired one is ignored (logged at most once a minute) instead of failing the request. The shared
-//   middleware would throw there, which is a 500.
+// - a bearer that comes along is read softly and only for the log: a valid one sets
+//   AuthData.ForwardedUserId (never userId, so no route acts as that account), a bad or expired one is
+//   ignored (logged at most once a minute) instead of failing the request. The shared middleware would
+//   throw there, which is a 500. In 1.4.4 such a token is the game server's own login's (the exe takes
+//   the token of the server's local user, 0x140ac78a4), not the player's; game servers do not log in
+//   to Phoenix, so normally there is none.
 // The key itself works as everywhere else: only from this machine (never through the gateway or any
 // proxy), and 401 when it is not a registered key.
 
@@ -46,7 +49,7 @@ export async function GameServerKeyAuth(req: Request, res: Response, next: NextF
             const Payload = ValidateMetagameJWTAndGetPayload(AuthHeader.slice("bearer ".length)) as JwtPayload;
 
             if(typeof Payload?.userId === "string" && Payload.userId.length > 0){
-                Object.assign(AuthData, Payload, { IsGameserver: true });
+                AuthData.ForwardedUserId = Payload.userId;
             }
         }
         catch{
