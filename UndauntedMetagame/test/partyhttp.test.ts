@@ -267,6 +267,30 @@ describe("T7: promote, kick, decline, leave", () => {
         assert.deepEqual([Alone.partyId, Alone.leaderPlayerId, Alone.candidateState, Alone.playerStates.length], [PartyB, A, "QUEUED_FOR_START", 1]);
     });
 
+    it("PARTY_SOLO_STUB=0 answers a party of one without the placeholder candidate (Idle to the client), read on every poll", async () => {
+        process.env.PARTY_SOLO_STUB = "0";
+
+        try{
+            const Plain = await Poll(A);
+            assert.equal(Plain.status, 200);
+            assert.deepEqual(Plain.json, {
+                partyId: PartyB,
+                leaderPlayerId: A,
+                playerIds: [A],
+                playerStates: [{ playerId: A, isMemberOfCandidate: false, platform: "win", displayName: "Alpha", consoleSessionId: null }],
+                candidateState: null,
+                candidateId: null,
+                playerHuntId: null,
+                gauntletLevel: null
+            });
+        }
+        finally{
+            delete process.env.PARTY_SOLO_STUB;
+        }
+
+        assert.equal((await Poll(A)).json.candidateId, "CANDIDATE_ID_LOL", "the stub again");
+    });
+
     it("POST /party/status lists the asked players' parties and the caller's own invitations", async () => {
         await Poll(B);
         const Reply = await Call("POST", "/party/status", { as: C, body: { playerIds: [A, B, C] } });
@@ -407,14 +431,29 @@ describe("friends list and blocklist", () => {
         assert.equal((await Call("POST", `/friends/api/public/friends/${A}/${A}`, { as: A })).status, 400);
     });
 
-    it("a block hides nothing but stops friend requests and party invites both ways", async () => {
-        assert.equal((await Call("POST", `/friends/api/public/blocklist/${C}/${A}`, { as: C })).status, 204);
-        assert.deepEqual((await Call("GET", `/friends/api/public/blocklist/${C}`, { as: C })).json, { blockedUsers: [A] });
-        assert.equal((await Call("POST", `/friends/api/public/friends/${A}/${C}`, { as: A })).status, 403);
-        assert.equal((await Invite(A, C, "")).status, 403);
-        assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${C}/${A}`, { as: C })).status, 204);
-        assert.deepEqual((await Call("GET", `/friends/api/public/blocklist/${C}`, { as: C })).json, { blockedUsers: [] });
-        assert.equal((await Invite(A, C, "")).status, 200);
+    it("a block removes the party invites between the two and stops friend requests and party invites both ways", async () => {
+        // C declined A's invite in T7: A waits 2 minutes before inviting C again (everyone is in a
+        // party of one here, so moving the party clock sweeps nobody)
+        assert.equal((await Invite(A, C, "")).status, 409, "declined a moment ago");
+        SetPartyClockForTests(() => Date.now() + 2 * 60 * 1000 + 1000);
+
+        try{
+            assert.equal((await Invite(A, C, "")).status, 200, "two minutes later");
+            assert.ok((await Invites(C)).json.invitations.some((Pending: any) => Pending.sendingPlayerId === A));
+
+            assert.equal((await Call("POST", `/friends/api/public/blocklist/${C}/${A}`, { as: C })).status, 204);
+            assert.deepEqual((await Call("GET", `/friends/api/public/blocklist/${C}`, { as: C })).json, { blockedUsers: [A] });
+            assert.deepEqual((await Invites(C)).json.invitations.filter((Pending: any) => Pending.sendingPlayerId === A), [], "the block removed A's invite");
+            assert.equal((await Call("POST", `/friends/api/public/friends/${A}/${C}`, { as: A })).status, 403);
+            assert.equal((await Invite(A, C, "")).status, 403);
+            assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${C}/${A}`, { as: C })).status, 204);
+            assert.deepEqual((await Call("GET", `/friends/api/public/blocklist/${C}`, { as: C })).json, { blockedUsers: [] });
+            assert.deepEqual((await Invites(C)).json.invitations, [], "removed, not only hidden");
+            assert.equal((await Invite(A, C, "")).status, 200);
+        }
+        finally{
+            SetPartyClockForTests();
+        }
     });
 
     it("recent players and settings answer their empty defaults", async () => {

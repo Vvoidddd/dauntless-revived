@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { logger } from "../logger";
 import { DisplayNameForUserId, FindUsernameForUserId, IsAccountIdShape } from "./login";
-import { IsBlockedEitherWay } from "./friends";
+import { IsBlockedEitherWay, SetBlockHook } from "./friends";
 
 // Parties and party invites (roadmap 1.9; C:\dr\data\plans\parties-friends.md phases 1-2).
 //
@@ -12,7 +12,12 @@ import { IsBlockedEitherWay } from "./friends";
 //
 // Reply shapes are the 1.4.4 client's own (read from the exe, see the plan). A party of one
 // answers exactly what the old stub answered (the fake candidate included), so a player
-// on their own sees no change; only the party id is now a random UUID.
+// on their own sees no change; only the party id is now a random UUID. PARTY_SOLO_STUB=0
+// answers a party of one without the fake candidate instead (see PartyReply).
+//
+// Invites: a sender may send at most MAX_INVITES_PER_SENDER per INVITE_WINDOW_MS, and cannot
+// invite a player again for DECLINE_COOLDOWN_MS after that player declined them. A block drops
+// the invites between the two, and invites between blocked players are never listed.
 //
 // Members that stop polling and stop sending heartbeats for MEMBER_TIMEOUT_MS are dropped,
 // and the next member (join order) becomes leader if the leader drops.
@@ -33,6 +38,9 @@ export const IDLE_PARTY_MS = 30 * 60 * 1000;
 export const MAX_INVITES_PER_PARTY = 8;
 export const MAX_INVITES_PER_RECIPIENT = 10;
 export const MAX_STATUS_PLAYER_IDS = 16;
+export const MAX_INVITES_PER_SENDER = 20;
+export const INVITE_WINDOW_MS = 10 * 60 * 1000;
+export const DECLINE_COOLDOWN_MS = 2 * 60 * 1000;
 
 export type CandidateState = "MATCHING" | "IN_PROGRESS";
 
@@ -76,6 +84,10 @@ const LastSeen = new Map<string, number>();
 // What was last logged at info level per player, so the 10 s polls only log changes
 const LastPollLogged = new Map<string, string>();
 const LastInviteCountLogged = new Map<string, number>();
+// Times of each sender's recent invites (sliding window)
+const InvitesSentBy = new Map<string, number[]>();
+// "<sender>|<recipient>" -> when the recipient declined that sender's invite
+const DeclinedBy = new Map<string, number>();
 
 let Clock: () => number = () => Date.now();
 let LastGlobalSweep = 0;
@@ -96,8 +108,30 @@ export function ResetPartiesForTests(){
     LastSeen.clear();
     LastPollLogged.clear();
     LastInviteCountLogged.clear();
+    InvitesSentBy.clear();
+    DeclinedBy.clear();
     LastGlobalSweep = 0;
 }
+
+// A new block: the party invites either player sent the other go (friends.ts calls this)
+export function DropPartyInvitesBetween(A: string, B: string){
+    let Removed = 0;
+
+    for(const [Recipient, Sender] of [[A, B], [B, A]]){
+        const List = InvitesByRecipient.get(Recipient) ?? [];
+        const Keep = List.filter((TheInvite) => TheInvite.SendingPlayerId !== Sender);
+
+        Removed += List.length - Keep.length;
+
+        if(Keep.length > 0) InvitesByRecipient.set(Recipient, Keep); else InvitesByRecipient.delete(Recipient);
+    }
+
+    if(Removed > 0){
+        logger.info(`party: ${Removed} invite(s) between ${A} and ${B} removed by a block`);
+    }
+}
+
+SetBlockHook(DropPartyInvitesBetween);
 
 // Called when a member leaves a party (or the candidate) while the party's candidate still
 // counts them in: matchmaking forgets their entry unless they were already sent to the server
@@ -254,8 +288,10 @@ function IsInviteLive(TheInvite: Invite){
         && !TheParty.Members.includes(TheInvite.RecipientPlayerId);
 }
 
+// The recipient's live invites; an invite between players who blocked each other is dropped here
+// too (a block removes them already; this is the safety net, and it makes accepting one a 404)
 function LiveInvitesFor(UserId: string){
-    const Live = (InvitesByRecipient.get(UserId) ?? []).filter(IsInviteLive);
+    const Live = (InvitesByRecipient.get(UserId) ?? []).filter((TheInvite) => IsInviteLive(TheInvite) && !IsBlockedEitherWay(TheInvite.SendingPlayerId, UserId));
 
     if(Live.length > 0){
         InvitesByRecipient.set(UserId, Live);
@@ -300,17 +336,45 @@ function GlobalSweep(){
             LastInviteCountLogged.delete(UserId);
         }
     }
+
+    for(const Sender of [...InvitesSentBy.keys()]){
+        RecentInvitesBy(Sender, Now);
+    }
+
+    for(const [Pair, At] of [...DeclinedBy.entries()]){
+        if(Now - At >= DECLINE_COOLDOWN_MS) DeclinedBy.delete(Pair);
+    }
+}
+
+// A sender's invites in the last INVITE_WINDOW_MS (forgets older ones)
+function RecentInvitesBy(Sender: string, Now: number){
+    const Recent = (InvitesSentBy.get(Sender) ?? []).filter((At) => Now - At < INVITE_WINDOW_MS);
+
+    if(Recent.length > 0) InvitesSentBy.set(Sender, Recent); else InvitesSentBy.delete(Sender);
+
+    return Recent;
 }
 
 // ---- Replies ----
 
+// PARTY_SOLO_STUB=0: a party of one answers like a real party that is not queued (no candidate)
+function SoloStubOn(){
+    return process.env.PARTY_SOLO_STUB !== "0";
+}
+
 // POST /party (and the accept and status replies). A party of one keeps the old stub's
 // candidate values; a real party sends its real candidate or nulls, otherwise the other
 // members would follow the fake candidate.
+//
+// The client refuses to send a party invite while its party state is not Idle ("Player %s tried
+// to send an invite to player %s, but party %s was matchmaking", exe 0x1415b27aa calling
+// 0x1415a98c0), and that state is read from the party's candidate. Solo players queue hunts fine
+// with the stub (live), but whether the stub's QUEUED_FOR_START also greys out Invite to Party is
+// not known yet: PARTY_SOLO_STUB=0 is the switch if it does.
 export async function PartyReply(TheParty: Party){
     const Names = await Promise.all(TheParty.Members.map((Member) => DisplayNameForUserId(Member)));
 
-    if(TheParty.Members.length === 1){
+    if(TheParty.Members.length === 1 && SoloStubOn()){
         return {
             candidateId: "CANDIDATE_ID_LOL",
             candidateState: "QUEUED_FOR_START",
@@ -461,6 +525,13 @@ export function InviteToParty(CallerId: string, RecipientId: unknown, RequestedP
         return Refuse(403, "blocked");
     }
 
+    const Now = Clock();
+    const DeclinedAt = DeclinedBy.get(`${CallerId}|${RecipientId}`);
+
+    if(DeclinedAt !== undefined && Now - DeclinedAt < DECLINE_COOLDOWN_MS){
+        return Refuse(409, `${RecipientId} declined an invite from ${CallerId} ${Seconds(Now - DeclinedAt)} ago`);
+    }
+
     const Pending = LiveInvitesFor(RecipientId);
 
     if(Pending.some((TheInvite) => TheInvite.PartyId === TheParty.PartyId)){
@@ -476,6 +547,14 @@ export function InviteToParty(CallerId: string, RecipientId: unknown, RequestedP
     if(Outstanding >= MAX_INVITES_PER_PARTY){
         return Refuse(409, "too many open invites");
     }
+
+    const Recent = RecentInvitesBy(CallerId, Now);
+
+    if(Recent.length >= MAX_INVITES_PER_SENDER){
+        return Refuse(409, `${Recent.length} invites sent in the last ${Seconds(INVITE_WINDOW_MS)}`);
+    }
+
+    InvitesSentBy.set(CallerId, [...Recent, Now]);
 
     Pending.push({
         PartyId: TheParty.PartyId,
@@ -566,8 +645,9 @@ export async function AcceptPartyInvite(CallerId: string, InviteId: unknown): Pr
 }
 
 // DELETE /party/invite {sendingPlayerId, recipientPlayerId, partyId}. Declining: the recipient
-// is the caller, and both ids carry the invite id. A sender naming someone else as the
-// recipient withdraws the invites it sent them. Always 200 {}.
+// is the caller, and both ids carry the invite id; the sender then cannot invite the caller again
+// for DECLINE_COOLDOWN_MS. A sender naming someone else as the recipient withdraws the invites it
+// sent them. Always 200 {}.
 export function DeclinePartyInvites(CallerId: string, Body: any): PartyActionResult {
     TouchPlayer(CallerId);
 
@@ -579,6 +659,11 @@ export function DeclinePartyInvites(CallerId: string, Body: any): PartyActionRes
         const Keep = List.filter((TheInvite) => !(Ids.includes(TheInvite.PartyId) || Ids.includes(TheInvite.SendingPlayerId)));
 
         if(Keep.length > 0) InvitesByRecipient.set(CallerId, Keep); else InvitesByRecipient.delete(CallerId);
+
+        // The sender of a declined invite waits DECLINE_COOLDOWN_MS before inviting this player again
+        for(const TheInvite of List.filter((Entry) => !Keep.includes(Entry))){
+            DeclinedBy.set(`${TheInvite.SendingPlayerId}|${CallerId}`, Clock());
+        }
 
         logger.info(`party: decline by=${CallerId} ids=${Ids.map((Id) => Id.slice(0, 64)).join("|") || "<none>"} removed=${List.length - Keep.length}`);
     }

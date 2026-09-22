@@ -1,6 +1,6 @@
 import { and, eq, or, sql } from "drizzle-orm";
 import { GetDb } from "../db";
-import { blocks, friendships, users } from "../db/schema";
+import { blocks, friendships, guildinvites, users } from "../db/schema";
 import { logger } from "../logger";
 import type { Tx } from "./savehistory";
 
@@ -9,8 +9,8 @@ import type { Tx } from "./savehistory";
 // friends routes (routes/friends.ts); nobody shows as online without an XMPP presence server.
 //
 // One friendships row per pair, ids sorted: status PENDING (requesterId asked) or ACCEPTED.
-// A block removes any friendship between the two and stops requests, party invites and guild
-// invites in both directions.
+// A block removes any friendship between the two and the guild and party invites either one sent the
+// other, and stops requests, party invites and guild invites in both directions.
 //
 // Limits on new requests (docs/findings/social.md): at most MAX_PENDING_OUTGOING unanswered
 // requests an account has sent, and at most MAX_REQUESTS_PER_WINDOW new requests per
@@ -26,6 +26,14 @@ export const REQUEST_WINDOW_MS = 10 * 60 * 1000;
 // Times of each account's recent new requests (sliding window)
 const RecentRequests = new Map<string, number[]>();
 let Clock: () => number = () => Date.now();
+
+// Called after a new block, so the in-memory party invites between the two go too
+// (controllers/party.ts registers it; party.ts imports this file, so not the other way round)
+let BlockHook: (Blocker: string, Blocked: string) => void = () => {};
+
+export function SetBlockHook(Hook: (Blocker: string, Blocked: string) => void){
+    BlockHook = Hook;
+}
 
 // Tests only: a controllable clock for the request window, and an empty window
 export function SetFriendsClockForTests(NewClock?: () => number){
@@ -198,6 +206,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
         return { ok: false, Status: 400, Error: "self" };
     }
 
+    let GuildInvitesDropped = 0;
     const Result = GetDb().transaction((tx): FriendResult => {
         if(!AccountExists(tx, Them)){
             return { ok: false, Status: 404, Error: "not_found" };
@@ -215,11 +224,19 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
 
         tx.insert(blocks).values({ blockerId: Me, blockedId: Them, createdAt: Date.now() }).run();
         tx.delete(friendships).where(PairCondition(Me, Them)).run();
+        GuildInvitesDropped = tx.delete(guildinvites).where(or(
+            and(eq(guildinvites.inviterId, Me), eq(guildinvites.inviteeId, Them)),
+            and(eq(guildinvites.inviterId, Them), eq(guildinvites.inviteeId, Me))
+        )).returning({ inviteId: guildinvites.inviteId }).all().length;
 
         return { ok: true, Result: "blocked" };
     });
 
-    logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}`);
+    if(Result.ok && Result.Result === "blocked"){
+        BlockHook(Me, Them);
+    }
+
+    logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}${GuildInvitesDropped > 0 ? ` (${GuildInvitesDropped} guild invite(s) between them removed)` : ""}`);
 
     return Result;
 }

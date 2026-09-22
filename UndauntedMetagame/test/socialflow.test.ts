@@ -10,6 +10,7 @@ import { GetDb } from "../src/db";
 import { blocks, gameserverapikeys, users } from "../src/db/schema";
 import { SignMetagameJWTForUid } from "../src/controllers/auth";
 import { ResetFriendsMemoryForTests, SetFriendsClockForTests } from "../src/controllers/friends";
+import { SetPartyClockForTests } from "../src/controllers/party";
 import { RecordingDeploy, StartRecordingDeploy } from "./partyenv";
 import {
     AddUserInfo, ParseAccountMappings, ParseBlockList, ParseFriendsList, ParseInvitations, ParsePhoenixEnvelope, GuildErrorOf,
@@ -421,5 +422,80 @@ describe("10. friends limits and the block alias", () => {
 
         assert.equal(await Ask(Targets[51]), 409, "full again");
         assert.equal((await Call("POST", `/friends/api/public/friends/${Targets[51]}/${E}`, { as: E })).status, 403, "the URL's first id must be the caller");
+    });
+});
+
+describe("11. party invites: blocks, declines and the sender's limit", () => {
+    const P = "UID-social-p", Q = "UID-social-q", R = "UID-social-r", S = "UID-social-s", W = "UID-social-w";
+    const Targets: string[] = [];
+    const PartyOf = async (Who: string) => (await Poll(Who)).json.partyId as string;
+    const SendInvite = async (From: string, To: string) => (await Call("PUT", "/party/invite", { as: From, body: { recipientPlayerId: To, partyId: await PartyOf(From), ...BUILD } })).status;
+    const InvitesOf = async (Who: string) => ParseInvitations((await Call("GET", "/party/invites", { as: Who })).text)!.map((Entry) => Entry.sendingPlayerId);
+    const Decline = async (Who: string, From: string) => {
+        const Party = (await PartyOf(From));
+        return (await Call("DELETE", "/party/invite", { as: Who, body: { sendingPlayerId: Party, recipientPlayerId: Who, partyId: Party } })).status;
+    };
+
+    before(() => {
+        for(const [Id, Name] of [[P, "Papa"], [Q, "Quebec"], [R, "Romeo"], [S, "Sierra"], [W, "Whiskey"]]){
+            GetDb().insert(users).values({ userId: Id, name: Name, notes: 0 }).run();
+            Tokens[Id] = SignMetagameJWTForUid(Id);
+        }
+
+        for(let Index = 0; Index < 21; Index++){
+            const Id = `UID-social-t${String(Index).padStart(2, "0")}`;
+            GetDb().insert(users).values({ userId: Id, name: `Tango${Index}`, notes: 0 }).run();
+            Tokens[Id] = SignMetagameJWTForUid(Id);
+            Targets.push(Id);
+        }
+    });
+
+    after(() => SetPartyClockForTests());
+
+    it("a block removes the invites between the two, both ways; an invite between blocked players is never listed and cannot be accepted", async () => {
+        assert.equal(await SendInvite(P, Q), 200);
+        assert.equal(await SendInvite(Q, P), 200);
+        assert.deepEqual([await InvitesOf(Q), await InvitesOf(P)], [[P], [Q]]);
+
+        assert.equal((await Call("POST", `/friends/api/public/blocklist/${Q}/${P}`, { as: Q })).status, 204);
+        assert.deepEqual([await InvitesOf(Q), await InvitesOf(P)], [[], []], "both directions");
+        assert.equal((await Call("DELETE", `/friends/api/public/blocklist/${Q}/${P}`, { as: Q })).status, 204);
+        assert.deepEqual(await InvitesOf(Q), [], "removed, not only hidden");
+
+        // A block written straight to the database (as one made before this rule): the invite is hidden,
+        // and accepting it is 404
+        const PartyP = await PartyOf(P);
+        assert.equal(await SendInvite(P, R), 200);
+        GetDb().insert(blocks).values({ blockerId: R, blockedId: P, createdAt: Date.now() }).run();
+        assert.deepEqual(await InvitesOf(R), []);
+        const Accepted = await Call("PUT", `/party/invite/accept/${PartyP}`, { as: R, body: { recipientPlayerId: R, partyId: PartyP, ...BUILD } });
+        assert.deepEqual([Accepted.status, Accepted.json], [404, {}]);
+        assert.deepEqual((await Poll(R)).json.playerStates.map((State: any) => State.playerId), [R], "R stays in their own party");
+    });
+
+    it("a declined sender waits 2 minutes before inviting the same player again; other senders do not", async () => {
+        assert.equal(await SendInvite(P, Q), 200);
+        assert.equal(await Decline(Q, P), 200);
+        assert.deepEqual(await InvitesOf(Q), []);
+        assert.equal(await SendInvite(P, Q), 409, "at once");
+        assert.equal(await SendInvite(S, Q), 200, "another sender");
+
+        SetPartyClockForTests(() => Date.now() + 2 * 60 * 1000 + 1000);
+        assert.equal(await SendInvite(P, Q), 200, "two minutes later");
+    });
+
+    it("a sender sends at most 20 invites per 10 minutes (409), counted across declines", async () => {
+        let Shift = 2 * 60 * 1000 + 1000;
+        SetPartyClockForTests(() => Date.now() + Shift);
+
+        for(let Index = 0; Index < 20; Index++){
+            assert.equal(await SendInvite(W, Targets[Index]), 200, `invite ${Index + 1}`);
+            assert.equal(await Decline(Targets[Index], W), 200);
+        }
+
+        assert.equal(await SendInvite(W, Targets[20]), 409, "the 21st in 10 minutes");
+
+        Shift += 10 * 60 * 1000;
+        assert.equal(await SendInvite(W, Targets[20]), 200, "after the window moved");
     });
 });
