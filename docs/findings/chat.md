@@ -243,6 +243,46 @@ server in the test, both players see usernames. The WebSocket tests run two and 
 joins, messages, leaves, the nickname rules, party and guild rooms, blocks, whispers, sessions, limits
 and the crash guard, and one test takes the names through the real account routes.
 
+## How to verify {#how-to-verify}
+
+The live test with two players on the rented server. Switch chat on first, when nobody is playing
+(`Set-Chat.ps1 -On`, see [Windows server kit]({{ winserver_page.url | relative_url }}#chat)); for the
+first run also add `CHAT_TRACE=1` to `metagame.env`. Check that `Stack.ps1 status` shows
+`chat: listening 127.0.0.1:61099` and that the metagame log has
+`chat: listening on 127.0.0.1:61099 (nick check enforce)`. The lines below are from the metagame log.
+
+1. **A starts the game.** `EOS Account Info for <A> by <A>: found`, then `chat: connect ... via=gateway`,
+   `chat: login ok ... uid=<A>` and `chat: bound ... uid=<A> resource=V2:... sessions=1`. No second
+   `bound` for A over the next minutes.
+2. **A stands in Ramsgate.** `chat: join room=City-<id> uid=<A> name=<A's username>` and the same for
+   `Party-<P>`. No `join refused` line, and no `rejoin` line every few seconds.
+3. **A types in Normal.** `chat: message room=City-<id> uid=<A> len=<n> to=1`. A sees the line once,
+   under A's own name.
+4. **B starts the game and joins A's party.** B gets the lines of step 1, then
+   `party: accept by <B> ...`, `chat: leave room=Party-<B's old party> uid=<B> reason=left` and
+   `chat: join room=Party-<P> uid=<B> name=<B's username> occupants=1`.
+5. **Party chat both ways.** Each line gives `chat: message room=Party-<P> ... to=2`, and the first line
+   from the other player a `Account info for 1 account(s) by userId ...: 1 found`. **Each player sees
+   the other's username**, not `UID-...` and not `[unknown]`.
+6. **Ramsgate together.** The leader takes the party to Ramsgate; both then join the same
+   `City-<id>` room, and Normal chat works both ways. (Two players who are not in a party are in
+   different `City-` rooms: expected for now.)
+7. **Whispers.** A whispers B by name, and B replies. `chat: whisper from=<A> to=<B> len=<n> delivered=1`
+   and the other way round; B sees A's username.
+8. **Blocks.** B blocks A: A's next Normal line logs `blocked=1` and B sees nothing; a whisper from A
+   logs `reason=blocked`. B unblocks A, and lines arrive again.
+9. **Party safety.** A and B stay in the party for a minute with chat on. There must be **no**
+   `DELETE /party/member/...` and no `DELETE /party/leader/...` in the log, and the party poll still
+   shows two members.
+10. **Leave and quit.** B leaves the party (`chat: leave room=Party-<P> uid=<B> reason=left`, and A sees
+    B go), then quits the game (`chat: closed ... uid=<B> reason=close` or `socket`).
+11. **Log hygiene.** Search the metagame log for a word you typed in steps 3-7, and for `eyJ`: neither
+    may be found. Then take `CHAT_TRACE=1` out again (restart when nobody is playing).
+
+The test passes when steps 1-10 go as described and step 11 finds nothing. If real players are
+refused with `reason=nick-...`, set `CHAT_NICK_CHECK=log` and report the line; if anything serious goes
+wrong, `Set-Chat.ps1 -Off` puts things back as before chat.
+
 ## Still unconfirmed {#unconfirmed}
 
 | Open point | Label | How the live test checks it |

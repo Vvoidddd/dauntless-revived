@@ -46,6 +46,7 @@
 - [Crash forensics](https://mixutin.github.io/dauntless-revived/findings/crashes.html): Crash forensics for a Dauntless client with no symbols or log file: turning crash reports into instruction addresses, and what each crash turned out to be.
 - [The 2.1.1 standalone attempt](https://mixutin.github.io/dauntless-revived/findings/awakening-2-1-1.html): Our first attempt on the final Dauntless 2.1.1 client: a full login chain against our own backend, Ramsgate rendered, and why no controllable player appeared.
 - [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html): How the Dauntless 1.4.4 client does friends, parties and guilds against its backend, read from the executable and the live server: the identity chain, the exact replies, why the first two-player test showed nothing, and what is still unconfirmed.
+- [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html): How the Dauntless 1.4.4 client does text chat against our server, read from the executable: why the first chat server showed UID-... instead of names, the room nickname and how we check it, which rooms exist and who may join them, and what is still unconfirmed.
 
 ## Project
 
@@ -83,6 +84,7 @@
 - [Kaatumisten tutkiminen](https://mixutin.github.io/dauntless-revived/fi/findings/crashes.html): Miten Dauntlessin kaatumisraportit muutetaan konekielen osoitteiksi, ja mistä kukin kohtaamamme kaatuminen johtui. Suurin osa koskee versiota 2.1.1.
 - [Itsenäinen käynnistys 2.1.1:llä](https://mixutin.github.io/dauntless-revived/fi/findings/awakening-2-1-1.html): Kokeilu käynnistää Dauntless 2.1.1 suoraan Ramsgateen ilman pelipalvelinta: mikä toimi, mihin jäimme (tyhjä tilitunnus) ja mistä työtä voi jatkaa.
 - [Kaverit, ryhmät ja killat](https://mixutin.github.io/dauntless-revived/fi/findings/social.html): Miten Dauntless 1.4.4 hoitaa kaverit, ryhmät ja killat taustapalvelun kanssa, luettuna ohjelmatiedostosta ja oikealta palvelimelta: tunnusketju, tarkat vastaukset, miksi ensimmäisessä kahden pelaajan testissä ei näkynyt mitään ja mikä on vielä vahvistamatta.
+- [Tekstichat](https://mixutin.github.io/dauntless-revived/fi/findings/chat.html): Miten Dauntless 1.4.4 käyttää tekstichattia palvelimemme kanssa, luettuna ohjelmatiedostosta: miksi ensimmäinen chat-palvelin näytti nimien sijaan UID-...-tunnuksia, huoneiden nimimerkki ja miten tarkistamme sen, mitkä huoneet on olemassa ja kuka niihin pääsee sekä mikä on vielä vahvistamatta.
 - [Tiekartta](https://mixutin.github.io/dauntless-revived/fi/roadmap.html): Dauntless Revivedin tiekartta selkokielellä: tavoite, välitavoitteet M0–M4, mitä on jo tehty ja mitä on työn alla. Päivittyvä lista on englanniksi.
 - [Usein kysyttyä](https://mixutin.github.io/dauntless-revived/fi/faq.html): Voiko Dauntlessia vielä pelata? Onko sille yksityistä palvelinta? Lyhyet vastaukset Dauntless Revivedistä: versio, Epic-tili, liittyminen ja oma palvelin.
 - [Työkalut](https://mixutin.github.io/dauntless-revived/fi/tools.html): Kolme pientä Python-työkalua Dauntlessin tutkimiseen: xref.py ohjelmatiedoston merkkijonoille, utocdir.py IoStore-säiliöille ja pak9.py pak-tiedostoille.

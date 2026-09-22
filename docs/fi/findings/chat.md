@@ -262,6 +262,47 @@ liittymisten, viestien, poistumisten, nimimerkkisääntöjen, ryhmä- ja kiltahu
 kuiskausten, istuntojen, rajojen ja kaatumissuojan läpi, ja yksi testi hakee nimet oikeiden
 tilireittien kautta.
 
+## Näin se tarkistetaan {#how-to-verify}
+
+Kahden pelaajan testi vuokratulla palvelimella. Kytke chat ensin päälle, kun kukaan ei pelaa
+(`Set-Chat.ps1 -On`, katso [Windows-palvelin]({{ winserver_page.url | relative_url }}#chat));
+ensimmäistä ajoa varten lisää myös `CHAT_TRACE=1` tiedostoon `metagame.env`. Tarkista, että
+`Stack.ps1 status` näyttää `chat: listening 127.0.0.1:61099` ja että metagamen lokissa on
+`chat: listening on 127.0.0.1:61099 (nick check enforce)`. Alla olevat rivit ovat metagamen lokista.
+
+1. **A käynnistää pelin.** `EOS Account Info for <A> by <A>: found`, sitten `chat: connect ... via=gateway`,
+   `chat: login ok ... uid=<A>` ja `chat: bound ... uid=<A> resource=V2:... sessions=1`. A:lle ei tule
+   toista `bound`-riviä seuraavien minuuttien aikana.
+2. **A seisoo Ramsgatessa.** `chat: join room=City-<tunnus> uid=<A> name=<A:n käyttäjänimi>` ja sama
+   huoneelle `Party-<P>`. Ei `join refused` -riviä eikä muutaman sekunnin välein toistuvaa `rejoin`-riviä.
+3. **A kirjoittaa Normal-kanavalle.** `chat: message room=City-<tunnus> uid=<A> len=<n> to=1`. A näkee
+   rivin kerran, omalla nimellään.
+4. **B käynnistää pelin ja liittyy A:n ryhmään.** B saa vaiheen 1 rivit, sitten
+   `party: accept by <B> ...`, `chat: leave room=Party-<B:n vanha ryhmä> uid=<B> reason=left` ja
+   `chat: join room=Party-<P> uid=<B> name=<B:n käyttäjänimi> occupants=1`.
+5. **Ryhmächat molempiin suuntiin.** Jokainen rivi antaa `chat: message room=Party-<P> ... to=2`, ja
+   toisen pelaajan ensimmäinen rivi rivin `Account info for 1 account(s) by userId ...: 1 found`.
+   **Kumpikin pelaaja näkee toisen käyttäjänimen**, ei `UID-...` eikä `[unknown]`.
+6. **Ramsgatessa yhdessä.** Johtaja vie ryhmän Ramsgateen; molemmat liittyvät silloin samaan
+   `City-<tunnus>`-huoneeseen, ja Normal-chat toimii molempiin suuntiin. (Kaksi pelaajaa, jotka eivät
+   ole ryhmässä, ovat eri `City-`-huoneissa: toistaiseksi odotettua.)
+7. **Kuiskaukset.** A kuiskaa B:lle nimellä, ja B vastaa. `chat: whisper from=<A> to=<B> len=<n> delivered=1`
+   ja toisin päin; B näkee A:n käyttäjänimen.
+8. **Estot.** B estää A:n: A:n seuraava Normal-rivi kirjaa `blocked=1`, eikä B näe mitään; A:n kuiskaus
+   kirjaa `reason=blocked`. B poistaa eston, ja rivit tulevat taas perille.
+9. **Ryhmien turvallisuus.** A ja B pysyvät ryhmässä minuutin chatin ollessa päällä. Lokissa **ei** saa
+   olla riviä `DELETE /party/member/...` eikä `DELETE /party/leader/...`, ja ryhmäkysely näyttää yhä
+   kaksi jäsentä.
+10. **Poistuminen ja lopetus.** B lähtee ryhmästä (`chat: leave room=Party-<P> uid=<B> reason=left`, ja
+    A näkee B:n lähtevän) ja lopettaa sitten pelin (`chat: closed ... uid=<B> reason=close` tai `socket`).
+11. **Lokin siisteys.** Etsi metagamen lokista sanaa, jonka kirjoitit vaiheissa 3-7, ja merkkijonoa
+    `eyJ`: kumpaakaan ei saa löytyä. Poista sitten `CHAT_TRACE=1` (käynnistä uudelleen, kun kukaan ei
+    pelaa).
+
+Testi on läpäisty, kun vaiheet 1-10 menevät kuvatusti ja vaihe 11 ei löydä mitään. Jos oikeiden
+pelaajien liittymiset hylätään syyllä `reason=nick-...`, aseta `CHAT_NICK_CHECK=log` ja raportoi rivi;
+jos jokin menee vakavasti pieleen, `Set-Chat.ps1 -Off` palauttaa tilanteen ennalleen.
+
 ## Vielä vahvistamatta {#unconfirmed}
 
 | Avoin kohta | Merkki | Miten testi tarkistaa sen |

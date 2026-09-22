@@ -106,8 +106,8 @@ palvelimella julkisessa tilassa käynnistimen versiolla 0.1.0, jonka hän latasi
   normaalilta. Pimeä ilmalaiva ennen metsästystä palasi: se on tunnettu ja lyhyt kohtaus, ja
   kunnollinen korjaus on kohta 4.17.
 - **Ei vielä varmistettu:** toinen oikea pelaaja (hänen kutsunsa on jo annettu), kaksi pelaajaa
-  Ramsgatessa, ryhmä ja yhteinen metsästys internetin yli. Tekstichattia ei ole rakennettu, ja
-  kavereiden näkyminen paikalla vaatii chat-palvelimen.
+  Ramsgatessa, ryhmä ja yhteinen metsästys internetin yli. Tekstichat oli vielä rakentamatta, ja
+  kavereiden näkyminen paikalla vaatii chat-yhteyden läsnäolotiedot.
 
 **Ryhmät, kaverit ja killat on rakennettu palvelimen puolelle:** ryhmäkutsut, hyväksyminen ja
 hylkääminen, johtajaksi nostaminen, poistaminen ja lähteminen, koko ryhmä samalle
@@ -116,7 +116,7 @@ kaverilista ja estolista sekä killat (kohta 3.11: perustaminen Ramsgaten pelipa
 kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina SQLiteen). Ne läpäisevät
 testit, jotka toistavat peliohjelman omat pyynnöt, mutta niitä ei ole vielä kokeiltu kahdella oikealla
 peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kavereiden näkyminen paikalla vaatii
-chat-palvelimen, jota ei ole rakennettu. Tekstichattia ei ole vielä rakennettu (suunnitelma: XMPP).
+chat-yhteyden läsnäolotiedot, joita ei ole vielä rakennettu. Tekstichat on rakennettu (katso alta).
 
 **Kahden pelaajan testi 22.9.2026:** kaksi pelaajaa näki toisensa Ramsgatessa ja päätyi samaan
 metsästyksen aulaan, mutta metsästys ei lähtenyt liikkeelle. Metagame oli merkinnyt yhden pelaajan
@@ -147,6 +147,28 @@ tarkistettava jokainen yhteys tunnisteillamme. Julkisessa tilassa portti 61099 p
 sisäisenä yhdyskäytävän takana; yksityisessä tilassa se avataan Tailscale-laitteille vasta, kun
 palvelu tarkistaa kirjautumiset. (Tämän nosti esiin Vvoidddd,
 [PR #6](https://github.com/mixutin/dauntless-revived/pull/6).)
+
+**Tekstichat on rakennettu, oletuksena pois päältä (kohta 3.10, 22.9.2026).** Vvoidddd kirjoitti
+ensimmäisen chat-palvelimen ([PR #9](https://github.com/mixutin/dauntless-revived/pull/9)) ja testasi
+sitä oikealla 1.4.4-pelillä: Ramsgaten viestit menivät perille, mutta lähettäjänä näkyi tilitunnus
+`UID-...`. Ohjelmatiedostosta luettu syy: peliohjelma liittyy jokaiseen huoneeseen nimimerkillä, jossa
+käyttäjänimi jo on (`<nimi>:<tilitunnus>:<resurssi>`), ja lukee nimen siitä takaisin, mutta palvelin
+heitti nimimerkin pois. Nyt chat-palvelin pitää jokaisen nimimerkin sellaisenaan, kertoo huoneessa
+olijoille toisistaan ja lähettää jokaisen rivin myös lähettäjälleen, joten molemmat pelaajat näkevät
+käyttäjänimet.
+
+- Chat toimii metagamen sisällä (`CHAT=1`, palvelinpaketissa `Set-Chat.ps1 -On`) osoitteessa
+  `127.0.0.1:61099`, jonne yhdyskäytävä jo välittää yhteyden: palomuurisääntöä tai uutta käynnistintä
+  ei tarvita.
+- Huoneisiin liittyminen tarkistetaan pelaajan omaa tiliä vasten, joten kukaan ei voi esiintyä
+  toisena. Ryhmä- ja kiltahuoneet ovat vain jäsenille, ja estot koskevat huonerivejä ja kuiskauksia.
+- Palvelin ei lähetä läsnäolotietoja huoneiden ulkopuolella, joten peliohjelman automaattinen
+  ryhmäpotku pysyy lepotilassa.
+- **Ei vielä viety palvelimelle eikä kokeiltu kahdella pelaajalla.** Seuraavaksi chat kytketään päälle
+  vuokratulla palvelimella, kun kukaan ei pelaa, ja tehdään kahden pelaajan testi
+  ([Näin se tarkistetaan]({{ '/fi/findings/chat.html' | relative_url }}#how-to-verify)). Sen jälkeen:
+  yhteinen Ramsgate-kanava ryhmättömille pelaajille, kavereiden näkyminen paikalla ja yksityinen tila.
+  Yksityiskohdat ovat sivulla [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}).
 
 Käynnissä olevien pelaajien lista näytetään vain rekisteröityneille pelaajille, eikä
 `/dauntless-status` enää kerro pelaajamäärää. Käynnistimessä, pelin tervetulotekstissä ja palvelimen
