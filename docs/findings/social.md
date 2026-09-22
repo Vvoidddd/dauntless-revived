@@ -248,8 +248,9 @@ answers a party of one with no candidate (`candidateState: null`, which reads as
 someone's invite, that sender cannot invite them again for 2 minutes (both 409, a failure to the
 client). A block removes the pending invites between the two.
 
-The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a 10-second threshold). It must stay that way when the
-XMPP server arrives: the server must never echo a player's own presence back.
+The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a
+10-second threshold). It must stay that way when the XMPP server arrives: the server must never echo a
+player's own presence back.
 
 ## Guilds
 

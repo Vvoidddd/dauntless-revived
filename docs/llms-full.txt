@@ -11581,7 +11581,8 @@ in the metagame.
 **Status (22 September 2026): built and tested without the game, not yet tried by two players.** Every
 fix below passes HTTP tests that replay the client's own requests and check each reply against a model
 of the client's parsing. The next two-player test on the rented server will confirm or correct them;
-[How to verify](https://mixutin.github.io/dauntless-revived/findings/social.html#how-to-verify) lists its steps and the log lines to expect. Online status and chat are not built (they need an XMPP server, see [Deferred](https://mixutin.github.io/dauntless-revived/findings/social.html#deferred)).
+[How to verify](https://mixutin.github.io/dauntless-revived/findings/social.html#how-to-verify) lists its steps and the log lines to expect. Online status and chat
+are not built (they need an XMPP server, see [Deferred](https://mixutin.github.io/dauntless-revived/findings/social.html#deferred)).
 
 ## Evidence and confidence
 
@@ -11793,9 +11794,11 @@ answers a party of one with no candidate (`candidateState: null`, which reads as
 
 **Limits we added** (G): a player sends at most 20 invites in 10 minutes, and after a player declines
 someone's invite, that sender cannot invite them again for 2 minutes (both 409, a failure to the
-client). A block removes the pending invites between the two. The client's automatic kick of "offline" party members
-never runs without presence (B `0x1415f6f60`, a 10-second threshold). It must stay that way when the
-XMPP server arrives: the server must never echo a player's own presence back.
+client). A block removes the pending invites between the two.
+
+The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a
+10-second threshold). It must stay that way when the XMPP server arrives: the server must never echo a
+player's own presence back.
 
 ## Guilds
 
