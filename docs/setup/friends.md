@@ -24,7 +24,11 @@ the manual steps below. Install the launcher from
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
 (`DauntlessRevivedLauncher-Setup.exe`), paste the invite line, and it does everything. If you already
 have an account key, choose **"I already have an account key"** and paste your `account.key` instead
-of registering. Keep the launcher open while you play. The rest of this page is the manual Tailscale
+of registering. If you already have Dauntless 1.4.4 installed, choose **I already have the game files**
+on the install screen. Paste the folder path (for example `C:\Games\BaseGame144`) or browse to it;
+the launcher finds the `Dauntless` folder and its shipping executable, checks the files against its
+pinned manifest, and only downloads files that are missing or damaged. It then installs the pinned
+DLLs and launches from that existing folder. Keep the launcher open while you play. The rest of this page is the manual Tailscale
 path.
 
 **If Windows blocks the installer.** The launcher is not code-signed yet, so Windows SmartScreen warns

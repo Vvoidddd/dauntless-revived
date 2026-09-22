@@ -10,7 +10,7 @@ import http from "node:http";
 import https from "node:https";
 import net from "node:net";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Controller, type Platform } from "../src/main/controller";
@@ -55,7 +55,7 @@ function temp(prefix: string): string {
 before(async () => {
   cert = makeTestCert();
   other = makeTestCert();
-  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE"]) });
+  meta = new FakeMetagame({ name: "Friday Hunts", validCodes: new Set(["ABCD-EFGH-JKLM", "SECOND-CODE", "THIRD-CODE", "FOURTH-CODE", "FIFTH-CODE", "SIXTH-CODE", "EXISTING-CODE"]) });
   content = new FakeContentServer({ key: "unused", files });
   gateway = https.createServer({ cert: cert.certPem, key: cert.keyPem }, (req, res) => {
     gatewayRequests.push(`${req.method} ${req.url}`);
@@ -221,6 +221,34 @@ test("public mode end to end: join, register, install, play through the relay, g
   assert.equal(hx.c.relayActive, false);
   assert.equal(hx.last().phase, "ready");
   await assert.rejects(get(RELAY_PORT, "/undaunted/api/ServerStatus"));
+  await hx.c.shutdown();
+});
+
+test("existing BaseGame144 folder is verified in place and launched from Dauntless", async () => {
+  const hx = harness();
+  await hx.c.init();
+  assert.deepEqual(await hx.c.submitInvite(invite(cert.fingerprint, "EXISTING-CODE")), { ok: true });
+  assert.deepEqual(await hx.c.register("ExistingSlayer"), { ok: true, username: "ExistingSlayer" });
+
+  const base = temp("dr-basegame144-");
+  const game = path.join(base, "Dauntless");
+  const shipping = path.join(game, "Archon", "Binaries", "Win64", "Dauntless-Win64-Shipping.exe");
+  mkdirSync(path.dirname(shipping), { recursive: true });
+  writeFileSync(shipping, "layout marker");
+  for (const f of files) {
+    const target = path.join(game, ...f.path.split("/"));
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, f.data);
+  }
+
+  const before = gatewayRequests.length;
+  assert.deepEqual(await hx.c.useExistingGamePath(base), { ok: true });
+  assert.equal(hx.last().install.dir, game);
+  assert.equal(hx.last().phase, "ready");
+  assert.ok(!gatewayRequests.slice(before).some((r) => r.startsWith("GET /content/v1/files/")), "no game download for complete files");
+  assert.deepEqual(await hx.c.play(), { ok: true });
+  assert.equal(hx.spawns[0].cwd, path.join(game, "Archon", "Binaries", "Win64"));
+  hx.child()!.emit("exit", 0);
   await hx.c.shutdown();
 });
 

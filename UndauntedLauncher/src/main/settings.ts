@@ -47,7 +47,7 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 function validDir(v: unknown): string | null {
-  return typeof v === "string" && v.length > 3 && v.length < 200 && path.win32.isAbsolute(v) && !v.includes("\0") ? v : null;
+  return typeof v === "string" && v.length > 3 && v.length <= 512 && path.win32.isAbsolute(v) && !v.includes("\0") ? v : null;
 }
 
 export function sanitizeSettings(raw: unknown, language: Language): StoredSettings {

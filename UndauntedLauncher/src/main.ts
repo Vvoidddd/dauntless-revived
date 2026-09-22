@@ -246,6 +246,10 @@ function registerIpc(c: Controller): void {
   handle(IPC.dismissBackupOffer, () => c.dismissBackupOffer());
   handle(IPC.chooseInstallDir, () => c.chooseInstallDir());
   handle(IPC.useExistingGameFolder, () => c.useExistingGameFolder());
+  handle(IPC.useExistingGamePath, (_e, value) => {
+    const gamePath = boundedString(value, 512);
+    return gamePath === null ? { ok: false, error: { code: "folder_invalid" } } : c.useExistingGamePath(gamePath);
+  });
   handle(IPC.startInstall, () => c.startInstall());
   handle(IPC.pauseTask, () => c.pauseTask());
   handle(IPC.resumeTask, () => c.resumeTask());

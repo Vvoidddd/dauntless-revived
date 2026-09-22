@@ -24,7 +24,11 @@ Palvelin, joka tarjoaa jotain muuta, hylätään.
 2. Avaa ylläpitäjän lähettämä kutsulinkki tai liitä se Pelaa-sivulle ja paina **LIITY**.
 3. Valitse käyttäjänimi ja paina **REKISTERÖIDY**. Tallenna avaimesta varmuuskopio, kun käynnistin
    tarjoaa sitä.
-4. Paina **ASENNA** (noin 11 Gt). Voit pitää tauon, sulkea käynnistimen ja jatkaa myöhemmin.
+4. Paina **ASENNA** (noin 11 Gt) tai valitse **Minulla on jo pelitiedostot** ja liitä tai selaa
+   olemassa olevan `BaseGame144`-kansiosi polku. Käynnistin löytää
+   `Dauntless\Archon\Binaries\Win64`-kansion, tarkistaa pelin kiinnitettyä luetteloa vasten ja
+   lataa vain puuttuvat tai vahingoittuneet tiedostot. Voit pitää tauon, sulkea käynnistimen ja
+   jatkaa myöhemmin.
 5. Paina **PELAA**.
 
 Vasemman reunan palkin alaosassa, joka sivulla (myös ennen kuin liityt palvelimelle), GitHub-painike

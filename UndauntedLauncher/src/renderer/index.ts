@@ -93,6 +93,20 @@ const keyInput = h("input", {
   "data-fk": "key",
 });
 
+const existingGameInput = h("input", {
+  class: "input",
+  id: "existing-game-path",
+  type: "text",
+  maxlength: 512,
+  spellcheck: "false",
+  autocomplete: "off",
+  placeholder: "C:\\...\\BaseGame144",
+  "data-fk": "existing-path",
+});
+existingGameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") void api.useExistingGamePath(existingGameInput.value);
+});
+
 inviteInput.addEventListener("input", () => {
   state.inviteText = inviteInput.value;
   updateInviteFeedback();
@@ -410,6 +424,20 @@ function playRegister(snap: Snapshot): HTMLElement[] {
   return out;
 }
 
+function existingGameCard(busy: boolean): HTMLElement {
+  return card(
+    "",
+    h("h3", { class: "card-title" }, t("install_existing")),
+    h("p", { class: "card-text" }, t("install_existing_text")),
+    h("label", { for: "existing-game-path" }, t("install_existing_path")),
+    existingGameInput,
+    h("div", { class: "card-row" },
+      button(t("install_existing_use"), () => void api.useExistingGamePath(existingGameInput.value), { fk: "existing-use", disabled: busy }),
+      linkButton(t("install_existing_browse"), () => void api.useExistingGameFolder(), { icon: "folder", fk: "existing", disabled: busy }),
+    ),
+  );
+}
+
 function playInstall(snap: Snapshot): HTMLElement[] {
   const name = serverName();
   const pub = snap.server?.mode === "public";
@@ -437,7 +465,7 @@ function playInstall(snap: Snapshot): HTMLElement[] {
   if (!snap.install.contentAvailable) out.push(card("card-warn", h("h3", { class: "card-title" }, icon("warning"), t("install_no_content_title")), h("p", { class: "card-text" }, t("install_no_content"))));
   const vc = vcWarning(snap);
   if (vc) out.push(vc);
-  out.push(h("div", { class: "card-row" }, linkButton(t("install_existing"), () => void api.useExistingGameFolder(), { icon: "folder", fk: "existing", disabled: snap.busy }), h("span", { class: "hint" }, t("install_existing_text"))));
+  out.push(existingGameCard(snap.busy));
   return out;
 }
 
@@ -453,6 +481,7 @@ function playUpdate(snap: Snapshot): HTMLElement[] {
   const out: HTMLElement[] = [eyebrow(snap), ...heading(t("update_title"), text)];
   const vc = vcWarning(snap);
   if (vc) out.push(vc);
+  out.push(existingGameCard(snap.busy));
   return out;
 }
 

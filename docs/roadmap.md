@@ -372,6 +372,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
        - interrupted downloads resume (HTTP Range)
        - several files download at once
        - **Repair** re-checks everything and fetches only broken files
+       - **Already installed:** a player can paste or browse to `BaseGame144` (or its `Dauntless` folder); the launcher finds `Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe`, checks the pinned manifest and downloads only missing or damaged files before installing the pinned DLLs. No game files are copied into the repository.
     4. **Install:** the two DLLs (pinned hashes), the VC++ runtime check, and the user config: graphics preset (Cinematic by default, with a menu), chat (XMPP) pointed at the host instead of Epic, and the memory settings from `play.ps1`.
     5. **Launch:** starts `Dauntless-Win64-Shipping.exe` directly with the key passed as today. It shows whether the server is up.
     6. **Updates:** builds come from GitHub Actions using the public source and are published as GitHub Releases with SHA-256 sums. The launcher updates itself from there.

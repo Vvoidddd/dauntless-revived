@@ -195,6 +195,7 @@ export const IPC = {
   dismissBackupOffer: "dr:dismiss-backup-offer",
   chooseInstallDir: "dr:choose-install-dir",
   useExistingGameFolder: "dr:use-existing-game-folder",
+  useExistingGamePath: "dr:use-existing-game-path",
   startInstall: "dr:start-install",
   pauseTask: "dr:pause-task",
   resumeTask: "dr:resume-task",

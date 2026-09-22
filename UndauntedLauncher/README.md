@@ -21,7 +21,10 @@ launcher (`UndauntedContent/data/dauntless-1.4.4.json`). A server that offers an
    item 4.16.
 2. Open the invite link your host sent you, or paste it on the Play page and press **JOIN**.
 3. Pick a username and press **REGISTER**. Save a backup of your key when the launcher offers it.
-4. Press **INSTALL** (about 11 GB). You can pause, close the launcher and continue later.
+4. Press **INSTALL** (about 11 GB), or choose **I already have the game files** and paste or browse
+   to your existing `BaseGame144` folder. The launcher finds `Dauntless\Archon\Binaries\Win64`,
+   verifies the game against its pinned manifest and only fetches missing or damaged files. You can
+   pause, close the launcher and continue later.
 5. Press **PLAY**.
 
 At the bottom of the left-hand rail, on every page (also before you join a server), the GitHub

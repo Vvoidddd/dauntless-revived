@@ -27,7 +27,12 @@ olevia käsivaiheita. Asenna käynnistin osoitteesta
 [github.com/mixutin/dauntless-revived/releases/latest](https://github.com/mixutin/dauntless-revived/releases/latest)
 (`DauntlessRevivedLauncher-Setup.exe`), liitä kutsurivi, niin se hoitaa kaiken. Jos sinulla on jo
 tiliavain, valitse **"Minulla on jo tiliavain"** ja liitä `account.key`-tiedostosi rekisteröitymisen
-sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaiheinen Tailscale-polku.
+sijaan. Jos Dauntless 1.4.4 on jo asennettu, valitse asennusnäkymässä **Minulla on jo pelitiedostot**.
+Liitä kansion polku (esimerkiksi `C:\Games\BaseGame144`) tai selaa siihen. Käynnistin löytää
+`Dauntless`-kansion ja pelin käynnistystiedoston, tarkistaa tiedostot kiinnitettyä luetteloa vasten
+ja lataa vain puuttuvat tai vahingoittuneet tiedostot. Se asentaa tarvittavat DLL-tiedostot ja
+käynnistää pelin samasta kansiosta. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on
+käsivaiheinen Tailscale-polku.
 
 **Jos Windows estää asennusohjelman.** Käynnistintä ei ole vielä allekirjoitettu, joten Windows
 SmartScreen varoittaa ensimmäisellä kerralla: **Lisätietoja > Suorita silti**. Koneella, jossa
