@@ -31,10 +31,10 @@ path.
 and paste the path of your 1.4.4 folder (for example `C:\Games\BaseGame144`, or the `Dauntless`
 folder inside it), or browse to it. The launcher finds the game there and uses it in place: it checks
 every file against its pinned manifest, replaces any file that differs from 1.4.4, and puts its own
-`dxgi.dll` and `UndauntedInternalServer.dll` in `Archon\Binaries\Win64`. Missing files are downloaded
-only if your host has switched on game downloads. If another setup (for example the friend kit below)
-still uses that folder, copy it first. Vvoidddd added the pasted path
-([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
+`dxgi.dll` and `UndauntedInternalServer.dll` in `Archon\Binaries\Win64`. Missing or different files
+are downloaded from your host, so that works only if your host has switched on game downloads. If
+another setup (for example the friend kit below) still uses that folder, copy it first. Vvoidddd
+added the pasted path ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
 
 **If Windows blocks the installer.** The launcher is not code-signed yet, so Windows SmartScreen warns
 the first time: **More info > Run anyway**. On a PC set to block unrecognised apps, SmartScreen blocks

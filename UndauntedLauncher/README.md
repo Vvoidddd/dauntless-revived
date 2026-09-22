@@ -26,8 +26,9 @@ launcher (`UndauntedContent/data/dauntless-1.4.4.json`). A server that offers an
    of your `BaseGame144` folder (or the `Dauntless` folder inside it), or browse to it. The launcher
    uses the game where it is: it checks every file against its pinned manifest, replaces any file
    that differs from 1.4.4, and puts its own `dxgi.dll` and `UndauntedInternalServer.dll` in
-   `Archon\Binaries\Win64`. Missing files are downloaded only if your host has switched on game
-   downloads. Copy the folder first if another setup still uses it.
+   `Archon\Binaries\Win64`. Missing or different files are downloaded from your host, so that works
+   only if your host has switched on game downloads. Copy the folder first if another setup still
+   uses it.
 5. Press **PLAY**.
 
 At the bottom of the left-hand rail, on every page (also before you join a server), the GitHub

@@ -30,8 +30,9 @@ Palvelin, joka tarjoaa jotain muuta, hylätään.
    Käynnistin käyttää peliä siinä kansiossa, jossa se on: se tarkistaa jokaisen tiedoston
    kiinnitettyä luetteloa vasten, korvaa tiedostot, jotka eroavat 1.4.4:stä, ja laittaa omat
    `dxgi.dll`- ja `UndauntedInternalServer.dll`-tiedostonsa kansioon `Archon\Binaries\Win64`.
-   Puuttuvat tiedostot ladataan vain, jos ylläpitäjä on avannut pelin latauksen. Kopioi kansio ensin,
-   jos jokin toinen asennus käyttää sitä yhä.
+   Puuttuvat ja poikkeavat tiedostot ladataan ylläpitäjän palvelimelta, joten se onnistuu vain, jos
+   ylläpitäjä on avannut pelin latauksen. Kopioi kansio ensin, jos jokin toinen asennus käyttää sitä
+   yhä.
 5. Paina **PELAA**.
 
 Vasemman reunan palkin alaosassa, joka sivulla (myös ennen kuin liityt palvelimelle), GitHub-painike

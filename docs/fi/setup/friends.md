@@ -34,9 +34,9 @@ sijaan. Pidä käynnistin auki pelatessasi. Loput tästä sivusta on käsivaihei
 tai selaa siihen. Käynnistin löytää pelin ja käyttää sitä siinä kansiossa, jossa se on: se tarkistaa
 jokaisen tiedoston kiinnitettyä luetteloa vasten, korvaa tiedostot, jotka eroavat 1.4.4:stä, ja
 laittaa omat `dxgi.dll`- ja `UndauntedInternalServer.dll`-tiedostonsa kansioon
-`Archon\Binaries\Win64`. Puuttuvat tiedostot ladataan vain, jos isäntä on avannut pelin latauksen.
-Jos jokin toinen asennus (esimerkiksi alla oleva kaveripaketti) käyttää kansiota yhä, kopioi se
-ensin. Polun liittämisen lisäsi Vvoidddd
+`Archon\Binaries\Win64`. Puuttuvat ja poikkeavat tiedostot ladataan isännän palvelimelta, joten se
+onnistuu vain, jos isäntä on avannut pelin latauksen. Jos jokin toinen asennus (esimerkiksi alla
+oleva kaveripaketti) käyttää kansiota yhä, kopioi se ensin. Polun liittämisen lisäsi Vvoidddd
 ([#8](https://github.com/mixutin/dauntless-revived/pull/8)).
 
 **Jos Windows estää asennusohjelman.** Käynnistintä ei ole vielä allekirjoitettu, joten Windows
