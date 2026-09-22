@@ -18,6 +18,8 @@ export function UsePartyEnv(DeployPort: number){
     delete process.env.MISC_ROUTES;
     delete process.env.MATCHMAKING_CANCEL;
     delete process.env.ACCOUNT_DISPLAY_NAME;
+    delete process.env.ACCOUNTINFO_PUBLIC_LEGACY;
+    delete process.env.ACCOUNT_MAPPING;
     delete process.env.GATEWAY_SECRET;
     delete process.env.PROGRESSION_REAL_ACCOUNTS;
     delete process.env.PROGRESSION_MODE;

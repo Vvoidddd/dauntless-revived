@@ -328,10 +328,32 @@ describe("account lookups (Hunt Members, /invite <name>)", () => {
         assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { ids: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, Expect());
     });
 
-    it("/accountinfo/public with an unknown account answers an empty name instead of a 500", async () => {
+    it("/accountinfo/public describes the asked account (its id, its name, its Epic id), and answers 404 {} for an unknown one", async () => {
+        const Other = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: B } });
+        assert.equal(Other.status, 200);
+        assert.deepEqual(Other.json, { accountId: B, username: "Bravo", linkedAccounts: [{ accountId: B, accountType: "epic" }], isSubscribed: true, language: null });
+
+        const Own = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: A } });
+        assert.deepEqual([Own.json.accountId, Own.json.username, Own.json.linkedAccounts], [A, "Alpha", [{ accountId: A, accountType: "epic" }]]);
+
         const Unknown = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: "UID-nobody" } });
-        assert.deepEqual([Unknown.status, Unknown.json.username], [200, ""]);
-        assert.equal((await Call("POST", "/accountinfo/public", { as: A, body: { accountId: B } })).json.username, "Bravo");
+        assert.deepEqual([Unknown.status, Unknown.json], [404, {}]);
+        assert.deepEqual([(await Call("POST", "/accountinfo/public", { as: A, body: { accountId: "bad id!" } })).status], [404]);
+        assert.equal((await Call("POST", "/accountinfo/public", { body: { accountId: B } })).status, 401, "still needs auth");
+    });
+
+    it("ACCOUNTINFO_PUBLIC_LEGACY=1 puts the upstream reply back (the caller's id; 200 with an empty name for an unknown id)", async () => {
+        process.env.ACCOUNTINFO_PUBLIC_LEGACY = "1";
+
+        try{
+            const Old = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: B } });
+            assert.equal(Old.text, JSON.stringify({ accountId: A, isSubscribed: true, language: null, linkedAccounts: [{ accountId: A, accountType: "epic" }], username: "Bravo" }));
+            const Unknown = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: "UID-nobody" } });
+            assert.deepEqual([Unknown.status, Unknown.json.username, Unknown.json.accountId], [200, "", A]);
+        }
+        finally{
+            delete process.env.ACCOUNTINFO_PUBLIC_LEGACY;
+        }
     });
 });
 

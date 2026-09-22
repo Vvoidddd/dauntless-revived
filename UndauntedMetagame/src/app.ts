@@ -47,12 +47,13 @@ if (process.env.LOG_REQUESTS !== "0") {
 // Body capture for the save routes that are still stubbed or missing. Their
 // request formats are only inferred from the client binary, and a wrong
 // response shape can crash the client, so we record what the game actually
-// sends before building on it (also the party, friends and account lookups of roadmap
-// 1.9, with the query string, which is in originalUrl). Off unless LOG_BODIES=1; one JSON object per
+// sends before building on it (also the party, friends, guild and account lookups of roadmap
+// 1.9 and 3.11, with the query string, which is in originalUrl). Off unless LOG_BODIES=1; one JSON object per
 // line in BODY_LOG_FILE (default ./bodies.log), bodies capped at 8 KB (64 KB for
 // /inventory, whose hunt-end batches decide INVENTORY_REFUSE_OVERSPEND), with any
-// token-shaped string removed from both the URL and the body.
-const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|balance|store|inventory|account\/api\/public\/account)/;
+// token-shaped string removed from both the URL and the body. The guild, account mapping and
+// account info bodies hold account ids and guild names only.
+const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|guild|balance|store|inventory|account\/api\/public\/account|account\/mapping|accountinfo\/public)/;
 if (process.env.LOG_BODIES === "1") {
     const bodyLog = process.env.BODY_LOG_FILE || "bodies.log";
     app.use((req, _res, next) => {
