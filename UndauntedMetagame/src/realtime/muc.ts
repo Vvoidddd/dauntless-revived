@@ -1,7 +1,7 @@
 import { Element } from "ltx";
 import { logger } from "../logger";
 import { CheckNickname, NamePartOf } from "./chatnick";
-import { Bucket, ChildNamed, EscapeXml, Jid, NS, TakeToken, TextOf } from "./xmpp";
+import { Bucket, ChildNamed, EscapeXml, Jid, LogText, NS, TakeToken, TextOf } from "./xmpp";
 
 // Chat rooms (multi-user chat) the way the 1.4.4 client needs them (docs/findings/chat.md, "Rooms").
 // Read from the game's executable (image base 0x140000000):
@@ -19,6 +19,14 @@ import { Bucket, ChildNamed, EscapeXml, Jid, NS, TakeToken, TextOf } from "./xmp
 // <item jid>; occupants learn about each other in both directions; every message goes back to its sender
 // too; and a refused join is an error presence, never a rewritten nickname. Two sessions of one account
 // never see each other in a room: the client's self test would take the other one's presence for its own.
+//
+// One account is in a room with one session at most. The client keeps one room member per account id
+// (UpdateMember 0x1408fe300 finds it by id and updates it, 0x1408fe3d4-0x1408fe409) and removes it by
+// the account id in a leaving nickname (OnXmppRoomMemberExit 0x1408c0680: 0x1408c07a9 -> 0x1408c3500,
+// TMap::Remove 0x1408c0b54 -> 0x1408e1ce0). So when a reconnected session joins a room its old session
+// (a ghost of the dropped connection) is still in, the old one leaves first (reason "replaced", not told
+// to the old session itself); otherwise the ghost's later leave would remove the member the new session
+// had just updated, and the others would see that player's lines as "[unknown]".
 //
 // Who may join (docs/findings/chat.md, "Rooms"): the client names its rooms itself (builders 0x141568c20,
 // 0x1415669e0, 0x1415ad14f, 0x1415bb270). City-<id>, Hunt-<id> and General<id> are open to every signed-in
@@ -83,6 +91,8 @@ export type MucHost = {
     Send(Session: MucSession, Stanza: string): void,
     Clock(): number,
     LogOnce(Key: string, WindowMs?: number): boolean,
+    // A refused join counts as a dropped stanza toward the session's abuse limit
+    Refused(Session: MucSession): void,
     UsernameOf(Uid: string): string | undefined,
     NickCheck: NickCheckMode
 };
@@ -142,15 +152,18 @@ export class MucService {
             + `<x xmlns="${NS.MUC_USER}"><item affiliation="none" role="${Options.Unavailable ? "none" : "participant"}" jid="${EscapeXml(FullJid(Occupant))}"/>${Statuses}</x></presence>`;
     }
 
+    // A refused join: the error presence, one log line per session, room class and reason every 10 minutes
+    // (never keyed on the client's own text), and one dropped stanza toward the session's abuse limit
     private refuse(Session: MucSession, RoomJid: string, Local: string, Nick: string, Reason: JoinRefusal): void {
         const Error_ = ERRORS[Reason];
 
-        if(this.host.LogOnce(`join-refused|${Session.Uid}|${RoomJid}|${Reason}`)){
-            logger.info(`chat: join refused room=${Local} uid=${Session.Uid} reason=${Reason}`);
+        if(this.host.LogOnce(`join-refused|${Session.Id}|${RoomClassOf(Local)?.Class ?? "other"}|${Reason}`)){
+            logger.info(`chat: join refused room=${LogText(Local)} uid=${Session.Uid} reason=${Reason}`);
         }
 
         this.host.Send(Session, `<presence xmlns="${NS.CLIENT}" type="error" from="${EscapeXml(`${RoomJid}/${Nick}`)}" to="${EscapeXml(FullJid(Session))}">`
             + `<x xmlns="${NS.MUC}"/><error type="${Error_.Type}"><${Error_.Condition} xmlns="${NS.STANZAS}"/></error></presence>`);
+        this.host.Refused(Session);
     }
 
     private messageError(Session: MucSession, RoomJid: string, Id: string | undefined): void {
@@ -170,6 +183,12 @@ export class MucService {
         const RoomJid = `${To.Local}@${To.Domain}`;
         const Now = this.host.Clock();
 
+        // Every join takes a token first, refused ones included
+        if(!TakeToken(Session.Joins, JOIN_BURST, JOIN_REFILL_MS, Now)){
+            this.refuse(Session, RoomJid, To.Local, Nick, "limit");
+            return;
+        }
+
         const Kind = RoomClassOf(To.Local);
 
         if(!this.IsMucDomain(Session, To.Domain) || Kind === undefined){
@@ -179,11 +198,6 @@ export class MucService {
 
         const Existing = this.rooms.get(RoomJid);
         const Held = Session.Rooms.get(RoomJid);
-
-        if(!TakeToken(Session.Joins, JOIN_BURST, JOIN_REFILL_MS, Now)){
-            this.refuse(Session, RoomJid, To.Local, Nick, "limit");
-            return;
-        }
 
         // Party and guild rooms: members only (someone who left is also removed from the room)
         if(!this.mayUse(Uid, Kind.Class, Kind.Id)){
@@ -209,13 +223,15 @@ export class MucService {
 
         const Check = CheckNickname(Nick, Uid, Session.Resource!, [this.host.UsernameOf(Uid), Session.NameAtLogin]);
 
+        // CHAT_NICK_CHECK=log relaxes the resource, format and name rules only. Another account's id is
+        // refused in both modes: a real client always builds its nickname from its own id (0x1408b5aeb).
         if(!Check.Ok){
-            if(this.host.NickCheck === "enforce"){
+            if(this.host.NickCheck === "enforce" || Check.Reason === "nick-account"){
                 this.refuse(Session, RoomJid, To.Local, Nick, Check.Reason);
                 return;
             }
 
-            if(this.host.LogOnce(`nick-log|${Session.Id}|${RoomJid}`)){
+            if(this.host.LogOnce(`nick-log|${Session.Id}|${To.Local}`)){
                 logger.warn(`chat: join nickname not checked room=${To.Local} uid=${Uid} reason=${Check.Reason} (CHAT_NICK_CHECK=log)`);
             }
         }
@@ -226,20 +242,30 @@ export class MucService {
         }
 
         const Room = this.rooms.get(RoomJid);
+        // The occupants of other accounts. An older session of this account is replaced below, so it
+        // neither conflicts nor counts toward the room's limit.
+        const OtherAccounts = [...(Room?.Occupants ?? [])].filter(([Other]) => Other !== Session && Other.Uid !== Uid);
 
-        for(const [Other, OtherNick] of Room?.Occupants ?? []){
-            if(Other !== Session && OtherNick === Nick){
-                this.refuse(Session, RoomJid, To.Local, Nick, "conflict");
-                return;
-            }
+        if(OtherAccounts.some(([, OtherNick]) => OtherNick === Nick)){
+            this.refuse(Session, RoomJid, To.Local, Nick, "conflict");
+            return;
         }
 
-        if(Session.Rooms.size >= MAX_ROOMS_PER_SESSION || (Room !== undefined && Room.Occupants.size >= MAX_OCCUPANTS) || (Room === undefined && this.rooms.size >= MAX_ROOMS)){
+        if(Session.Rooms.size >= MAX_ROOMS_PER_SESSION || OtherAccounts.length >= MAX_OCCUPANTS || (Room === undefined && this.rooms.size >= MAX_ROOMS)){
             this.refuse(Session, RoomJid, To.Local, Nick, "limit");
             return;
         }
 
         const Joined = Room ?? { Jid: RoomJid, Local: To.Local, Class: Kind.Class, ClassId: Kind.Id, Occupants: new Map<MucSession, string>() };
+
+        // 0. This account's older session in the room (normally the ghost of a dropped connection) leaves
+        // first, told to the others but not to itself (see the top of this file)
+        for(const Other of [...Joined.Occupants.keys()]){
+            if(Other !== Session && Other.Uid === Uid){
+                this.remove(Other, Joined, "replaced");
+            }
+        }
+
         const Others = this.others(Joined, Session);
 
         this.rooms.set(RoomJid, Joined);

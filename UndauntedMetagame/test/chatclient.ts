@@ -84,7 +84,20 @@ export type Member = {
     Name: string    // nickname part 1 URL-decoded, or the whole nickname when it has no ":"
 };
 
+// Members is FOnlineChatMcp's member map of the room, keyed by member id (lower case: the key compare is
+// case-insensitive, 0x141c5bff0). One entry per account, however many connections it has in the room:
+// - an occupant presence looks its id up and updates that entry, or adds one (UpdateMember 0x1408fe300:
+//   find 0x1408fe3d4, update 0x1408fe409 -> 0x1408fbd70, add 0x1408fe489);
+// - a leave removes the entry of the id taken from the leaving nickname alone, never from <item jid>
+//   (OnXmppRoomMemberExit 0x1408c0680: 0x1408c07a9 -> 0x1408c3500, then TMap::Remove 0x1408c0b54 ->
+//   0x1408e1ce0);
+// - a line's sender is found by walking the entries for the one whose room JID matches (0x1408a83c0).
 export type Room = { RoomId: string, State: number, Nick: string, Members: Map<string, Member> };
+
+// The member id the client takes from a leaving occupant: nickname part 2, else the room JID's full path
+function ExitIdOf(From: string, Nick: string): string {
+    return Nick.includes(":") ? (Nick.split(":")[1] ?? "") : From;
+}
 
 // A line shown in a room. Known is false when the sender matched no occupant: the nickname stays
 // "unknown" (0x14087ed65).
@@ -256,7 +269,6 @@ export class ChatClientModel {
         // The self test: a case-sensitive search for the local account id in the nickname
         // (0x143a34acd-0x143a34aec). Status 110 is not read.
         const Self = Nick.includes(this.LocalUid);
-        const Key = FromText.toLowerCase();
         const Item = Child(Child(Node, "x"), "item");
 
         if(Self){
@@ -268,8 +280,10 @@ export class ChatClientModel {
             }
             else if(Room.State === JOIN_PUBLIC_PENDING){
                 // HandleJoinPublicRoomComplete (0x143a34c0f -> 0x143a296b0); the room lists itself as a member
+                const Member = ParseMember(FromText, Nick, Item);
+
                 Room.State = JOINED;
-                Room.Members.set(Key, ParseMember(FromText, Nick, Item));
+                Room.Members.set(Member.Id.toLowerCase(), Member);
                 this.JoinResults.push({ Room: Room.RoomId, Ok: true });
             }
             // A self presence in any other state is ignored (0x143a34bf8-0x143a34c00)
@@ -279,11 +293,20 @@ export class ChatClientModel {
 
         // Someone else: no state check (0x143a34c19-0x143a34c2c -> 0x143a2bcc0)
         if(Unavailable){
-            Room.Members.delete(Key);
+            Room.Members.delete(ExitIdOf(FromText, Nick).toLowerCase());
         }
         else{
-            Room.Members.set(Key, ParseMember(FromText, Nick, Item));
+            const Member = ParseMember(FromText, Nick, Item);
+
+            Room.Members.set(Member.Id.toLowerCase(), Member);
         }
+    }
+
+    // The member a room line came from: the entry whose room JID matches, ignoring case (0x1408a83c0)
+    MemberFrom(Room: Room, FromText: string): Member | undefined {
+        const Wanted = FromText.toLowerCase();
+
+        return [...Room.Members.values()].find((Each) => Each.From.toLowerCase() === Wanted);
     }
 
     private message(Node: Element): void {
@@ -311,7 +334,7 @@ export class ChatClientModel {
 
             // The sender is matched to an occupant by room id, domain and nickname, ignoring case
             // (0x1408a83c0); a <nick> element is never read (its namespace is not in the exe)
-            const Member = Room.Members.get(FromText.toLowerCase());
+            const Member = this.MemberFrom(Room, FromText);
             let DerivedId = Member?.Id ?? "";
 
             if(Member === undefined){

@@ -30,32 +30,49 @@ import {
 //   can never take the metagame down;
 // - a logged-in connection is never closed over bad input: bad stanzas are dropped and counted, and the
 //   stanza errors of docs/findings/chat.md are answered. Only the client's <close/>, a ping timeout,
-//   replacement, shutdown, an oversized frame or sustained abuse end one, and any end by the server
-//   holds that account's next login back for 60 s, so the game backs off 15-45 s instead of looping.
+//   replacement, shutdown, an oversized frame, output it does not read, or sustained abuse end one.
+//   Replacement, abuse, an oversized frame and unread output hold that account's next login back for
+//   60 s, so the game backs off 15-45 s instead of looping. A ping timeout does not: one reconnect
+//   after it is not a loop.
+// - before login a connection gets a few frames only, and nothing it sends may make the server hold more
+//   than OUTPUT_LIMIT of unsent output for it.
+//
+// Pings: the client answers a server ping only from its game-thread tick (the handler 0x143a2a690
+// queues it; FXmppPingStrophe::Tick 0x143a3eb90 builds the reply while logged in, 0x143a3ed99), which a
+// long map load holds up. Its own limits (PingInterval 60, PingTimeout 30, MaxPingRetries 1: the
+// constructor at 0x143a1f367-0x143a1f37b) let about 150 s of silence pass, and so does the server:
+// pinged after 50 s, ended after another 100 s without an answer.
 
 const FRAME_LIMIT = 32768;
 export const BODY_LIMIT = 2048;
 const MAX_SOCKETS = 64;
-const MAX_UNAUTHENTICATED_PER_ADDRESS = 8;
+// Connections that have not bound yet (not logged in, or logged in and not bound), per address
+const MAX_UNBOUND_PER_ADDRESS = 8;
+const MAX_FRAMES_BEFORE_LOGIN = 4;
 const LOGIN_DEADLINE_MS = 15 * 1000;
-const BIND_DEADLINE_MS = 30 * 1000;
+// From the login: the game binds right after <success/>
+const BIND_DEADLINE_MS = 10 * 1000;
+const BIND_TIMEOUT_LIMIT = 3;
+const BIND_TIMEOUT_WINDOW_MS = 10 * 60 * 1000;
 const SASL_FAILURE_LIMIT = 10;
 const SASL_FAILURE_WINDOW_MS = 10 * 60 * 1000;
 const SASL_THROTTLE_MS = 10 * 60 * 1000;
 const UID_THROTTLE_MS = 60 * 1000;
 const IDLE_PING_MS = 50 * 1000;
-const PING_TIMEOUT_MS = 30 * 1000;
+const PING_TIMEOUT_MS = 100 * 1000;
 const STANZA_BURST = 60;
 const STANZA_REFILL_MS = 1000 / 30;
 const ABUSE_DROPS = 100;
 const ABUSE_WINDOW_MS = 60 * 1000;
 const LOG_ONCE_MS = 10 * 60 * 1000;
+const LOG_ONCE_MAX = 10000;
+const OUTPUT_LIMIT = 256 * 1024;
 const MAX_RESOURCE = 256;
 const MAX_ID = 128;
 const MAX_SESSIONS_PER_ACCOUNT = 2;
+// Bound or not: two bound sessions (a live one and a ghost) and one login in progress
+const MAX_CONNECTIONS_PER_ACCOUNT = 3;
 const GHOST_PING_MS = 10 * 1000;
-const LOOP_REPLACEMENTS = 3;
-const LOOP_WINDOW_MS = 60 * 1000;
 const SWEEP_MS = 60 * 1000;
 const CONTROL_CHARACTER = /\p{Cc}/u;
 
@@ -66,10 +83,12 @@ export type ChatOptions = {
     Access?: RoomAccess,
     // Tests: a controllable clock, and no timer of its own (the test calls Tick)
     Clock?: () => number,
-    AutoTick?: boolean
+    AutoTick?: boolean,
+    // Tests: a smaller cap on one connection's unsent output (bytes)
+    OutputLimit?: number
 };
 
-type EndReason = "close" | "socket" | "ping-timeout" | "replaced" | "abuse" | "size" | "shutdown" | "timeout" | "refused";
+type EndReason = "close" | "socket" | "ping-timeout" | "replaced" | "abuse" | "size" | "backlog" | "shutdown" | "timeout" | "refused";
 
 export type ChatSession = {
     Id: number,
@@ -80,8 +99,14 @@ export type ChatSession = {
     Domain: string,
     Uid?: string,
     NameAtLogin?: string,
+    LoggedInAt?: number,
     Resource?: string,
     Ended: boolean,
+    // Frames received before login, and whether a SASL attempt failed
+    EarlyFrames: number,
+    LoginFailed: boolean,
+    // Output was held back because the client does not read it; the session ends at the next check
+    Backlogged: boolean,
     LastInbound: number,
     PingId?: string,
     PingDeadline?: number,
@@ -113,12 +138,14 @@ export class ChatServer {
     private readonly saslFailures = new Map<string, number[]>();
     private readonly throttledAddresses = new Map<string, number>();
     private readonly throttledUids = new Map<string, number>();
+    // Log keys -> when last logged, oldest first (at most LOG_ONCE_MAX)
     private readonly loggedOnce = new Map<string, number>();
-    // Times one account's sessions were replaced, for the loop guard
-    private readonly replacements = new Map<string, number[]>();
+    // Times one account's logins did not bind in time
+    private readonly bindTimeouts = new Map<string, number[]>();
     private readonly clock: () => number;
     private readonly trace: boolean;
     private readonly nickCheck: NickCheckMode;
+    private readonly outputLimit: number;
     private readonly muc: MucService;
     private readonly ticker?: NodeJS.Timeout;
     private nextId = 1;
@@ -129,6 +156,7 @@ export class ChatServer {
         this.clock = Options.Clock ?? (() => Date.now());
         this.trace = Options.Trace === true;
         this.nickCheck = Options.NickCheck ?? "enforce";
+        this.outputLimit = Options.OutputLimit ?? OUTPUT_LIMIT;
         this.muc = new MucService({
             Access: Options.Access ?? {
                 PartyIdOf: (Uid) => GetPartyOf(Uid)?.PartyId,
@@ -138,6 +166,7 @@ export class ChatServer {
             Send: (Session, Stanza) => this.send(Session as ChatSession, Stanza),
             Clock: () => this.clock(),
             LogOnce: (Key, WindowMs) => this.logOnce(Key, WindowMs),
+            Refused: (Session) => this.drop(Session as ChatSession, "refused"),
             UsernameOf: (Uid) => FindUsernameForUserId(Uid),
             NickCheck: this.nickCheck
         });
@@ -156,6 +185,11 @@ export class ChatServer {
     get port(): number {
         const address = this.http.address();
         return typeof address === "object" && address !== null ? address.port : 0;
+    }
+
+    // The most unsent output any one connection holds, in bytes (tests)
+    get LargestBacklog(): number {
+        return Math.max(0, ...[...this.clients].map((Session) => Session.Socket.bufferedAmount));
     }
 
     async listen(port: number, host = "127.0.0.1"): Promise<void> {
@@ -207,10 +241,14 @@ export class ChatServer {
                 continue;
             }
 
-            if(Session.Uid === undefined && Now - Session.OpenedAt >= LOGIN_DEADLINE_MS){
+            if(this.isBacklogged(Session)){
+                this.end(Session, "backlog");
+            }
+            else if(Session.Uid === undefined && Now - Session.OpenedAt >= LOGIN_DEADLINE_MS){
                 this.end(Session, "timeout");
             }
-            else if(Session.Uid !== undefined && Session.Resource === undefined && Now - Session.OpenedAt >= BIND_DEADLINE_MS){
+            else if(Session.Uid !== undefined && Session.Resource === undefined && Now - (Session.LoggedInAt ?? Session.OpenedAt) >= BIND_DEADLINE_MS){
+                this.bindTimedOut(Session.Uid, Now);
                 this.end(Session, "timeout");
             }
             else if(Session.Resource !== undefined){
@@ -241,9 +279,10 @@ export class ChatServer {
         const Request_ = req as unknown as Request;
         const Address = ClientAddressOf(Request_);
         const Via = IsTrustedGatewayRequest(Request_) ? "gateway" : "direct";
-        const Unauthenticated = [...this.clients].filter((Session) => Session.Address === Address && Session.Uid === undefined).length;
+        // Not bound yet: still logging in, or logged in and not bound
+        const Unbound = [...this.clients].filter((Session) => Session.Address === Address && Session.Resource === undefined).length;
 
-        if(this.clients.size >= MAX_SOCKETS || Unauthenticated >= MAX_UNAUTHENTICATED_PER_ADDRESS){
+        if(this.clients.size >= MAX_SOCKETS || Unbound >= MAX_UNBOUND_PER_ADDRESS){
             if(this.logOnce(`busy|${Address}`)){
                 logger.warn(`chat: refused a connection from=${Address} via=${Via} (${this.clients.size >= MAX_SOCKETS ? "too many connections" : "too many logins in progress from this address"})`);
             }
@@ -271,6 +310,9 @@ export class ChatServer {
             OpenedAt: Now,
             Domain: DEFAULT_DOMAIN,
             Ended: false,
+            EarlyFrames: 0,
+            LoginFailed: false,
+            Backlogged: false,
             LastInbound: Now,
             Stanzas: NewBucket(STANZA_BURST, Now),
             Drops: [],
@@ -308,8 +350,16 @@ export class ChatServer {
         });
     }
 
+    // A client that does not read its output (it stopped, or floods us without reading) gets no more once
+    // OUTPUT_LIMIT bytes wait unsent; the session ends at the next frame or tick. Ending it here would
+    // change rooms in the middle of a fan-out.
     private send(Session: ChatSession, Stanza: string): void {
         if(Session.Socket.readyState !== WebSocket.OPEN){
+            return;
+        }
+
+        if(!Session.Ended && (Session.Backlogged || Session.Socket.bufferedAmount > this.outputLimit)){
+            Session.Backlogged = true;
             return;
         }
 
@@ -320,8 +370,13 @@ export class ChatServer {
         Session.Socket.send(Stanza);
     }
 
-    // Ends a session once. The server-side ends of an established session hold that account's next
-    // login back for 60 s (the game then backs off instead of reconnecting at once).
+    private isBacklogged(Session: ChatSession): boolean {
+        return Session.Backlogged || Session.Socket.bufferedAmount > this.outputLimit;
+    }
+
+    // Ends a session once. Replacement, abuse, an oversized frame and unread output hold that account's
+    // next login back for 60 s (the game then backs off instead of reconnecting at once); a ping timeout
+    // does not.
     private end(Session: ChatSession, Reason: EndReason): void {
         if(Session.Ended){
             return;
@@ -338,7 +393,7 @@ export class ChatServer {
 
             if(List.length > 0) this.byUid.set(Session.Uid, List); else this.byUid.delete(Session.Uid);
 
-            if(Reason === "ping-timeout" || Reason === "replaced" || Reason === "abuse" || Reason === "size"){
+            if(Reason === "replaced" || Reason === "abuse" || Reason === "size" || Reason === "backlog"){
                 this.throttledUids.set(Session.Uid, Now + UID_THROTTLE_MS);
             }
         }
@@ -367,6 +422,7 @@ export class ChatServer {
 
     // ---- Throttles and log limits ----
 
+    // At most LOG_ONCE_MAX keys are kept; past that the oldest goes first
     private logOnce(Key: string, WindowMs = LOG_ONCE_MS): boolean {
         const Now = this.clock();
         const Last = this.loggedOnce.get(Key);
@@ -375,8 +431,26 @@ export class ChatServer {
             return false;
         }
 
+        this.loggedOnce.delete(Key);
+
+        while(this.loggedOnce.size >= LOG_ONCE_MAX){
+            this.loggedOnce.delete(this.loggedOnce.keys().next().value!);
+        }
+
         this.loggedOnce.set(Key, Now);
         return true;
+    }
+
+    // Three logins of one account in 10 minutes that never bound: its logins wait 60 s
+    private bindTimedOut(Uid: string, Now: number): void {
+        const Recent = (this.bindTimeouts.get(Uid) ?? []).filter((At) => Now - At < BIND_TIMEOUT_WINDOW_MS);
+
+        Recent.push(Now);
+        this.bindTimeouts.set(Uid, Recent);
+
+        if(Recent.length >= BIND_TIMEOUT_LIMIT){
+            this.throttledUids.set(Uid, Now + UID_THROTTLE_MS);
+        }
     }
 
     private countFailure(Address: string, Now: number): void {
@@ -394,8 +468,8 @@ export class ChatServer {
         for(const [Key, Until] of this.throttledAddresses) if(Until <= Now) this.throttledAddresses.delete(Key);
         for(const [Key, Until] of this.throttledUids) if(Until <= Now) this.throttledUids.delete(Key);
         for(const [Key, At] of this.loggedOnce) if(Now - At >= LOG_ONCE_MS) this.loggedOnce.delete(Key);
-        for(const [Key, Times] of this.replacements){
-            if(Times.every((At) => Now - At >= LOOP_WINDOW_MS)) this.replacements.delete(Key);
+        for(const [Key, Times] of this.bindTimeouts){
+            if(Times.every((At) => Now - At >= BIND_TIMEOUT_WINDOW_MS)) this.bindTimeouts.delete(Key);
         }
         for(const [Key, Times] of this.saslFailures){
             const Recent = Times.filter((At) => Now - At < SASL_FAILURE_WINDOW_MS);
@@ -404,7 +478,7 @@ export class ChatServer {
         }
     }
 
-    private drop(Session: ChatSession, Reason: "parse" | "rate" | "unknown"): void {
+    private drop(Session: ChatSession, Reason: "parse" | "rate" | "unknown" | "refused"): void {
         const Now = this.clock();
 
         Session.Drops = Session.Drops.filter((At) => Now - At < ABUSE_WINDOW_MS);
@@ -435,6 +509,19 @@ export class ChatServer {
 
         if(this.trace){
             logger.info(`chat: trace c=${Session.Id} in ${RedactFrame(Raw)}`);
+        }
+
+        if(this.isBacklogged(Session)){
+            this.end(Session, "backlog");
+            return;
+        }
+
+        // Before login the game sends <open>, <auth> and, after a refused login, its legacy login: a few
+        // frames at most
+        if(Session.Uid === undefined && ++Session.EarlyFrames > MAX_FRAMES_BEFORE_LOGIN){
+            this.countFailure(Session.Address, Now);
+            this.end(Session, "refused");
+            return;
         }
 
         if(Session.Uid !== undefined && !TakeToken(Session.Stanzas, STANZA_BURST, STANZA_REFILL_MS, Now)){
@@ -536,6 +623,8 @@ export class ChatServer {
     }
 
     private refuseLogin(Session: ChatSession, Reason: string, Uid: string | undefined, Condition = "not-authorized"): void {
+        Session.LoginFailed = true;
+
         if(Reason !== "throttled"){
             this.countFailure(Session.Address, this.clock());
         }
@@ -550,6 +639,12 @@ export class ChatServer {
     private auth(Session: ChatSession, Node: Element): void {
         const Now = this.clock();
         const AddressUntil = this.throttledAddresses.get(Session.Address);
+
+        // One SASL attempt per connection: after a refusal the game tries its legacy login, never <auth>
+        if(Session.LoginFailed){
+            this.end(Session, "refused");
+            return;
+        }
 
         if(AddressUntil !== undefined && AddressUntil > Now){
             this.refuseLogin(Session, "throttled", undefined, "temporary-auth-failure");
@@ -607,8 +702,17 @@ export class ChatServer {
             return;
         }
 
+        // At most three connections per account, bound or not: past that the oldest one that has not bound
+        // goes (bound ones are limited to two at the bind)
+        const Mine = [...this.clients].filter((Other) => Other !== Session && !Other.Ended && Other.Uid === Uid);
+
+        for(const Old of Mine.filter((Other) => Other.Resource === undefined).slice(0, Math.max(0, Mine.length + 1 - MAX_CONNECTIONS_PER_ACCOUNT))){
+            this.end(Old, "replaced");
+        }
+
         Session.Uid = Uid;
         Session.NameAtLogin = Name;
+        Session.LoggedInAt = Now;
         logger.info(`chat: login ok c=${Session.Id} uid=${Uid}`);
         this.send(Session, `<success xmlns="${NS.SASL}"/>`);
     }
@@ -667,13 +771,13 @@ export class ChatServer {
         const Same = (this.byUid.get(Uid) ?? []).find((Other) => Other.Resource === Resource);
 
         if(Same !== undefined){
-            this.replace(Same);
+            this.end(Same, "replaced");
         }
 
         const Remaining = this.byUid.get(Uid) ?? [];
 
         if(Remaining.length >= MAX_SESSIONS_PER_ACCOUNT){
-            this.replace(Remaining.reduce((Oldest, Other) => Other.LastInbound < Oldest.LastInbound ? Other : Oldest));
+            this.end(Remaining.reduce((Oldest, Other) => Other.LastInbound < Oldest.LastInbound ? Other : Oldest), "replaced");
         }
 
         Session.Resource = Resource;
@@ -687,23 +791,6 @@ export class ChatServer {
                 this.ping(Other, GHOST_PING_MS);
             }
         }
-    }
-
-    // Ends an older session of the same account. More than 3 in 60 s is a reconnect loop: that account's
-    // logins are held back for 60 s, so the game waits 15-45 s before its next try.
-    private replace(Old: ChatSession): void {
-        const Uid = Old.Uid!;
-        const Now = this.clock();
-        const Recent = (this.replacements.get(Uid) ?? []).filter((At) => Now - At < LOOP_WINDOW_MS);
-
-        Recent.push(Now);
-        this.replacements.set(Uid, Recent);
-
-        if(Recent.length > LOOP_REPLACEMENTS && this.logOnce(`loop|${Uid}`, LOOP_WINDOW_MS)){
-            logger.warn(`chat: loop guard uid=${Uid} (${Recent.length} sessions replaced in 60 s); its logins wait 60 s`);
-        }
-
-        this.end(Old, "replaced");
     }
 
     // ---- Presence and messages ----
@@ -772,6 +859,16 @@ export class ChatServer {
         const Shown = IsAccountIdShape(Target) ? Target : "?";
         const Refused = (Reason: string) => logger.info(`chat: whisper from=${Uid} to=${Shown} len=${Length} reason=${Reason}`);
 
+        // Every whisper takes a token first, refused ones included, so its log lines are as limited as
+        // delivered ones
+        if(!TakeMessageToken(Session, this.clock())){
+            if(this.logOnce(`whisper-rate|${Session.Id}`, 60 * 1000)){
+                Refused("limit");
+            }
+
+            return;
+        }
+
         if(Length === 0 || Length > BODY_LIMIT){
             Refused("size");
             return;
@@ -779,14 +876,6 @@ export class ChatServer {
 
         if(Target === Uid){
             Refused("self");
-            return;
-        }
-
-        if(!TakeMessageToken(Session, this.clock())){
-            if(this.logOnce(`whisper-rate|${Session.Id}`, 60 * 1000)){
-                Refused("limit");
-            }
-
             return;
         }
 
@@ -836,8 +925,9 @@ export type ChatConfig = { Enabled: boolean, Port: number, Host: string, NickChe
 
 // CHAT=1 turns the listener on (off by default until the live two-player test passes). CHAT_PORT (61099)
 // and CHAT_BIND_HOST (127.0.0.1) say where; in public mode (GATEWAY_SECRET set) the gateway forwards to
-// 127.0.0.1 and nothing else is accepted. CHAT_NICK_CHECK=log admits room nicknames that fail the name
-// rules with a warning instead of refusing them (a rollback switch only). CHAT_TRACE=1 logs redacted frames.
+// 127.0.0.1 and nothing else is accepted. CHAT_NICK_CHECK=log admits room nicknames that fail the
+// resource, format or name rule with a warning instead of refusing them (a rollback switch only); another
+// account's id is refused either way. CHAT_TRACE=1 logs redacted frames.
 export function ReadChatConfig(Env: NodeJS.ProcessEnv = process.env): ChatConfig {
     const Errors: string[] = [];
     const Warnings: string[] = [];

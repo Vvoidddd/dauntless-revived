@@ -55,6 +55,13 @@ export function AttrOf(Node: Element, Name: string): string | undefined {
     return typeof Value === "string" ? Value : undefined;
 }
 
+// Client text for a log line: at most Max characters, anything but printable ASCII as "?"
+export function LogText(Text: string, Max = 80): string {
+    const Chars = [...Text];
+
+    return Chars.slice(0, Max).map((Char) => /^[\x21-\x7e]$/.test(Char) ? Char : "?").join("") + (Chars.length > Max ? "..." : "");
+}
+
 // A host name as the client can write it in <open to>: at most 253 characters of A-Z a-z 0-9 . -
 export function IsHostName(Value: unknown): Value is string {
     return typeof Value === "string" && Value.length > 0 && Value.length <= 253 && /^[A-Za-z0-9.-]+$/.test(Value);

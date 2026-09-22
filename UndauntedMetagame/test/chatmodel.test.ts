@@ -94,6 +94,32 @@ describe("the client model reproduces what the first chat server showed (pull re
         assert.ok(!Alpha.Log.some((Line) => Line.startsWith("could not get user id")));
     });
 
+    it("M9: one member per account: a lingering old connection's leave after the new one's join turns that player's lines to [unknown]", async () => {
+        const Res1 = "V2:MissingGameServiceForAppId:WIN::11111111111111111111111111111111";
+        const Res2 = "V2:MissingGameServiceForAppId:WIN::22222222222222222222222222222222";
+        const Occupant = (Resource: string, Unavailable = false) => `<presence${Unavailable ? ` type="unavailable"` : ""} from="${ROOM}@${MUC}/Bravo:${B}:${Resource}" to="x"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="none" role="${Unavailable ? "none" : "participant"}" jid="${B}@${DOMAIN}/${Resource}"/></x></presence>`;
+        const Line = `<message type="groupchat" from="${ROOM}@${MUC}/Bravo:${B}:${Res2}" to="x"><body>back</body></message>`;
+        const Joined = () => {
+            const Alpha = Model(A);
+
+            Alpha.JoinPublicRoom(ROOM, "Alpha");
+            Alpha.Receive(`<presence from="${ROOM}@${MUC}/${Alpha.Nickname("Alpha")}" to="x"><x xmlns="http://jabber.org/protocol/muc#user"><item affiliation="none" role="participant" jid="${A}@${DOMAIN}/${Alpha.Resource}"/><status code="110"/></x></presence>`);
+            Alpha.Receive(Occupant(Res1));
+            return Alpha;
+        };
+
+        // The new connection joins while the old one is still in the room, which leaves later
+        const Late = Joined();
+        Late.ReceiveAll([Occupant(Res2), Occupant(Res1, true), Line]);
+        assert.deepEqual(await Late.ShownLines(Lookup), ["[unknown]: back"]);
+
+        // The old one leaves first, then the new one joins
+        const Replaced = Joined();
+        Replaced.ReceiveAll([Occupant(Res1, true), Occupant(Res2), Line]);
+        assert.deepEqual(await Replaced.ShownLines(Lookup), ["Bravo: back"]);
+        assert.equal(Replaced.RoomOf(ROOM)!.Members.size, 2);
+    });
+
     it("the client's URL encoding: UTF-8, unreserved characters kept, %XX in upper case", () => {
         assert.equal(UrlEncode("Alpha_1"), "Alpha_1");
         assert.equal(UrlEncode("Söme Name:1"), "S%C3%B6me%20Name%3A1");

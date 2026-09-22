@@ -144,6 +144,7 @@ const OLD = "UID-chat-old";
 const OLD_NAME = "Sölve Ö"; // an older name outside today's username rules
 const LOOP = "UID-chat-loop";
 const FLOOD = "UID-chat-flood";
+const JOINS = "UID-chat-joins";
 let Now = Date.parse("2026-09-22T12:00:00Z");
 let Wire: ChatServer;
 let Logs: LogCapture;
@@ -190,7 +191,7 @@ describe("chat listener", () => {
         GetDb().insert(users).values([
             { userId: C, name: "Charlie", notes: 0, isAdmin: false }, { userId: D, name: "Delta", notes: 0, isAdmin: false },
             { userId: OLD, name: OLD_NAME, notes: 0, isAdmin: false }, { userId: LOOP, name: "Loop", notes: 0, isAdmin: false },
-            { userId: FLOOD, name: "Flood", notes: 0, isAdmin: false }
+            { userId: FLOOD, name: "Flood", notes: 0, isAdmin: false }, { userId: JOINS, name: "Joins", notes: 0, isAdmin: false }
         ]).run();
         Logs = CaptureLogs();
         Wire = new ChatServer({ Clock: () => Now, AutoTick: false });
@@ -329,32 +330,126 @@ describe("chat listener", () => {
             }
         });
 
-        it("hangs up on a connection that does not log in within 15 s, or bind within 30 s", async () => {
+        it("hangs up on a connection that does not log in within 15 s, or bind within 10 s of its login", async () => {
             const Silent = await Connected();
             Now += 15 * 1000;
             Wire.Tick();
             await Silent.Closed;
 
             const Unbound = await Connected();
+            Now += 12 * 1000;
             assert.match(await SaslAnswer(Unbound, Base64Plain("", C, SignMetagameJWTForUid(C))), /<success/);
-            Now += 29 * 1000;
+            Now += 9 * 1000;
             Wire.Tick();
-            assert.ok(Unbound.IsOpen);
+            assert.ok(Unbound.IsOpen, "10 s from the login, not from the connection");
             Now += 1000;
             Wire.Tick();
             await Unbound.Closed;
         });
+
+        it("before login: a few frames only, and one SASL attempt per connection", async () => {
+            // A flood of <open/> that is never read: the connection ends at the fifth frame, having been
+            // answered four times
+            const Before = Logs.Lines.length;
+            const Flood = await Connected();
+            Flood.Socket.pause();
+            for(let Index = 0; Index < 200; Index++) Flood.Send(`<open xmlns="${FRAMING}" to="${DOMAIN}" version="1.0"/>`);
+            await new Promise((Resolve) => setTimeout(Resolve, 200));
+            assert.ok(Logs.Lines.slice(Before).some((Line) => /^info chat: closed c=\d+ uid=- reason=refused after=\d+s$/.test(Line)));
+            Flood.Socket.resume();
+            await Flood.Closed;
+            assert.ok(Flood.Frames.length <= 8, "at most two frames for each of the first four");
+
+            // A second <auth> after a refused one ends the connection
+            const Twice = await Connected();
+            assert.match(await SaslAnswer(Twice, Base64Plain("", C, SignMetagameJWTForUid(D))), /not-authorized/);
+            SECRET_MARKERS.push(Base64Plain("", C, SignMetagameJWTForUid(C)));
+            Twice.Send(`<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">${Base64Plain("", C, SignMetagameJWTForUid(C))}</auth>`);
+            assert.equal(await Twice.Next(), undefined, "closed without an answer");
+        });
+
+        it("one account has at most three connections: a new login closes the oldest one that has not bound", async () => {
+            const Own = new ChatServer({ Clock: () => Now, AutoTick: false });
+            await Own.listen(0);
+
+            try{
+                const Pending: WireClient[] = [];
+
+                for(let Index = 0; Index < 5; Index++){
+                    const Client = await Connected(Own);
+                    assert.match(await SaslAnswer(Client, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /<success/);
+                    Pending.push(Client);
+                }
+
+                await Pending[0].Closed;
+                await Pending[1].Closed;
+                assert.ok(Pending.slice(2).every((Client) => Client.IsOpen), "the three newest stay");
+
+                // They count toward the address's limit of 8 unfinished logins until they bind
+                const More: WireClient[] = [];
+                for(let Index = 0; Index < 5; Index++) More.push(await Connected(Own));
+                await assert.rejects(Connected(Own), /503/);
+
+                // Binding the same resource replaces the older session; the account's next login then waits 60 s
+                const Resource = GameResource();
+                for(const Client of Pending.slice(2)){
+                    Client.Send(`<open xmlns="${FRAMING}" to="${DOMAIN}" version="1.0"/>`);
+                    await Client.Expect();
+                    await Client.Expect();
+                    Client.Send(`<iq type="set" id="_xmpp_bind1"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind"><resource>${Resource}</resource></bind></iq>`);
+                    await Client.Expect("bind");
+                }
+
+                assert.ok(Pending[4].IsOpen);
+                const Held = await Connected(Own);
+                assert.match(await SaslAnswer(Held, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /temporary-auth-failure/);
+                for(const Client of [...More, Held]) Client.Close();
+            }
+            finally{
+                await Own.close();
+            }
+        });
+
+        it("three logins of one account in 10 minutes that never bind hold its logins back for 60 s", async () => {
+            const Own = new ChatServer({ Clock: () => Now, AutoTick: false });
+            await Own.listen(0);
+
+            try{
+                for(let Index = 0; Index < 3; Index++){
+                    const Client = await Connected(Own);
+                    assert.match(await SaslAnswer(Client, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /<success/);
+                    Now += 10 * 1000;
+                    Own.Tick();
+                    await Client.Closed;
+                }
+
+                const Held = await Connected(Own);
+                assert.match(await SaslAnswer(Held, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /temporary-auth-failure/);
+                Held.Close();
+                Now += 60 * 1000;
+                Own.Tick();
+                const Later = await Login(Own.port, LOOP);
+                await Later.Logout();
+            }
+            finally{
+                await Own.close();
+            }
+        });
     });
 
     describe("liveness", () => {
-        it("pings a connection that was silent for 50 s, keeps it when it answers, and ends it 30 s after an unanswered ping", async () => {
+        it("pings a connection that was silent for 50 s, keeps it when it answers late (a long map load), and ends it 100 s after an unanswered ping", async () => {
             const Client = await SignedIn(C);
             Client.AutoPong = false;
             Now += 50 * 1000;
             Wire.Tick();
 
+            // The game answers from its game-thread tick, which a map load holds up: 99 s later is in time
             const Ping = await Client.Expect("server ping");
             assert.match(Ping, new RegExp(`^<iq xmlns="jabber:client" type="get" id="(sp\\d+)" from="${DOMAIN}" to="${C}@${DOMAIN}/${Client.Resource}"><ping xmlns="urn:xmpp:ping"/></iq>$`));
+            Now += 99 * 1000;
+            Wire.Tick();
+            assert.ok(Client.IsOpen, "still waiting for the answer");
             Client.Send(`<iq type="result" id="${/id="(sp\d+)"/.exec(Ping)![1]}"/>`);
             await Client.Barrier();
             Now += 30 * 1000;
@@ -364,17 +459,15 @@ describe("chat listener", () => {
             Now += 20 * 1000;
             Wire.Tick();
             await Client.Expect("second ping");
-            Now += 30 * 1000;
+            Now += 99 * 1000;
+            Wire.Tick();
+            assert.ok(Client.IsOpen);
+            Now += 1000;
             Wire.Tick();
             await Client.Closed;
             assert.ok(Logs.Lines.some((Line) => /chat: closed c=\d+ uid=UID-chat-c reason=ping-timeout/.test(Line)));
 
-            // The account's next login within 60 s waits (the game backs off 15-45 s instead of looping)
-            const Next = await Connected();
-            assert.equal(await SaslAnswer(Next, Base64Plain("", C, SignMetagameJWTForUid(C))), `<failure xmlns="urn:ietf:params:xml:ns:xmpp-sasl"><temporary-auth-failure/></failure>`);
-            Next.Close();
-            Now += 60 * 1000;
-            Wire.Tick();
+            // A ping timeout does not hold the account's next login back: one reconnect is not a loop
             Opened.push(await Login(Wire.port, C));
         });
     });
@@ -435,6 +528,56 @@ describe("chat listener", () => {
                 await assert.rejects(Connected(Own), /503/);
 
                 for(const Client of Pending) Client.Close();
+            }
+            finally{
+                await Own.close();
+            }
+        });
+
+        it("a player who stops reading: at most the cap of unsent output is held for it, then it ends (backlog) and its logins wait 60 s", async () => {
+            const Limit = 64 * 1024;
+            const Own = new ChatServer({ Clock: () => Now, AutoTick: false, OutputLimit: Limit });
+            await Own.listen(0);
+
+            try{
+                const Room = `City-backlog@muc.${DOMAIN}`;
+                const Slow = await Login(Own.port, C);
+                const Fast = await Login(Own.port, D);
+                Opened.push(Slow, Fast);
+
+                for(const [Client, Name] of [[Slow, "Charlie"], [Fast, "Delta"]] as const){
+                    Client.Send(`<presence to="${EscapeXml(`${Room}/${Name}:${Client.Uid}:${Client.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                    await Client.Barrier();
+                }
+
+                await Slow.Barrier();
+                Slow.Socket.pause();
+                const Big = EscapeXml("<".repeat(2048));
+                const Ended = () => Logs.Lines.some((Line) => new RegExp(`^info chat: closed c=\\d+ uid=${C} reason=backlog`).test(Line));
+                let Largest = 0;
+
+                for(let Round = 0; Round < 400 && !Ended(); Round++){
+                    for(let Index = 0; Index < 8; Index++){
+                        Fast.Send(`<message type="groupchat" to="${Room}" id="bl${Round}-${Index}"><body>${Big}</body></message>`);
+                    }
+
+                    await Fast.Barrier();
+                    Largest = Math.max(Largest, Own.LargestBacklog);
+                    // Still talking, so it is neither idle nor pinged; its next frame is where the server checks
+                    Slow.Send(`<iq type="get" id="alive${Round}"><ping xmlns="urn:xmpp:ping"/></iq>`);
+                    await new Promise((Resolve) => setImmediate(Resolve));
+                    Now += 8 * 1000;
+                }
+
+                assert.ok(Ended(), "ended for its backlog");
+                assert.ok(Largest <= Limit + 9 * 1024, `held ${Largest} bytes`);
+                Slow.Socket.resume();
+                await Slow.Closed;
+                assert.ok(Fast.IsOpen, "the others chat on");
+
+                const Next = await Connected(Own);
+                assert.match(await SaslAnswer(Next, Base64Plain("", C, SignMetagameJWTForUid(C))), /temporary-auth-failure/);
+                Next.Close();
             }
             finally{
                 await Own.close();
@@ -671,25 +814,33 @@ describe("chat listener", () => {
             assert.ok(Logs.Lines.some((Line) => Line === `info chat: join room=Hunt-23 uid=${A} name=Alpha occupants=0`));
         });
 
-        it("CHAT_NICK_CHECK=log admits a bad nickname with a warning, but a nickname held by another session is a conflict", async () => {
+        it("CHAT_NICK_CHECK=log admits a bad name or resource with a warning, but never another account's id", async () => {
             const Lenient = new ChatServer({ Clock: () => Now, AutoTick: false, NickCheck: "log" });
             await Lenient.listen(0);
 
             try{
                 const Alpha = await Login(Lenient.port, A);
                 const Bravo = await Login(Lenient.port, B);
-                const Taken = `Alpha:${A}:${Alpha.Resource}`;
 
                 Alpha.Send(`<presence to="${EscapeXml(`Hunt-30@${MUC_DOMAIN}/Somebody:${A}:${Alpha.Resource}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
                 assert.match((await Alpha.Barrier()).at(-1)!, /<status code="110"\/>/, "admitted");
                 assert.ok(Logs.Lines.some((Line) => Line === `warn chat: join nickname not checked room=Hunt-30 uid=${A} reason=nick-name (CHAT_NICK_CHECK=log)`));
 
-                Alpha.Send(`<presence to="${EscapeXml(`Hunt-31@${MUC_DOMAIN}/${Taken}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
-                await Alpha.Barrier();
-                Bravo.Send(`<presence to="${EscapeXml(`Hunt-31@${MUC_DOMAIN}/${Taken}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
-                const Refused = await Bravo.Barrier();
-                assert.equal(Refused.length, 1);
-                assert.match(Refused[0], /<error type="cancel"><conflict xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/);
+                Alpha.Send(`<presence to="${EscapeXml(`Hunt-32@${MUC_DOMAIN}/Alpha:${A}:V2:Other:WIN::0`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                assert.match((await Alpha.Barrier()).at(-1)!, /<status code="110"\/>/, "another resource is admitted");
+
+                // Another account's id: refused in log mode too, as part 2 or anywhere else in the nickname
+                for(const [Room, Nick] of [["Hunt-31", `Alpha:${A}:${Alpha.Resource}`], ["Hunt-33", `${A}:${B}:${Bravo.Resource}`], ["Hunt-34", `Bravo`]]){
+                    Bravo.Send(`<presence to="${EscapeXml(`${Room}@${MUC_DOMAIN}/${Nick}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
+                    const Refused = await Bravo.Barrier();
+                    assert.equal(Refused.length, 1, Nick);
+                    assert.match(Refused[0], /<error type="auth"><forbidden xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/, Nick);
+                }
+
+                // Logged once per connection, room kind and reason
+                assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=Hunt-31 uid=${B} reason=nick-account`));
+                assert.ok(!Logs.Lines.some((Line) => Line.startsWith(`info chat: join refused room=Hunt-33 `)));
+
                 await Alpha.Logout();
                 await Bravo.Logout();
             }
@@ -723,25 +874,32 @@ describe("chat listener", () => {
             assert.ok(Logs.Lines.some((Line) => Line === `info chat: whisper from=${A} to=${B} len=11 delivered=2`));
         });
 
-        it("two sessions of one account never see each other in a room; a third replaces the silent one; a ghost is pinged out in 10 s", async () => {
+        it("two sessions of one account never see each other; the newer takes a room over; a third replaces the silent one; a ghost is pinged out in 10 s", async () => {
             const First = await Player(D, "Delta");
             const Second = await Player(D, "Delta");
             const Room = "City-7d1f0000-0000-4000-8000-00000000000d";
+            const Other = "City-7d1f0000-0000-4000-8000-00000000000e";
 
             JoinAs(First, Room);
             await Settle(First);
             JoinAs(Second, Room);
             const [ForSecond, ForFirst] = await Settle(Second, First);
             assert.equal(ForSecond.length, 1, "only its own presence");
-            assert.equal(ForFirst.length, 0, "nothing about the other session");
+            assert.equal(ForFirst.length, 0, "nothing about the other session, not even that it lost the room");
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: leave room=${Room} uid=${D} reason=replaced`));
 
             First.Wire.Send(First.Model.RoomMessage(Room, "marker-same", "s1"));
-            const [Mine, Other] = await Settle(First, Second);
-            assert.equal(Mine.length, 1, "its own line comes back");
-            assert.equal(Other.length, 0, "the other session hears nothing");
+            const [Mine, Theirs] = await Settle(First, Second);
+            assert.deepEqual(Mine.map((Frame) => /type="(\w+)"/.exec(Frame)![1]), ["error"], "the older session is no longer in the room");
+            assert.equal(Theirs.length, 0, "the other session hears nothing");
 
-            First.Wire.Send(First.Model.ExitRoom(Room)!);
-            assert.equal((await Settle(Second, First))[0].length, 0, "a leave is not told to the other session");
+            // In a room of its own, the older one still chats; the other session hears nothing of it
+            JoinAs(First, Other);
+            await Settle(First);
+            First.Wire.Send(First.Model.RoomMessage(Other, "marker-own", "s2"));
+            const [MineAgain, TheirsAgain] = await Settle(First, Second);
+            assert.equal(MineAgain.length, 1, "its own line comes back");
+            assert.equal(TheirsAgain.length, 0);
 
             // A third session: the one silent longest goes (reason replaced), and the new bind pings the
             // other one, which is ended as a ghost when it stays silent for 10 s
@@ -757,39 +915,63 @@ describe("chat listener", () => {
             assert.ok(Logs.Lines.some((Line) => /chat: closed c=\d+ uid=UID-chat-d reason=ping-timeout/.test(Line)));
             assert.ok(Third.Wire.IsOpen);
 
-            // Either end holds the account's next login back for 60 s
+            // The replacement holds the account's next login back for 60 s (the ping timeout would not)
             await assert.rejects(Player(D, "Delta"), /was refused/);
         });
 
-        it("the loop guard: more than 3 replacements in 60 s", async () => {
-            const Own = new ChatServer({ Clock: () => Now, AutoTick: false });
-            await Own.listen(0);
+        it("a reconnect while the old connection lingers: the new one takes the room over, and the others keep the name", async () => {
+            // The client keeps one room member per account id (0x1408fe300) and removes it by the account id
+            // in a leaving nickname (0x1408c0680 -> 0x1408e1ce0). If the old connection stayed in the room
+            // until its ping timeout, its leave would remove the member the new connection had just
+            // updated, and every later line of that player would show as [unknown] to the others.
+            const Alpha = await Player(A, "Alpha");
+            const Bravo1 = await Player(B, "Bravo");
+            const Room = "City-7d1f0000-0000-4000-8000-0000000000b2";
 
-            try{
-                const Resource = GameResource();
-                const Racers: WireClient[] = [];
+            JoinAs(Alpha, Room);
+            await Settle(Alpha);
+            JoinAs(Bravo1, Room);
+            await Settle(Bravo1, Alpha);
 
-                // Five connections of one account log in first, then all bind the same resource
-                for(let Index = 0; Index < 5; Index++){
-                    const Racer = await Connected(Own);
-                    assert.match(await SaslAnswer(Racer, Base64Plain("", LOOP, SignMetagameJWTForUid(LOOP))), /<success/);
-                    Racer.Send(`<open xmlns="${FRAMING}" to="${DOMAIN}" version="1.0"/>`);
-                    await Racer.Expect();
-                    await Racer.Expect();
-                    Racers.push(Racer);
-                }
+            // B's connection drops without a close; the game reconnects and joins the room again
+            Bravo1.Wire.AutoPong = false;
+            const Seen = Bravo1.Wire.Frames.length;
+            const Bravo2 = await Player(B, "Bravo");
+            JoinAs(Bravo2, Room);
+            const [ForBravo2, ForAlpha] = await Settle(Bravo2, Alpha);
+            assert.deepEqual(ForAlpha, [Unavailable(Room, Bravo1.Model.Nickname("Bravo"), Bravo1, Alpha), Presence(Room, Bravo2.Model.Nickname("Bravo"), Bravo2, Alpha)], "the old one leaves first, then the new one comes");
+            assert.deepEqual(ForBravo2, [Presence(Room, Alpha.Model.Nickname("Alpha"), Alpha, Bravo2), Presence(Room, Bravo2.Model.Nickname("Bravo"), Bravo2, Bravo2, true)]);
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: leave room=${Room} uid=${B} reason=replaced`));
 
-                for(const Racer of Racers){
-                    Racer.Send(`<iq type="set" id="_xmpp_bind1"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind"><resource>${Resource}</resource></bind></iq>`);
-                    await Racer.Expect("bind");
-                }
+            // The old connection is pinged out 10 s later; nobody hears of it again
+            Now += 10 * 1000;
+            Wire.Tick();
+            await Bravo1.Wire.Closed;
+            await new Promise((Resolve) => setTimeout(Resolve, 50));
+            assert.ok(!Bravo1.Wire.Frames.slice(Seen).some((Frame) => Frame.includes(Room)), "the old connection is not told");
+            assert.deepEqual((await Settle(Alpha))[0], [], "no second leave");
 
-                assert.ok(Logs.Lines.some((Line) => Line.startsWith(`warn chat: loop guard uid=${LOOP} (4 sessions replaced in 60 s)`)));
+            Bravo2.Wire.Send(Bravo2.Model.RoomMessage(Room, "marker-back", "rb1"));
+            await Settle(Bravo2, Alpha);
+            assert.deepEqual(await Alpha.Model.ShownLines(Lookup), ["Bravo: marker-back"]);
+            assert.deepEqual(await Bravo2.Model.ShownLines(Lookup), ["Bravo: marker-back"]);
+        });
+
+        it("a flood of refused joins: each takes a join token and counts toward the abuse limit; the log says it once per room kind and reason, with the room name cut", async () => {
+            const Joiner = await Player(JOINS, "Joins");
+            const Before = Logs.Lines.length;
+            const Long = `Lobby-${"x".repeat(1800)}`;
+
+            for(let Index = 0; Index < 150; Index++){
+                Joiner.Wire.Send(`<presence to="${EscapeXml(`${Long}${Index}@${MUC_DOMAIN}/${Joiner.Model.Nickname("Joins")}`)}"><x xmlns="http://jabber.org/protocol/muc"/></presence>`);
             }
-            finally{
-                for(const Client of Opened.splice(0)) Client.Close();
-                await Own.close();
-            }
+
+            await Joiner.Wire.Closed;
+            const Lines = Logs.Lines.slice(Before);
+            const Refused = Lines.filter((Line) => Line.includes("chat: join refused"));
+            assert.deepEqual(Refused.map((Line) => /reason=(\S+)$/.exec(Line)![1]), ["not-allowed", "limit"], "the first ten take the burst, the rest are over the rate");
+            assert.ok(Refused.every((Line) => Line.includes(`room=Lobby-${"x".repeat(74)}... `)), "the room name is cut to 80 characters");
+            assert.ok(Lines.some((Line) => /^info chat: closed c=\d+ uid=UID-chat-joins reason=abuse/.test(Line)));
         });
 
         it("limits: a 2049-character body and a message burst get the room error; a stanza flood ends the session and holds its logins", async () => {
@@ -942,6 +1124,9 @@ describe("chat listener", () => {
                 assert.match(Frames[0], /<error type="cancel"><not-allowed xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"\/><\/error>/, Room);
             }
 
+            // Refused joins take join tokens too; a minute later the burst is full again
+            Now += 61 * 1000;
+
             for(let Index = 1; Index <= 8; Index++){
                 JoinAs(Alpha, `City-room${Index}`);
                 await Settle(Alpha);
@@ -963,7 +1148,12 @@ describe("chat listener", () => {
             JoinAs(Alpha, "City-room11");
             const [Eleventh] = await Settle(Alpha);
             assert.match(Eleventh[0], /<error type="wait"><service-unavailable/);
-            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=City-room11 uid=${A} reason=limit`));
+
+            // Each is logged once per connection, room kind and reason
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=Lobby-x uid=${A} reason=not-allowed`));
+            assert.ok(!Logs.Lines.some((Line) => Line === `info chat: join refused room=party-x uid=${A} reason=not-allowed`));
+            assert.ok(Logs.Lines.some((Line) => Line === `info chat: join refused room=City-room9 uid=${A} reason=limit`));
+            assert.ok(!Logs.Lines.some((Line) => Line === `info chat: join refused room=City-room11 uid=${A} reason=limit`));
         });
 
         it("blocks: a room line skips whoever blocked its sender; whispers need neither player to have blocked the other", async () => {
