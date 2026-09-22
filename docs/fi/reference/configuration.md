@@ -124,6 +124,8 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | `ACCOUNT_DISPLAY_NAME` | metagame | päällä | `0` | Oikeat käyttäjänimet tili- ja ryhmävastauksissa. |
 | `ACCOUNT_MAPPING` | metagame | päällä | `0` | Tilien yhdistäminen kaverin lisäämistä ja nimellä kutsumista varten. `0` ei yhdistä mitään, kuten ennen. |
 | `GUILDS` | metagame | päällä | `0` | Kiltareitit. `0` palauttaa vanhat tyngät: kukaan ei voi perustaa kiltaa tai liittyä siihen. |
+| `GUILD_RESERVED_NAMES` | metagame | päällä | `0` | Henkilökunnan ja projektin sanat torjutaan kiltojen nimissä ja nimikylteissä. |
+| `PARTY_SOLO_STUB` | metagame | päällä (alkuperäisen projektin paikkamerkki yhden hengen ryhmälle) | `0` | `0`, jos Invite to Party ei tee mitään yksin olevalle pelaajalle. |
 | `PROGRESSION_CONFIRM` | metagame | päällä | `off` | Vain vianetsintään. |
 | `LOG_REQUESTS` | metagame | päällä | `0` | Pyyntöloki on tärkein vianetsintävälineemme; pidä se päällä. |
 | `GATEWAY_ALLOWLIST` | yhdyskäytävä | päällä | `0` | Hätäkatkaisin: kun se on pois päältä, kenenkään peliportit eivät aukea. |
@@ -135,6 +137,7 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 |:-------|:----|:------------|:------------------------|
 | `MATCHMAKING_CANCEL` | metagame | `1` | Kokeellinen. Peliohjelma lähettää perumisen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että perumiseen vastataan 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | Vain paluuta varten: alkuperäisen projektin tilitietovastaus, joka piilottaa muut pelaajat (ryhmäkutsut eivät koskaan näy). |
+| `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Heikompi tarkistus killan perustamiselle, vain jos oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä. |
 | `INVENTORY_REFUSE_OVERSPEND` | metagame | `1` | Todistamaton. Torjunta hylkää koko tavarapyynnön palkintoineen, eikä yhtään metsästyksen lopun pyyntöä ole vielä tarkistettu sitä vasten. |
 | `PROGRESSION_ALLOW_DELETE` | metagame | `1` | Antaa minkä tahansa pelipalvelinkutsun pyyhkiä pelaajan etenemisradan. |
 | `DB_WAL` | metagame | `1` | Ohjeiden varmuuskopiot kopioivat pelkän tietokantatiedoston. |
@@ -262,6 +265,9 @@ kertoo, mitä kukin vastaus tekee pelissä.
 | `GUILD_MAX_MEMBERS` | `100` (myös, jos arvo ei ole kokonaisluku 1–10000) | kokonaisluku | Jäseniä kiltaa kohden. Peliohjelma näyttää tämän luvun ja jäljellä olevat vapaat paikat. | Oletuksena ei kukaan |
 | `GUILD_INVITE_TTL_DAYS` | `7` (myös, jos arvo ei ole luku väliltä yli 0 ja enintään 365) | päiviä | Kuinka kauan kiltakutsu on voimassa. | Oletuksena ei kukaan |
 | `GUILD_NAME_DENYLIST` | tyhjä | pilkuilla erotettuja sanoja | Sanat, jotka torjutaan kiltojen nimissä ja nimikylteissä lyhyen sisäänrakennetun listan lisäksi. Sana löydetään mistä kohtaa nimeä tahansa kirjainkoosta riippumatta, kun numerokorvaukset (kuten `0` kirjaimen `o` tilalla) on purettu. | Oletuksena ei kukaan |
+| `GUILD_RESERVED_NAMES` | päällä | `0` tai mikä tahansa muu | Henkilökunnan ja projektin sanat (kuten `admin`, `moderator`, `official` sekä nimikyltit `GM`, `DEV` ja `MOD`) vastaavat "already in use", joten mikään kilta ei voi esiintyä palvelimen henkilökuntana. `0` sallii ne, esimerkiksi virallisen killan perustamista varten; lyhyet loukkaavat tunnukset torjutaan silti. Listat ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds). | Oletuksena ei kukaan |
+| `GUILD_CREATE_ACTIVITY_FALLBACK` | pois | `1` tai mikä tahansa muu | Pelipalvelimen lähettämä killan perustaminen hyväksytään vain, jos johtaja on tarkistanut juuri tämän nimen ja nimikyltin omalla tunnisteellaan viimeisten 15 minuutin aikana. `1` hyväksyy myös johtajan, joka tarkisti jonkin toisen nimen tai näkyi palvelimelle viimeisen minuutin aikana, ja kirjaa lokiin varoituksen. Vain siltä varalta, että oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä (torjunta kirjataan tekstillä "no validate of this name"); päällä ollessaan muokattu peliohjelma voisi nimetä toisen paikalla olevan pelaajan killan johtajaksi. | Oletuksena ei kukaan |
+| `PARTY_SOLO_STUB` | päällä | `0` tai mikä tahansa muu | Yksin ryhmässään oleva pelaaja saa alkuperäisen projektin paikkamerkkiehdokkaan (`QUEUED_FOR_START`), jonka on todettu olevan harmiton metsästyksiin jonottamiselle. Peliohjelma ei lähetä ryhmäkutsua, kun se luulee ryhmänsä olevan jonossa; jos Invite to Party ei tee mitään yksin olevalle pelaajalle (lokiin ei tule riviä `party: invite`), `0` vastaa yhden hengen ryhmälle ilman ehdokasta. | Oletuksena ei kukaan |
 
 ### Yhteensopivuuskytkimet {#metagame-compatibility}
 

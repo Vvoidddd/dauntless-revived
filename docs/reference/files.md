@@ -365,7 +365,7 @@ and change these tables; see [HTTP API]({{ api_page.url | relative_url }}).
 | Table | What it stores |
 |:------|:---------------|
 | `friendships` | One row per pair of accounts (the two ids sorted), who sent the request, `PENDING` or `ACCEPTED`, and the times in milliseconds. At most 200 per account. |
-| `blocks` | Who blocked whom, and when. A block removes the friendship and stops friend requests, party invites and guild invites both ways. At most 200 per account. |
+| `blocks` | Who blocked whom, and when. A block removes the friendship and the pending party and guild invites between the two, and stops friend requests, party invites and guild invites both ways. At most 200 per account. |
 
 ### Guilds
 
@@ -373,7 +373,7 @@ and change these tables; see [HTTP API]({{ api_page.url | relative_url }}).
 |:------|:---------------|
 | `guilds` | One row per guild: `guildId` (a random UUID), `name`, `nameplate` (the tag, may be empty), lower-case copies `nameKey` and `nameplateKey` with unique indexes (so names and tags are unique regardless of case; an empty tag is stored as NULL there), `leaderId`, and the times in milliseconds. |
 | `guildmembers` | One row per member, keyed by account (one guild per account): `guildId`, `rank` (`Leader`, `Officer` or `Member`) and the times. The leader's row always matches `guilds.leaderId`. |
-| `guildinvites` | Open invites: `inviteId` (a random UUID, the id the client accepts or declines), `guildId`, the invited and the inviting account, and when it was made and expires. One per guild and invited player. Expired rows are ignored and deleted at most once a minute. |
+| `guildinvites` | Open invites: `inviteId` (a random UUID, the id the client accepts or declines), `guildId`, the invited and the inviting account, and when it was made and expires. One per guild and invited player. Expired rows are ignored and deleted at most once a minute. A block deletes the rows between the two players, and an Officer's rows go when the Officer is demoted to Member, kicked or leaves; rows between blocked players or from someone who may no longer invite are ignored and deleted when accepted. |
 
 A disband deletes the guild's rows in all three tables. The admin routes `Guilds` and `DisbandGuild`
 list and remove guilds; see [HTTP API]({{ api_page.url | relative_url }}#guilds).
@@ -384,8 +384,10 @@ These are **lost when the metagame restarts**:
 
 - matchmaking queues and results (who waits for which hunt, and where to connect);
 - parties, party invites and party searches;
-- the friend-request rate window, guild name validations (15 minutes) and the guild creation and
-  invite rate windows;
+- the friend-request rate window, guild name validations (15 minutes, the last five per player), the
+  guild creation and invite rate windows, the 24-hour pause on re-inviting a player who declined a
+  guild's invite, and the party invite limits (20 per sender in 10 minutes, the 2-minute pause after a
+  decline);
 - who is online and where (a player counts as online for 90 seconds after their game's last heartbeat);
 - a registration mode changed through `POST /undaunted/api/RegistrationStatus`: after a restart the
   `REGISTRATION_MODE` from the settings file applies again;

@@ -343,6 +343,56 @@ Palvelin, jolla oli pelaajia jo ennen kuin oikeasta etenemisestä tuli oletus, a
 Slayer-tasolta 1. [Päivitysohjeissa]({{ upgrade_page.url | relative_url }}) kerrotaan vaihtoehdot, ja
 niissä on pieni skripti molempia reittejä varten.
 
+### Sosiaaliset varareitit palvelimella (vain forkissa) {#social}
+
+Kaverit, ryhmät ja killat toimivat itse pelissä; katso
+[Liity kaverina]({{ friends_page.url | relative_url }}#friends-parties-and-guilds). Nämä viisi reittiä
+tekevät samat asiat nimellä palvelimelta, jos pelin omat valikot pettävät (esimerkiksi ensimmäisessä
+oikeassa testissä). Kuten kaikki ylläpitokutsut, ne toimivat vain suoraan metagamea vastaan, eivät
+koskaan yhdyskäytävän kautta. `PartyInvite`, `Friends` ja `GuildInvite` toimivat avaimen omistajan
+nimissä; ylläpitäjän avaimella voi nimetä toisen pelaajan kentässä `From`.
+
+| Metodi ja polku | Tunnistus | Mitä se tekee |
+|:----------------|:----------|:--------------|
+| `POST /PartyInvite` | tiliavain (ylläpitäjä `From`-kentälle) | Runko `{ "Username", "From" }`: kutsuu pelaajan lähettäjän ryhmään pelin omin tarkistuksin. Pelaaja hyväksyy silti pelissä (PARTY INVITES, noin 10 sekunnin kuluessa). Vastaa `{ "From", "To" }`. |
+| `POST /Friends` | tiliavain (ylläpitäjä `From`-kentälle) | Runko `{ "Username", "From" }`: lähettää kaveripyynnön tai hyväksyy sen, jonka pelaaja lähetti. Vastaa `{ "From", "To", "Result" }`. Toinen pelaaja näkee sen seuraavalla kirjautumisellaan. |
+| `POST /GuildInvite` | tiliavain (ylläpitäjä `From`-kentälle) | Runko `{ "Username", "From" }`: kutsuu pelaajan lähettäjän kiltaan (lähettäjän on oltava sen johtaja tai upseeri). Pelaaja hyväksyy kohdassa GUILD INVITES seuraavalla kirjautumisellaan tai maailman latautuessa. Vastaa `{ "From", "To", "Guild" }`. |
+| `GET /Guilds` | ylläpitäjä | Kaikki killat: `[{ "guildId", "name", "nameplate", "leader", "members" }]`, jossa `members` on lukumäärä. |
+| `POST /DisbandGuild` | ylläpitäjä | Runko `{ "Guild" }`, tunnus tai nimi missä tahansa kirjainkoossa: poistaa killan, sen jäsenet ja kutsut. Vastaa `{ "Guild", "Members" }`. |
+
+```powershell
+$M = "127.0.0.1:61000"    # vuokrapalvelimella; yksityisessä tilassa Tailscale-osoite
+$h = @{ "x-undaunted-user-api-key" = (Get-Content C:\dr\data\owner.key -Raw).Trim() }
+$json = @{ ContentType = "application/json"; Headers = $h; TimeoutSec = 10 }
+
+# kutsu kaveri ryhmääsi, lähetä kaveripyyntö, kutsu kiltaasi
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/PartyInvite" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/Friends" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/GuildInvite" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+
+# ylläpitäjänä toisen pelaajan puolesta: Friend2 kutsuu Friendin Friend2:n ryhmään
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/PartyInvite" @json -Body (@{ Username = "Friend"; From = "Friend2" } | ConvertTo-Json)
+
+# listaa killat ja poista yksi
+Invoke-RestMethod -Uri "http://$M/undaunted/api/Guilds" -Headers $h -TimeoutSec 10
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/DisbandGuild" @json -Body (@{ Guild = "SomeGuild" } | ConvertTo-Json)
+```
+
+Torjunta on 4xx-vastaus muodossa `{ "error", "message" }`. `Invoke-RestMethod` heittää siitä
+poikkeuksen; viesti on kohdassa `$_.ErrorDetails.Message`.
+
+| Reitti | `error` | Tilakoodi | Merkitys |
+|:-------|:--------|:----------|:---------|
+| kaikki viisi | ei mitään (tyhjä runko) | 401 | Ei avainta tai tuntematon avain. |
+| kaikki viisi | ei mitään (tyhjä runko) | 403 | Ylläpitäjän avain välityspalvelimen kautta; reiteillä `Guilds` ja `DisbandGuild` avain, joka ei ole ylläpitäjän. |
+| `PartyInvite`, `Friends`, `GuildInvite` | `forbidden` | 403 | `From` avaimella, joka ei ole ylläpitäjän. |
+| `PartyInvite`, `Friends`, `GuildInvite` | `not_found` | 404 | Ei tiliä nimellä `Username` (tai `From`). |
+| `PartyInvite` | `party_invite_refused` | 403, 404 tai 409 | Pelin oma torjunta, syy kentässä `message`: ei johtaja, täysi ryhmä, jo kutsuttu, esto, pelaaja hylkäsi kutsusi viimeisten 2 minuutin aikana, tai 20 kutsua lähetetty 10 minuutissa. |
+| `Friends` | `self`, `blocked`, `limit`, `pending_limit`, `rate` | 400, 403 tai 409 | Oma tili; esto kumpaan tahansa suuntaan; 200 kaveria; 50 vastaamatonta pyyntöä; 20 uutta pyyntöä 10 minuutissa. |
+| `GuildInvite` | `guild_refused` | 403, 404, 409 tai 429 | Killan oma torjunta: `message` alkaa sen koodilla (esimerkiksi `RedundantAdorableQuillshot:`, kun kutsu on jo avoinna; koodit ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds)). Tyhjä koodi kattaa eston, 24 tunnin tauon hylkäyksen jälkeen ja kutsujen rajat. |
+| `DisbandGuild` | `not_found` | 404 | Ei kiltaa tällä tunnuksella tai nimellä. |
+| kolme kiltareittiä | `guilds_off` | 404 | `GUILDS=0` on asetettu. |
+
 ### Puuttuvat ylläpitotoiminnot ja kiertotiet {#missing-admin-functions-and-workarounds}
 
 Rajapintaa ei ole käyttäjän poistamiseen tai estämiseen, avaimen perumiseen tai uusimiseen eikä

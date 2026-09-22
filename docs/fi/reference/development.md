@@ -610,6 +610,7 @@ Kunkin taulukon polut ovat suhteessa taulukon yläpuolella mainittuun kansioon.
 | Inventaario ja kauppa | `controllers/inventory.ts` (tapahtumat, ylikulutukset, uusintayritykset), `routes/inventory.ts`, `controllers/store.ts`, `routes/store.ts` | |
 | Ryhmät | `controllers/party.ts` (muistissa), `routes/party.ts`, `middleware/PlayerAuth.ts` | Ryhmän metsästys kulkee tiedoston `controllers/matchmaking.ts` kautta; `PartyInvite` on tiedostossa `routes/undauntedapi.ts`. |
 | Kaverit ja estot | `controllers/friends.ts` (tallennetaan SQLiteen, migraatio `0012_friends_and_blocks.sql`), `routes/friends.ts` (Epic-tyylinen kaveripalvelu, jota peliohjelma kutsuu) | `Friends` on tiedostossa `routes/undauntedapi.ts`. |
+| Killat | `controllers/guild.ts` (tallennetaan SQLiteen, migraatio `0013_guilds.sql`; säännöt ja vastausten muodot), `routes/guild.ts` (yksitoista v2-reittiä rekisteröintijärjestyksessä), `middleware/GameServerKeyAuth.ts` (vain pelipalvelimen tekemä perustaminen) | `GuildInvite`, `Guilds` ja `DisbandGuild` ovat tiedostossa `routes/undauntedapi.ts`. `test/socialclient.ts` mallintaa, miten peliohjelma jäsentää sosiaaliset vastaukset; `test/guildhttp.test.ts` ja `test/socialflow.test.ts` käyttävät sitä. |
 | Matchmaking | `controllers/matchmaking.ts` (jonot, ehdokkaiden tila, ryhmät, kutsu deploy-palvelimelle), `routes/matchmaking.ts` | |
 | Palvelimen tila | `controllers/serverstatus.ts`, `middleware/SoftAccountAuth.ts`, `/dauntless-status` tiedostossa `routes/system.ts` | |
 

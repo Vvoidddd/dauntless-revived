@@ -432,8 +432,8 @@ odotettua (katso tämän osion loppu); se ei tarkoita, ettei toinen pelaaja olis
 3. Kun hän hyväksyy, näette toisenne **OFFLINE**-listalla seuraavan kirjautumisenne jälkeen.
 
 Kaverin valikosta voit **poistaa** kaverin (Remove) tai **estää** pelaajan (Block): estetty siirtyy
-kohtaan **BLOCKED**, eikä kumpikaan voi lähettää toiselle kaveripyyntöjä, ryhmäkutsuja tai
-kiltakutsuja. **Unblock** poistaa eston. Palvelin sallii 200 kaveria, 50 vastaamatonta lähetettyä
+kohtaan **BLOCKED**, välillänne avoinna olevat ryhmä- ja kiltakutsut poistetaan, eikä kumpikaan voi
+lähettää toiselle kaveripyyntöjä, ryhmäkutsuja tai kiltakutsuja. **Unblock** poistaa eston. Palvelin sallii 200 kaveria, 50 vastaamatonta lähetettyä
 pyyntöä ja 20 uutta pyyntöä 10 minuutissa.
 
 ### Kutsu joku ryhmääsi {#invite-someone-to-your-party}
@@ -447,6 +447,10 @@ Kavereita ei tarvitse olla. Ryhmässä on enintään 4 pelaajaa, ja vain ryhmän
 3. Kummankin ryhmäpaneelissa näkyvät molemmat nimet. Kun johtaja valitsee metsästyksen, koko ryhmä
    menee samalle metsästyspalvelimelle ja palaa johtajan mukana Ramsgateen.
 
+Jos joku hylkää kutsusi, voit kutsua hänet uudelleen 2 minuutin kuluttua, ja voit lähettää 20 kutsua
+10 minuutissa. Jos **Invite to Party** ei tee mitään, kun olet yksin, kerro isännälle: palvelimessa on
+asetus juuri tätä tilannetta varten.
+
 Jos pelin oma kutsu ei toimi, isäntä voi lähettää kutsun nimellä palvelimelta
 ([hallintarajapinnan]({{ '/fi/reference/api.html' | relative_url }}#undaunted-api) `PartyInvite`-reitti);
 hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
@@ -456,13 +460,17 @@ hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
 - **Perusta kilta** **Guilds**-välilehdellä ollessasi Ramsgatessa: **CREATE GUILD**, sitten nimi,
   jossa on 4–15 englannin kirjainta ja numeroa (enintään 6 numeroa ja sama kirjain enintään 6 kertaa
   peräkkäin), ja halutessasi nimikyltti (2–6 kirjainta ja numeroa), joka näkyy pääsi yllä muodossa
-  `[TAG]`. Ikkuna kertoo, jos nimi on varattu tai ei kelpaa. Killan perustaminen on ilmaista.
+  `[TAG]`. Ikkuna tarkistaa nimen kirjoittaessasi ja kertoo, jos se on varattu tai ei kelpaa.
+  **Odota hetki kirjoittamisen jälkeen ja paina vasta sitten Create:** palvelin perustaa vain nimen ja
+  nimikyltin, jotka ikkuna on tarkistanut puolestasi. Henkilökunnalta näyttävät sanat (admin,
+  moderator, official, GM, DEV ja vastaavat) lasketaan varatuiksi. Killan perustaminen on ilmaista.
 - **Kutsu** (johtaja ja upseerit): kirjoita pelaajan käyttäjänimi jäsenen lisäyskenttään (siinä lukee
   "Enter an Epic Games display name"; tällä palvelimella se on käyttäjänimi) tai valitse **Invite to
   Guild** minkä tahansa pelaajan valikosta.
 - **Kutsuttu pelaaja** näkee kutsun kohdassa **GUILD INVITES** seuraavalla kirjautumisellaan tai
   matkustettuaan (metsästykseen ja takaisin Ramsgateen), ja voi valita **Accept** tai **Decline**.
-  Kutsu on voimassa 7 päivää. Hyväksyäksesi sinun on ensin lähdettävä nykyisestä killastasi.
+  Kutsu on voimassa 7 päivää. Hyväksyäksesi sinun on ensin lähdettävä nykyisestä killastasi. Jos
+  hylkäät kutsun, sama kilta voi kutsua sinut uudelleen 24 tunnin kuluttua.
 - **Johtaja** voi tehdä jäsenistä upseereita ja takaisin, luovuttaa killan (**Promote To Guild
   Leader**; entisestä johtajasta tulee upseeri), erottaa jäseniä ja lakkauttaa killan. Johtaja ei voi
   lähteä: luovuta kilta tai lakkauta se. Upseerit voivat kutsua; jäsenet voivat lähteä.

@@ -29,7 +29,8 @@ jonka kanssa peli keskustelee).
 **Tilanne 22.9.2026: rakennettu ja testattu ilman peliä, kaksi pelaajaa ei ole vielä kokeillut.**
 Jokainen alla oleva korjaus läpäisee HTTP-testit, jotka toistavat peliohjelman omat pyynnöt ja
 tarkistavat jokaisen vastauksen peliohjelman tulkintaa jäljittelevällä mallilla. Seuraava kahden
-pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne. Paikalla olon näyttäminen ja chat
+pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne; [Näin se tarkistetaan](#how-to-verify)
+luettelee sen vaiheet ja odotetut lokirivit. Paikalla olon näyttäminen ja chat
 puuttuvat vielä (ne tarvitsevat XMPP-palvelimen, katso [Myöhemmin](#deferred)).
 
 <details open markdown="block">
@@ -79,7 +80,10 @@ pysähtyi reitille `/account/mapping` (ja olisi seuraavaksi pysähtynyt reitille
 Vastaanotettu ryhmäkutsu ei käytä yhdistämistä lainkaan: sen lähettäjän tunnus on jo Phoenix-tunnus,
 ja kutsu pudotettiin reitillä `/accountinfo/public`. Kutsun ympärillä illalla näkyneet
 yhdistämiskutsut sopivat muihin kutsujiin: kahteen kaverin lisäysyritykseen ja peliohjelman omaan
-yhdistämiseen, jonka se tekee kirjautuessaan omalle tunnukselleen.
+yhdistämiseen, jonka se tekee kirjautuessaan omalle tunnukselleen. Tämä kirjautumisen aikainen kutsu
+perustuu ohjelmatiedoston lokitekstiin ja 2.1.1-tallenteeseen (B, R); 1.4.4-reittiluettelossa on vain
+6 yhdistämiskutsua 8 kirjautumista ja 2 kaverin lisäysyritystä kohden (L), joten sitä ei tehdä
+jokaisella kirjautumisella. Oikea testi laskee ne (katso [Näin se tarkistetaan](#how-to-verify)).
 
 ## Yksi tunnus, kaksi vaihetta: tunnusketju {#the-identity-chain}
 
@@ -119,7 +123,8 @@ Peliohjelman `QueryAccountMappingsEndpoint` (K `dllmain.cpp`) Phoenixin omassa k
 
 - **Pyyntö** (B, R, L): `{"srcAccountType": "epic", "ids": ["<tunnus>"]}`, JSONina pelaajan
   tunnisteella, enintään 100 tunnusta pyynnössä. Versio 2.1.1 lähetti juuri tämän kirjautuessaan (R),
-  ja niin lähettivät oikeat 1.4.4-peliohjelmatkin (L).
+  ja niin lähettivät oikeat 1.4.4-peliohjelmatkin (L), tosin ei jokaisella kirjautumisella (6 kutsua 8
+  kirjautumisessa, niistä 2 kaverin lisäyksiä).
 - **Vastaus, jonka jäsennin lukee** (B `0x140b09f60`..`0x140b0afd4`): juuriavain `accountMappings`,
   jossa on **olio, jonka avaimina ovat kysytyt tunnukset**. Jokainen arvo on olio, jossa on
   ei-tyhjät merkkijonot `accountId` ja `accountType`; `accountType` verrataan kirjainkoosta
@@ -217,7 +222,9 @@ muutoksen suoraan.
 
 **Lisäämämme rajat** (G): enintään 50 vastaamatonta lähetettyä pyyntöä tiliä kohden ja enintään 20
 uutta pyyntöä 10 minuutissa (409, jonka peliohjelma näyttää epäonnistumisena). Pyynnön hyväksymistä ei
-koskaan rajoiteta. Vanhat rajat pysyvät: 200 kaveruutta ja 200 estoa tiliä kohden.
+koskaan rajoiteta. Vanhat rajat pysyvät: 200 kaveruutta ja 200 estoa tiliä kohden. Esto poistaa myös
+kahden pelaajan väliset odottavat ryhmä- ja kiltakutsut (G), ja kutsulistat jättävät pois jokaisen
+kutsun toisensa estäneiden pelaajien välillä.
 
 ## Ryhmät {#parties}
 
@@ -244,8 +251,25 @@ uudelleenkäynnistys jättää jokaisen yhden hengen ryhmään, minkä peliohjel
 
 Kaksi asiaa jätimme tarkoituksella ennalleen: pelaajan itse **lähettämiä** kutsuja ei listata
 reitillä `GET /party/invites` (peliohjelma voisi luulla niitä saapuneiksi), ja yhden hengen ryhmä pitää
-vanhat paikkamerkkiarvot, jotka olivat oikeasti harmittomia. Peliohjelman automaattinen "offline"-
-jäsenten poisto ryhmästä ei koskaan käynnisty ilman paikalla olotietoa (B `0x1415f6f60`, 10 sekunnin
+vanhat paikkamerkkiarvot, jotka olivat oikeasti harmittomia metsästyksiin jonottamiselle.
+
+**Yksi riski pelin omalle kutsulle: paikkamerkki voi näyttää jonottamiselta.** Ennen kuin peliohjelma
+lähettää pyynnön `PUT /party/invite`, se torjuu kutsun, jos kutsuja on itse kutsuttu, ei ole johtaja
+tai jos ryhmä ei ole joutilas (B `0x1415b2280`; viimeinen tarkistus kutsuu kohdassa `0x1415b27aa`
+funktiota `0x1415a98c0` ja kirjaa lokiin "Player %s tried to send an invite to player %s, but party %s
+was matchmaking"). Tila luetaan ryhmän ehdokkaasta, ja paikkamerkissä lukee `QUEUED_FOR_START`
+ehdokastunnuksen kera. Yksin pelaavat jonottivat metsästyksiin sen kanssa ongelmitta (L: 27
+jonoonliittymistä), eikä tilan lukemisen yhtä vaihetta jäljitetty, joten on avoinna, harmaantuuko
+Invite to Party sen takia (M). Kukaan ei käyttänyt pelin omaa kutsua oikeasti (L: 0 pyyntöä
+`PUT /party/invite`), joten mikään ei myöskään kumoa riskiä. Jos se toteutuu, `PARTY_SOLO_STUB=0`
+vastaa yhden hengen ryhmälle ilman ehdokasta (`candidateState: null`, joka luetaan joutilaaksi); katso
+[Asetukset]({{ config_page.url | relative_url }}#metagame-social).
+
+**Lisäämämme rajat** (G): pelaaja lähettää enintään 20 kutsua 10 minuutissa, ja kun pelaaja hylkää
+jonkun kutsun, tämä lähettäjä ei voi kutsua häntä uudelleen 2 minuuttiin (kumpikin 409, epäonnistuminen
+peliohjelmalle). Esto poistaa kahden pelaajan väliset odottavat kutsut.
+
+Peliohjelman automaattinen "offline"-jäsenten poisto ryhmästä ei koskaan käynnisty ilman paikalla olotietoa (B `0x1415f6f60`, 10 sekunnin
 raja). Niin on pysyttävä XMPP-palvelimenkin kanssa: palvelin ei saa koskaan lähettää pelaajan omaa
 paikalla olotietoa takaisin hänelle.
 
@@ -328,7 +352,12 @@ Tarkistetaan tässä järjestyksessä; ensimmäinen hylkäävä sääntö ratkai
 
 Peliohjelma ei koskaan kutsu kirosanapalvelua (paketoitu asetus kytkee sen pois), joten palvelimella
 on lyhyt sisäänrakennettu kieltolista; `GUILD_NAME_DENYLIST` lisää sanoja (katso
-[Asetukset]({{ config_page.url | relative_url }})).
+[Asetukset]({{ config_page.url | relative_url }})). Muutama lyhyt loukkaava sana torjutaan koko nimenä
+tai nimikylttinä samoilla koodeilla. **Varatut sanat** (G) estävät kiltaa esiintymästä palvelimen
+henkilökuntana tai projektina: `admin`, `moderator`, `official`, `staff` ja muutama muu missä tahansa
+sekä nimikyltit kuten `GM`, `DEV` ja `MOD`. Ne vastaavat "already in use" (`Seized` tai `Captured`);
+`GUILD_RESERVED_NAMES=0` sallii ne. Täydet listat ovat sivulla
+[HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds).
 
 ### Reitit {#guild-routes}
 
@@ -352,20 +381,37 @@ ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds).
 
 ### Killan perustaminen pelipalvelimen kautta {#creating-through-the-game-server}
 
-Koska pelipalvelin vain välittää sen johtajatunnuksen, jonka peliohjelma laittoi etäkutsuun, metagame
-ei saa luottaa siihen sellaisenaan (G):
+Create-painike lähettää etäkutsun `ServerCreateGuild(LeaderPlayerId, name, nameplate)` Ramsgaten
+pelipalvelimelle (K `Archon_parameters.hpp`), jonka tarkistus palauttaa aina toden, ja pelipalvelin
+lähettää pyynnön `POST /guild`, jossa `leader_account_id` on tämä tunnus. **Pelipalvelin ei lähetä
+pelaajan tunnistetta.** `CreateGuild` (B `0x140ac7270`) ottaa tunnisteensa kohdassa `0x140ac78a4`
+funktiolta `0x140b461d0`, joka pyytää alijärjestelmän tunnistusrajapinnalta alijärjestelmän **oman**
+paikallisen käyttäjän (`Subsystem+0x2c0`) tunnisteen; pyyntö saa `Authorization`-otsakkeen vain, jos
+tunniste ei ole tyhjä (`0x140b3b561`). Pelipalvelimet eivät koskaan kirjaudu Phoenixiin (L: jokainen
+`POST /login` tuli peliohjelmalta), joten perustamispyynnössä ei tavallisesti ole tunnistetta, ja jos
+olisi, se olisi pelipalvelimen oma, sama jokaiselle sen pelaajalle (H). Johtajatunnus on siis vain
+jonkin peliohjelman väite, ja metagame sitoo perustamisen johtajan omaan toimintaan (G):
 
 - `POST /guild` hyväksyy vain pelipalvelinavaimen ja vain tältä koneelta. Pelaajan tunniste yksinään
   torjutaan.
-- Pelipalvelimen välittämä pelaajan tunniste luetaan, jos se on kelvollinen, ja muuten se ohitetaan.
-  Yhteinen kirjautumistarkistus kaatuisi vanhentuneeseen tunnisteeseen palvelinvirheellä, joten killan
-  perustamisella on oma tarkistuksensa.
-- Johtajan on pitänyt tarkistaa nimi viimeisten 15 minuutin aikana tai näkyä palvelimelle viimeisen
-  minuutin aikana (ryhmäkysely, elonmerkki). Tavallisessa pelissä molemmat pitävät paikkansa: ikkuna
-  tarkistaa nimen pelaajan kirjoittaessa, ja peliohjelma kysyy ryhmäänsä Ramsgatessa 10 sekunnin
-  välein. Muuten perustaminen torjutaan ja kirjataan lokiin tekstillä "no recent validate or activity".
+- Mukana tuleva tunniste vain kirjataan lokiin ("the game server's token names ...", ja
+  perustamisrivi päättyy "a token of X came along" tai "no token"); kelvoton tunniste ohitetaan eikä
+  kaada pyyntöä.
+- **Johtajan on pitänyt tarkistaa juuri tämä nimi ja nimikyltti** omalla tunnisteellaan
+  (`POST /guild/validate`, jonka perustamisikkuna lähettää pelaajan kirjoittaessa) viimeisten 15
+  minuutin aikana. Pelaajan viisi viimeksi tarkistettua paria kelpaavat kirjainkoosta riippumatta
+  siltä varalta, että Create painetaan ennen kuin viimeinen tarkistus on palannut. Muuten perustaminen
+  torjutaan tyhjällä koodilla, jonka peliohjelma näyttää tekstinä "Unable to create guild." (vastauksen
+  viesti ei koskaan päädy ruudulle: virhetilakoodille peliohjelma muodostaa viestinsä HTTP-tilasta, B
+  `0x140aae447`), ja kirjataan lokiin tekstillä "no validate of this name and nameplate by the leader
+  in the last 15 minutes". Nimi, jonka säännöt torjuvat joka tapauksessa, saa sen säännön oman
+  tekstin. Muokattu peliohjelma ei siis voi tehdä toisesta pelaajasta sellaisen killan johtajaa, jota
+  tämä ei koskaan nimennyt, eikä paikalla oleminen riitä.
+- `GUILD_CREATE_ACTIVITY_FALLBACK=1` hyväksyy myös johtajan, joka tarkisti jonkin toisen nimen tai
+  näkyi palvelimelle viimeisen minuutin aikana, ja kirjaa lokiin varoituksen. Se on olemassa vain
+  siltä varalta, että oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä.
 - Enintään yksi uusi kilta johtajaa kohden 10 minuutissa, ja ylläpitäjä voi lakkauttaa minkä tahansa
-  killan.
+  killan. Onnistunut perustaminen kuluttaa johtajan tarkistamat nimet.
 
 ### Tallennus, rajat ja oikeudet {#guild-storage-limits-permissions}
 
@@ -379,7 +425,8 @@ yli ja kutsu odottaa pelaajaa, joka ei ole paikalla.
 | Kutsun voimassaolo | `GUILD_INVITE_TTL_DAYS`, oletus 7 päivää |
 | Avoimia kutsuja kiltaa kohden | 50 |
 | Lähetettyjä kutsuja kutsujaa kohden | 30 tunnissa |
-| Avoimia kutsuja pelaajaa kohden | 20; vanhin poistetaan |
+| Avoimia kutsuja pelaajaa kohden | 20; vanhin poistetaan (yhdeltä killalta niistä voi olla vain yksi) |
+| Hylänneen pelaajan kutsuminen uudelleen | sama kilta odottaa 24 tuntia |
 | Perustettuja kiltoja johtajaa kohden | 1 kymmenessä minuutissa |
 
 | Toiminto | Kuka |
@@ -390,8 +437,11 @@ yli ja kutsu odottaa pelaajaa, joka ei ole paikalla.
 | Lähteminen | jäsen, upseeri |
 | Erottaminen, arvojen muuttaminen, lakkauttaminen | johtaja |
 
-Esto kumpaan tahansa suuntaan torjuu kiltakutsun. Toisen killan jäsenen voi kutsua, mutta hänen on
-lähdettävä killastaan ennen hyväksymistä (peliohjelma kertoo sen itse, B).
+Esto kumpaan tahansa suuntaan torjuu kiltakutsun ja poistaa kahden pelaajan väliset avoimet kutsut.
+Upseerin kutsut poistetaan, kun hänet alennetaan jäseneksi, erotetaan tai hän lähtee; lista jättää
+pois, ja hyväksyminen torjuu (`Uninvited`), jokaisen kutsun, jonka kutsuja ei ole enää killan johtaja
+tai upseeri. Toisen killan jäsenen voi kutsua, mutta hänen on lähdettävä killastaan ennen
+hyväksymistä (peliohjelma kertoo sen itse, B).
 
 **Mitään ei lähetetä itsestään.** Muut jäsenet ja kutsutut näkevät muutoksen seuraavassa
 `GET /guild` -kyselyssään (kirjautuminen, maailman lataus tai oma kiltatoiminto). Paneelit eivät
@@ -413,31 +463,146 @@ Korjauksia testataan HTTP:n yli oikeaa metagamea vastaan peliohjelman omilla run
   lähettäjä saadaan näkyviin, hyväksyminen, jokaisen ryhmän jäsenen nimi oikein, johtajan jonoon
   liittyminen niin, että jokaista jäsentä odotetaan täsmälleen kerran, käyttäjätiedot oikean tunnuksen
   alla missä tahansa järjestyksessä, `/accountinfo/public`-reitin nimimuoto, yhdistämisen
-  yksityiskohdat, molemmat paluukytkimet ja uudet kaverirajat.
-- **Killat** (`test/guildhttp.test.ts`): jokainen reitti ja virhekoodi, pelipalvelimen tekemä
-  perustaminen tarkistuksineen, kutsut, vanheneminen, rajat, arvot ja johtajuuden luovutus,
-  erottaminen, lähteminen ja lakkauttaminen (reittien järjestys mukaan lukien), uudelleenkäynnistys,
-  oikeudet ja `GUILDS=0`. Jokainen vastaus tarkistetaan tarkkana JSONina ja mallin kautta.
+  yksityiskohdat, molemmat paluukytkimet, uudet kaverirajat ja ryhmäkutsujen säännöt (esto poistaa
+  kutsut kumpaankin suuntaan, tauko hylkäyksen jälkeen, lähettäjän raja). `test/partyhttp.test.ts`
+  kattaa myös kytkimen `PARTY_SOLO_STUB=0`.
+- **Killat** (`test/guildhttp.test.ts`): jokainen reitti ja virhekoodi, varatut sanat, pelipalvelimen
+  tekemä perustaminen sidottuna siihen, että johtaja on itse tarkistanut juuri tämän nimen (toinen
+  nimi, nimikyltti tai johtaja torjutaan; mukana tuleva tunniste ei muuta mitään; aktiivisuuteen
+  perustuva varakytkin), kutsut, vanheneminen, rajat, arvot ja johtajuuden luovutus, erottaminen,
+  lähteminen ja lakkauttaminen (reittien järjestys mukaan lukien), mitä esto, hylkäys ja alennettu,
+  erotettu tai lähtenyt upseeri tekevät avoimille kutsuille, uudelleenkäynnistys, oikeudet ja
+  `GUILDS=0`. Jokainen vastaus tarkistetaan tarkkana JSONina ja mallin kautta.
 
 ## Avoimet kysymykset ja oikea testi {#open-questions}
 
-Tarkistetaan seuraavassa kahden pelaajan testissä, kun korjaukset on viety palvelimelle ja
-runkojen tallennus on päällä testin ajan:
+Tarkistetaan seuraavassa kahden pelaajan testissä (vaiheet ovat kohdassa
+[Näin se tarkistetaan](#how-to-verify)):
 
 1. Saako `/accountinfo/public`-korjaus yksin vastaanotetut ryhmäkutsut näkyviin? Lokissa pitäisi
    näkyä kutsukysely ja sen jälkeen `accountinfo/public by <vastaanottaja> for <lähettäjä> -> found`.
 2. Missä kohdassa saapunut kaveripyyntö näkyy, ja onko kohta piilossa, kun se on tyhjä?
 3. Tuleeko Block-valikosta ylipäätään pyyntö kaverireiteillemme (rivi `POST` tai `PUT .../blocklist/...`)?
-4. Mitä killan nimitarkistus lähettää kentässä `leader_account_id`, ja välittääkö pelipalvelimen
-   `POST /guild` pelaajan tunnisteen? (Perustamisen lokirivillä lukee "with the player's token", kun
-   välittää.)
+4. Onko pelipalvelimen pyynnössä `POST /guild` mitään `Authorization`-otsaketta (perustamisrivi
+   päättyy "no token" tai "a token of X came along"), ja tarkistaako peliohjelma lopullisen nimen ja
+   nimikyltin ennen Create-painiketta (torjunta "no validate of this name" kertoo, ettei tarkistanut)?
 5. Kutsutaanko `GET /guild` jokaisella maailman latauksella (34 kutsua 8 kirjautumisessa viittaa
    siihen)?
 6. Ketään ei saa poistaa ryhmästä minuutin jälkeen (ei rivejä `DELETE /party/member/<tunnus>` tai
    `/party/leader/<tunnus>`).
+7. Toimiiko Invite to Party yksin olevalle johtajalle paikkamerkkiehdokkaan kanssa (lokiin tulee rivi
+   `PUT /party/invite`), vai tarvitaanko `PARTY_SOLO_STUB=0`?
+8. Montako `account/mapping`-kutsua kukin kirjautuminen tekee (reittiluettelossa 6 kutsua 8
+   kirjautumisessa)?
 
-Paluukytkimet, jos korjaus häiritsee jotain: `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0` ja
-`GUILDS=0` (katso [Asetukset]({{ config_page.url | relative_url }})).
+**Jokainen pelaaja kohtaa kolme muuttunutta vastausta jokaisella kirjautumisella**, käytti hän
+Social-paneelia tai ei: `POST /accountinfo/public` (kuvaa nyt kysyttyä tiliä, 404 tuntemattomalle),
+`POST /account/mapping` (yhdistää nyt paikallisen pelaajan, kun ennen ei yhdistänyt mitään) ja
+`GET /guild/invite/player` (uusi kuori `{"code": "OK", "message": "", "payload": {"invites": []},
+"invites": []}` vanhan tyngän `{"code": null, "message": "OK", "payload": {"invites": []}}` sijaan).
+Peliohjelman mallimme lukee kaikki kolme tarkoitetulla tavalla, mutta yhtäkään ei ole nähty oikeassa
+pelissä. Paluukytkimet, jos jokin niistä häiritsee: `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0`
+ja `GUILDS=0` (katso [Asetukset]({{ config_page.url | relative_url }})).
+
+## Näin se tarkistetaan {#how-to-verify}
+
+Testi kahdella pelaajalla, A ja B, vuokrapalvelimella. Jokainen vaihe kertoo, mitä tehdään, mitä
+metagamen lokiin (palvelinpaketin palvelimella `data\logs\metagame.out.log`) pitäisi tulla ja mitä
+tehdä, jos ei tule. `<A>` ja `<B>` ovat kahden tilin tunnukset (`UID-...`); pyyntöloki kirjaa jokaisen
+kutsun muodossa `METODI /polku gs=0|1` (`gs=1`: pelipalvelimelta).
+
+**0. Ennen testiä (isäntä).**
+
+1. Vie päivitys palvelimelle. Ensimmäisellä käynnistyksellä metagame ajaa siirron `0013_guilds` ja
+   alkaa kuunnella tavalliseen tapaan; `guild:`-rivejä ei tule, ennen kuin joku käyttää kiltoja.
+2. Valinnainen: aseta metagamen asetuksiin `LOG_BODIES=1` vain tämän testin ajaksi, jotta pyyntöjen
+   rungot tallentuvat (tilitunnuksia ja kiltojen nimiä; paketti kytkee sen taas pois julkisessa
+   tilassa). Poista runkoloki jälkeenpäin.
+3. Kumpikin pelaaja **sulkee pelin kokonaan ja käynnistää sen uudelleen** käynnistimestä. Peliohjelma
+   pitää vanhat vastaukset uudelleenkäynnistykseen asti.
+
+**1. Kirjautuminen (kumpikin pelaaja).** Kullekin pelaajalle X: `POST /login`,
+`friends: list for <X>: 0 friend(s), 0 pending`, `GET /friends/api/public/blocklist/<X>`,
+`accountinfo/public by <X> for <X> -> found`, `GET /guild gs=0` ja `GET /guild/invite/player gs=0`
+(eikä riviä "Guild invites (stubbed)"), `POST /party gs=0` noin 10 sekunnin välein sekä
+`party: poll by=<X> P=... size=1 leader=<X>` (kyselyrivi kirjataan uudelleen vain, kun ryhmä muuttuu).
+Laske rivit `account/mapping by <X>: ... -> 1 of 1 mapped` (kysymys 8). Pelaaja pääsee Ramsgateen ja
+Social-paneeli aukeaa; kaikki näkyvät tilassa Offline, mikä on odotettua.
+Jos kirjautuminen jumittuu tai Social-paneeli hajoaa, kytke `ACCOUNTINFO_PUBLIC_LEGACY=1`, käynnistä
+metagame ja kumpikin peli uudelleen ja yritä uudelleen; sitten `ACCOUNT_MAPPING=0` ja sitten
+`GUILDS=0`, yksi kerrallaan, syyllisen muutoksen löytämiseksi.
+
+**2. A kutsuu B:n ryhmään.** A: Social, B kohdasta Hunt Members (tai chatissa `/invite <B:n nimi>`),
+Invite to Party. Lokiin `PUT /party/invite gs=0` ja `party: invite P=<PA> from=<A> to=<B>`, sitten
+noin 10 sekunnin kuluessa `party: invites for <B> -> 1 (P=<PA> from=<A>)` ja
+`accountinfo/public by <B> for <A> -> found`. B näkee ilmoituksen ja merkinnän kohdassa PARTY INVITES
+(kysymys 1).
+
+- Riviä `PUT /party/invite` ei tule lainkaan, ja valikkokohta on harmaana tai ei tee mitään:
+  paikkamerkki näyttää jonottamiselta (kysymys 7). Aseta `PARTY_SOLO_STUB=0`, käynnistä metagame
+  uudelleen (pelit voivat jäädä auki; ryhmät alkavat alusta) ja yritä uudelleen.
+- `party: invite by=<A> to=<B> refused ...`: syy on rivillä.
+- Kutsukysely näyttää 1 ja `accountinfo/public ... -> found` tulee, mutta B ei näe mitään: diagnoosi
+  on jossain kohdin väärä; kirjaa se ylös ja jatka muita vaiheita isännän `PartyInvite`-reitillä.
+
+**3. B hyväksyy.** Lokiin `party: accept by <B> matched=partyId P=<PA> size=2` ja sitten
+`party: poll by=<A> P=<PA> size=2 leader=<A> members=<A>,<B>`. Kummankin ryhmäpaneelissa näkyvät
+molemmat nimet. (Hylkäys kirjaa sen sijaan rivin `party: decline by=<B> ... removed=1`, eikä A voi
+kutsua B:tä uudelleen 2 minuuttiin.)
+
+**4. Yhteinen metsästys.** A (johtaja) valitsee metsästyksen. Lokiin `mm: party P=<PA> candidate <C>
+mode=... hunt=... members=<A>,<B> by=<A>` ja sitten
+`mm: party P=<PA> candidate <C> ready at <osoite>:<portti> for 2 member(s)`; kumpikin päätyy samaan
+metsästykseen ja palaa johtajan mukana Ramsgateen. Sen jälkeen kyselyt näyttävät yhä `size=2`. Koko testin aikana ei saa tulla rivejä
+`DELETE /party/member/<tunnus>` tai `DELETE /party/leader/<tunnus>` (kysymys 6).
+
+**5. Kaverin lisääminen.** A: Social, Add Friends, B:n käyttäjänimi, Add. Lokiin
+`EOS Account by name by <A>: <B>`, `account/mapping by <A>: ... ids=[1]; ... -> 1 of 1 mapped`,
+`accountinfo/public by <A> for <B> -> found` ja `friends: request by=<A> to=<B> -> requested`; A näkee
+ilmoituksen "friend invite sent". B käynnistää pelin uudelleen (listat luetaan vain kirjautuessa):
+lokiin `friends: list for <B>: 0 friend(s), 1 pending`; kirjaa ylös, missä pyyntö näkyy (kysymys 2).
+B hyväksyy: `friends: request by=<B> to=<A> -> accepted`; seuraavan kirjautumisen jälkeen kumpikin
+näkee toisen kohdassa OFFLINE (`1 friend(s)`).
+
+- `EOS Account by name by <A>: not found`: nimi kirjoitettiin väärin (sen on oltava tarkka,
+  kirjainkoolla ei väliä).
+- Nimihaun jälkeen ei tule `account/mapping`-riviä, tai siinä lukee `0 of 1 mapped`: yhdistäminen
+  epäonnistui; kirjaa se ylös (`ACCOUNT_MAPPING` ei saa olla `0`).
+- Valinnainen, kysymys 3: B estää A:n A:n valikosta; lokiin rivi `POST` tai `PUT`
+  `/friends/api/public/blocklist/<B>/<A>` ja `friends: block by=<B> target=<A> -> blocked`; kirjaa
+  ylös, kumpi metodi. Eston poisto kirjaa `-> unblocked`.
+
+**6. A perustaa killan.** A: Guilds-välilehti, CREATE GUILD, nimi (4–15 kirjainta ja numeroa) ja
+nimikyltti, **odota sekunti**, paina Create. Lokiin yksi tai useampi
+`guild: validate by <A> name="..." tag="..." -> ok`, sitten `POST /guild gs=1` ja
+`guild: created G=<tunnus> name=... tag=... leader=<A> (validated name, no token)`. Kirjaa ylös "no
+token" tai "a token of X came along" (kysymys 4). A näkee killan näkymän ("Members: 1 / 100") ja
+`[TAG]`-tunnuksen päänsä yllä.
+
+- `guild: create for <A> ... refused 403 (no code): no validate of this name and nameplate ...`:
+  perustaminen nimesi jotain, mitä A ei ollut tarkistanut. Kirjoita uudelleen, odota, että ikkuna on
+  tarkistanut nimen, ja paina Create uudelleen. Jos näin käy toistuvasti, peliohjelma ei tarkista
+  lopullista nimeä: aseta `GUILD_CREATE_ACTIVITY_FALLBACK=1`, käynnistä metagame uudelleen ja yritä
+  uudelleen (kysymys 4).
+- Nimitarkistus torjutaan koodilla (esimerkiksi `409 SeizedAdorableQuillshot`): ikkuna näyttää syyn;
+  valitse toinen nimi.
+- Riviä `POST /guild gs=1` ei tule lainkaan: pelipalvelin ei lähettänyt perustamista; katso
+  Ramsgaten pelipalvelimen loki.
+- `guild: create for <joku muu>`: johtajatunnus ei ole A:n oma; kirjaa se ylös.
+
+**7. Kiltakutsu, hyväksyminen, arvot.** A: Guilds-välilehden jäsenen lisäyskenttä, B:n käyttäjänimi
+(tai Invite to Guild B:n valikosta). Lokiin `EOS Account by name by <A>: <B>`, yhdistämisrivi ja
+`guild: invite by=<A> to=<B> -> 200`. B matkustaa (metsästykseen ja takaisin) tai kirjautuu
+uudelleen: lokiin `GET /guild/invite/player gs=0` ja `accountinfo/public by <B> for <A> -> found`; B
+näkee kutsun kohdassa GUILD INVITES. B hyväksyy: `guild: accept by=<B> G=<tunnus> -> 200`, ja B näkee
+killan näkymän. A näkee B:n oman seuraavan `GET /guild` -kyselynsä jälkeen (maailman lataus). Sitten
+halutessa: Promote To Guild Officer (`guild: rank by=<A> target=<B> rank="officer" -> 200`), Leave
+Guild (`guild: leave by=<B> -> 200`), DISBAND GUILD (`guild: disband G=<tunnus> by=<A> -> 200`). Laske
+`GET /guild` -rivit maailman latausta kohden (kysymys 5).
+
+**8. Jälkeenpäin.** Etsi pyyntölokista sosiaalisia reittejä, jotka saivat vastauksen 404, ja
+`refused`-rivejä, joita et odottanut. Kytke `LOG_BODIES` taas pois ja poista runkoloki. Kirjaa
+vastaukset yllä oleviin avoimiin kysymyksiin; korjaukset tulevat tälle sivulle ja tiekarttaan.
 
 ## Myöhemmin {#deferred}
 

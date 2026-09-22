@@ -577,6 +577,7 @@ Paths in each table are relative to the folder named above it.
 | Inventory and store | `controllers/inventory.ts` (transactions, overspends, retries), `routes/inventory.ts`, `controllers/store.ts`, `routes/store.ts` | |
 | Parties | `controllers/party.ts` (in memory), `routes/party.ts`, `middleware/PlayerAuth.ts` | A party's hunt goes through `controllers/matchmaking.ts`; `PartyInvite` is in `routes/undauntedapi.ts`. |
 | Friends and blocks | `controllers/friends.ts` (stored in SQLite, migration `0012_friends_and_blocks.sql`), `routes/friends.ts` (the Epic-style friends service the client calls) | `Friends` is in `routes/undauntedapi.ts`. |
+| Guilds | `controllers/guild.ts` (stored in SQLite, migration `0013_guilds.sql`; the rules and reply shapes), `routes/guild.ts` (the eleven v2 routes, in registration order), `middleware/GameServerKeyAuth.ts` (the game-server-only create) | `GuildInvite`, `Guilds` and `DisbandGuild` are in `routes/undauntedapi.ts`. `test/socialclient.ts` models how the client parses the social replies; `test/guildhttp.test.ts` and `test/socialflow.test.ts` use it. |
 | Matchmaking | `controllers/matchmaking.ts` (queues, candidate status, parties, the call to the deploy server), `routes/matchmaking.ts` | |
 | Server status | `controllers/serverstatus.ts`, `middleware/SoftAccountAuth.ts`, `/dauntless-status` in `routes/system.ts` | |
 

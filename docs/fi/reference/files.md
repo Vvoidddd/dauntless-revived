@@ -383,7 +383,7 @@ muuttavat näitä tauluja; katso [HTTP-rajapinta]({{ api_page.url | relative_url
 | Taulu | Mitä siihen tallennetaan |
 |:------|:-------------------------|
 | `friendships` | Yksi rivi tiliparia kohden (kahden tilin tunnisteet järjestettyinä): kuka lähetti pyynnön, `PENDING` tai `ACCEPTED` sekä ajat millisekunteina. Enintään 200 tiliä kohden. |
-| `blocks` | Kuka esti kenet ja milloin. Esto poistaa kaveruuden ja estää kaveripyynnöt, ryhmäkutsut ja kiltakutsut kumpaankin suuntaan. Enintään 200 tiliä kohden. |
+| `blocks` | Kuka esti kenet ja milloin. Esto poistaa kaveruuden ja kahden pelaajan väliset odottavat ryhmä- ja kiltakutsut sekä estää kaveripyynnöt, ryhmäkutsut ja kiltakutsut kumpaankin suuntaan. Enintään 200 tiliä kohden. |
 
 ### Killat {#guilds}
 
@@ -391,7 +391,7 @@ muuttavat näitä tauluja; katso [HTTP-rajapinta]({{ api_page.url | relative_url
 |:------|:-------------------------|
 | `guilds` | Yksi rivi kiltaa kohden: `guildId` (satunnainen UUID), `name`, `nameplate` (nimikyltti, voi olla tyhjä), pienaakkosiset kopiot `nameKey` ja `nameplateKey` yksilöivillä indekseillä (nimet ja kyltit ovat siis ainutlaatuisia kirjainkoosta riippumatta; tyhjä kyltti tallennetaan siihen NULL-arvona), `leaderId` sekä ajat millisekunteina. |
 | `guildmembers` | Yksi rivi jäsentä kohden tilin mukaan (yksi kilta tiliä kohden): `guildId`, `rank` (`Leader`, `Officer` tai `Member`) ja ajat. Johtajan rivi vastaa aina kenttää `guilds.leaderId`. |
-| `guildinvites` | Avoimet kutsut: `inviteId` (satunnainen UUID, jolla peliohjelma hyväksyy tai hylkää kutsun), `guildId`, kutsuttu ja kutsuja sekä milloin kutsu tehtiin ja milloin se vanhenee. Yksi kiltaa ja kutsuttua kohden. Vanhentuneet rivit ohitetaan ja poistetaan enintään kerran minuutissa. |
+| `guildinvites` | Avoimet kutsut: `inviteId` (satunnainen UUID, jolla peliohjelma hyväksyy tai hylkää kutsun), `guildId`, kutsuttu ja kutsuja sekä milloin kutsu tehtiin ja milloin se vanhenee. Yksi kiltaa ja kutsuttua kohden. Vanhentuneet rivit ohitetaan ja poistetaan enintään kerran minuutissa. Esto poistaa kahden pelaajan väliset rivit, ja upseerin rivit poistetaan, kun hänet alennetaan jäseneksi, erotetaan tai hän lähtee; toisensa estäneiden pelaajien väliset rivit ja rivit, joiden kutsuja ei enää saa kutsua, ohitetaan ja poistetaan hyväksyttäessä. |
 
 Killan lakkauttaminen poistaa sen rivit kaikista kolmesta taulusta. Ylläpitoreitit `Guilds` ja
 `DisbandGuild` listaavat ja poistavat kiltoja; katso [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds).
@@ -402,8 +402,10 @@ Nämä **katoavat, kun metagame käynnistyy uudelleen**:
 
 - matchmaking-jonot ja -tulokset (kuka odottaa mitäkin metsästystä ja mihin yhdistetään);
 - ryhmät, ryhmäkutsut ja ryhmähaut;
-- kaveripyyntöjen tahtiraja, kiltojen nimitarkistukset (15 minuuttia) sekä kiltojen perustamisen ja
-  kutsujen tahtirajat;
+- kaveripyyntöjen tahtiraja, kiltojen nimitarkistukset (15 minuuttia, viisi viimeisintä pelaajaa
+  kohden), kiltojen perustamisen ja kutsujen tahtirajat, 24 tunnin tauko ennen kuin kilta voi kutsua
+  uudelleen pelaajan, joka hylkäsi sen kutsun, sekä ryhmäkutsujen rajat (20 lähettäjää kohden 10
+  minuutissa, 2 minuutin tauko hylkäyksen jälkeen);
 - kuka on paikalla ja missä (pelaaja lasketaan paikalla olevaksi 90 sekunnin ajan pelinsä viimeisestä
   elonmerkistä);
 - reitin `POST /undaunted/api/RegistrationStatus` kautta muutettu rekisteröintitila: uudelleenkäynnistyksen

@@ -2,7 +2,7 @@
 title: Upgrade notes
 parent: Setup
 nav_order: 6
-description: "What changes for players when you update an existing Dauntless Revived server: real progression is now on by default. How to keep old max ranks, start fresh, or stay on the stub."
+description: "What changes for players when you update an existing Dauntless Revived server: friends, parties and guilds now work, and real progression is on by default. How to keep old max ranks, start fresh, or stay on the stub."
 lang: en
 ref: setup/upgrading
 ---
@@ -11,6 +11,9 @@ ref: setup/upgrading
 {% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "setup/windows-server.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
+{% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
+{% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
 
 # Upgrade notes
 {: .no_toc }
@@ -24,6 +27,57 @@ your players will see, and what you can do about it. The newest change is first.
 1. TOC
 {:toc}
 </details>
+
+## Friends, parties and guilds {#social}
+
+**September 2026.** Applies to every server updated to the version with guilds (the metagame's log
+shows `guild:` lines, and `GET /guild/invite/player` no longer logs "Guild invites (stubbed)").
+
+### What changes {#social-what-changes}
+
+- **A new migration, `0013_guilds`, runs by itself at the first start.** It only adds three tables
+  (`guilds`, `guildmembers`, `guildinvites`); no existing table or row is changed. Back the database
+  up first as for any update ([Back up the database]({{ admin_page.url | relative_url }}#back-up-the-database)).
+  The previous version still starts on a database that has `0013` (it runs no migration it does not
+  know and ignores the new tables), so going back needs no restore.
+- **Three replies on the login path change.** Every player's client calls them at each login:
+  `POST /accountinfo/public` now describes the account that was asked about (and answers 404 for an
+  unknown one), `POST /account/mapping` now maps ids in the shape the client reads, and
+  `GET /guild/invite/player` has a new envelope (`{"code": "OK", "message": "", "payload": {"invites":
+  []}, "invites": []}` instead of the old stub). The tests replay the client's parsing, but none of
+  this has been seen in a real game yet.
+- **Guilds can be created and joined.** A guild is created only when the leader typed and validated
+  that exact name in the create window; staff and project words are reserved.
+- **Invites are stricter:** a block removes the pending invites between two players, a declined party
+  invite pauses that sender for 2 minutes and a declined guild invite pauses that guild for 24 hours,
+  and a player sends at most 20 party invites in 10 minutes.
+
+### What your players will see {#social-what-players-see}
+
+**Every player must restart the game once after the update.** The client keeps the first account
+info and the first mapping it got for each player for the whole session, so the old, wrong answers
+stay until the game restarts. After that: party invites appear under PARTY INVITES, Add Friends
+works (the other player sees the request at their next login), and the Guilds tab can create and
+join guilds. Online status, EPIC FRIENDS and chat still do not work (they need an XMPP server).
+[Join as a friend]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) explains it to
+players.
+
+### What you can do {#social-what-you-can-do}
+
+- For the first session after the update, watch the metagame's log for the lines listed on
+  [Friends, parties and guilds]({{ social_page.url | relative_url }}#how-to-verify). `LOG_BODIES=1`
+  also records the request bodies (account ids and guild names); the server kit forces it off in
+  public mode, so set it by hand for that session only and delete the body log afterwards.
+- If logins misbehave after the update, each change has a switch in the metagame's settings (restart
+  the metagame after changing it, and the players restart the game):
+
+  | Symptom | Switch | What it puts back |
+  |:--------|:-------|:------------------|
+  | Login or the Social panel breaks, other players' names are wrong | `ACCOUNTINFO_PUBLIC_LEGACY=1` | Upstream's account info reply (party invites stop showing again) |
+  | Login breaks right after the account lookups | `ACCOUNT_MAPPING=0` | No mappings (Add Friends does nothing again) |
+  | Login or world loads break around the guild calls | `GUILDS=0` | The old guild stubs; stored guilds are kept and come back with the switch |
+  | Invite to Party does nothing for a player on their own | `PARTY_SOLO_STUB=0` | Nothing to undo: a plain reply for a party of one |
+  | Creating a guild always says "Unable to create guild." and the log says "no validate of this name" | `GUILD_CREATE_ACTIVITY_FALLBACK=1` | The weaker check (see [Configuration]({{ config_page.url | relative_url }}#metagame-social)) |
 
 ## Real progression is on by default {#real-progression-default}
 

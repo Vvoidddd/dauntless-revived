@@ -116,6 +116,8 @@ development are off.
 | `ACCOUNT_DISPLAY_NAME` | metagame | on | `0` | Real usernames in account and party replies. |
 | `ACCOUNT_MAPPING` | metagame | on | `0` | Account mappings for Add Friends and name-based invites. `0` maps nothing, as before. |
 | `GUILDS` | metagame | on | `0` | The guild routes. `0` brings back the old stubs: nobody can create or join a guild. |
+| `GUILD_RESERVED_NAMES` | metagame | on | `0` | Staff and project words refused in guild names and nameplates. |
+| `PARTY_SOLO_STUB` | metagame | on (upstream's placeholder for a party of one) | `0` | `0` if Invite to Party does nothing for a player on their own. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
@@ -127,6 +129,7 @@ development are off.
 |:-------|:----------|:--------------|:--------------|
 | `MATCHMAKING_CANCEL` | metagame | `1` | Experimental. The client sends a cancel right after every queued join, and hunts start only because that cancel gets a 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | A rollback only: upstream's account info reply, which hides other players (party invites never show). |
+| `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Weaker check on guild creates, only if the live test shows the client never validates the final name. |
 | `INVENTORY_REFUSE_OVERSPEND` | metagame | `1` | Unproven. A refusal drops the whole transaction, rewards included, and no hunt-end transaction has been checked against it yet. |
 | `PROGRESSION_ALLOW_DELETE` | metagame | `1` | Lets any game-server call wipe a player's progression track. |
 | `DB_WAL` | metagame | `1` | The documented backups copy the database file alone. |
@@ -250,6 +253,9 @@ each reply does in the game.
 | `GUILD_MAX_MEMBERS` | `100` (also when not a whole number from 1 to 10000) | whole number | Members per guild. The client shows this number and the open positions left. | Nobody by default |
 | `GUILD_INVITE_TTL_DAYS` | `7` (also when not a number above 0 and up to 365) | days | How long a guild invite stays open. | Nobody by default |
 | `GUILD_NAME_DENYLIST` | empty | comma-separated words | Words refused in guild names and nameplates, on top of a short built-in list. Matched anywhere in the name, regardless of case, after undoing digit swaps such as `0` for `o`. | Nobody by default |
+| `GUILD_RESERVED_NAMES` | on | `0` or anything else | Staff and project words (such as `admin`, `moderator`, `official`, and the nameplates `GM`, `DEV`, `MOD`) answer "already in use", so no guild can pose as the server's staff. `0` allows them, for example to create an official guild; the short offensive tags stay refused. The lists are on [HTTP API]({{ api_page.url | relative_url }}#guilds). | Nobody by default |
+| `GUILD_CREATE_ACTIVITY_FALLBACK` | off | `1` or anything else | A guild create from the game server is accepted only when the leader validated that exact name and nameplate with their own token in the last 15 minutes. `1` also accepts a leader who validated another name or was heard from in the last minute, with a warning in the log. Only for the case where the live test shows the client never validates the final name (the refusal is logged as "no validate of this name"); with it on, a modified client could name another online player as a guild's leader. | Nobody by default |
+| `PARTY_SOLO_STUB` | on | `0` or anything else | A player alone in their party gets upstream's placeholder candidate (`QUEUED_FOR_START`), which is proven harmless for queueing hunts. The client refuses to send a party invite while it thinks its party is matchmaking; if Invite to Party does nothing for a player on their own (no `party: invite` line in the log), `0` answers a party of one with no candidate instead. | Nobody by default |
 
 ### Compatibility switches {#metagame-compatibility}
 

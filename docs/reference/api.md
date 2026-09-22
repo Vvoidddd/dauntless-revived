@@ -270,7 +270,7 @@ work on the host.
 | GET | `/account/api/public/account/:accountId` | optional token | With a token: `{id, displayName, externalAuths}` of that account, or `{}` if it does not exist. Without a token: `{}`. |
 | GET | `/account/api/public/account/displayName/:name` | optional token | Finds an account by username, regardless of case. Needs a token to find anything; otherwise, or when nothing matches, 404. |
 | GET | `/account/api/public/account/:accountId/externalAuths` | none | Answers `{}`. |
-| POST | `/account/mapping` | optional token | The client's account-mapping lookup (`QueryAccountMappingsEndpoint`): Epic account ids to Phoenix account ids. It runs for Add Friends (after the name lookup), the chat's `/invite <name>`, the guild add-member box, every id on the friends list and block list, and once at login for the player's own id. Body `{"srcAccountType": "epic", "ids": ["<id>", ...]}` (at most 100 ids, each once; the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). Reply `{"accountMappings": {"<asked id>": {"accountId": "<id>", "accountType": "phoenix"}}, "code": "OK", "message": "", "payload": {"accountMappings": {...}}}`: an object keyed by each asked id, the shape the client parses, with a wrapped copy it ignores. Every id is its own mapping here (a player's Epic id and account id are the same). For `srcAccountType` `phoenix` the entries say `epic`. Ids that are not this server's accounts are left out, and without a valid token the map is empty. `ACCOUNT_MAPPING=0` maps nothing. The log records the body's shape and `-> N of M mapped`. Earlier replies (an object keyed by id without `accountMappings`, then `accountMappings` as an array) mapped nothing in the client; see [Friends, parties and guilds]({{ social_page.url | relative_url }}). |
+| POST | `/account/mapping` | optional token | The client's account-mapping lookup (`QueryAccountMappingsEndpoint`): Epic account ids to Phoenix account ids. It runs for Add Friends (after the name lookup), the chat's `/invite <name>`, the guild add-member box, every id on the friends list and block list, and at login for the player's own id (the executable's log string and the 2.1.1 capture; the 1.4.4 census shows 6 calls in 8 logins, 2 of them Add Friends, so not at every login). Body `{"srcAccountType": "epic", "ids": ["<id>", ...]}` (at most 100 ids, each once; the older guesses still work: a bare array, `externalIds`, `accountIds` or `externalAuthIds`, and `type`/`externalAuthType`). Reply `{"accountMappings": {"<asked id>": {"accountId": "<id>", "accountType": "phoenix"}}, "code": "OK", "message": "", "payload": {"accountMappings": {...}}}`: an object keyed by each asked id, the shape the client parses, with a wrapped copy it ignores. Every id is its own mapping here (a player's Epic id and account id are the same). For `srcAccountType` `phoenix` the entries say `epic`. Ids that are not this server's accounts are left out, and without a valid token the map is empty. `ACCOUNT_MAPPING=0` maps nothing. The log records the body's shape and `-> N of M mapped`. Earlier replies (an object keyed by id without `accountMappings`, then `accountMappings` as an array) mapped nothing in the client; see [Friends, parties and guilds]({{ social_page.url | relative_url }}). |
 | GET | `/features/platform/win` | none | Platform flags: `crossplay` and `crossprogression` true. |
 | GET | `/account/link/epic/:accountId` | none | Answers `isLinked: true`. |
 | POST | `/login` | token | The login queue. The body's `email` must equal the token's account id and the account must exist (otherwise 400). Answers `{"error_code": "TicketRateOk", "state": "OPEN", ...}`. |
@@ -382,7 +382,12 @@ account in the URL. The character must belong to that account (404 otherwise).
 Parties live in the metagame's memory: a restart leaves everyone in a party of one. Every action
 acts as the token's own account; ids in the URL or body only name the other player or the party.
 Limits: 4 players per party, 8 pending invites per party, 10 per recipient, invites expire after 5
-minutes.
+minutes. A player sends at most 20 invites in 10 minutes, and after someone declines their invite
+they cannot invite that player again for 2 minutes (both 409 `{}`, which the client shows as a
+failure). A block removes the pending invites between the two, and an invite between players who
+blocked each other is never listed and cannot be accepted (404). A player alone in their party gets
+upstream's placeholder candidate (`candidateState: "QUEUED_FOR_START"`); `PARTY_SOLO_STUB=0` answers
+a party of one with no candidate instead (see [Configuration]({{ config_page.url | relative_url }}#metagame-social)).
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
@@ -408,7 +413,7 @@ each per account). Everyone shows as offline, because presence would need a chat
 | GET | `/friends/api/public/blocklist/:userId` | optional token | The caller's own block list `{blockedUsers}`; otherwise an empty list. 404 with `MISC_ROUTES=0`. |
 | POST | `/friends/api/public/friends/:userId/:friendId` | player | Sends a friend request, or accepts the one `friendId` sent. |
 | DELETE | `/friends/api/public/friends/:userId/:friendId` | player | Unfriends, withdraws a request or declines one. |
-| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId` and removes any friendship between the two. |
+| POST | `/friends/api/public/blocklist/:userId/:friendId` | player | Blocks `friendId` and removes any friendship between the two, and the party and guild invites either one sent the other. |
 | PUT | `/friends/api/public/blocklist/:userId/:friendId` | player | The same as the POST. The client's verb for Block is inferred from the executable, not traced, so both are accepted. |
 | DELETE | `/friends/api/public/blocklist/:userId/:friendId` | player | Unblocks `friendId`. |
 | GET | `/friends/api/public/list/:namespace/:userId/recentPlayers` | none | Answers `[]`. 404 with `MISC_ROUTES=0`. |
@@ -470,23 +475,53 @@ survive restarts.
 | Name: 4 to 15 English letters and digits, nothing else | `ObedientAdorableQuillshot` | 400 |
 | Name: at most 6 digits | `NumberedAdorableQuillshot` | 400 |
 | Name: at most 6 of the same letter in a row, regardless of case | `LetteredAdorableQuillshot` | 400 |
-| Name: no word from the deny list | `NastyAdorableQuillshot` | 400 |
+| Name: no word from the deny list, and not a short offensive word | `NastyAdorableQuillshot` | 400 |
+| Name: no reserved staff or project word | `SeizedAdorableQuillshot` | 409 |
 | Name: not taken, regardless of case | `SeizedAdorableQuillshot` | 409 |
 | Nameplate: empty, or 2 to 6 English letters and digits | `DutifulAdorableQuillshot` | 400 |
-| Nameplate: no word from the deny list | `DirtyAdorableQuillshot` | 400 |
+| Nameplate: no word from the deny list, and not a short offensive tag | `DirtyAdorableQuillshot` | 400 |
+| Nameplate: no reserved staff or project word | `CapturedAdorableQuillshot` | 409 |
 | Nameplate: not taken, regardless of case (an empty one never is) | `CapturedAdorableQuillshot` | 409 |
 
 The deny list is short and built in; `GUILD_NAME_DENYLIST` adds words. It is compared after lower-casing
-and undoing common digit swaps (`0` for `o`, `3` for `e` and so on).
+and undoing common digit swaps (`0` for `o`, `3` for `e` and so on), anywhere in the text. A few
+short offensive words (such as `KKK`, `SS` and `1488`) are refused as the whole name or nameplate
+(`KKK` anywhere).
+
+**Reserved words** keep a guild from posing as the server's staff or the project. They answer "already
+in use" (`SeizedAdorableQuillshot` or `CapturedAdorableQuillshot`), compared after lower-casing and
+undoing digit swaps:
+
+| Where | Words |
+|:------|:------|
+| Anywhere in a name or nameplate | `admin`, `moderator`, `official`, `gamemaster`, `staff`, `dauntlessrevived`, `phoenixlabs` |
+| The whole name | `dauntless`, `phoenix`, `revived`, `support`, `system`, `server`, `servers`, `mods`, `developer`, `developers`, `devteam` |
+| The whole nameplate | `gm`, `gms`, `dev`, `devs`, `mod`, `mods`, `sys`, `phx`, `dr`, `drev`, `undt` |
+
+So `DauntlessCrew` and `PhoenixRising` are fine, but `Dauntless`, `ServerAdmins` and the tag `GM` are
+not (`Badminton` is caught too). `GUILD_RESERVED_NAMES=0` turns the reserved words off, for example to
+create an official guild; the offensive words stay.
 
 **The create** (`POST /guild`) takes only the game-server key from this machine: a player's token alone
-gets 403 `{"code": ""}`, the key through the gateway or any proxy 403, and an unregistered key 401. A
-player token the game server forwards is used if it is valid and ignored if not (never a 500). Then,
-in order: `leader_account_id` must be an account (400); a forwarded token of another player gets 403
-`SlyAdorableQuillshot`; the leader must have validated a name in the last 15 minutes or been heard from
-in the last minute (party poll, heartbeat), otherwise 403 `SlyAdorableQuillshot`, logged as "no recent
-validate or activity" (the game server passes on whatever leader id the client sent); the name rules;
-at most one new guild per leader per 10 minutes (429).
+gets 403 `{"code": ""}`, the key through the gateway or any proxy 403, and an unregistered key 401. The
+game server passes on the leader id the client put in its RPC, and no token of that player: a bearer
+token, if one comes along, is the game server's own login's (the executable takes the token of the
+server's local user), so it is only logged, and a bad one is ignored (never a 500). Then, in order:
+
+1. `leader_account_id` must be an account (400, empty code).
+2. **The leader must have validated this very name and nameplate** (`POST /guild/validate` with their
+   own token; the widget does it while they type) in the last 15 minutes. The last five validated
+   pairs per player count, compared regardless of case. Otherwise 403 with an empty code ("Unable to
+   create guild." in the client), logged as "no validate of this name and nameplate by the leader in
+   the last 15 minutes"; a name the rules refuse anyway gets that rule's code instead. So nobody can
+   make another player the leader of a guild that player did not name.
+   `GUILD_CREATE_ACTIVITY_FALLBACK=1` also accepts a leader who validated another name or was heard
+   from in the last minute (party poll, heartbeat), with a warning in the log; it is off because a
+   modified client could then name any online player.
+3. The leader is not in a guild (409 `OccupiedAdorableQuillshot`), and the name rules above.
+4. At most one new guild per leader per 10 minutes (429, empty code).
+
+A successful create uses up the leader's validated names.
 
 **Other refusals:** not in a guild, or a target not in the caller's guild: 404
 `ExcludedAdorableQuillshot`. Not allowed (a Member inviting, anyone but the leader kicking, changing
@@ -494,13 +529,21 @@ ranks or disbanding, the leader's own rank): 403 `SlyAdorableQuillshot`. Invitin
 member: 409 `ClonedAdorableQuillshot`. A live invite from the same guild: 409
 `RedundantAdorableQuillshot`. The guild is full (invite and accept): 409 `StuffedAdorableQuillshot`.
 An invite that is missing, expired or someone else's: 404 `UninvitedAdorableQuillshot`. An unknown
-rank: 400 `DocileAdorableQuillshot`. An unknown account (404), a block either way (403) and the
-limits (429) answer an empty code.
+rank: 400 `DocileAdorableQuillshot`. An unknown account (404), a block either way (403, with a message that
+does not say why) and the limits (429) answer an empty code.
 
 **Limits:** `GUILD_MAX_MEMBERS` members per guild; invites stay open `GUILD_INVITE_TTL_DAYS` days (7);
-50 open invites per guild and 30 invites sent per inviter per hour (429); a player keeps at most 20
-open invites (the oldest is dropped). Pending invites do not reserve a place. A player in another guild
-can be invited but must leave it before accepting (409 `OccupiedAdorableQuillshot`).
+50 open invites per guild and 30 invites sent per inviter per hour (429); after a player declines a
+guild's invite, that guild cannot invite them again for 24 hours (429); a player keeps at most 20
+open invites (the oldest is dropped; one guild holds at most one of them). Pending invites do not
+reserve a place. A player in another guild can be invited but must leave it before accepting (409
+`OccupiedAdorableQuillshot`).
+
+**Invites that lapse:** a block removes the guild invites between the two players. An Officer's
+invites are removed when the Officer is demoted to Member, kicked or leaves; a leader's stay when they
+hand the guild over (they become an Officer). The invite list leaves out, and accepting answers 404
+`UninvitedAdorableQuillshot` for, any invite between blocked players or whose inviter is no longer a
+Leader or Officer of that guild.
 
 ## Metagame: the management API {#undaunted-api}
 

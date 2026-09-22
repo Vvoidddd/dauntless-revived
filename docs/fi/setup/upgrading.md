@@ -3,7 +3,7 @@ title: Päivitysohjeet
 parent: Asennus
 grand_parent: Dauntless Revived suomeksi
 nav_order: 6
-description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: oikea eteneminen on nyt oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
+description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: kaverit, ryhmät ja killat toimivat nyt, ja oikea eteneminen on oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
 lang: fi
 ref: setup/upgrading
 locale: fi_FI
@@ -13,6 +13,9 @@ locale: fi_FI
 {% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "fi/setup/windows-server.md" | first %}
 {% assign roadmap_en = site.pages | where: "path", "roadmap.md" | first %}
+{% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
+{% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
 
 # Päivitysohjeet
 {: .no_toc }
@@ -26,6 +29,61 @@ mitä pelaajasi näkevät ja mitä voit asialle tehdä. Uusin muutos on ensimmä
 1. TOC
 {:toc}
 </details>
+
+## Kaverit, ryhmät ja killat {#social}
+
+**Syyskuu 2026.** Koskee jokaista palvelinta, joka päivitetään kiltaversioon (metagamen lokiin tulee
+`guild:`-rivejä, eikä `GET /guild/invite/player` enää kirjaa riviä "Guild invites (stubbed)").
+
+### Mikä muuttuu {#social-what-changes}
+
+- **Uusi siirto `0013_guilds` ajetaan itsestään ensimmäisellä käynnistyksellä.** Se vain lisää
+  kolme taulua (`guilds`, `guildmembers`, `guildinvites`); mitään olemassa olevaa taulua tai riviä ei
+  muuteta. Varmuuskopioi tietokanta ensin kuten minkä tahansa päivityksen yhteydessä
+  ([Varmuuskopioi tietokanta]({{ admin_page.url | relative_url }}#back-up-the-database)). Edellinen
+  versio käynnistyy yhä tietokannalla, jossa `0013` on ajettu (se ei aja siirtoja, joita se ei tunne,
+  eikä välitä uusista tauluista), joten paluu ei vaadi palautusta.
+- **Kolme kirjautumisen aikaista vastausta muuttuu.** Jokaisen pelaajan peliohjelma kutsuu niitä
+  jokaisella kirjautumisella: `POST /accountinfo/public` kuvaa nyt kysyttyä tiliä (ja vastaa 404
+  tuntemattomalle), `POST /account/mapping` yhdistää tunnukset muodossa, jota peliohjelma lukee, ja
+  `GET /guild/invite/player` vastaa uudessa kuoressa (`{"code": "OK", "message": "", "payload":
+  {"invites": []}, "invites": []}` vanhan tyngän sijaan). Testit toistavat peliohjelman jäsennyksen,
+  mutta mitään tästä ei ole vielä nähty oikeassa pelissä.
+- **Kiltoja voi perustaa ja niihin voi liittyä.** Kilta perustetaan vain, jos johtaja kirjoitti ja
+  tarkistutti juuri tämän nimen perustamisikkunassa; henkilökunnan ja projektin sanat ovat varattuja.
+- **Kutsut ovat tiukempia:** esto poistaa kahden pelaajan väliset odottavat kutsut, hylätty
+  ryhmäkutsu pysäyttää lähettäjän 2 minuutiksi ja hylätty kiltakutsu killan 24 tunniksi, ja pelaaja
+  lähettää enintään 20 ryhmäkutsua 10 minuutissa.
+
+### Mitä pelaajasi näkevät {#social-what-players-see}
+
+**Jokaisen pelaajan on käynnistettävä peli kerran uudelleen päivityksen jälkeen.** Peliohjelma pitää
+ensimmäiset tilitiedot ja ensimmäisen yhdistämisen kustakin pelaajasta koko istunnon ajan, joten
+vanhat, väärät vastaukset jäävät voimaan, kunnes peli käynnistetään uudelleen. Sen jälkeen ryhmäkutsut
+näkyvät kohdassa PARTY INVITES, kaverin lisääminen toimii (toinen pelaaja näkee pyynnön seuraavalla
+kirjautumisellaan), ja Guilds-välilehdellä voi perustaa kiltoja ja liittyä niihin. Paikalla olo, EPIC
+FRIENDS ja chat eivät vieläkään toimi (ne vaativat XMPP-palvelimen).
+[Liity kaverina]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) kertoo tämän
+pelaajille.
+
+### Mitä voit tehdä {#social-what-you-can-do}
+
+- Seuraa päivityksen jälkeisen ensimmäisen pelikerran aikana metagamen lokista rivejä, jotka on
+  lueteltu sivulla [Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}#how-to-verify).
+  `LOG_BODIES=1` tallentaa lisäksi pyyntöjen rungot (tilitunnuksia ja kiltojen nimiä); palvelinpaketti
+  pakottaa sen pois päältä julkisessa tilassa, joten aseta se käsin vain sen pelikerran ajaksi ja
+  poista runkoloki jälkeenpäin.
+- Jos kirjautuminen häiriintyy päivityksen jälkeen, jokaisella muutoksella on kytkin metagamen
+  asetuksissa (käynnistä metagame uudelleen muutoksen jälkeen, ja pelaajat käynnistävät pelin
+  uudelleen):
+
+  | Oire | Kytkin | Mitä se palauttaa |
+  |:-----|:-------|:------------------|
+  | Kirjautuminen tai Social-paneeli hajoaa, muiden pelaajien nimet ovat väärin | `ACCOUNTINFO_PUBLIC_LEGACY=1` | Alkuperäisen projektin tilitietovastauksen (ryhmäkutsut lakkaavat taas näkymästä) |
+  | Kirjautuminen hajoaa heti tilihakujen jälkeen | `ACCOUNT_MAPPING=0` | Ei yhdistämisiä (kaverin lisääminen ei taas tee mitään) |
+  | Kirjautuminen tai maailman lataus hajoaa kiltakutsujen kohdalla | `GUILDS=0` | Vanhat kiltatyngät; tallennetut killat säilyvät ja palaavat kytkimen mukana |
+  | Invite to Party ei tee mitään yksin olevalle pelaajalle | `PARTY_SOLO_STUB=0` | Ei palautettavaa: tavallinen vastaus yhden hengen ryhmälle |
+  | Killan perustaminen sanoo aina "Unable to create guild." ja lokissa lukee "no validate of this name" | `GUILD_CREATE_ACTIVITY_FALLBACK=1` | Heikomman tarkistuksen (katso [Asetukset]({{ config_page.url | relative_url }}#metagame-social)) |
 
 ## Oikea eteneminen on oletuksena päällä {#real-progression-default}
 

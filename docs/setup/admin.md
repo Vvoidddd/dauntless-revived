@@ -320,6 +320,56 @@ A server that already had players before real progression became the default sta
 level 1. The [upgrade notes]({{ upgrade_page.url | relative_url }}) explain the choice and include a
 small script for both routes.
 
+### Social fallbacks on the host (fork only) {#social}
+
+Friends, parties and guilds work in the game itself; see
+[Join as a friend]({{ friends_page.url | relative_url }}#friends-parties-and-guilds). These five routes
+do the same things by name from the server, for when the game's own menus fail (for example during
+the first live test). Like every admin call they work only directly against the metagame, never
+through the gateway. `PartyInvite`, `Friends` and `GuildInvite` act as the key's owner; an admin key
+may name another player in `From`.
+
+| Method and path | Auth | What it does |
+|:----------------|:-----|:-------------|
+| `POST /PartyInvite` | account key (admin for `From`) | Body `{ "Username", "From" }`: invites that player to the sender's party, with the game's own checks. The player still accepts in the game (PARTY INVITES, within about 10 seconds). Answers `{ "From", "To" }`. |
+| `POST /Friends` | account key (admin for `From`) | Body `{ "Username", "From" }`: sends a friend request, or accepts the one that player sent. Answers `{ "From", "To", "Result" }`. The other player sees it at their next login. |
+| `POST /GuildInvite` | account key (admin for `From`) | Body `{ "Username", "From" }`: invites that player to the sender's guild (the sender must be its Leader or an Officer). The player accepts under GUILD INVITES at their next login or world load. Answers `{ "From", "To", "Guild" }`. |
+| `GET /Guilds` | admin | Every guild: `[{ "guildId", "name", "nameplate", "leader", "members" }]`, `members` being a count. |
+| `POST /DisbandGuild` | admin | Body `{ "Guild" }`, the id or the name in any case: removes the guild, its members and its invites. Answers `{ "Guild", "Members" }`. |
+
+```powershell
+$M = "127.0.0.1:61000"    # on the rented server; in private mode the Tailscale address
+$h = @{ "x-undaunted-user-api-key" = (Get-Content C:\dr\data\owner.key -Raw).Trim() }
+$json = @{ ContentType = "application/json"; Headers = $h; TimeoutSec = 10 }
+
+# invite a friend to your party, send a friend request, invite to your guild
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/PartyInvite" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/Friends" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/GuildInvite" @json -Body (@{ Username = "Friend" } | ConvertTo-Json)
+
+# as an admin, for another player: Friend2 invites Friend to Friend2's party
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/PartyInvite" @json -Body (@{ Username = "Friend"; From = "Friend2" } | ConvertTo-Json)
+
+# list the guilds, and remove one
+Invoke-RestMethod -Uri "http://$M/undaunted/api/Guilds" -Headers $h -TimeoutSec 10
+Invoke-RestMethod -Method Post -Uri "http://$M/undaunted/api/DisbandGuild" @json -Body (@{ Guild = "SomeGuild" } | ConvertTo-Json)
+```
+
+A refusal is a 4xx with `{ "error", "message" }`. `Invoke-RestMethod` throws on it; the message is in
+`$_.ErrorDetails.Message`.
+
+| Route | `error` | Status | Meaning |
+|:------|:--------|:-------|:--------|
+| all five | none (empty body) | 401 | No key, or an unknown one. |
+| all five | none (empty body) | 403 | An admin key through a proxy; for `Guilds` and `DisbandGuild`, a key that is not an admin's. |
+| `PartyInvite`, `Friends`, `GuildInvite` | `forbidden` | 403 | `From` with a key that is not an admin's. |
+| `PartyInvite`, `Friends`, `GuildInvite` | `not_found` | 404 | No account by that `Username` (or `From`). |
+| `PartyInvite` | `party_invite_refused` | 403, 404 or 409 | The game's own refusal, with the reason in `message`: not the leader, a full party, already invited, a block, the player declined your invite in the last 2 minutes, or 20 invites sent in 10 minutes. |
+| `Friends` | `self`, `blocked`, `limit`, `pending_limit`, `rate` | 400, 403 or 409 | Yourself; a block either way; 200 friends; 50 unanswered requests; 20 new requests in 10 minutes. |
+| `GuildInvite` | `guild_refused` | 403, 404, 409 or 429 | The guild's own refusal: `message` starts with its code (for example `RedundantAdorableQuillshot:` for an invite already open; the codes are on [HTTP API]({{ api_page.url | relative_url }}#guilds)). An empty code covers a block, the 24-hour pause after a decline and the invite limits. |
+| `DisbandGuild` | `not_found` | 404 | No guild by that id or name. |
+| the three guild routes | `guilds_off` | 404 | `GUILDS=0` is set. |
+
 ### Missing admin functions and workarounds
 
 There is no API to delete or ban a user, to revoke or reissue a key, or to promote an admin.

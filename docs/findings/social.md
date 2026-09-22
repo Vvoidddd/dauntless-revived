@@ -25,8 +25,9 @@ in the metagame.
 
 **Status (22 September 2026): built and tested without the game, not yet tried by two players.** Every
 fix below passes HTTP tests that replay the client's own requests and check each reply against a model
-of the client's parsing. The next two-player test on the rented server will confirm or correct them.
-Online status and chat are not built (they need an XMPP server, see [Deferred](#deferred)).
+of the client's parsing. The next two-player test on the rented server will confirm or correct them;
+[How to verify](#how-to-verify) lists its steps and the log lines to expect. Online status and chat
+are not built (they need an XMPP server, see [Deferred](#deferred)).
 
 <details open markdown="block">
   <summary>Contents</summary>
@@ -72,7 +73,10 @@ friend search and the party invite. That is only half right. Add Friends did sto
 `/account/mapping` (and would next have stopped at `/accountinfo/public`). The received party invite
 never uses the mapping: its sender id is already a Phoenix id, and it was dropped at
 `/accountinfo/public`. The mapping calls seen around the invite that night fit other callers: the
-two Add Friends attempts and the client's own mapping of the local player at login.
+two Add Friends attempts and the client's own mapping of the local player at login. That login call
+rests on the executable's log string and the 2.1.1 capture (B, R); the 1.4.4 census shows only 6
+mapping calls for 8 logins and 2 Add Friends attempts (L), so it does not happen at every login. The
+live test counts them (see [How to verify](#how-to-verify)).
 
 ## One id, two steps: the identity chain
 
@@ -110,7 +114,7 @@ The client's `QueryAccountMappingsEndpoint` (K `dllmain.cpp`), in Phoenix's own 
 
 - **Request** (B, R, L): `{"srcAccountType": "epic", "ids": ["<id>"]}`, JSON with the player's bearer
   token, at most 100 ids per request. The 2.1.1 client sent exactly this at login (R), and so did the
-  live 1.4.4 clients (L).
+  live 1.4.4 clients (L), though not at every login (6 calls in 8 logins, 2 of them Add Friends).
 - **Reply the parser reads** (B `0x140b09f60`..`0x140b0afd4`): a root key `accountMappings` holding an
   **object keyed by each asked id**. Each value is an object with non-empty strings `accountId` and
   `accountType`; `accountType` is compared without case with `epic` and `phoenix`. Nothing else in an
@@ -199,7 +203,9 @@ the other player at their next login, until the XMPP server can push the change.
 
 **Limits we added** (G): at most 50 unanswered requests sent per account, and at most 20 new requests
 per 10 minutes (409, which the client shows as a failure). Accepting a request is never limited. The
-existing limits stay: 200 friendships and 200 blocks per account.
+existing limits stay: 200 friendships and 200 blocks per account. A block also removes the party and
+guild invites pending between the two players (G), and the invite lists leave out any invite between
+players who blocked each other.
 
 ## Parties
 
@@ -225,8 +231,24 @@ client treats as normal.
 
 Two things we deliberately left alone: invites the caller **sent** are not listed in
 `GET /party/invites` (the client might misread them as received), and a party of one keeps the old
-placeholder values, which were harmless live. The client's automatic kick of "offline" party members
-never runs without presence (B `0x1415f6f60`, a 10-second threshold). It must stay that way when the
+placeholder values, which were harmless live for queueing hunts.
+
+**One risk for the in-game invite: the placeholder may read as "matchmaking".** Before it sends
+`PUT /party/invite`, the client refuses when the inviter is the invitee, is not the leader, or has a
+party that is not idle (B `0x1415b2280`; the last check calls `0x1415a98c0` at `0x1415b27aa` and
+logs "Player %s tried to send an invite to player %s, but party %s was matchmaking"). That state is
+read from the party's candidate, and the placeholder says `QUEUED_FOR_START` with a candidate id. Solo
+players queued hunts without trouble with it (L: 27 queued joins), and one link of the state reading
+was not traced, so whether it greys out Invite to Party is open (M). Nobody used the in-game invite
+live (L: 0 `PUT /party/invite`), so nothing contradicts it either. If it does, `PARTY_SOLO_STUB=0`
+answers a party of one with no candidate (`candidateState: null`, which reads as idle) instead; see
+[Configuration]({{ config_page.url | relative_url }}#metagame-social).
+
+**Limits we added** (G): a player sends at most 20 invites in 10 minutes, and after a player declines
+someone's invite, that sender cannot invite them again for 2 minutes (both 409, a failure to the
+client). A block removes the pending invites between the two.
+
+The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a 10-second threshold). It must stay that way when the
 XMPP server arrives: the server must never echo a player's own presence back.
 
 ## Guilds
@@ -303,7 +325,12 @@ Checked in this order; the first failure decides.
 
 The client never calls the profanity service (the cooked config turns it off), so the server keeps a
 short built-in deny list; `GUILD_NAME_DENYLIST` adds words (see
-[Configuration]({{ config_page.url | relative_url }})).
+[Configuration]({{ config_page.url | relative_url }})). A few short offensive words are refused as the
+whole name or nameplate, with the same codes. **Reserved words** (G) keep a guild from posing as the
+server's staff or the project: `admin`, `moderator`, `official`, `staff` and a few more anywhere, and
+nameplates such as `GM`, `DEV` and `MOD`. They answer "already in use" (`Seized` or `Captured`);
+`GUILD_RESERVED_NAMES=0` allows them. The full lists are on
+[HTTP API]({{ api_page.url | relative_url }}#guilds).
 
 ### The routes
 
@@ -327,18 +354,35 @@ route are on [HTTP API]({{ api_page.url | relative_url }}#guilds).
 
 ### Creating a guild through the game server
 
-Because the game server only passes on the leader id the client put in the RPC, the metagame must not
-simply trust it (G):
+The Create button sends the RPC `ServerCreateGuild(LeaderPlayerId, name, nameplate)` to the Ramsgate
+game server (K `Archon_parameters.hpp`), whose validation returns true, and the game server sends
+`POST /guild` with `leader_account_id` set to that id. **The game server sends no token of the
+player.** `CreateGuild` (B `0x140ac7270`) takes its token at `0x140ac78a4` from `0x140b461d0`, which
+asks the subsystem's identity interface for the token of the subsystem's **own** local user
+(`Subsystem+0x2c0`); the request gets an `Authorization` header only when that token is not empty
+(`0x140b3b561`). Game servers never log in to Phoenix (L: every `POST /login` came from a client), so
+normally the create carries no token, and if one ever did, it would be the game server's own, the same
+for every player on it (H). So the leader id is only what some client claimed, and the metagame ties
+the create to the leader's own action instead (G):
 
 - `POST /guild` accepts only the game-server key, only from this machine. A player's token alone is
   refused.
-- A player token the game server forwards is read if valid and ignored otherwise. The shared login
-  check would fail with a server error on a stale token there, so the guild create has its own.
-- The leader must have validated a name in the last 15 minutes, or been heard from in the last minute
-  (party poll, heartbeat). In normal play both are true: the widget validates while the player types,
-  and the client polls its party every 10 seconds in Ramsgate. Otherwise the create is refused and
-  logged as "no recent validate or activity".
-- At most one new guild per leader per 10 minutes, and an admin can disband any guild.
+- A bearer token that comes along is only logged ("the game server's token names ...", and the
+  created line ends "a token of X came along" or "no token"); a bad one is ignored instead of failing.
+- **The leader must have validated this very name and nameplate** with their own token
+  (`POST /guild/validate`, which the create window sends while they type) in the last 15 minutes. The
+  last five validated pairs per player count, regardless of case, in case Create is pressed before the
+  last check has come back. Otherwise the create is refused with an empty code, which the client shows
+  as "Unable to create guild." (the message in our body never reaches the screen: for an error status
+  the client builds its message from the HTTP status, B `0x140aae447`), and logged as "no validate of
+  this name and nameplate by the leader in the last 15 minutes". A name the rules refuse anyway gets
+  that rule's own text. So a modified client cannot make another player the leader of a guild that
+  player never named, and being online is not enough.
+- `GUILD_CREATE_ACTIVITY_FALLBACK=1` also accepts a leader who validated another name or was heard
+  from in the last minute, with a warning in the log. It exists only for the case where the live test
+  shows the client never validates the final name.
+- At most one new guild per leader per 10 minutes, and an admin can disband any guild. A successful
+  create uses up the leader's validated names.
 
 ### Storage, limits and permissions
 
@@ -352,7 +396,8 @@ for a player who is offline.
 | Invite lifetime | `GUILD_INVITE_TTL_DAYS`, default 7 |
 | Open invites per guild | 50 |
 | Invites sent per inviter | 30 per hour |
-| Open invites per player | 20; the oldest is dropped |
+| Open invites per player | 20; the oldest is dropped (one guild holds at most one of them) |
+| Re-inviting a player who declined | the same guild waits 24 hours |
 | Guilds created per leader | 1 per 10 minutes |
 
 | Action | Who |
@@ -363,8 +408,11 @@ for a player who is offline.
 | Leave | Member, Officer |
 | Kick, change ranks, disband | Leader |
 
-A block in either direction refuses a guild invite. A player in another guild can be invited but must
-leave that guild before accepting (the client says so itself, B).
+A block in either direction refuses a guild invite and removes the open ones between the two. An
+Officer's invites are removed when the Officer is demoted to Member, kicked or leaves; the list leaves
+out, and an accept refuses (`Uninvited`), any invite whose inviter is no longer a Leader or Officer of
+that guild. A player in another guild can be invited but must leave that guild before accepting (the
+client says so itself, B).
 
 **Nothing is pushed.** Other members and invitees see a change at their next `GET /guild` (login,
 world load, or their own guild action). The panels do not refresh themselves (B).
@@ -383,28 +431,140 @@ The fixes are tested over HTTP against the real metagame, with the client's own 
   pending request seen at the other player's login, blocked players, a received party invite whose
   sender is set up, accept, every party member resolving to their own name, the leader queueing with
   every member expected exactly once, user info filed under the right id in any order, the name form of
-  `/accountinfo/public`, the mapping details, both rollback switches, and the new friend limits.
-- **Guilds** (`test/guildhttp.test.ts`): every route and error code, the game server's create and its
-  checks, invites, expiry, the limits, ranks and hand-over, kick, leave and disband (including the
-  route order), a restart, permissions and `GUILDS=0`. Each reply is checked as exact JSON and through
-  the model.
+  `/accountinfo/public`, the mapping details, both rollback switches, the new friend limits, and the
+  party invite rules (a block removes invites both ways, the pause after a decline, the sender's limit).
+  `test/partyhttp.test.ts` also covers `PARTY_SOLO_STUB=0`.
+- **Guilds** (`test/guildhttp.test.ts`): every route and error code, the reserved words, the game
+  server's create tied to the leader's own validate of that exact name (another name, nameplate or
+  leader is refused; a token that comes along changes nothing; the activity fallback switch), invites,
+  expiry, the limits, ranks and hand-over, kick, leave and disband (including the route order), what
+  a block, a decline and a demoted, kicked or departed Officer do to open invites, a restart,
+  permissions and `GUILDS=0`. Each reply is checked as exact JSON and through the model.
 
 ## Open questions, and the live test
 
-To be checked in the next two-player test, after a deploy and with body logging on for the session:
+To be checked in the next two-player test ([How to verify](#how-to-verify) has the steps):
 
 1. Does the `/accountinfo/public` fix alone make received party invites show? The log should show the
    invite poll, then `accountinfo/public by <recipient> for <sender> -> found`.
 2. Where does an incoming friend request appear, and is that section hidden while empty?
 3. Does the Block menu reach our friends routes at all (a `POST` or `PUT .../blocklist/...` line)?
-4. What does the guild validate send as `leader_account_id`, and does the game server's `POST /guild`
-   carry the player's token? (The create's log line says "with the player's token" when it does.)
+4. Does the game server's `POST /guild` carry any `Authorization` header (the created line ends "no
+   token" or "a token of X came along"), and does the client validate the final name and nameplate
+   before Create (a "no validate of this name" refusal says it did not)?
 5. Does `GET /guild` run at every world load (34 calls in 8 logins suggest so)?
 6. Nobody should be kicked from a party after a minute (no `DELETE /party/member/<id>` or
    `/party/leader/<id>` lines).
+7. Does Invite to Party work for a leader on their own with the placeholder candidate (a
+   `PUT /party/invite` line appears), or does it need `PARTY_SOLO_STUB=0`?
+8. How many `account/mapping` calls does each login make (the census had 6 in 8 logins)?
 
-Rollback switches, if a fix disturbs something: `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0`
-and `GUILDS=0` (see [Configuration]({{ config_page.url | relative_url }})).
+**Every player hits three changed replies at each login**, whether or not they use the Social panel:
+`POST /accountinfo/public` (now about the asked account, 404 for an unknown one), `POST /account/mapping`
+(now maps the local player where it used to map nothing), and `GET /guild/invite/player` (the new
+envelope `{"code": "OK", "message": "", "payload": {"invites": []}, "invites": []}` instead of the old
+stub `{"code": null, "message": "OK", "payload": {"invites": []}}`). Our client model reads all three
+as intended, but none has been seen in a real game. The rollback switches, if one disturbs something:
+`ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0` and `GUILDS=0` (see
+[Configuration]({{ config_page.url | relative_url }})).
+
+## How to verify {#how-to-verify}
+
+A test with two players, A and B, on the rented server. Each step names what to do, what the
+metagame's log (`data\logs\metagame.out.log` on a kit server) should show, and what to do if it does
+not. `<A>` and `<B>` stand for the two account ids (`UID-...`); the request log prints every call as
+`METHOD /path gs=0|1` (`gs=1`: from a game server).
+
+**0. Before the session (host).**
+
+1. Deploy the update. At the first start the metagame applies migration `0013_guilds` and starts
+   listening as usual; no `guild:` line appears until someone uses guilds.
+2. Optional: set `LOG_BODIES=1` in the metagame's settings for this session only, to record the
+   request bodies (account ids and guild names; the kit turns it off again in public mode). Delete
+   the body log afterwards.
+3. Both players **quit the game completely and start it again** from the launcher. The client keeps
+   the old answers until it restarts.
+
+**1. Login (each player).** Expect, per player X: `POST /login`, `friends: list for <X>: 0 friend(s),
+0 pending`, `GET /friends/api/public/blocklist/<X>`, `accountinfo/public by <X> for <X> -> found`,
+`GET /guild gs=0` and `GET /guild/invite/player gs=0` (and **no** "Guild invites (stubbed)" line),
+`POST /party gs=0` about every 10 seconds, and `party: poll by=<X> P=... size=1 leader=<X>` (a poll
+line is logged again only when the party changes). Count the
+`account/mapping by <X>: ... -> 1 of 1 mapped` lines (question 8). The player reaches Ramsgate and
+the Social panel opens; everyone shows as Offline, which is expected.
+If a login hangs or the Social panel breaks, turn on `ACCOUNTINFO_PUBLIC_LEGACY=1`, restart the
+metagame and both games, and retry; then `ACCOUNT_MAPPING=0`, then `GUILDS=0`, one at a time, to find
+the change at fault.
+
+**2. A invites B to a party.** A: Social, find B under Hunt Members (or type `/invite <B's name>` in
+chat), Invite to Party. Expect `PUT /party/invite gs=0` and `party: invite P=<PA> from=<A> to=<B>`,
+then within about 10 seconds `party: invites for <B> -> 1 (P=<PA> from=<A>)` and
+`accountinfo/public by <B> for <A> -> found`. B sees a toast and an entry under PARTY INVITES
+(question 1).
+
+- No `PUT /party/invite` line at all, and the menu item greyed out or silent: the placeholder reads as
+  matchmaking (question 7). Set `PARTY_SOLO_STUB=0`, restart the metagame (the games can stay open;
+  parties start over), and retry.
+- `party: invite by=<A> to=<B> refused ...`: the reason is in the line.
+- The invite poll shows 1 and `accountinfo/public ... -> found` appears, but B sees nothing: the
+  diagnosis is wrong somewhere; note it, and use the host's `PartyInvite` to go on with the other steps.
+
+**3. B accepts.** Expect `party: accept by <B> matched=partyId P=<PA> size=2`, then
+`party: poll by=<A> P=<PA> size=2 leader=<A> members=<A>,<B>`. Both party panels show both names.
+(Declining instead logs `party: decline by=<B> ... removed=1`, and A cannot invite B again for 2
+minutes.)
+
+**4. A hunt together.** A (the leader) picks a hunt. Expect `mm: party P=<PA> candidate <C> mode=...
+hunt=... members=<A>,<B> by=<A>` and then `mm: party P=<PA> candidate <C> ready at <host>:<port> for 2
+member(s)`; both land on the same hunt, and come back to Ramsgate with the leader. Afterwards the
+polls still show `size=2`. For the whole session there should be no `DELETE /party/member/<id>` or
+`DELETE /party/leader/<id>` line (question 6).
+
+**5. Add Friends.** A: Social, Add Friends, type B's username, Add. Expect
+`EOS Account by name by <A>: <B>`, `account/mapping by <A>: ... ids=[1]; ... -> 1 of 1 mapped`,
+`accountinfo/public by <A> for <B> -> found` and `friends: request by=<A> to=<B> -> requested`; A sees
+"friend invite sent". B restarts the game (the lists are read only at login): expect
+`friends: list for <B>: 0 friend(s), 1 pending`; note where the request shows (question 2). B
+accepts: `friends: request by=<B> to=<A> -> accepted`; after the next login both show each other
+under OFFLINE (`1 friend(s)`).
+
+- `EOS Account by name by <A>: not found`: the name was typed wrong (it must be exact, any case).
+- No `account/mapping` line after the name lookup, or `0 of 1 mapped`: the mapping step failed; note
+  it (`ACCOUNT_MAPPING` must not be `0`).
+- Optional, question 3: B blocks A from A's menu; expect a `POST` or `PUT`
+  `/friends/api/public/blocklist/<B>/<A>` line and `friends: block by=<B> target=<A> -> blocked`; note
+  which verb. Unblock logs `-> unblocked`.
+
+**6. A creates a guild.** A: Guilds tab, CREATE GUILD, type a name (4-15 letters and digits) and a
+nameplate, **wait a second**, press Create. Expect one or more
+`guild: validate by <A> name="..." tag="..." -> ok`, then `POST /guild gs=1` and
+`guild: created G=<id> name=... tag=... leader=<A> (validated name, no token)`. Note "no token" or "a
+token of X came along" (question 4). A sees the guild view ("Members: 1 / 100") and the `[TAG]` over
+their head.
+
+- `guild: create for <A> ... refused 403 (no code): no validate of this name and nameplate ...`: the
+  create named something A had not validated. Retype, wait until the window has checked it, and
+  press Create again. If it keeps happening, the client does not validate the final name: set
+  `GUILD_CREATE_ACTIVITY_FALLBACK=1`, restart the metagame and retry (question 4).
+- A validate refused with a code (for example `409 SeizedAdorableQuillshot`): the window shows the
+  reason; pick another name.
+- No `POST /guild gs=1` line at all: the game server never sent the create; check the Ramsgate game
+  server's log.
+- `guild: create for <someone else>`: the leader id is not A's own; note it.
+
+**7. Guild invite, accept, ranks.** A: the add-member box in the Guilds tab, B's username (or Invite to
+Guild in B's menu). Expect `EOS Account by name by <A>: <B>`, a mapping line and
+`guild: invite by=<A> to=<B> -> 200`. B travels (to a hunt and back) or logs in again: expect
+`GET /guild/invite/player gs=0` and `accountinfo/public by <B> for <A> -> found`; B sees the invite
+under GUILD INVITES. B accepts: `guild: accept by=<B> G=<id> -> 200`, and B sees the guild view. A
+sees B after A's next `GET /guild` (a world load). Then, as wanted: Promote To Guild Officer
+(`guild: rank by=<A> target=<B> rank="officer" -> 200`), Leave Guild (`guild: leave by=<B> -> 200`),
+DISBAND GUILD (`guild: disband G=<id> by=<A> -> 200`). Count the `GET /guild` lines per world load
+(question 5).
+
+**8. Afterwards.** Look for social routes answered 404 in the request log, and for any
+`refused` line you did not expect. Turn `LOG_BODIES` off again and delete the body log. Write down the
+answers to the open questions above; the corrections go into this page and the roadmap.
 
 ## Deferred {#deferred}
 

@@ -222,7 +222,11 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Kaverit, ryhmät ja killat (1.9, 1.11, 3.11)** on rakennettu ja testattu ilman peliä, mutta niitä
   ei ole vielä viety palvelimelle. Seuraavassa kahden pelaajan testissä katsotaan, näkyykö ryhmäkutsu
   kohdassa PARTY INVITES, tuleeko kaveripyyntö perille toisen pelaajan seuraavalla kirjautumisella ja
-  toimiiko killan perustaminen Ramsgatessa.
+  toimiiko killan perustaminen Ramsgatessa. Kilta perustetaan vain, jos johtaja on itse tarkistanut
+  juuri sen nimen ja nimikyltin (pelipalvelin ei välitä pelaajan tunnistetta), henkilökunnan sanat ovat
+  varattuja, ja kutsuilla on omat sääntönsä: esto poistaa kahden pelaajan väliset kutsut, ja hylkäyksen
+  jälkeen on tauko. Testin vaiheet ja odotetut lokirivit ovat löydössivun Kaverit, ryhmät ja killat
+  kohdassa Näin se tarkistetaan.
 - **Kahden pelaajan testi (1.15)** on seuraavana vuorossa vuokratulla palvelimella julkisessa
   tilassa, ja kaverin kutsu on jo annettu. Siinä kokeillaan ensimmäistä kertaa kahta pelaajaa
   Ramsgatessa, ryhmiä (1.9), yhteistä metsästystä internetin yli ja sitä, että kummankin pelaajan
@@ -425,7 +429,8 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   pelaajalla; se on seuraava testi. Käynnistä peli kerran uudelleen seuraavan päivityksen jälkeen.
   Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät toistaiseksi poissa olevina
   (offline), ja kaveripyynnöt ja kiltakutsut näkyvät toiselle pelaajalle hänen seuraavalla
-  kirjautumisellaan.
+  kirjautumisellaan. Kun perustat killan, odota hetki nimen kirjoittamisen jälkeen ennen kuin painat
+  Create.
 - Tekstichattia ei vielä ole. Käytä Discordia.
 
 ## Mitä ei voi palauttaa {#cant-come-back}

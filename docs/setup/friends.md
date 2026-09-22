@@ -407,9 +407,9 @@ section); it does not mean the other player is not there.
    **Accept** and **Decline**.
 3. Once they accept, you appear under each other's **OFFLINE** list after your next login.
 
-From a friend's menu you can **Remove** them, or **Block** a player (they move to **BLOCKED**, and
-neither of you can send the other friend requests, party invites or guild invites). **Unblock** undoes
-it. A server allows 200 friends, 50 unanswered requests sent, and 20 new requests in 10 minutes.
+From a friend's menu you can **Remove** them, or **Block** a player (they move to **BLOCKED**, any
+open party or guild invites between you are removed, and neither of you can send the other friend
+requests, party invites or guild invites). **Unblock** undoes it. A server allows 200 friends, 50 unanswered requests sent, and 20 new requests in 10 minutes.
 
 ### Invite someone to your party
 
@@ -422,6 +422,10 @@ You don't have to be friends. Parties have up to 4 players, and only the party l
 3. Both party panels show both names. When the leader picks a hunt, the whole party goes to the same
    hunt server, and comes back to Ramsgate with the leader.
 
+If someone declines your invite, you can invite them again after 2 minutes, and you can send 20
+invites in 10 minutes. If **Invite to Party** does nothing at all while you are on your own, tell the
+host: there is a server setting for exactly that case.
+
 If the in-game invite does not work, the host can send one by name from the server (the
 `PartyInvite` route of the [management API]({{ '/reference/api.html' | relative_url }}#undaunted-api));
 you still accept it in the game. The same goes for guild invites (`GuildInvite`).
@@ -431,13 +435,17 @@ you still accept it in the game. The same goes for guild invites (`GuildInvite`)
 - **Create one** in the **Guilds** tab while you are in Ramsgate: **CREATE GUILD**, then a name of
   4-15 English letters and digits (at most 6 digits, and at most 6 of the same letter in a row) and,
   if you like, a nameplate of 2-6 letters and digits, which shows as `[TAG]` over your head. The
-  window tells you when a name is taken or not allowed. Creating a guild is free.
+  window checks the name as you type and tells you when it is taken or not allowed. **Wait a moment
+  after typing, then press Create:** the server only creates a name and nameplate the window has
+  checked for you. Words that look like staff (admin, moderator, official, GM, DEV and similar) count
+  as taken. Creating a guild is free.
 - **Invite** (leader and officers): type the player's username in the add-member box (it says "Enter
   an Epic Games display name"; on this server that is the username), or choose **Invite to Guild** in
   any player's menu.
 - **The invited player** sees the invite under **GUILD INVITES** at their next login, or after
   travelling (to a hunt and back to Ramsgate), with **Accept** and **Decline**. An invite stays open
-  for 7 days. To accept, leave your current guild first.
+  for 7 days. To accept, leave your current guild first. If you decline, the same guild can invite you
+  again after 24 hours.
 - **The leader** can make members officers and back, hand the guild over (**Promote To Guild
   Leader**; the old leader becomes an officer), kick members and disband the guild. The leader cannot
   leave: hand the guild over or disband it. Officers can invite; members can leave.
