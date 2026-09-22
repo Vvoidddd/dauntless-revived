@@ -178,6 +178,43 @@ function Get-DRPort($Config, [string]$Name) {
     return [int](Get-DRConfigValue $ports $Name $script:DRDefaultPorts[$Name])
 }
 
+# Text chat (roadmap 3.10, docs/findings/chat.md): the metagame's own chat listener on loopback, which
+# the gateway forwards the game's WebSocket upgrades to. One port for both, so they can never disagree.
+# A sandbox uses 62099, never a development PC's own 61099.
+function Get-DRChatPort([bool]$Sandbox) {
+    if ($Sandbox) { return 62099 }
+    return $script:DRChatPort
+}
+
+function Get-DRGatewayWsUrl([bool]$Sandbox) { return "http://127.0.0.1:$(Get-DRChatPort $Sandbox)" }
+
+# The chat setting of an install: -Chat when given, else "Chat" in server.json, else Off.
+function Resolve-DRChat([string]$Requested, $Config) {
+    if ($Requested -eq 'On' -or $Requested -eq 'Off') { return $Requested }
+    if ([string](Get-DRConfigValue $Config 'Chat' '') -eq 'On') { return 'On' }
+    return 'Off'
+}
+
+# The chat keys of metagame.env (public mode): CHAT=1|0, always on 127.0.0.1, on the gateway's port.
+function Set-DRChatEnv($EnvMap, [string]$Chat, [bool]$Sandbox) {
+    $EnvMap['CHAT'] = $(if ($Chat -eq 'On') { '1' } else { '0' })
+    $EnvMap['CHAT_BIND_HOST'] = '127.0.0.1'
+    $EnvMap['CHAT_PORT'] = "$(Get-DRChatPort $Sandbox)"
+}
+
+# One status line: "listening 127.0.0.1:61099", "off", or on but not listening. metagame.env is readable
+# by administrators, SYSTEM and the service account only.
+function Get-DRChatState($Paths, $Config) {
+    $envMap = $null
+    try { $envMap = Read-DREnv $Paths.MetaEnv } catch { return 'unknown (run this elevated to read metagame.env)' }
+    $port = Get-DRChatPort ([bool](Get-DRConfigValue $Config 'Sandbox' $false))
+    if ($envMap['CHAT_PORT'] -match '^\d{1,5}$') { $port = [int]$envMap['CHAT_PORT'] }
+    if ($envMap['CHAT'] -ne '1') { return 'off' }
+    $listening = @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Where-Object { $_.LocalAddress -eq '127.0.0.1' }).Count -gt 0
+    if ($listening) { return "listening 127.0.0.1:$port" }
+    return 'on in metagame.env but not listening (see the metagame log)'
+}
+
 # UTF-8 without BOM (Node reads .env and JSON as UTF-8; a BOM would end up in the first key).
 function Write-DRText([string]$Path, [string]$Text) {
     $dir = Split-Path $Path -Parent

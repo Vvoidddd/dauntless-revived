@@ -342,6 +342,39 @@ $removed = Remove-DROldPerfFiles $prune (New-Object DateTime 2026, 9, 22, 8, 0, 
 $left = @(Get-ChildItem -LiteralPath $prune | ForEach-Object { $_.Name } | Sort-Object)
 Check 'keeps 30 days of files and nothing else is touched' ($removed -eq 2 -and ($left -join ',') -ceq 'notes.txt,performance-2026-08-24.csv,performance-2026-09-22.csv,performance-latest.csv') "$removed removed; left $($left -join ',')"
 
+Write-Host '== chat settings (installer -Chat, Set-Chat.ps1, status line)'
+foreach ($sb in $false, $true) {
+    $m = [ordered]@{}
+    Set-DRChatEnv $m 'On' $sb
+    $wsPort = ([Uri](Get-DRGatewayWsUrl $sb)).Port
+    Check "CHAT_PORT is the gateway's WebSocket port ($(if ($sb) { 'sandbox' } else { 'normal' }))" ($m['CHAT_PORT'] -eq "$wsPort" -and $m['CHAT'] -eq '1' -and $m['CHAT_BIND_HOST'] -eq '127.0.0.1') "$($m['CHAT_PORT']) vs $wsPort"
+}
+Check 'normal install: 61099, sandbox: 62099' ((Get-DRChatPort $false) -eq 61099 -and (Get-DRChatPort $true) -eq 62099)
+$m = [ordered]@{}; Set-DRChatEnv $m 'Off' $false
+Check 'Off writes CHAT=0 and keeps the address and port' ($m['CHAT'] -eq '0' -and $m['CHAT_BIND_HOST'] -eq '127.0.0.1' -and $m['CHAT_PORT'] -eq '61099')
+Check '-Chat wins over server.json' ((Resolve-DRChat 'On' ([pscustomobject]@{ Chat = 'Off' })) -eq 'On' -and (Resolve-DRChat 'Off' ([pscustomobject]@{ Chat = 'On' })) -eq 'Off')
+Check 'without -Chat, server.json''s "Chat" is kept' ((Resolve-DRChat '' ([pscustomobject]@{ Chat = 'On' })) -eq 'On')
+Check 'a new install is Off' ((Resolve-DRChat '' $null) -eq 'Off' -and (Resolve-DRChat '' ([pscustomobject]@{ Mode = 'Public' })) -eq 'Off')
+$chatEnv = Join-Path $WorkDir 'chat-metagame.env'
+$first = [ordered]@{ PORT = '61000'; PROGRESSION_MODE = 'real' }
+Set-DRChatEnv $first 'On' $false
+[void](Write-DREnv $chatEnv $first @('test'))
+$rerun = Read-DREnv $chatEnv
+Set-DRChatEnv $rerun (Resolve-DRChat '' ([pscustomobject]@{ Chat = 'On' })) $false
+Check 'a re-run keeps the chat keys and every other key (nothing to write)' (-not (Write-DREnv $chatEnv $rerun @('test')) -and (Read-DREnv $chatEnv)['PROGRESSION_MODE'] -eq 'real')
+$chatPaths = [pscustomobject]@{ MetaEnv = $chatEnv }
+$listener = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, 0)
+$listener.Start()
+try {
+    $freePort = $listener.LocalEndpoint.Port
+    [void](Write-DREnv $chatEnv ([ordered]@{ CHAT = '1'; CHAT_BIND_HOST = '127.0.0.1'; CHAT_PORT = "$freePort" }) @('test'))
+    Check 'status: listening' ((Get-DRChatState $chatPaths $null) -eq "listening 127.0.0.1:$freePort") (Get-DRChatState $chatPaths $null)
+} finally { $listener.Stop() }
+Check 'status: on but not listening' ((Get-DRChatState $chatPaths $null) -eq 'on in metagame.env but not listening (see the metagame log)') (Get-DRChatState $chatPaths $null)
+[void](Write-DREnv $chatEnv ([ordered]@{ CHAT = '0'; CHAT_PORT = '61099' }) @('test'))
+Check 'status: off' ((Get-DRChatState $chatPaths $null) -eq 'off')
+Check 'status: off without a metagame.env' ((Get-DRChatState ([pscustomobject]@{ MetaEnv = (Join-Path $WorkDir 'none.env') }) $null) -eq 'off')
+
 Write-Host ''
 Write-Host "unit checks: $script:Pass passed, $script:Fail failed" -ForegroundColor $(if ($script:Fail) { 'Red' } else { 'Green' })
 Remove-Item -LiteralPath $WorkDir -Recurse -Force -ErrorAction SilentlyContinue

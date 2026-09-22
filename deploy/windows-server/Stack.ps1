@@ -152,6 +152,8 @@ function Show-Status {
     if ($Configured -contains 'gateway' -and @(Get-DRComponentProcesses $P 'gateway').Count) {
         'gateway check    : ' + (Get-GatewayCheck)
     }
+    # Text chat: the metagame's listener that the gateway forwards the game's chat connection to
+    'chat             : ' + (Get-DRChatState $P $Cfg)
     if ($Configured -contains 'allowlist') {
         # The helper's own view (needs its secret: administrators and SYSTEM only; never printed).
         $alEnv = $null

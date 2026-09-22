@@ -23,7 +23,9 @@
          server answers through its public gateway with that certificate.
 
     Other uses:  -InviteFor <name>  makes an invite on the server and prints it;  -Status  shows the
-    server's status.  -UploadOnly stops before running the installer.
+    server's status.  -UploadOnly stops before running the installer.  -Chat On|Off  with an install
+    passes the chat setting to the installer; on its own it switches chat on the server with
+    Set-Chat.ps1 (which restarts the stack: do it when nobody is playing).
 
     No key, token or .env value is printed. The backup you upload with -RestoreFrom contains keys: it
     travels only inside the SSH connection.
@@ -34,6 +36,8 @@
     .\Deploy-Remote.ps1 -Server 203.0.113.7 -InviteFor Alex
 .EXAMPLE
     .\Deploy-Remote.ps1 -Server 203.0.113.7 -Update
+.EXAMPLE
+    .\Deploy-Remote.ps1 -Server 203.0.113.7 -Chat On
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -61,6 +65,7 @@ param(
     [string]$Ref,
     [switch]$WorkingTree,
     [switch]$InteractiveSession,
+    [ValidateSet('On', 'Off')][string]$Chat,
     [switch]$Update,
     [switch]$UploadOnly,
     [string]$InviteFor,
@@ -384,6 +389,11 @@ try {
     $actions = @(@($Update, $Status, [bool]$InviteFor) | Where-Object { $_ })
     if ($actions.Count -gt 1) { Stop-DR 'Use one of -Update, -Status or -InviteFor.' }
     $isInstall = -not ($Update -or $Status -or $InviteFor)
+    # -Chat with an install goes to the installer; on its own it runs Set-Chat.ps1 on the server
+    if ($Chat -and -not $isInstall) { Stop-DR '-Chat goes with an install, or on its own (it then switches chat with Set-Chat.ps1 on the server).' }
+    $chatOnly = [bool]$Chat -and -not ($OwnerName -or $RestoreFrom -or $GameZip -or $GameZipUrl -or $UploadOnly -or $Ref -or $WorkingTree -or $ServerName -or $AdminIp)
+    if ($chatOnly) { $isInstall = $false }
+    if ($Chat -eq 'On' -and $isInstall -and $Mode -eq 'Private') { Stop-DR 'Chat works in public mode only for now (private mode comes later, roadmap 3.10).' }
     if ($GameZip -and $GameZipUrl) { Stop-DR 'Use -GameZip or -GameZipUrl, not both.' }
     if ($GameZipUrl -and $GameZipUrl -notmatch '^https://\S+$') { Stop-DR '-GameZipUrl must be an https:// URL.' }
     if (-not $isInstall -and ($GameZip -or $GameZipUrl -or $RestoreFrom -or $OwnerName)) { Stop-DR '-GameZip, -GameZipUrl, -RestoreFrom and -OwnerName belong to an install (not -Update, -Status or -InviteFor).' }
@@ -436,6 +446,7 @@ try {
     if ($WhatIfPreference) {
         Write-DRInfo 'what-if: nothing is connected, uploaded or run. The plan:'
         if ($Status) { Write-DRInfo "  run $RemoteBin\Stack.ps1 status and Get-ServerStatus.ps1 on the server" }
+        elseif ($chatOnly) { Write-DRInfo "  run $RemoteBin\Set-Chat.ps1 -$Chat on the server (it restarts the stack)" }
         elseif ($InviteFor) { Write-DRInfo "  run $RemoteBin\New-Invite.ps1 -For '$InviteFor' on the server, then check the invite from here" }
         else {
             Write-DRInfo "  upload the kit to $RemoteKit"
@@ -467,6 +478,20 @@ $os = Get-CimInstance Win32_OperatingSystem
     if ($Status) {
         [void](Invoke-Remote "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Stack.ps1')) status 6>&1; ''; & $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Get-ServerStatus.ps1')) 6>&1" -Stream)
         exit $script:RemoteExit
+    }
+
+    if ($chatOnly) {
+        $chatCmd = "& $(ConvertTo-DRPsLiteral (Join-Path $RemoteBin 'Set-Chat.ps1')) -$Chat 6>&1; exit `$LASTEXITCODE"
+        if ($script:Test) {
+            Write-DRStep 'Ready'
+            Write-DRInfo 'the command that would run there (not run in a test):'
+            Write-Host "   $chatCmd"
+            exit 0
+        }
+        Write-DRStep "Switching chat $($Chat.ToLowerInvariant()) on the server (the stack restarts)"
+        [void](Invoke-Remote $chatCmd -Stream)
+        if ($script:RemoteExit -ne 0) { Stop-DR 'Set-Chat.ps1 failed on the server (see above).' }
+        exit 0
     }
 
     if ($InviteFor) {
@@ -565,6 +590,7 @@ $os = Get-CimInstance Win32_OperatingSystem
         if ($AdminIp) { $named['AdminIp'] = @($AdminIp) }
         if ($KeepRdpOpen) { $switches += 'KeepRdpOpen' }
         if ($InteractiveSession) { $switches += 'InteractiveSession' }
+        if ($Chat) { $named['Chat'] = $Chat }
     }
     $cmdParts = @("& $(ConvertTo-DRPsLiteral (Join-Path $RemoteKit $scriptName))")
     foreach ($k in $named.Keys) {

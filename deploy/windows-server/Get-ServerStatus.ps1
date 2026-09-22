@@ -159,6 +159,8 @@ try {
     if ($s.sourceUrl) { Write-Host "         source: $($s.sourceUrl)" }
     if ($scheme -eq 'https') { Write-Host '         game downloads: through the gateway (/content/)' }
     elseif ($null -ne $s.contentPort) { Write-Host "         game downloads: port $($s.contentPort)" }
+    # This machine's own server: the chat listener too (the gateway forwards the game's chat connection to it)
+    if ($local) { Write-Host "         chat: $(Get-DRChatState $P $Cfg)" }
     Write-Host ''
 
     # "limited": the server hid the list (no key, or one it did not accept). Its 0 players and no

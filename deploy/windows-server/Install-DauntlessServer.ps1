@@ -88,6 +88,11 @@
 .PARAMETER OwnerName
     Username of the owner (admin) account: 3-16 letters, digits or _. Not used with -RestoreFrom (the
     backup has the accounts).
+.PARAMETER Chat
+    On or Off: the in-game text chat (roadmap 3.10), the metagame's chat listener on 127.0.0.1:61099
+    that the gateway forwards the game's chat connection to. Public mode only for now; no firewall
+    rule is needed. Kept in server.json ("Chat"); a re-run without -Chat keeps it, a new install is
+    Off. Set-Chat.ps1 -On / -Off switches it later without the installer.
 
 .EXAMPLE
     .\Install-DauntlessServer.ps1 -Mode Public -GameZip D:\BaseGame144.zip -PublicHost 203.0.113.7 -AdminIp 198.51.100.20 -RestoreFrom D:\backups\2026-10-01_200000
@@ -115,6 +120,7 @@ param(
     [string]$SourceZip,
     [string]$SourceCommit,
     [switch]$InteractiveSession,
+    [ValidateSet('On', 'Off')][string]$Chat,
     [switch]$NewCertificate,
     [switch]$Sandbox,
     [switch]$NoStart,
@@ -399,6 +405,13 @@ try {
     $AdminIp = @($AdminIp | ForEach-Object { "$_" -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     foreach ($a in @($AdminIp)) { if ($a -and -not (Test-DRIPv4Cidr $a)) { Stop-DR "-AdminIp '$a' must be an IPv4 address or IPv4/prefix." } }
     if (-not $AdminIp -and $existingCfg) { $AdminIp = @(Get-DRConfigValue $existingCfg 'AdminIp' @()) | Where-Object { $_ } }
+    # Text chat: -Chat, else what server.json has, else Off. Public mode only until private mode gets it.
+    $ChatSetting = Resolve-DRChat $Chat $existingCfg
+    if (-not $Public -and $ChatSetting -eq 'On') {
+        if ($Chat -eq 'On') { Stop-DR 'Chat works in public mode only for now (private mode comes later, roadmap 3.10). Leave out -Chat On, or use -Mode Public.' }
+        Write-DRInfo 'chat was on in server.json; private mode has no chat yet, so it is off'
+        $ChatSetting = 'Off'
+    }
 
     Write-DRInfo "install root : $Root$(if ($Sandbox) { '   (SANDBOX: no system changes)' })"
     Write-DRInfo "mode         : $Mode$(if ($Public) { ' (friends connect through the TLS gateway)' } else { ' (friends connect over Tailscale)' })"
@@ -1002,6 +1015,8 @@ try {
         if ($meta['LOG_BODIES'] -eq '1') { Write-DRInfo 'LOG_BODIES was on in the old settings; turned off for a public server' }
         $meta['LOG_BODIES'] = '0'
     } elseif ($meta.Contains('GATEWAY_SECRET')) { $meta.Remove('GATEWAY_SECRET') }
+    # Text chat: on loopback, on the port the gateway forwards WebSocket upgrades to.
+    if ($Public) { Set-DRChatEnv $meta $ChatSetting ([bool]$Sandbox) } elseif ($meta.Contains('CHAT')) { $meta['CHAT'] = '0' }
     if ($components -contains 'content') { $meta['CONTENT_PORT'] = "$($ports.content)" } elseif ($meta.Contains('CONTENT_PORT')) { $meta.Remove('CONTENT_PORT') }
 
     $deploy['PORT'] = "$($ports.deploy)"
@@ -1034,8 +1049,9 @@ try {
     $gateway['GATEWAY_SECRET'] = $gwSecret
     $gateway['GATEWAY_METAGAME_URL'] = "http://127.0.0.1:$($ports.metagame)"
     $gateway['GATEWAY_CONTENT_URL'] = "http://127.0.0.1:$($ports.content)"
-    # WebSocket upgrades (future chat). A sandbox points at a spare port, never at the PC's own 61099.
-    $gateway['GATEWAY_WS_URL'] = "http://127.0.0.1:$(if ($Sandbox) { 62099 } else { $DRChatPort })"
+    # WebSocket upgrades: the metagame's chat listener (CHAT_PORT, the same port). A sandbox points at a
+    # spare port, never at the PC's own 61099.
+    $gateway['GATEWAY_WS_URL'] = Get-DRGatewayWsUrl ([bool]$Sandbox)
     $gateway['ALLOWLIST_URL'] = "http://127.0.0.1:$($ports.allowlist)"
     $gateway['ALLOWLIST_SECRET'] = $alSecret
     $gateway['NODE_ENV'] = 'production'
@@ -1074,6 +1090,7 @@ try {
     if ($Public) {
         Write-DRInfo "gateway    : ${GatewayBind}:$($ports.gateway) (TLS; the only public TCP port)"
         Write-DRInfo "allowlist  : 127.0.0.1:$($ports.allowlist)$(if ($AllowlistDryRun) { ' (DRY-RUN: logs the firewall changes it would make)' })"
+        Write-DRInfo "chat       : 127.0.0.1:$(Get-DRChatPort ([bool]$Sandbox)) $(if ($ChatSetting -eq 'On') { 'on (the gateway forwards the game''s chat connection to it)' } else { 'off (Set-Chat.ps1 -On turns it on)' })"
     }
     Write-DRInfo "game UDP   : $UdpBegin-$UdpEnd, advertised as $MyIp"
 
@@ -1103,6 +1120,7 @@ try {
         ServiceProfile     = $svcProfile
         InteractiveSession = [bool]$InteractiveSession
         PerformanceLog     = [bool](Get-DRConfigValue $existingCfg 'PerformanceLog' $true)
+        Chat               = $ChatSetting
         StackTask          = $DRNames.StackTask
         AllowlistTask      = $(if ($Public) { $DRNames.AllowlistTask } else { '' })
         BackupTask         = $DRNames.BackupTask

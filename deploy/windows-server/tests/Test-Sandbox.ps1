@@ -8,7 +8,8 @@
     folder.
 
     Never used: ports 61000-61099, the game, the firewall, scheduled tasks, accounts, certificate stores.
-    Ports: metagame 62000, content 62002, allowlist 62005, gateway 62443 (deploy 62001 stays unused).
+    Ports: metagame 62000, content 62002, allowlist 62005, gateway 62443, chat 62099 (deploy 62001 stays
+    unused). Chat is installed on, checked through the gateway, then switched off with Set-Chat.ps1.
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-Sandbox.ps1
@@ -43,6 +44,31 @@ function Run-Kit([string]$Script, [string[]]$Arguments) {
     Add-Content -LiteralPath $Log -Value (@("----- $(Split-Path $Script -Leaf) $($Arguments -join ' ') (exit $code)") + $out)
     return [pscustomobject]@{ Code = $code; Out = $out; Text = ($out -join "`n") }
 }
+# The game's chat connection as libwebsockets sends it (GET //, protocol xmpp), over TLS pinned to the
+# gateway's fingerprint. Returns the HTTP status of the answer (101 when chat is on), 0 or -1 on failure.
+function Get-ChatUpgradeStatus([int]$Port, [string]$Fingerprint) {
+    $client = $null
+    try {
+        $client = New-Object Net.Sockets.TcpClient('127.0.0.1', $Port)
+        $pinned = [Net.Security.RemoteCertificateValidationCallback]{
+            param($sender, $cert, $chain, $errors)
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { return ((ConvertTo-DRHex $sha.ComputeHash($cert.GetRawCertData())) -eq $Fingerprint) } finally { $sha.Dispose() }
+        }
+        $ssl = New-Object Net.Security.SslStream($client.GetStream(), $false, $pinned)
+        $ssl.AuthenticateAsClient('127.0.0.1', $null, [Security.Authentication.SslProtocols]::Tls12, $false)
+        $key = [Convert]::ToBase64String((Get-DRRandomBytes 16))
+        $req = "GET // HTTP/1.1`r`nPragma: no-cache`r`nCache-Control: no-cache`r`nHost: 127.0.0.1`r`nOrigin: http://127.0.0.1`r`nUpgrade: websocket`r`nConnection: Upgrade`r`nSec-WebSocket-Key: $key`r`nSec-WebSocket-Protocol: xmpp`r`nSec-WebSocket-Version: 13`r`n`r`n"
+        $bytes = [Text.Encoding]::ASCII.GetBytes($req)
+        $ssl.Write($bytes, 0, $bytes.Length)
+        $ssl.Flush()
+        $buf = New-Object byte[] 2048
+        $n = $ssl.Read($buf, 0, $buf.Length)
+        $head = [Text.Encoding]::ASCII.GetString($buf, 0, $n)
+        if ($head -match '^HTTP/1\.1 (\d{3})') { return [int]$Matches[1] }
+        return 0
+    } catch { return -1 } finally { if ($client) { $client.Close() } }
+}
 function Get-LivePids { foreach ($p in 61000, 61001) { $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { "$p=$($c.OwningProcess)" } else { "$p=down" } } }
 function Get-SandboxNodes([string]$Under) {
     @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($Under, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
@@ -55,7 +81,7 @@ function Stop-Sandbox([string]$R) {
 $livePids = (Get-LivePids) -join ' '
 Write-Host "live stack before: $livePids"
 if (Test-Path -LiteralPath $SandboxDir) { Stop-Sandbox $Root; Stop-Sandbox $Root2; Remove-Item -LiteralPath $SandboxDir -Recurse -Force }
-foreach ($p in 62000, 62002, 62005, 62443) { if (Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue) { throw "port $p is in use; the sandbox needs it" } }
+foreach ($p in 62000, 62002, 62005, 62099, 62443) { if (Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue) { throw "port $p is in use; the sandbox needs it" } }
 New-Item -ItemType Directory -Force -Path $InputDir | Out-Null
 Set-Content -LiteralPath $Log -Value "sandbox test $(Get-Date -Format o)" -Encoding UTF8
 
@@ -84,7 +110,7 @@ try {
     Write-DRText -Path $manifest -Text (([ordered]@{ build = $DRPinned.Build; totalBytes = $total; files = $entries }) | ConvertTo-Json -Depth 4)
     Check 'stand-in game folder' (Test-Path -LiteralPath (Join-Path $game 'Archon\Binaries\Win64'))
 
-    $common = @('-Sandbox', '-Mode', 'Public', '-GameDir', $game, '-ContentManifest', $manifest, '-ServerName', 'Sandbox Ramsgate', '-PublicHost', '127.0.0.1')
+    $common = @('-Sandbox', '-Mode', 'Public', '-GameDir', $game, '-ContentManifest', $manifest, '-ServerName', 'Sandbox Ramsgate', '-PublicHost', '127.0.0.1', '-Chat', 'On')
 
     # ------------------------------------------------------------------------------------------
     Step 'Installer -WhatIf (nothing may be created)'
@@ -127,6 +153,10 @@ try {
     Check 'no deploy server in the sandbox' (@(Get-DRComponentProcesses (Get-DRPaths $Root) 'deploy').Count -eq 0 -and -not (Get-NetTCPConnection -LocalPort 62001 -State Listen -ErrorAction SilentlyContinue))
     $gwListen = @(Get-NetTCPConnection -LocalPort 62443 -State Listen -ErrorAction SilentlyContinue)
     Check 'gateway listens on loopback only' ($gwListen.Count -ge 1 -and -not ($gwListen | Where-Object { $_.LocalAddress -ne '127.0.0.1' }))
+    Check 'chat on: CHAT=1 on 127.0.0.1, the gateway''s WebSocket port, kept in server.json' ($meta['CHAT'] -eq '1' -and $meta['CHAT_BIND_HOST'] -eq '127.0.0.1' -and $meta['CHAT_PORT'] -eq '62099' -and $cfg.Chat -eq 'On')
+    $chatListen = @(Get-NetTCPConnection -LocalPort 62099 -State Listen -ErrorAction SilentlyContinue)
+    Check 'chat listens on 127.0.0.1:62099 only' ($chatListen.Count -ge 1 -and -not ($chatListen | Where-Object { $_.LocalAddress -ne '127.0.0.1' }))
+    $fwRules = @(Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'Dauntless' }).Count
 
     # ------------------------------------------------------------------------------------------
     Step 'Invite and status through the gateway (TLS pinned)'
@@ -181,6 +211,7 @@ try {
     Check 'Get-ServerStatus -Invite -KeyFile lists players with a friend''s key' ($stf.Code -eq 0 -and $stf.Text -match 'Players online: \d+' -and $stf.Text -notmatch 'hidden' -and -not $stf.Text.Contains($friendKey)) (($stf.Out | Select-Object -Last 4) -join ' | ')
     $tok = Invoke-DRHttp -Method POST -Url "$g/account/api/oauth/token" -Fingerprint $fp -Body @{ grant_type = 'exchange_code'; exchange_code = $friendKey }
     Check 'login (oauth/token) through the gateway' ($tok.Status -eq 200 -and $tok.Json.access_token) "$($tok.Status)"
+    Check 'the game''s chat connection through the gateway: 101' ((Get-ChatUpgradeStatus 62443 $fp) -eq 101)
     $man = Invoke-DRHttp -Url "$g/content/v1/manifest" -Fingerprint $fp
     Check 'content manifest through the gateway' ($man.Status -eq 200 -and @($man.Json.files).Count -eq 3) "$($man.Status)"
     $pak = Invoke-DRHttp -Url "$g/content/v1/files/Archon/Content/Paks/sandbox-test.pak" -Fingerprint $fp
@@ -220,6 +251,15 @@ try {
     Step 'Stack status, backup, stop'
     $ss = Run-Kit (Join-Path $bin 'Stack.ps1') @('status', '-Root', $Root)
     Check 'Stack status shows the gateway check' ($ss.Code -eq 0 -and $ss.Text -match 'gateway check\s+: TLS ok' -and $ss.Text -match 'allowlist helper : \d+ player address') (($ss.Out | Where-Object { $_ -match 'gateway|allowlist' }) -join ' | ')
+    Check 'Stack status shows the chat listener' ($ss.Text -match 'chat\s+: listening 127\.0\.0\.1:62099') (($ss.Out | Where-Object { $_ -match 'chat' }) -join ' | ')
+    Check 'chat survived the update and the rollback' ((Read-DREnv (Join-Path $Root 'data\config\metagame.env'))['CHAT'] -eq '1')
+    $off = Run-Kit (Join-Path $bin 'Set-Chat.ps1') @('-Root', $Root, '-Off')
+    Check 'Set-Chat.ps1 -Off' ($off.Code -eq 0 -and $off.Text -match 'chat off') (($off.Out | Select-Object -Last 4) -join ' | ')
+    Check 'chat off: CHAT=0 and "Chat": "Off"' ((Read-DREnv (Join-Path $Root 'data\config\metagame.env'))['CHAT'] -eq '0' -and (Get-Content -LiteralPath (Join-Path $Root 'data\config\server.json') -Raw | ConvertFrom-Json).Chat -eq 'Off')
+    Check 'chat off: the gateway answers the chat connection 502 again' ((Get-ChatUpgradeStatus 62443 $fp) -eq 502)
+    Check 'no firewall rule was touched' (@(Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'Dauntless' }).Count -eq $fwRules)
+    $ss = Run-Kit (Join-Path $bin 'Stack.ps1') @('status', '-Root', $Root)
+    Check 'Stack status: chat off' ($ss.Text -match 'chat\s+: off') (($ss.Out | Where-Object { $_ -match 'chat' }) -join ' | ')
     Check 'Stack status prints no secret' (-not $ss.Text.Contains($alEnv['ALLOWLIST_SECRET']) -and -not $ss.Text.Contains($meta['GATEWAY_SECRET']) -and -not $ss.Text.Contains($ownerKeyText))
     Check 'Stack status counts players with the owner key' ($ss.Text -match 'players online\s+: \d+\s+game servers listed: \d+' -and $ss.Text -notmatch 'players online\s+: hidden') (($ss.Out | Where-Object { $_ -match 'players online' }) -join ' | ')
     $pl = Run-Kit (Join-Path $bin 'Write-PerformanceLog.ps1') @('-Root', $Root, '-Once')
@@ -249,7 +289,7 @@ try {
     Check 'backup with database, secrets and certificate' ($bk.Code -eq 0 -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'undaunted.db')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\tls\gateway-key.pem')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\gateway.env')) -and (Test-Path -LiteralPath (Join-Path $newest.FullName 'secrets\owner.key')))
     $stop = Run-Kit (Join-Path $bin 'Stack.ps1') @('stop', '-Root', $Root)
     Check 'Stack stop' ($stop.Code -eq 0 -and (Get-SandboxNodes $Root).Count -eq 0) (($stop.Out | Select-Object -Last 4) -join ' | ')
-    Check 'sandbox ports closed again' (-not (Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 62000, 62002, 62005, 62443 }))
+    Check 'sandbox ports closed again' (-not (Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 62000, 62002, 62005, 62099, 62443 }))
 
     # ------------------------------------------------------------------------------------------
     if (-not $SkipRestore) {

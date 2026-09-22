@@ -63,6 +63,8 @@ try {
         'working tree with GitHub source'         = @(($t + @('-OwnerName', 'Tester', '-Source', 'GitHub', '-WorkingTree')), 'does not go with')
         'missing key file'                        = @(@('-Server', 'test.invalid', '-OwnerName', 'Tester', '-KeyFile', (Join-Path $WorkDir 'nope')), 'SSH key not found')
         'invite name with a quote'                = @(($t + @('-InviteFor', "a'b")), 'plain text')
+        'chat with an update'                     = @(($t + @('-Update', '-Chat', 'On')), '-Chat goes with an install')
+        'chat on for a private install'           = @(($t + @('-OwnerName', 'Tester', '-Mode', 'Private', '-Chat', 'On')), 'public mode only')
     }
     foreach ($k in $cases.Keys) {
         $r = Run $cases[$k][0]
@@ -98,8 +100,16 @@ try {
     [void][Management.Automation.Language.Parser]::ParseInput(($cmdLine.Trim()), [ref]$tokens, [ref]$errors)
     Check 'the installer command is valid PowerShell' ($errors.Count -eq 0)
 
-    $r3 = Run $base
+    $r3 = Run ($base + @('-Chat', 'On'))
     Check 'a repeated run has nothing left to upload' ($r3.Code -eq 0 -and $r3.Text -match 'already on the server and verified' -and $r3.Text -notmatch 'verified on the server \(')
+    $chatLine = @($r3.Out | Where-Object { $_ -match "^\s+& '.*Install-DauntlessServer\.ps1'" }) | Select-Object -Last 1
+    Check '-Chat On goes to the installer' ($chatLine -match "-Chat 'On'") $chatLine
+
+    Write-Host '== chat on its own'
+    $c1 = Run ($t + @('-Chat', 'On'))
+    Check '-Chat On alone runs Set-Chat.ps1 -On on the server, nothing else' ($c1.Code -eq 0 -and $c1.Text -match "& '[^']*\\bin\\Set-Chat\.ps1' -On" -and $c1.Text -notmatch 'Uploading') (($c1.Out | Select-Object -Last 4) -join ' | ')
+    $c2 = Run @('-Server', '203.0.113.7', '-KeyFile', $dummyKey, '-Chat', 'Off', '-WhatIf')
+    Check '-Chat Off -WhatIf names Set-Chat.ps1 -Off' ($c2.Code -eq 0 -and $c2.Text -match 'Set-Chat\.ps1 -Off') (($c2.Out | Select-Object -Last 4) -join ' | ')
 
     Write-Host '== a part damaged after it was verified'
     $zip2 = Join-Path $WorkDir 'zip2\BaseGame144.zip'
