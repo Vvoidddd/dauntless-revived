@@ -67,6 +67,11 @@ $script:DRDefaultPorts = [ordered]@{ metagame = 61000; deploy = 61001; content =
 $script:DRSandboxPorts = [ordered]@{ metagame = 62000; deploy = 62001; content = 62002; gateway = 62443; allowlist = 62005 }
 $script:DRRelayPort = 61000
 $script:DRChatPort = 61099
+
+# The header of the .env files that hold secrets. Every script that writes one uses this, so a file
+# never looks changed only because another script wrote it (the text is the installer's since the start,
+# so files on existing installs match it).
+$script:DRSecretEnvHeader = @('Dauntless Revived - written by Install-DauntlessServer.ps1. Holds secrets: never share, commit or paste it.')
 $script:DRUdpBegin = 8770
 $script:DRUdpEnd = 8777
 

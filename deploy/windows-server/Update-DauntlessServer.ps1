@@ -85,7 +85,7 @@ function Set-Commit([string]$Commit, [string]$RefName, [string]$Kind) {
     $meta = Read-DREnv $P.MetaEnv
     if ($meta.Count) {
         $meta['GIT_COMMIT'] = $Commit
-        [void](Write-DREnv $P.MetaEnv $meta @('Dauntless Revived - written by Install-DauntlessServer.ps1. Holds secrets: never share, commit or paste it.'))
+        [void](Write-DREnv $P.MetaEnv $meta $script:DRSecretEnvHeader)
     }
 }
 

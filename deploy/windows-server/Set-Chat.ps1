@@ -46,12 +46,17 @@ try {
     $envMap = Read-DREnv $paths.MetaEnv
     $previousEnv = [IO.File]::ReadAllText($paths.MetaEnv)
     $previousChat = Resolve-DRChat '' $config
+    $chatKeys = { param($Map) ($Map['CHAT'], $Map['CHAT_BIND_HOST'], $Map['CHAT_PORT']) -join '|' }
+    $before = & $chatKeys $envMap
     Set-DRChatEnv $envMap $want $sandbox
-    Set-DRConfigValue $config 'Chat' $want
-    if (-not (Write-DREnv $paths.MetaEnv $envMap @('Dauntless Revived - holds secrets: never share, commit or paste it.')) -and $previousChat -eq $want) {
+    # "Already" comes from the chat values and server.json, never from the file's text: the installer and
+    # updates write metagame.env too, and a change anywhere else in it is not a chat change
+    if ((& $chatKeys $envMap) -ceq $before -and $previousChat -eq $want) {
         Write-DROk "chat is already $($want.ToLowerInvariant())"
         exit 0
     }
+    Set-DRConfigValue $config 'Chat' $want
+    [void](Write-DREnv $paths.MetaEnv $envMap $script:DRSecretEnvHeader)
     Save-DRConfig $Root $config
     $stack = Join-Path $paths.Bin 'Stack.ps1'
     try {

@@ -1071,7 +1071,7 @@ try {
     if ($Sandbox) { $allow['ALLOWLIST_ALLOW_PRIVATE'] = '1' } elseif ($allow.Contains('ALLOWLIST_ALLOW_PRIVATE')) { $allow.Remove('ALLOWLIST_ALLOW_PRIVATE') }
     $allow['NODE_ENV'] = 'production'
 
-    $hdr = @('Dauntless Revived - written by Install-DauntlessServer.ps1. Holds secrets: never share, commit or paste it.')
+    $hdr = $script:DRSecretEnvHeader
     if (Test-Do $P.Config 'Write the .env files (values not shown)') {
         $w = @()
         if (Write-DREnv $P.MetaEnv $meta $hdr) { $w += 'metagame.env' }

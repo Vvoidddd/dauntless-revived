@@ -375,6 +375,34 @@ Check 'status: on but not listening' ((Get-DRChatState $chatPaths $null) -eq 'on
 Check 'status: off' ((Get-DRChatState $chatPaths $null) -eq 'off')
 Check 'status: off without a metagame.env' ((Get-DRChatState ([pscustomobject]@{ MetaEnv = (Join-Path $WorkDir 'none.env') }) $null) -eq 'off')
 
+# Set-Chat.ps1 on an install whose metagame.env the installer or an update wrote (their header, other keys
+# changed since): the setting is already as asked, so nothing is written and the stack is not touched
+$setChatRoot = Join-Path $WorkDir 'setchat-root'
+$setChatPaths = Get-DRPaths $setChatRoot
+New-Item -ItemType Directory -Force -Path $setChatPaths.Config, $setChatPaths.Bin | Out-Null
+$stackMarker = Join-Path $WorkDir 'setchat-stack-called.txt'
+[IO.File]::WriteAllText((Join-Path $setChatPaths.Bin 'Stack.ps1'), "param([string]`$Action, [string]`$Root)`r`nAdd-Content -LiteralPath '$stackMarker' -Value `$Action`r`n")
+[IO.File]::WriteAllText($setChatPaths.ServerJson, '{ "Mode": "Public", "Sandbox": true, "Chat": "On" }')
+$installed = [ordered]@{ PORT = '62000'; GIT_COMMIT = 'abc1234' }
+Set-DRChatEnv $installed 'On' $true
+[void](Write-DREnv $setChatPaths.MetaEnv $installed $script:DRSecretEnvHeader)
+$installedText = [IO.File]::ReadAllText($setChatPaths.MetaEnv)
+$setChatOut = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $Kit 'Set-Chat.ps1') -Root $setChatRoot -On 2>&1 | Out-String
+Check 'Set-Chat -On after an install or update: "already on", the stack untouched' ($LASTEXITCODE -eq 0 -and $setChatOut -match 'chat is already on' -and -not (Test-Path -LiteralPath $stackMarker)) $setChatOut.Trim()
+Check 'Set-Chat -On after an install or update: metagame.env unchanged' ([IO.File]::ReadAllText($setChatPaths.MetaEnv) -ceq $installedText)
+[IO.File]::WriteAllText($setChatPaths.MetaEnv, "# an older header`r`n" + ($installedText -replace '(?m)^#.*\r?\n', ''))
+$setChatOut = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $Kit 'Set-Chat.ps1') -Root $setChatRoot -On 2>&1 | Out-String
+Check 'Set-Chat -On with any other header: still "already on"' ($LASTEXITCODE -eq 0 -and $setChatOut -match 'chat is already on' -and -not (Test-Path -LiteralPath $stackMarker)) $setChatOut.Trim()
+Check 'every script writes the same header for metagame.env' (@(Select-String -LiteralPath (Join-Path $Kit 'Install-DauntlessServer.ps1'), (Join-Path $Kit 'Update-DauntlessServer.ps1'), (Join-Path $Kit 'Set-Chat.ps1') -Pattern 'Holds secrets|holds secrets').Count -eq 0)
+# A real change: written with the shared header, the stack restarted once (the stub records it), the
+# listener found stopped (nothing listens on the sandbox chat port here)
+if (@(Get-NetTCPConnection -State Listen -LocalPort (Get-DRChatPort $true) -ErrorAction SilentlyContinue).Count -eq 0) {
+    $setChatOut = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $Kit 'Set-Chat.ps1') -Root $setChatRoot -Off 2>&1 | Out-String
+    $offEnv = Read-DREnv $setChatPaths.MetaEnv
+    Check 'Set-Chat -Off: "chat off" after one stop and start' ($LASTEXITCODE -eq 0 -and $setChatOut -match 'chat off' -and (Test-Path -LiteralPath $stackMarker) -and ((Get-Content -LiteralPath $stackMarker) -join ',') -eq 'stop,start') $setChatOut.Trim()
+    Check 'Set-Chat -Off: CHAT=0 under the shared header, other keys kept, "Chat": "Off"' ($offEnv['CHAT'] -eq '0' -and $offEnv['GIT_COMMIT'] -eq 'abc1234' -and ([IO.File]::ReadAllLines($setChatPaths.MetaEnv)[0] -ceq "# $($script:DRSecretEnvHeader[0])") -and (Get-Content -LiteralPath $setChatPaths.ServerJson -Raw | ConvertFrom-Json).Chat -eq 'Off')
+} else { Write-Host '  skip  Set-Chat -Off (something listens on the sandbox chat port)' -ForegroundColor DarkGray }
+
 Write-Host ''
 Write-Host "unit checks: $script:Pass passed, $script:Fail failed" -ForegroundColor $(if ($script:Fail) { 'Red' } else { 'Green' })
 Remove-Item -LiteralPath $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
