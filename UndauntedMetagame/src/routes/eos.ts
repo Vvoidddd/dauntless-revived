@@ -134,8 +134,9 @@ eosRouter.get("/account/api/public/account/:AccId/externalAuths", (req, res) => 
 // POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint (FOnlineUserPhoenix::
 // QueryExternalIdMappings): it turns Epic account ids into Phoenix account ids. The client calls it for
 // Add Friends (after GET /account/api/public/account/displayName/<name>), for the chat's /invite <name>,
-// for the guild add-member box, for every id on its friends list and blocklist, and once at login for the
-// local player ("Calling GetExternalIdMappings for Epic -> Phoenix"). The body is
+// for the guild add-member box, for every id on its friends list and blocklist, and at login for the
+// local player ("Calling GetExternalIdMappings for Epic -> Phoenix"; the 2.1.1 capture has it too, but the
+// 1.4.4 census of 22 September 2026 shows 6 calls for 8 logins and 2 Add Friends, so not every login). The body is
 // {"srcAccountType": "epic", "ids": ["<id>", ...]} (at most 100 ids; seen live on 22 September 2026 and
 // in the 2.1.1 capture). Upstream answered 404, and every one of those actions was dropped silently.
 //
