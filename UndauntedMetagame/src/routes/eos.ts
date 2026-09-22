@@ -131,24 +131,29 @@ eosRouter.get("/account/api/public/account/:AccId/externalAuths", (req, res) => 
     res.json({});
 });
 
-// POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint, which the game calls after
-// a friend search ("Add Friends") and right after a party invite arrives. Upstream answered 404, and
-// both then went nowhere. It is Phoenix's own client, not Epic's: the exe has "srcAccountType",
-// "accountMappings", "accountType", "epic" and "phoenix" next to it, and the live 1.4.4 client sent
-// {"srcAccountType": "epic", "ids": ["<account id>"]} (22 September 2026). A first answer in Epic's
-// lookup/externalId shape (an object keyed by the asked id) still showed nothing in game.
+// POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint (FOnlineUserPhoenix::
+// QueryExternalIdMappings): it turns Epic account ids into Phoenix account ids. The client calls it for
+// Add Friends (after GET /account/api/public/account/displayName/<name>), for the chat's /invite <name>,
+// for the guild add-member box, for every id on its friends list and blocklist, and once at login for the
+// local player ("Calling GetExternalIdMappings for Epic -> Phoenix"). The body is
+// {"srcAccountType": "epic", "ids": ["<id>", ...]} (at most 100 ids; seen live on 22 September 2026 and
+// in the 2.1.1 capture). Upstream answered 404, and every one of those actions was dropped silently.
 //
-// The reply now satisfies both readings a Phoenix service reply gets: flat, with "accountMappings" at
-// the top, and wrapped, {"code", "message", "payload": {"accountMappings"}}. Wrapped or flat depends
-// on the host (docs/findings/awakening-2-1-1.md); the 2.1.1 features/platform/win answer is the
-// precedent for sending one body that is both. The keyed-by-id object is gone: next to "code",
-// "message" and "payload", a reader that walks the top-level keys as ids would take "accountMappings"
-// (a list of account objects, the very shape an id's entry had) for an account id, and the client did
-// not read that shape anyway. On this server a player's Epic id and Phoenix id are the same UID-...,
-// so every mapping is the identity; each entry carries the likely spellings side by side so the client
-// finds its keys. Asked ids that are not our accounts are left out, and names only go to a caller with
-// a player token, like the other account lookups. The unconfirmed request is still logged by shape
-// only (keys and id counts, never values that could be tokens).
+// The reply the parser reads (read from the exe, docs/findings/social.md): a root key "accountMappings"
+// holding an OBJECT keyed by each asked id, each value {"accountId": "<id>", "accountType": "phoenix"}
+// with non-empty strings; accountType is compared without case with "epic" and "phoenix", and nothing
+// else in an entry is read. HTTP status is not checked; an empty or invalid body fails the query.
+// Neither earlier answer worked: the first (an object keyed by id at the root, no "accountMappings")
+// gave the parser nothing, and the second ("accountMappings" as an array) reads as an empty object, so
+// no mapping was cached and the queued friend request was dropped (0 friend requests reached us live).
+// Extra root keys are ignored, so the same map is also sent wrapped under "payload" with "code" and
+// "message", in case a later build reads the Phoenix envelope.
+//
+// On this server a player's Epic id and Phoenix id are the same UID-..., so every mapping is the
+// identity. srcAccountType "phoenix" maps the other way (accountType "epic"). Only ids that are our
+// accounts are answered, and only to a caller with a valid player token (the client always sends one);
+// without one the map is empty. ACCOUNT_MAPPING=0 maps nothing (the old effective behaviour). The body is
+// still logged by shape only (keys and id counts, never values that could be tokens).
 const MAX_MAPPING_IDS = 100;
 
 function MappingIds(Body: any): string[] {
@@ -165,20 +170,9 @@ function MappingSourceType(Body: any): string {
     return typeof Field === "string" && /^[A-Za-z0-9_.-]{1,32}$/.test(Field) ? Field : "epic";
 }
 
-function AccountMappingEntry(Id: string, Name: string, SourceType: string){
-    return {
-        accountType: "phoenix",
-        accountId: Id,
-        id: Id,
-        epic: Id,
-        phoenix: Id,
-        srcAccountType: SourceType,
-        srcAccountId: Id,
-        srcId: Id,
-        dstAccountType: "phoenix",
-        dstAccountId: Id,
-        displayName: Name
-    };
+// Where an id of SourceType maps to: Phoenix ids for anything but "phoenix", Epic ids for "phoenix"
+function MappedAccountType(SourceType: string){
+    return SourceType.toLowerCase() === "phoenix" ? "epic" : "phoenix";
 }
 
 function DescribeMappingBody(Body: any): string {
@@ -211,25 +205,22 @@ eosRouter.post("/account/mapping", SoftMetagameAuth, (req: any, res) => {
     const Caller = SoftPlayerOf(req);
     const Ids = MappingIds(req.body);
     const SourceType = MappingSourceType(req.body);
-    const Names = Caller !== undefined ? FindUsernames(Ids) : new Map<string, string>();
-    const AccountMappings: ReturnType<typeof AccountMappingEntry>[] = [];
+    const Enabled = process.env.ACCOUNT_MAPPING !== "0";
+    const Known = Caller !== undefined && Enabled ? FindUsernames(Ids) : new Map<string, string>();
+    const AccountType = MappedAccountType(SourceType);
 
-    for(const Id of Ids){
-        const Name = Names.get(Id);
+    // Keyed by the asked id exactly as sent. Object.fromEntries defines own keys, whatever the id.
+    const Mapped = Ids.filter((Id) => Known.has(Id));
+    const MappingsOf = () => Object.fromEntries(Mapped.map((Id) => [Id, { accountId: Id, accountType: AccountType }]));
 
-        if(Name !== undefined){
-            AccountMappings.push(AccountMappingEntry(Id, Name, SourceType));
-        }
-    }
+    logger.info(`account/mapping by ${Caller ?? "<no token>"}: ${DescribeMappingBody(req.body)}; content-type ${String(req.headers["content-type"] ?? "none").slice(0, 60)} -> ${Mapped.length} of ${Ids.length} mapped${Enabled ? "" : " (ACCOUNT_MAPPING=0)"}`);
 
-    logger.info(`account/mapping by ${Caller ?? "<no token>"}: ${DescribeMappingBody(req.body)}; content-type ${String(req.headers["content-type"] ?? "none").slice(0, 60)} -> ${AccountMappings.length} of ${Ids.length} mapped`);
-
-    // Flat and wrapped in one body (see above)
+    res.status(200);
     res.json({
+        accountMappings: MappingsOf(),
         code: "OK",
         message: "",
-        payload: { accountMappings: AccountMappings },
-        accountMappings: AccountMappings
+        payload: { accountMappings: MappingsOf() }
     });
 });
 

@@ -299,33 +299,49 @@ describe("account lookups (Hunt Members, /invite <name>)", () => {
         assert.equal((await Call("GET", "/account/api/public/account/displayName/Charlie")).status, 404);
     });
 
-    it("POST /account/mapping maps our own accounts to themselves in accountMappings, flat and wrapped at once, and never 404s", async () => {
-        const Entry = (Id: string, Name: string, Source = "epic") => ({
-            accountType: "phoenix", accountId: Id, id: Id, epic: Id, phoenix: Id,
-            srcAccountType: Source, srcAccountId: Id, srcId: Id, dstAccountType: "phoenix", dstAccountId: Id, displayName: Name
-        });
-        const Expect = (...Entries: object[]) => ({ code: "OK", message: "", payload: { accountMappings: Entries }, accountMappings: Entries });
+    it("POST /account/mapping answers accountMappings as an object keyed by each asked id, flat and wrapped at once, and never 404s", async () => {
+        const Expect = (Entries: Record<string, object>) => ({ accountMappings: Entries, code: "OK", message: "", payload: { accountMappings: Entries } });
+        const ToPhoenix = (Id: string) => ({ accountId: Id, accountType: "phoenix" });
 
-        // Exactly what the live 1.4.4 client sent after a friend search and a party invite (22 September 2026)
+        // Exactly what the live 1.4.4 client sent after Add Friends (22 September 2026)
         const AsSent = await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [B] } });
         assert.equal(AsSent.status, 200);
-        assert.deepEqual(AsSent.json, Expect(Entry(B, "Bravo")));
-        assert.deepEqual(Object.keys(AsSent.json), ["code", "message", "payload", "accountMappings"], "no top-level key an id reader could take for an account");
+        assert.deepEqual(AsSent.json, Expect({ [B]: ToPhoenix(B) }));
+        assert.ok(!Array.isArray(AsSent.json.accountMappings), "an array reads as an empty object in the client");
+        assert.deepEqual(Object.keys(AsSent.json.accountMappings[B]), ["accountId", "accountType"], "only the two keys the exe reads");
 
-        // Several ids: in the asked order, once each, unknown ids left out
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [C, "UID-nobody", B, C] } })).json, Expect(Entry(C, "Charlie"), Entry(B, "Bravo")));
+        // Several ids: keyed as asked, once each, unknown ids left out
+        const Several = await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [C, "UID-nobody", B, C] } });
+        assert.deepEqual(Several.json, Expect({ [C]: ToPhoenix(C), [B]: ToPhoenix(B) }));
+
+        // srcAccountType "phoenix" (any case) maps to Epic ids
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "Phoenix", ids: [B] } })).json, Expect({ [B]: { accountId: B, accountType: "epic" } }));
 
         // The older guesses at the body still work: a bare array, externalIds, type/externalAuthType
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: [C] })).json, Expect(Entry(C, "Charlie")));
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { type: "epic", externalIds: [B] } })).json, Expect(Entry(B, "Bravo")));
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalAuthType: "psn", ids: [B] } })).json, Expect(Entry(B, "Bravo", "psn")));
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "bad type!", ids: [B] } })).json, Expect(Entry(B, "Bravo")));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: [C] })).json, Expect({ [C]: ToPhoenix(C) }));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { type: "epic", externalIds: [B] } })).json, Expect({ [B]: ToPhoenix(B) }));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalAuthType: "psn", ids: [B] } })).json, Expect({ [B]: ToPhoenix(B) }));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "bad type!", ids: [B] } })).json, Expect({ [B]: ToPhoenix(B) }));
 
-        // No token: nothing is mapped (no names to strangers); an empty or odd body is still a 200 with no mappings.
+        // No token: nothing is mapped; an empty or odd body is still a 200 with no mappings.
         const NoToken = await Call("POST", "/account/mapping", { body: { srcAccountType: "epic", ids: [B] } });
-        assert.deepEqual([NoToken.status, NoToken.json], [200, Expect()]);
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: {} })).json, Expect());
-        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { ids: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, Expect());
+        assert.deepEqual([NoToken.status, NoToken.json], [200, Expect({})]);
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: {} })).json, Expect({}));
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { ids: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, Expect({}));
+    });
+
+    it("ACCOUNT_MAPPING=0 maps nothing, read on every request", async () => {
+        process.env.ACCOUNT_MAPPING = "0";
+
+        try{
+            const Off = await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [B] } });
+            assert.deepEqual([Off.status, Off.json], [200, { accountMappings: {}, code: "OK", message: "", payload: { accountMappings: {} } }]);
+        }
+        finally{
+            delete process.env.ACCOUNT_MAPPING;
+        }
+
+        assert.deepEqual(Object.keys((await Call("POST", "/account/mapping", { as: A, body: { srcAccountType: "epic", ids: [B] } })).json.accountMappings), [B]);
     });
 
     it("/accountinfo/public describes the asked account (its id, its name, its Epic id), and answers 404 {} for an unknown one", async () => {
