@@ -64,17 +64,18 @@ higher figure at Cinematic settings).
 
 ### What does not work yet
 
-- **Playing together over the internet: tested with one player, not yet with two.** On the rented
-  server, friends join with the launcher and an invite, without Tailscale. On 22 September 2026 the
-  owner went that way from the invite to the first hunt. Not yet verified: a second player (their
-  invite is issued), two players in Ramsgate, a party, and a hunt together over the internet. That
-  test is next.
-- **Parties and the friends list: built, not yet tried in game.** The server side is built: party
+- **Playing together over the internet: works with two players.** On the rented server, friends
+  join with the launcher and an invite, without Tailscale. On 22 September 2026 the owner went that
+  way from the invite to the first hunt, and later that night two players saw each other in Ramsgate
+  and hunted together, after queueing the same hunt within a few seconds of each other.
+- **Parties and the friends list: built, blocked in game (fix pending).** In the two-player test the
+  friend search and party invites stopped at `POST /account/mapping`; a corrected reply is ready but
+  not deployed yet. The server side is built: party
   invites, accept and decline, promote, kick and leave, the whole party placed on one hunt server,
   returning to Ramsgate together, looking players up by name, and a friends list and blocklist saved
-  in SQLite. It passes our integration tests with simulated players, but has not been tried with two
-  real game clients yet. You don't have to be friends to invite someone to a party. Friends don't
-  show as online, because that needs the chat server, which is not built.
+  in SQLite. It passes our integration tests with simulated players. You don't have to be friends to invite
+  someone to a party. Friends don't show as online, because that needs the chat server, which is not
+  built; showing players as online is the owner's next wish once parties work (roadmap 3.10).
 - **Text chat.** Not built. The design is a small XMPP server. Use Discord meanwhile.
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have

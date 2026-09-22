@@ -117,6 +117,19 @@ vielä kokeiltu kahdella oikealla peliohjelmalla. Ryhmään voi kutsua, vaikka e
 Kavereiden näkyminen paikalla vaatii chat-palvelimen, jota ei ole rakennettu. Tekstichattia ei ole
 vielä rakennettu (suunnitelma: XMPP).
 
+**Kahden pelaajan testi 22.9.2026:** kaksi pelaajaa näki toisensa Ramsgatessa ja päätyi samaan
+metsästyksen aulaan, mutta metsästys ei lähtenyt liikkeelle. Metagame oli merkinnyt yhden pelaajan
+kahdesti odotettujen pelaajien joukkoon, joten metsästyspalvelin odotti kolmatta pelaajaa ja
+ilmalaivan lähtölaskenta jäätyi. Korjaus on tehty erilliseen haaraan, mutta sitä ei ole vielä viety
+palvelimelle. Kaverihaku ja ryhmäkutsut pysähtyvät kutsuun `/account/mapping`; sen vastausmuotoa
+korjataan, eikä korjausta ole vielä vahvistettu pelissä. Aulasta poistuttuaan molemmat jonottivat samaan
+metsästykseen noin kahden sekunnin sisällä ilman ryhmää: pelaajia odotettiin tasan kaksi, ja **he
+metsästivät yhdessä internetin yli**, ensimmäistä kertaa vuokrapalvelimella.
+
+**Omistajan toive 22.9.2026:** pelaajat näkyviin paikalla (online) pelissä. Nyt Sosiaalinen-paneeli
+näyttää kaikki, myös sinut itsesi, tilassa "Offline". Se tarvitsee pienen läsnäolopalvelimen (XMPP,
+kohta 3.10), ja se on seuraavana vuorossa, kun ryhmät ja kaverit toimivat.
+
 Käynnissä olevien pelaajien lista näytetään vain rekisteröityneille pelaajille, eikä
 `/dauntless-status` enää kerro pelaajamäärää. Käynnistimessä, pelin tervetulotekstissä ja palvelimen
 viesteissä lukee nyt Dauntless Revived, ja kiitoksissa mainitaan Undaunted (nimenvaihdon ensimmäinen

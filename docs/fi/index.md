@@ -77,18 +77,19 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
 
 ### Mikä ei vielä toimi {#what-does-not-work-yet}
 
-- **Yhdessä pelaaminen internetin yli: kokeiltu yhdellä pelaajalla, ei vielä kahdella.** Vuokratulle
-  palvelimelle kaverit liittyvät käynnistimellä ja kutsulla ilman Tailscalea. 22.9.2026 omistaja
-  kulki sitä tietä kutsusta ensimmäiseen metsästykseen asti. Ei vielä varmistettu: toinen pelaaja
-  (hänen kutsunsa on annettu), kaksi pelaajaa Ramsgatessa, ryhmä ja yhteinen metsästys internetin
-  yli. Se testi on seuraavana vuorossa.
-- **Ryhmät (parties) ja kaverilista: rakennettu, ei vielä kokeiltu pelissä.** Palvelimen puoli on
+- **Yhdessä pelaaminen internetin yli: toimii kahdella pelaajalla.** Vuokratulle palvelimelle
+  kaverit liittyvät käynnistimellä ja kutsulla ilman Tailscalea. 22.9.2026 omistaja kulki sitä tietä
+  kutsusta ensimmäiseen metsästykseen asti, ja myöhemmin samana yönä kaksi pelaajaa näki toisensa
+  Ramsgatessa ja metsästi yhdessä, kun he jonottivat samaan metsästykseen muutaman sekunnin sisällä.
+- **Ryhmät (parties) ja kaverilista: rakennettu, estyy pelissä (korjaus valmisteilla).** Kahden
+  pelaajan testissä kaverihaku ja ryhmäkutsut pysähtyivät kutsuun `POST /account/mapping`; korjattu
+  vastaus on valmiina mutta ei vielä palvelimella. Palvelimen puoli on
   rakennettu: ryhmäkutsut, hyväksyminen ja hylkääminen, johtajaksi nostaminen, poistaminen ja
   lähteminen, koko ryhmän sijoittaminen samalle metsästyspalvelimelle, yhdessä palaaminen Ramsgateen,
   pelaajien haku nimellä sekä SQLiteen tallentuva kaverilista ja estolista. Se läpäisee
-  integraatiotestimme simuloiduilla pelaajilla, mutta sitä ei ole vielä kokeiltu kahdella oikealla
-  peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaverit eivät näy paikalla olevina,
-  koska se vaatii chat-palvelimen, jota ei ole vielä rakennettu.
+  integraatiotestimme simuloiduilla pelaajilla. Ryhmään voi kutsua, vaikka ette olisi kavereita.
+  Kaverit eivät näy paikalla olevina, koska se vaatii chat-palvelimen, jota ei ole vielä rakennettu;
+  pelaajien näkyminen paikalla on omistajan seuraava toive, kun ryhmät toimivat (tiekartan kohta 3.10).
 - **Tekstichat.** Ei rakennettu. Suunnitelma on pieni XMPP-viestipalvelin. Käytä sillä välin Discordia.
 - **Palkkiotehtävät (bounties), odotusajat (cooldowns) ja Escalation.** Oikean etenemisen kanssa
   palkkiotehtävät ja odotusajat tallentuvat tilikohtaisesti, mutta palkkiotehtävän valitsemista ja
