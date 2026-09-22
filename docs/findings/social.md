@@ -23,7 +23,7 @@ parties and party invites, and guilds. It records what the client sends, what it
 the first test with two players on 22 September 2026 showed nothing. It also lists the fixes we built
 in the metagame.
 
-**Status (22 September 2026): built and tested without the game, not yet tried by two players.** Every
+**Status (22 September 2026): built, tested without the game and running on our rented server (60955e1), not yet tried by two players.** Every
 fix below passes HTTP tests that replay the client's own requests and check each reply against a model
 of the client's parsing. The next two-player test on the rented server will confirm or correct them;
 [How to verify](#how-to-verify) lists its steps and the log lines to expect. Online status and chat

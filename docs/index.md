@@ -74,7 +74,7 @@ higher figure at Cinematic settings).
   when the game asked who sent the invite (`POST /accountinfo/public`), and answered the account
   lookup (`POST /account/mapping`) in a shape the game does not read. Both are fixed, and guilds are
   built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
-  tests, which replay the game's own requests, but nobody has tried it in the game yet. Players must
+  tests, which replay the game's own requests, and it has been running on our rented server since 22 September 2026, but nobody has tried it in the game yet. Players must
   restart their game once after the update. You don't have to be friends to invite someone to a
   party. Everyone still shows as offline, because that needs the chat server, which is not built;
   showing players as online is the owner's next wish once parties work (roadmap 3.10). The details

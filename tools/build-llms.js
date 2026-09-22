@@ -37,7 +37,7 @@ const FACTS = [
         "an in-game test on a throwaway account. Later that night two players saw each other in Ramsgate and hunted " +
         "together over the internet, after queueing the same hunt. Parties, the friends list and guilds are built on " +
         "the server side; in that test a party invite and a friend request did not show in game, and the fixes " +
-        "(built, not yet deployed) wait for the next two-player test. Not yet working: text chat, online status and " +
+        "(running on the server, not yet tried in game) wait for the next two-player test. Not yet working: text chat, online status and " +
         "bounties. The home page and the roadmap have the current state.",
     "No game files are distributed by the site or the repository. Every player needs their own copy of the client.",
     "Not affiliated with, endorsed by or supported by Phoenix Labs or Epic Games. \"Dauntless\" is a trademark " +

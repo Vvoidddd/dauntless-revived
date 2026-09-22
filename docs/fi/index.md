@@ -87,7 +87,7 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
   pelaajaa, kun peli kysyi kutsun lähettäjää (`POST /accountinfo/public`), ja vastasi tilihakuun
   (`POST /account/mapping`) muodossa, jota peli ei lue. Molemmat on korjattu, ja myös killat on
   rakennettu (perustaminen, kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina
-  SQLiteen). Kaikki läpäisee testimme, jotka toistavat pelin omat pyynnöt, mutta kukaan ei ole vielä
+  SQLiteen). Kaikki läpäisee testimme, jotka toistavat pelin omat pyynnöt, ja kaikki on käytössä vuokratulla palvelimellamme 22.9.2026 alkaen, mutta kukaan ei ole vielä
   kokeillut niitä pelissä. Pelaajien on käynnistettävä peli kerran uudelleen päivityksen jälkeen.
   Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät yhä poissa olevina (offline), koska
   paikalla olo vaatii chat-palvelimen, jota ei ole vielä rakennettu; pelaajien näkyminen paikalla on

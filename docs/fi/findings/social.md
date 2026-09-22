@@ -26,7 +26,7 @@ lähettää palvelimelle, mitä se tarvitsee vastaukseksi ja miksi ensimmäisess
 testissä 22.9.2026 ei näkynyt mitään. Lopuksi kerrotaan, mitä korjasimme metagameen (taustapalvelimeen,
 jonka kanssa peli keskustelee).
 
-**Tilanne 22.9.2026: rakennettu ja testattu ilman peliä, kaksi pelaajaa ei ole vielä kokeillut.**
+**Tilanne 22.9.2026: rakennettu, testattu ilman peliä ja käytössä vuokratulla palvelimellamme (60955e1), kaksi pelaajaa ei ole vielä kokeillut.**
 Jokainen alla oleva korjaus läpäisee HTTP-testit, jotka toistavat peliohjelman omat pyynnöt ja
 tarkistavat jokaisen vastauksen peliohjelman tulkintaa jäljittelevällä mallilla. Seuraava kahden
 pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne; [Näin se tarkistetaan](#how-to-verify)

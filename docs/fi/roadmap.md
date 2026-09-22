@@ -133,7 +133,7 @@ reitin `POST /accountinfo/public` vastaus (alkuperäisen projektin) kuvasi **kys
 Kaverin lisääminen pysähtyi reitille `POST /account/mapping`, jonka vastauksen peliohjelma lukee
 oliona, jonka avaimina ovat kysytyt tunnukset (lähettämämme taulukko luettiin tyhjäksi). Tämä korjaa
 aiemman tiedon, jonka mukaan kumpikin pysähtyi reitille `/account/mapping`. Molemmat on korjattu
-`feature/social`-haarassa, **ei vielä palvelimella**; kummankin pelaajan on käynnistettävä peli kerran
+ja **viety vuokratulle palvelimelle 22.9.2026** (60955e1), pelissä ei vielä kokeiltu; kummankin pelaajan on käynnistettävä peli kerran
 uudelleen päivityksen jälkeen. Yksityiskohdat ovat sivulla
 [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}).
 
@@ -219,8 +219,7 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 
 ## Työn alla {#in-progress}
 
-- **Kaverit, ryhmät ja killat (1.9, 1.11, 3.11)** on rakennettu ja testattu ilman peliä, mutta niitä
-  ei ole vielä viety palvelimelle. Seuraavassa kahden pelaajan testissä katsotaan, näkyykö ryhmäkutsu
+- **Kaverit, ryhmät ja killat (1.9, 1.11, 3.11)** on rakennettu, testattu ilman peliä ja viety vuokratulle palvelimelle 22.9.2026, mutta pelissä niitä ei ole vielä kokeiltu. Seuraavassa kahden pelaajan testissä katsotaan, näkyykö ryhmäkutsu
   kohdassa PARTY INVITES, tuleeko kaveripyyntö perille toisen pelaajan seuraavalla kirjautumisella ja
   toimiiko killan perustaminen Ramsgatessa. Kilta perustetaan vain, jos johtaja on itse tarkistanut
   juuri sen nimen ja nimikyltin (pelipalvelin ei välitä pelaajan tunnistetta), henkilökunnan sanat ovat
