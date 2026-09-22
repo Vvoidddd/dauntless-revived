@@ -139,6 +139,8 @@ const EXPECTED_ROUTES = [
     "GET /account/api/public/account/:AccId [SoftMetagameAuth]",
     "GET /account/api/public/account/displayName/:displayName [SoftMetagameAuth]",
     "GET /account/api/public/account/:AccId/externalAuths []",
+    // Account mapping (friend search, party invites): names only with a player token, like the lookups above.
+    "POST /account/mapping [SoftMetagameAuth]",
     "DELETE /account/api/oauth/sessions/kill []",
     "DELETE /account/api/oauth/sessions/kill/:AuthToken []",
     "GET /account/api/public/account [HasUndauntedMetagameAuth]",

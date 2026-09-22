@@ -298,6 +298,24 @@ describe("account lookups (Hunt Members, /invite <name>)", () => {
         assert.equal((await Call("GET", "/account/api/public/account/displayName/Charlie")).status, 404);
     });
 
+    it("POST /account/mapping maps our own accounts to themselves, keyed by id, and never 404s", async () => {
+        const Expect = (Id: string, Name: string, Type = "epic") => [{ accountId: Id, displayName: Name, type: Type, externalAuthId: Id, externalAuthIdType: Type, externalDisplayName: Name }];
+
+        const ByExternalIds = await Call("POST", "/account/mapping", { as: A, body: { type: "epic", externalIds: [B, "UID-nobody", C, B] } });
+        assert.equal(ByExternalIds.status, 200);
+        assert.deepEqual(ByExternalIds.json, { [B]: Expect(B, "Bravo"), [C]: Expect(C, "Charlie") });
+
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: [C] })).json, { [C]: Expect(C, "Charlie") });
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalAuthType: "psn", ids: [B] } })).json, { [B]: Expect(B, "Bravo", "psn") });
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { type: "bad type!", ids: [B] } })).json, { [B]: Expect(B, "Bravo") });
+
+        // No token: nothing is mapped (no names to strangers); an empty or odd body is still a 200 with {}.
+        const NoToken = await Call("POST", "/account/mapping", { body: { externalIds: [B] } });
+        assert.deepEqual([NoToken.status, NoToken.json], [200, {}]);
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: {} })).json, {});
+        assert.deepEqual((await Call("POST", "/account/mapping", { as: A, body: { externalIds: [{ a: 1 }, 7, "", "x".repeat(200)] } })).json, {});
+    });
+
     it("/accountinfo/public with an unknown account answers an empty name instead of a 500", async () => {
         const Unknown = await Call("POST", "/accountinfo/public", { as: A, body: { accountId: "UID-nobody" } });
         assert.deepEqual([Unknown.status, Unknown.json.username], [200, ""]);

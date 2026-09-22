@@ -265,6 +265,7 @@ work on the host.
 | GET | `/account/api/public/account/:accountId` | optional token | With a token: `{id, displayName, externalAuths}` of that account, or `{}` if it does not exist. Without a token: `{}`. |
 | GET | `/account/api/public/account/displayName/:name` | optional token | Finds an account by username, regardless of case. Needs a token to find anything; otherwise, or when nothing matches, 404. |
 | GET | `/account/api/public/account/:accountId/externalAuths` | none | Answers `{}`. |
+| POST | `/account/mapping` | optional token | The game's account-mapping lookup (`QueryAccountMappingsEndpoint`), used after a friend search and before a party invite is shown; upstream answered 404. The body is a list of ids (a bare array, or `externalIds`, `ids`, `accountIds` or `externalAuthIds`, plus an optional `type`/`externalAuthType`). With a token, every id that is one of this server's accounts maps to itself: `{"<id>": [{accountId, displayName, type, externalAuthId, externalAuthIdType, externalDisplayName}]}`; other ids are left out. Without a token: `{}`. The log records only the body's shape. Added 22 September 2026, not yet confirmed in game. |
 | GET | `/features/platform/win` | none | Platform flags: `crossplay` and `crossprogression` true. |
 | GET | `/account/link/epic/:accountId` | none | Answers `isLinked: true`. |
 | POST | `/login` | token | The login queue. The body's `email` must equal the token's account id and the account must exist (otherwise 400). Answers `{"error_code": "TicketRateOk", "state": "OPEN", ...}`. |

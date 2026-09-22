@@ -131,6 +131,69 @@ eosRouter.get("/account/api/public/account/:AccId/externalAuths", (req, res) => 
     res.json({});
 });
 
+// POST /account/mapping is the 1.4.4 client's QueryAccountMappingsEndpoint: Epic's account-mapping
+// lookup ("QueryExternalIdMappings request for N Ids"), which the game calls after a friend search
+// and before it shows a party invite. Upstream answered 404, and both then went nowhere. The request
+// format has not been captured yet, so this logs its shape (keys and id counts, never values that
+// could be tokens) and answers like Epic's lookup/externalId: an object keyed by the asked id, each
+// with a list of accounts. Every asked id that is one of our accounts maps to itself; other ids are
+// left out. Names only go to a caller with a player token, like the other account lookups.
+const MAX_MAPPING_IDS = 100;
+
+function MappingIds(Body: any): string[] {
+    const List = (Value: unknown) => Array.isArray(Value) ? Value : undefined;
+    const Raw: unknown[] = Array.isArray(Body) ? Body : List(Body?.externalIds) ?? List(Body?.ids) ?? List(Body?.accountIds) ?? List(Body?.externalAuthIds) ?? [];
+
+    return [...new Set(Raw.filter((Id): Id is string => typeof Id === "string" && Id.length > 0 && Id.length <= 128))].slice(0, MAX_MAPPING_IDS);
+}
+
+function DescribeMappingBody(Body: any): string {
+    if(Body === undefined || Body === null){
+        return "no body";
+    }
+
+    if(Array.isArray(Body)){
+        return `array of ${Body.length} (${[...new Set(Body.map((Value: unknown) => typeof Value))].join(",")})`;
+    }
+
+    if(typeof Body !== "object"){
+        return typeof Body;
+    }
+
+    const Keys = Object.keys(Body);
+
+    if(Keys.length === 0){
+        return "empty object";
+    }
+
+    return Keys.slice(0, 12).map((Key) => {
+        const Value = Body[Key];
+        const Shape = Array.isArray(Value) ? `[${Value.length}]` : typeof Value === "string" ? (Value.length <= 24 && /^[A-Za-z0-9_.-]*$/.test(Value) ? JSON.stringify(Value) : `string(${Value.length})`) : typeof Value;
+        return `${Key.slice(0, 40)}=${Shape}`;
+    }).join(" ");
+}
+
+eosRouter.post("/account/mapping", SoftMetagameAuth, (req: any, res) => {
+    const Caller = SoftPlayerOf(req);
+    const Ids = MappingIds(req.body);
+    const TypeField = typeof req.body?.type === "string" ? req.body.type : req.body?.externalAuthType;
+    const Type = typeof TypeField === "string" && /^[A-Za-z0-9_.-]{1,32}$/.test(TypeField) ? TypeField : "epic";
+    const Names = Caller !== undefined ? FindUsernames(Ids) : new Map<string, string>();
+    const Reply: Record<string, object[]> = {};
+
+    for(const Id of Ids){
+        const Name = Names.get(Id);
+
+        if(Name !== undefined){
+            Reply[Id] = [{ accountId: Id, displayName: Name, type: Type, externalAuthId: Id, externalAuthIdType: Type, externalDisplayName: Name }];
+        }
+    }
+
+    logger.info(`account/mapping by ${Caller ?? "<no token>"}: ${DescribeMappingBody(req.body)}; content-type ${String(req.headers["content-type"] ?? "none").slice(0, 60)} -> ${Object.keys(Reply).length} of ${Ids.length} mapped`);
+
+    res.json(Reply);
+});
+
 eosRouter.delete("/account/api/oauth/sessions/kill", (req, res) => {
     logger.info("Session kill (stubbed)");
 
