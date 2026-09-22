@@ -315,6 +315,22 @@ test("Change folder... on an existing game uses that game instead of a Dauntless
   assert.deepEqual(await hy.c.chooseInstallDir(), { ok: true });
   assert.equal(hy.last().install.dir, path.join(other, "DauntlessRevived"));
   await hy.c.shutdown();
+
+  // A BaseGame144 short enough to pick, whose game root is too long: refused, no second copy beside it.
+  let longBase = temp("dr-long-");
+  longBase = path.join(longBase, "x".repeat(Math.max(1, 145 - longBase.length - 1)));
+  const longGame = path.join(longBase, "Dauntless");
+  const longExe = path.join(longGame, "Archon", "Binaries", "Win64", "Dauntless-Win64-Shipping.exe");
+  mkdirSync(path.dirname(longExe), { recursive: true });
+  writeFileSync(longExe, "layout marker");
+  assert.ok(longBase.length <= 150 && longGame.length > 150);
+  const hz = harness(RELAY_PORT, undefined, async () => longBase);
+  await hz.c.init();
+  const dirBefore = hz.last().install.dir;
+  assert.deepEqual(await hz.c.chooseInstallDir(), { ok: false, error: { code: "folder_invalid" } });
+  assert.equal(hz.last().install.dir, dirBefore);
+  assert.ok(!existsSync(path.join(longBase, "DauntlessRevived")));
+  await hz.c.shutdown();
 });
 
 test("public mode: a certificate that does not match the invite stops everything before any request", async () => {

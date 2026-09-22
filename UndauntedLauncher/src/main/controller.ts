@@ -795,6 +795,9 @@ export class Controller {
     // inside it) is used as that game: no second copy is downloaded next to it.
     const existing = await locateExistingGame(picked);
     if (this.task || this.busy || this.game.running) return err("busy");
+    // A game found there whose root is too long is refused, not given a second copy in a subfolder
+    // (which would be longer still).
+    if (!existing.ok && existing.reason === "too_long") return this.fail("folder_invalid");
     let dir = existing.ok ? existing.root : path.resolve(picked);
     if (!path.win32.isAbsolute(dir) || dir.length > 150) return this.fail("folder_invalid");
     // Otherwise an empty folder is used as is, and anything else gets a subfolder.
