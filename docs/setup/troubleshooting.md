@@ -207,7 +207,18 @@ textures or an incorrect hunt definition.
 real test (22 September 2026) it made Ramsgate and every night scene far too dark, because those scenes
 rely on automatic exposure to brighten them. So since launcher 0.1.1 nothing turns automatic exposure
 off, and the launcher removes the line 0.1.0 wrote on the next launch. The airship cabin is a short
-scene; a fix that does not darken the rest of the game is item 4.17 on the
+scene.
+
+**An experiment you can try.** Vvoidddd added an opt-in setting to the launcher
+([#7](https://github.com/mixutin/dauntless-revived/pull/7)): in Settings > Graphics, **Auto
+exposure** has a **Basic adaptive (experimental)** choice. It writes
+`r.EyeAdaptation.MethodOverride=2` to `Engine.ini`, which the 1.4.4 game executable (the
+hash-pinned `Dauntless-Win64-Shipping.exe`) describes as "Auto Basic": a simpler way of measuring
+the scene, with automatic exposure still on. The default stays **Game default** for everyone. Try
+Basic on your own PC and compare the same airship, Ramsgate and a night hunt; if anything looks
+worse, choose Game default again and relaunch. The line stays in `Engine.ini` until the next launch
+through the launcher, or through the friend kit, which also rewrites that section. Nobody has checked
+the result in game yet, so a fix that does not darken the rest of the game is still item 4.17 on the
 [roadmap]({{ roadmap_page.url | relative_url }}).
 
 To see what is really being forced:

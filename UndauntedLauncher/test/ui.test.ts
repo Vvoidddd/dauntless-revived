@@ -13,6 +13,7 @@ import { validateManifest, manifestFingerprint } from "../src/main/manifest";
 import type { InviteError } from "../src/shared/invite";
 import type { UsernameCheck } from "../src/shared/username";
 import type { ErrorCode, NoticeCode, Snapshot } from "../src/shared/types";
+import { EXPOSURE_MODES } from "../src/shared/types";
 
 const ROOT = path.resolve(__dirname, "..", "..");
 
@@ -93,6 +94,7 @@ test("every dynamic key family is complete", () => {
   for (const m of ["OPEN", "INVITECODE", "NONE"]) assert.ok(isStringKey(`reg_mode_${m}`));
   for (const w of ["menu", "city", "hunt", "dojo", "tutorial", "unknown"]) assert.ok(isStringKey(`where_${w}`));
   for (const g of ["menu", "0", "1", "2", "3", "4"]) assert.ok(isStringKey(`gfx_${g}`));
+  for (const m of EXPOSURE_MODES) assert.ok(isStringKey(`exposure_${m}`), `exposure_${m}`);
   for (const k of ["city", "hunt", "dojo", "tutorial"]) assert.ok(isStringKey(`kind_${k}`));
 });
 
@@ -142,7 +144,7 @@ function snap(over: Partial<Snapshot>): Snapshot {
     install: { dir: "C:\\g", defaultDir: "C:\\g", installed: true, missingFiles: 0, verified: true, dllsOk: true, freeBytes: 5e10, requiredBytes: 1e9, totalBytes: 1e10, vcRuntimeMissing: [], contentAvailable: true },
     task: null,
     game: { running: false, relayPort: null },
-    settings: { graphics: 4, windowed: false, language: "en" },
+    settings: { graphics: 4, exposure: "game", windowed: false, language: "en" },
     app: { version: "0", packaged: false, updateReady: false },
     status: null,
     statusUnsupported: false,

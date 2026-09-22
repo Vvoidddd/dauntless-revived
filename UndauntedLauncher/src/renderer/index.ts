@@ -8,10 +8,10 @@ import { isStringKey, translate, type StringKey } from "../shared/i18n";
 import { localized, PROJECT_PEOPLE, SOFTWARE, UPSTREAM_PEOPLE, type CreditPerson, type CreditRole } from "../shared/credits";
 import { parseInvite } from "../shared/invite";
 import { checkUsername, extractAccountKey } from "../shared/username";
-import { graphicsKey, primaryButton, shortFile, stepIndex, taskView, updateReason, whereKey } from "../shared/ui-model";
+import { exposureKey, graphicsKey, primaryButton, shortFile, stepIndex, taskView, updateReason, whereKey } from "../shared/ui-model";
 import { formatBytes, formatDate, formatDuration, formatRunningTime } from "../shared/format";
 import { sortInstances, type InstanceKind, type ServerStatus, type StatusInstance } from "../shared/status";
-import { GRAPHICS_PRESETS, type Branding, type ExternalTarget, type GraphicsPreset, type LauncherError, type NewsItem, type Snapshot, type TaskProgress } from "../shared/types";
+import { EXPOSURE_MODES, GRAPHICS_PRESETS, type Branding, type ExposureMode, type ExternalTarget, type GraphicsPreset, type LauncherError, type NewsItem, type Snapshot, type TaskProgress } from "../shared/types";
 
 type View = "play" | "news" | "server" | "settings" | "credits";
 const VIEWS: readonly View[] = ["play", "news", "server", "settings", "credits"];
@@ -994,6 +994,15 @@ function renderSettings(): void {
     }
     select.addEventListener("change", () => void api.setSettings({ graphics: Number(select.value) as GraphicsPreset }));
 
+    // Auto exposure (roadmap 4.17): "game" by default; "basic" is the opt-in experiment for the airship.
+    const exposure = h("select", { class: "select", id: "exposure-select", "data-fk": "exposure" });
+    for (const m of EXPOSURE_MODES) {
+      const o = h("option", { value: m }, t(exposureKey(m)));
+      if (m === snap.settings.exposure) o.selected = true;
+      exposure.appendChild(o);
+    }
+    exposure.addEventListener("change", () => void api.setSettings({ exposure: exposure.value as ExposureMode }));
+
     const windowed = h("button", { type: "button", class: "switch", role: "switch", "aria-checked": snap.settings.windowed ? "true" : "false", "aria-labelledby": "windowed-label", "data-fk": "windowed" });
     windowed.addEventListener("click", () => void api.setSettings({ windowed: !snap.settings.windowed }));
 
@@ -1013,6 +1022,7 @@ function renderSettings(): void {
       "settings-section",
       h("h2", { class: "card-title" }, t("set_graphics")),
       h("div", { class: "settings-row" }, h("div", { class: "settings-row-text" }, h("label", { class: "settings-row-title", for: "gfx-select" }, t("set_graphics_level")), h("span", { class: "settings-row-sub" }, t("set_graphics_text"))), select),
+      h("div", { class: "settings-row" }, h("div", { class: "settings-row-text" }, h("label", { class: "settings-row-title", for: "exposure-select" }, t("set_exposure")), h("span", { class: "settings-row-sub" }, t("set_exposure_text"))), exposure),
       h("div", { class: "settings-row" }, h("div", { class: "settings-row-text" }, h("span", { class: "settings-row-title", id: "windowed-label" }, t("set_windowed"))), windowed),
     );
 

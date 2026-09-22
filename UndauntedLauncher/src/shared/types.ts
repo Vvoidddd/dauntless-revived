@@ -13,6 +13,11 @@ export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export const GRAPHICS_PRESETS: readonly GraphicsPreset[] = [-1, 0, 1, 2, 3, 4];
 export const DEFAULT_GRAPHICS: GraphicsPreset = 4;
 
+// Keep the game's scene-specific exposure by default. Basic remains adaptive
+// and is an opt-in experiment for the blown-out pre-hunt airship.
+export type ExposureMode = "game" | "basic";
+export const EXPOSURE_MODES: readonly ExposureMode[] = ["game", "basic"];
+
 export type Phase =
   | "loading"
   | "join" // no server yet: paste an invite
@@ -111,6 +116,7 @@ export interface ServerInfo {
 
 export interface Settings {
   graphics: GraphicsPreset;
+  exposure: ExposureMode;
   windowed: boolean;
   language: Language;
 }

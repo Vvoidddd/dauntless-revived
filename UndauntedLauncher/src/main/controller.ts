@@ -19,6 +19,7 @@ import type {
   Branding,
   ConnectProblem,
   ErrorCode,
+  ExposureMode,
   ExternalTarget,
   GraphicsPreset,
   InviteCheck,
@@ -32,7 +33,7 @@ import type {
   Snapshot,
   TaskProgress,
 } from "../shared/types";
-import { GRAPHICS_PRESETS } from "../shared/types";
+import { EXPOSURE_MODES, GRAPHICS_PRESETS } from "../shared/types";
 import type { Endpoint } from "./http";
 import {
   fetchBrandingImage,
@@ -266,7 +267,7 @@ export class Controller {
       },
       task: this.task,
       game: { running: this.game.running, relayPort: this.relay?.port ?? null },
-      settings: { graphics: this.s.graphics, windowed: this.s.windowed, language: this.s.language },
+      settings: { graphics: this.s.graphics, exposure: this.s.exposure, windowed: this.s.windowed, language: this.s.language },
       app: { version: this.p.appVersion, packaged: this.p.packaged, updateReady: this.updateReady },
       status: this.status,
       statusUnsupported: this.statusUnsupported,
@@ -1056,7 +1057,8 @@ export class Controller {
       let launched = false;
       try {
         try {
-          await applyGameConfig({ host: gameHost, xmppPort, graphics: this.s.graphics, configDir: this.p.gameConfigDir });
+          await applyGameConfig({ host: gameHost, xmppPort, graphics: this.s.graphics, exposure: this.s.exposure, configDir: this.p.gameConfigDir });
+          if (this.s.exposure !== "game") log.info(`game config: auto exposure ${this.s.exposure}`);
         } catch (e) {
           log.error(`could not write the game config: ${describeError(e)}`);
           return this.fail("config_failed");
@@ -1116,12 +1118,13 @@ export class Controller {
       const p = patch as Record<string, unknown>;
       await this.settings.update((s) => {
         if (GRAPHICS_PRESETS.includes(p.graphics as GraphicsPreset)) s.graphics = p.graphics as GraphicsPreset;
+        if (EXPOSURE_MODES.includes(p.exposure as ExposureMode)) s.exposure = p.exposure as ExposureMode;
         if (typeof p.windowed === "boolean") s.windowed = p.windowed;
         if (p.language === "en" || p.language === "fi") s.language = p.language;
       });
     }
     this.publish();
-    return { graphics: this.s.graphics, windowed: this.s.windowed, language: this.s.language };
+    return { graphics: this.s.graphics, exposure: this.s.exposure, windowed: this.s.windowed, language: this.s.language };
   }
 
   async openExternal(target: ExternalTarget): Promise<ActionResult> {

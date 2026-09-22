@@ -225,7 +225,19 @@ sekä kaveripaketti asettivat sen. Ensimmäisessä oikeassa testissä (22. syysk
 Ramsgatesta ja kaikista yökohtauksista aivan liian pimeitä, koska ne tarvitsevat automaattista valotusta
 kirkastuakseen. Siksi käynnistimen versiosta 0.1.1 alkaen mikään ei laita automaattista valotusta pois,
 ja käynnistin poistaa version 0.1.0 kirjoittaman rivin seuraavalla käynnistyskerralla. Ilmalaivan hytti on
-lyhyt kohtaus; korjaus, joka ei pimennä muuta peliä, on
+lyhyt kohtaus.
+
+**Kokeilu, jota voit kokeilla.** Vvoidddd lisäsi käynnistimeen valinnaisen asetuksen
+([#7](https://github.com/mixutin/dauntless-revived/pull/7)): kohdassa Asetukset > Grafiikka
+**Automaattinen valotus** tarjoaa vaihtoehdon **Mukautuva perusvalotus (kokeellinen)**. Se
+kirjoittaa `Engine.ini`-tiedostoon rivin `r.EyeAdaptation.MethodOverride=2`, jonka 1.4.4:n
+peliohjelma (tiivisteellä kiinnitetty `Dauntless-Win64-Shipping.exe`) kuvaa nimellä ”Auto Basic”:
+yksinkertaisempi tapa mitata kuvan kirkkautta, ja automaattinen valotus pysyy päällä. Kaikkien
+oletus on edelleen **Pelin oletus**. Kokeile perusvalotusta omalla koneellasi ja vertaa samaa
+ilmalaivaa, Ramsgatea ja yömetsästystä. Jos jokin näyttää huonommalta, valitse taas Pelin oletus ja
+käynnistä peli uudelleen. Rivi jää `Engine.ini`-tiedostoon seuraavaan käynnistykseen asti, kun peli
+käynnistetään käynnistimellä tai kaveripaketilla, joka myös kirjoittaa sen osion uudelleen. Kukaan
+ei ole vielä tarkistanut tulosta pelissä, joten korjaus, joka ei pimennä muuta peliä, on yhä
 [tiekartalla]({{ roadmap_page.url | relative_url }}) kohtana 4.17.
 
 Näin näet, mitä oikeasti pakotetaan:

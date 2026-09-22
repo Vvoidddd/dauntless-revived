@@ -2,7 +2,7 @@
 // tested without a DOM.
 
 import type { StringKey } from "./i18n";
-import type { GraphicsPreset, Language, Phase, Snapshot, TaskProgress } from "./types";
+import type { ExposureMode, GraphicsPreset, Language, Phase, Snapshot, TaskProgress } from "./types";
 import type { InstanceKind, PlayerWhere } from "./status";
 import { formatBytes, formatDuration, formatPercent, formatSpeed } from "./format";
 
@@ -112,6 +112,10 @@ export function kindKey(k: InstanceKind): StringKey {
 
 export function graphicsKey(g: GraphicsPreset): StringKey {
   return g < 0 ? "gfx_menu" : (`gfx_${g}` as StringKey);
+}
+
+export function exposureKey(m: ExposureMode): StringKey {
+  return `exposure_${m}` as StringKey;
 }
 
 export function playersKey(n: number): StringKey {

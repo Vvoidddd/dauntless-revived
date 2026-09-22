@@ -1,6 +1,7 @@
 // Rewrites the game's user config before each launch, exactly like friend-kit/play.ps1:
 //
-//  - Engine.ini: [SystemSettings] (memory lines, plus the forced graphics level if one is chosen)
+//  - Engine.ini: [SystemSettings] (memory lines, plus the forced graphics level if one is chosen, plus
+//    r.EyeAdaptation.MethodOverride=2 when the player opted into "Basic adaptive" auto exposure)
 //    and [OnlineSubsystemMcp.XMPP] (chat/presence pointed at the host instead of Epic's live
 //    server, which would otherwise receive the account id and login token) are replaced; every
 //    other section of the file is kept as it was.
@@ -11,7 +12,7 @@
 import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { isValidHost } from "../shared/invite";
-import type { GraphicsPreset } from "../shared/types";
+import { EXPOSURE_MODES, type ExposureMode, type GraphicsPreset } from "../shared/types";
 import { XMPP_PORT } from "./constants";
 
 export const SCALABILITY_GROUPS = ["ViewDistance", "AntiAliasing", "Shadow", "PostProcess", "Texture", "Effects", "Foliage", "Shading"];
@@ -49,7 +50,11 @@ export function splitLines(text: string): string[] {
 // No r.EyeAdaptationQuality=0 (0.1.0 wrote it to fix the dark pre-hunt airship): turning automatic exposure
 // off made Ramsgate and every night scene far too dark, so the game's own exposure stays on. Because this
 // section is replaced on every launch, the line 0.1.0 wrote disappears from existing Engine.ini files.
-export function systemSettingsLines(graphics: GraphicsPreset): string[] {
+// The only exposure line is the opt-in r.EyeAdaptation.MethodOverride=2 ("Basic adaptive", Vvoidddd, #7):
+// UE4's basic metering instead of the histogram, with automatic exposure still on. It comes last, so
+// with "game" (the default) the section is byte for byte what friend-kit/play.ps1 writes.
+export function systemSettingsLines(graphics: GraphicsPreset, exposure: ExposureMode = "game"): string[] {
+  if (!EXPOSURE_MODES.includes(exposure)) throw new Error("invalid exposure mode");
   const sys = [
     "[SystemSettings]",
     "r.Streaming.PoolSize=3000",
@@ -61,6 +66,10 @@ export function systemSettingsLines(graphics: GraphicsPreset): string[] {
     for (const g of SCALABILITY_GROUPS) sys.push(`sg.${g}Quality=${graphics}`);
     sys.push("sg.ResolutionQuality=100", "r.ScreenPercentage=100", "r.MipMapLODBias=0", "r.MaxAnisotropy=16", "r.Tonemapper.Sharpen=0.6");
   }
+  // The hash-pinned 1.4.4 executable's help text for this cvar: "2: Auto Basic". Unlike the old
+  // EyeAdaptationQuality=0 workaround, it keeps adaptation on in dark maps. Opt-in until the airship,
+  // Ramsgate and a night hunt are compared in game (roadmap 4.17).
+  if (exposure === "basic") sys.push("r.EyeAdaptation.MethodOverride=2");
   return sys;
 }
 
@@ -70,7 +79,7 @@ export function xmppLines(host: string, port: number = XMPP_PORT): string[] {
   return ["[OnlineSubsystemMcp.XMPP]", `ServerAddr="ws://${host}"`, `ServerPort=${port}`, "bUseSSL=false"];
 }
 
-export function rewriteEngineIniText(existing: string[], host: string, graphics: GraphicsPreset, xmppPort: number = XMPP_PORT): string[] {
+export function rewriteEngineIniText(existing: string[], host: string, graphics: GraphicsPreset, xmppPort: number = XMPP_PORT, exposure: ExposureMode = "game"): string[] {
   const keep: string[] = [];
   let skip = false;
   for (const l of existing) {
@@ -81,7 +90,7 @@ export function rewriteEngineIniText(existing: string[], host: string, graphics:
     if (skip && /^\[/.test(l)) skip = false;
     if (!skip) keep.push(l);
   }
-  return [...systemSettingsLines(graphics), "", ...xmppLines(host, xmppPort), "", ...keep];
+  return [...systemSettingsLines(graphics, exposure), "", ...xmppLines(host, xmppPort), "", ...keep];
 }
 
 export function rewriteGameUserSettingsText(lines: string[], graphics: GraphicsPreset): string[] {
@@ -113,6 +122,7 @@ export interface ApplyConfigOptions {
   host: string; // where chat/presence (XMPP) connects
   xmppPort?: number; // default 61099 (private mode); the relay port in public mode
   graphics: GraphicsPreset;
+  exposure?: ExposureMode; // default "game": no exposure line
   configDir?: string;
 }
 
@@ -121,7 +131,7 @@ export async function applyGameConfig(opts: ApplyConfigOptions): Promise<{ engin
   await fsp.mkdir(dir, { recursive: true });
   const engine = path.join(dir, "Engine.ini");
   const existing = (await readLines(engine)) ?? [];
-  await writeAtomically(engine, encodeIni(rewriteEngineIniText(existing, opts.host, opts.graphics, opts.xmppPort ?? XMPP_PORT)));
+  await writeAtomically(engine, encodeIni(rewriteEngineIniText(existing, opts.host, opts.graphics, opts.xmppPort ?? XMPP_PORT, opts.exposure ?? "game")));
   if (opts.graphics >= 0) {
     const gus = path.join(dir, "GameUserSettings.ini");
     const lines = await readLines(gus);
