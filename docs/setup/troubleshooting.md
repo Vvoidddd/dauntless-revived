@@ -442,10 +442,11 @@ In a 1.4.4 client log, `MUC: JoinPublicRoom failed. Not currently connected` for
 or `Party-...` room means the XMPP chat connection was never established; the message did not
 reach a room. The separate STOMP `Bad protocol 'http'` warning is not the cause of this chat
 failure. Chat is not live by default. In a local 1.4.4 test with the listener on 61099, a
-Ramsgate message did appear, but its sender showed as a UID. The prototype now sends the
-authenticated account's stored username for delivered messages, while keeping the UID in
-the self-presence used to complete the room join; confirm that display and
-two-player delivery before treating chat as complete. Port 61099 must remain loopback-only
+Ramsgate message did appear, but its sender showed as a UID. Replacing the UID in the
+message address made the game show `[unknown]`. The prototype now keeps the UID for room
+identity and adds the stored username as an XMPP nickname element. Confirm whether the
+client reads that nickname and verify two-player delivery before treating chat as complete.
+Port 61099 must remain loopback-only
 behind the public gateway; changing matchmaking settings does not fix an XMPP disconnect.
 
 ---

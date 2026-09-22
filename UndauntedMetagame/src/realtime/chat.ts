@@ -156,8 +156,12 @@ export class ChatServer {
         for (const peer of this.clients) {
             if (!peer.id || !peer.resource || peer.socket.readyState !== WebSocket.OPEN) continue;
             if (group ? (!client.rooms.has(target) || !peer.rooms.has(target)) : peer.id.toLowerCase() !== target.split("@")[0]) continue;
-            const from = group ? `${target}/${escapeXml(client.displayName!)}` : escapeXml(jid(client));
-            send(peer, `<message from="${from}" to="${escapeXml(jid(peer))}" type="${group ? "groupchat" : "chat"}" id="${stanzaId}"><body>${escapeXml(body)}</body></message>`);
+            // 1.4.4 treats the MUC occupant resource as an account ID. Replacing it
+            // with a display name makes the sender "unknown" in the game. Keep the
+            // authenticated UID as the identity and advertise the stored account
+            // name separately with the standard XEP-0172 nickname element.
+            const from = group ? `${target}/${escapeXml(client.id)}` : escapeXml(jid(client));
+            send(peer, `<message from="${from}" to="${escapeXml(jid(peer))}" type="${group ? "groupchat" : "chat"}" id="${stanzaId}"><body>${escapeXml(body)}</body><nick xmlns="http://jabber.org/protocol/nick">${escapeXml(client.displayName!)}</nick></message>`);
         }
         return true;
     }

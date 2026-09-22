@@ -2460,10 +2460,11 @@ In a 1.4.4 client log, `MUC: JoinPublicRoom failed. Not currently connected` for
 or `Party-...` room means the XMPP chat connection was never established; the message did not
 reach a room. The separate STOMP `Bad protocol 'http'` warning is not the cause of this chat
 failure. Chat is not live by default. In a local 1.4.4 test with the listener on 61099, a
-Ramsgate message did appear, but its sender showed as a UID. The prototype now sends the
-authenticated account's stored username for delivered messages, while keeping the UID in
-the self-presence used to complete the room join; confirm that display and
-two-player delivery before treating chat as complete. Port 61099 must remain loopback-only
+Ramsgate message did appear, but its sender showed as a UID. Replacing the UID in the
+message address made the game show `[unknown]`. The prototype now keeps the UID for room
+identity and adds the stored username as an XMPP nickname element. Confirm whether the
+client reads that nickname and verify two-player delivery before treating chat as complete.
+Port 61099 must remain loopback-only
 behind the public gateway; changing matchmaking settings does not fix an XMPP disconnect.
 
 ---
@@ -11887,7 +11888,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** the presence/XMPP work in 1.9.
   - **Done when:** two friends can whisper each other in game.
   - **Test wiring (2026-09-22):** public Windows Server installs can opt in with `Set-ExperimentalChat.ps1 -Enable`; it binds only to loopback behind the existing WebSocket gateway, restarts the stack, and checks the listener. Two-client delivery and guild behavior remain unverified; guild endpoints are still stubs.
-  - **Local client result (2026-09-22):** one 1.4.4 client sent a Ramsgate message through the isolated loopback prototype; the game displayed the sender UID. Changing self-presence to the username stalled the client's room join, so self-presence stays UID while delivered messages use the authenticated account username. Verify that change in game and exchange messages between two clients before marking chat complete or deploying it broadly.
+  - **Local client result (2026-09-22):** one 1.4.4 client sent a Ramsgate message through the isolated loopback prototype; the game displayed the sender UID. Changing self-presence to the username stalled room joining, and changing the message sender to the username showed `[unknown]`. Both now keep the authenticated UID; a standard XMPP nickname element carries the stored account name. Verify whether 1.4.4 reads that element and exchange messages between two clients before marking chat complete or deploying it broadly.
 
 - [ ] **3.11 Guilds** (L)
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).

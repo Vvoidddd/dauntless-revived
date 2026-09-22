@@ -473,8 +473,9 @@ Lue metagamen lokia siitä hetkestä alkaen, kun käynnistit pelin:
 `City-...` tai `Party-...` tarkoittaa, ettei XMPP-chat-yhteyttä muodostettu. Viesti ei päässyt
 huoneeseen asti. Erillinen STOMP-varoitus `Bad protocol 'http'` ei aiheuta tätä chat-virhettä.
 Chat ei ole oletusarvoisesti käytössä. Paikallisessa 1.4.4-testissä Ramsgate-viesti näkyi,
-mutta lähettäjänä näkyi UID. Prototyyppi lähettää nyt tunnistetun tilin tallennetun käyttäjänimen
-viesteissä mutta säilyttää UID:n huoneeseen liittymisen omassa läsnäoloviestissä. Varmista nimen näkyminen ja kahden pelaajan viestit ennen kuin chatin
+mutta lähettäjänä näkyi UID. Kun UID korvattiin viestin osoitteessa käyttäjänimellä, peli näytti
+`[unknown]`. Prototyyppi säilyttää nyt UID:n huoneen tunnisteena ja lisää tallennetun käyttäjänimen
+XMPP-nimimerkkielementtiin. Varmista, lukeeko peliohjelma nimimerkin, sekä kahden pelaajan viestit ennen kuin chatin
 katsotaan olevan valmis. Portin 61099 on pysyttävä vain paikallisessa silmukkaliitännässä
 julkisen gatewayn takana; matchmaking-asetukset eivät korjaa XMPP-yhteyden katkeamista.
 

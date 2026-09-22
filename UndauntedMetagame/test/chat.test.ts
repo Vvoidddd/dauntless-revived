@@ -110,7 +110,8 @@ describe("experimental chat", () => {
         a.send(`<message to="${city}" type="groupchat" id="m2"><body>Ready?</body></message>`);
         const delivered = await room;
         assert.match(delivered, /Ready\?/);
-        assert.match(delivered, /\/Alpha"/);
+        assert.match(delivered, /\/UID-chat-a"/);
+        assert.match(delivered, /<nick xmlns="http:\/\/jabber.org\/protocol\/nick">Alpha<\/nick>/);
         assert.match(await frame(a), /Ready\?/);
         const partyJoin = frame(a);
         a.send(`<presence to="Party-${A}@conference.prod.ol.epicgames.com/Alpha"/>`);
