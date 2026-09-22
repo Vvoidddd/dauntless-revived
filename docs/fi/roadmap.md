@@ -128,7 +128,14 @@ metsästivät yhdessä internetin yli**, ensimmäistä kertaa vuokrapalvelimella
 
 **Omistajan toive 22.9.2026:** pelaajat näkyviin paikalla (online) pelissä. Nyt Sosiaalinen-paneeli
 näyttää kaikki, myös sinut itsesi, tilassa "Offline". Se tarvitsee pienen läsnäolopalvelimen (XMPP,
-kohta 3.10), ja se on seuraavana vuorossa, kun ryhmät ja kaverit toimivat.
+kohta 3.10), ja se on seuraavana vuorossa, kun ryhmät ja kaverit toimivat. Ennen kuin mikään
+kuuntelee portissa, peliohjelman XMPP-kirjautuminen (se lähettää tilin tunnisteen ja
+kirjautumistunnisteemme) sekä huoneisiin liittymisen ja läsnäolon viestit tallennetaan kahdella
+testitilillä testiportissa (esimerkiksi 62099, kuten palvelinpaketin hiekkalaatikossa). Palvelun on
+tarkistettava jokainen yhteys tunnisteillamme. Julkisessa tilassa portti 61099 pysyy vain koneen
+sisäisenä yhdyskäytävän takana; yksityisessä tilassa se avataan Tailscale-laitteille vasta, kun
+palvelu tarkistaa kirjautumiset. (Tämän nosti esiin Vvoidddd,
+[PR #6](https://github.com/mixutin/dauntless-revived/pull/6).)
 
 Käynnissä olevien pelaajien lista näytetään vain rekisteröityneille pelaajille, eikä
 `/dauntless-status` enää kerro pelaajamäärää. Käynnistimessä, pelin tervetulotekstissä ja palvelimen
