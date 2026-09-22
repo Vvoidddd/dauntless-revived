@@ -2454,6 +2454,17 @@ Read the metagame log from the moment you launched:
 
 ---
 
+## Chat says "Unable to send message"
+
+In a 1.4.4 client log, `MUC: JoinPublicRoom failed. Not currently connected` for a `City-...`
+or `Party-...` room means the XMPP chat connection was never established; the message did not
+reach a room. The separate STOMP `Bad protocol 'http'` warning is not the cause of this chat
+failure. Chat is not live by default: the experimental local listener is disabled, unverified
+with the game client, and must not be enabled on the VPS yet. Use Discord for now; this is not
+fixed by retrying the message or changing the game-server matchmaking settings.
+
+---
+
 ## Switching between 2.1.1 and 1.4.4
 
 Both builds use `%LOCALAPPDATA%\Archon\Saved\Config\WindowsClient`. Settings left over from one build

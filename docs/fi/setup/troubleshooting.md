@@ -467,6 +467,17 @@ Lue metagamen lokia siitä hetkestä alkaen, kun käynnistit pelin:
 
 ---
 
+## Chat ilmoittaa "Unable to send message" {#chat-not-connected}
+
+1.4.4-peliohjelman lokin `MUC: JoinPublicRoom failed. Not currently connected` huoneelle
+`City-...` tai `Party-...` tarkoittaa, ettei XMPP-chat-yhteyttä muodostettu. Viesti ei päässyt
+huoneeseen asti. Erillinen STOMP-varoitus `Bad protocol 'http'` ei aiheuta tätä chat-virhettä.
+Chat ei ole oletusarvoisesti käytössä: kokeellinen paikallinen kuuntelija on pois päältä,
+eikä sen toimivuutta peliohjelmalla ole varmistettu. Sitä ei pidä vielä ottaa käyttöön VPS:llä.
+Käytä toistaiseksi Discordia; viestin uudelleenlähetys tai matchmaking-asetusten muutos ei korjaa tätä.
+
+---
+
 ## Vaihtaminen 2.1.1:n ja 1.4.4:n välillä {#switching-between-211-and-144}
 
 Molemmat versiot käyttävät kansiota `%LOCALAPPDATA%\Archon\Saved\Config\WindowsClient`. Toisesta

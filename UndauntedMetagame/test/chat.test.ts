@@ -88,8 +88,14 @@ describe("experimental chat", () => {
     const direct = frame(b, "direct message");
         a.send(`<message to="${B}@prod.ol.epicgames.com" type="chat" id="m1"><body>Hello &amp; welcome</body></message>`);
         assert.match(await direct, /Hello &amp; welcome/);
-        a.send('<presence to="ramsgate@conference.prod.ol.epicgames.com/Alpha"/>');
-        b.send('<presence to="ramsgate@conference.prod.ol.epicgames.com/Bravo"/>');
+        // Names observed in the 1.4.4 client log, not a fabricated generic room.
+        const city = "City-d147475b-7742-4e7b-8142-6c0f55dda06b@conference.prod.ol.epicgames.com";
+        const joinedA = frame(a);
+        const joinedB = frame(b);
+        a.send(`<presence to="${city}/Alpha"/>`);
+        b.send(`<presence to="${city}/Bravo"/>`);
+        assert.match(await joinedA, /status code="110"/);
+        assert.match(await joinedB, /status code="110"/);
         const readyA = frame(a);
         const readyB = frame(b);
         a.send('<iq type="get" id="ready-a"/>');
@@ -97,7 +103,11 @@ describe("experimental chat", () => {
         assert.match(await readyA, /ready-a/);
         assert.match(await readyB, /ready-b/);
         const room = frame(b, "room message");
-        a.send('<message to="ramsgate@conference.prod.ol.epicgames.com" type="groupchat" id="m2"><body>Ready?</body></message>');
+        a.send(`<message to="${city}" type="groupchat" id="m2"><body>Ready?</body></message>`);
         assert.match(await room, /Ready\?/);
+        assert.match(await frame(a), /Ready\?/);
+        const partyJoin = frame(a);
+        a.send(`<presence to="Party-${A}@conference.prod.ol.epicgames.com/Alpha"/>`);
+        assert.match(await partyJoin, /status code="110"/);
     });
 });
