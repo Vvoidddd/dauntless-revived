@@ -192,6 +192,17 @@ const EXPECTED_ROUTES = [
     "GET /product/skus/public [HasUndauntedMetagameAuth]",
     "GET /guild/invite/player [HasUndauntedMetagameAuth]",
     "GET /guild [HasUndauntedMetagameAuth]",
+    // Guilds (roadmap 3.11): the token's own account acts; GUILDS=0 turns them off. The create is the
+    // game server's, after the client's ServerCreateGuild RPC: its key only, never a player's token.
+    "POST /guild/validate [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "POST /guild [GuildsOn, GameServerKeyAuth]",
+    "DELETE /guild/player [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "DELETE /guild/player/:accountId [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "PUT /guild/invite/:accountId [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "POST /guild/invite/accept/:inviteId [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "DELETE /guild/invite/:inviteId [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "PUT /guild/rank/:accountId/:rank [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "DELETE /guild/:guildId [GuildsOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "GET /game_tuning/seasonal_event_schedule []",
     "GET /game_tuning/huntpass_xp_config []",
     "DELETE /candidate [CancelOn, HasUndauntedMetagameAuth]",
@@ -532,6 +543,32 @@ describe("game-server key and the gateway", () => {
 function FakeRequest(Remote: string | undefined, Local: string | undefined, Headers: Record<string, string> = {}): any {
     return { socket: { remoteAddress: Remote, localAddress: Local }, headers: Headers, method: "GET", path: "/x" };
 }
+
+describe("the game server's guild create (POST /guild)", () => {
+    const Body = () => ({ leader_account_id: A, name: "PermGuild", nameplate: "PRM" });
+
+    it("refuses a player's token, the leader's own included (403), and the game-server key through the gateway or any proxy (403)", async () => {
+        for(const Caller of [A, B]){
+            const Reply = await Call("POST", "/guild", { as: Caller, body: Body() });
+            assert.equal(Reply.status, 403, `${Caller}'s token`);
+            assert.equal(Reply.json?.code, "", "the envelope, so the client shows its generic failure");
+        }
+
+        for(const Headers of [VIA_GATEWAY, { "x-forwarded-for": "127.0.0.1" }, { "via": "1.1 relay" }] as Record<string, string>[]){
+            assert.equal((await Call("POST", "/guild", { gs: true, as: A, headers: Headers, body: Body() })).status, 403, JSON.stringify(Object.keys(Headers)));
+        }
+
+        assert.equal((await Call("POST", "/guild", { gs: "not-a-registered-key", body: Body() })).status, 401);
+        assert.equal((await Call("GET", "/guild", { as: A })).status, 204, "no guild was created");
+    });
+
+    it("the client's guild routes refuse the game-server key alone (403) and no auth (401)", async () => {
+        for(const [Method, Path] of [["POST", "/guild/validate"], ["PUT", `/guild/invite/${B}`], ["DELETE", "/guild/player"], ["DELETE", `/guild/player/${B}`], ["POST", "/guild/invite/accept/x"], ["DELETE", "/guild/invite/x"], ["PUT", `/guild/rank/${B}/officer`], ["DELETE", "/guild/x"]]){
+            assert.equal((await Call(Method, Path, { gs: true, emptyJson: true })).status, 403, `key alone: ${Method} ${Path}`);
+            assert.equal((await Call(Method, Path, { emptyJson: true })).status, 401, `no auth: ${Method} ${Path}`);
+        }
+    });
+});
 
 describe("RequestOrigin", () => {
     it("takes X-Forwarded-For only from loopback with the right gateway secret", () => {
