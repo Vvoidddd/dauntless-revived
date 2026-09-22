@@ -170,7 +170,7 @@ but cannot change them, so a compromised game server cannot change what an admin
 | `data\keys\` | `owner.key` (the admin account's key) and `gameserver.key`, plus any other `*.key` restored from a backup. `signing.tmp` and `tailscale-authkey.tmp` exist only while an install step runs; if an install is killed there, delete them. **Secret: never share, never commit.** | read | the installer |
 | `data\tls\` | Public mode: `gateway-cert.pem` and `gateway-key.pem` (the key is **secret: never share, never commit**). `*.new` files exist only while a new certificate is made. | read | the installer |
 | `data\undaunted.db` | [The database](#the-database). | modify | the metagame |
-| `data\logs\` | The component logs, `supervisor.log`, `bodies.log`, the backup's database log and `install\` (see [Logs](#logs)). | modify | `Stack.ps1`, the backup, the installer |
+| `data\logs\` | The component logs, `supervisor.log`, `bodies.log`, the backup's database log, `install\` (see [Logs](#logs)) and `performance\`, the [performance log](#performance-log). | modify | `Stack.ps1` (the performance log too), the backup, the installer |
 | `data\run\` | `<component>.pid` for the metagame, content server, deploy server and gateway, and `stopped.flag`. While `stopped.flag` exists (set by `Stack.ps1 stop`, removed by `start` and `restart`), the stack supervisor restarts nothing. | modify | `Stack.ps1` |
 | `data\branding\` | The art pack the content server hands to launchers: images and an optional `branding.json` (see [News and art pack](#news-and-art-pack)). Empty after an install. | modify | you |
 | `data\allowlist\` | Public mode: the allowlist helper's `audit.log`, `state.json` (the addresses currently let in), `allowlist.pid`, its logs and its supervisor's `supervisor.log`. | read | the allowlist helper (SYSTEM) |
@@ -185,8 +185,8 @@ A `-Sandbox` install gives the sandbox user full control everywhere, so the test
 ### `server.json` {#server-json}
 
 `data\config\server.json` is the kit's own state: JSON, UTF-8 without a byte order mark. The installer
-writes it in full on every run, carrying over `InstalledAt`, `FirewallChanges`, `ServiceUser` and the
-Tailscale share link; the updater changes only `Commit`, `Ref`, `Source` and `UpdatedAt`, and
+writes it in full on every run, carrying over `InstalledAt`, `FirewallChanges`, `ServiceUser`,
+`PerformanceLog` and the Tailscale share link; the updater changes only `Commit`, `Ref`, `Source` and `UpdatedAt`, and
 `New-Invite.ps1 -SaveShareUrl` only `TailscaleShareUrl`. The other scripts read it, and a missing or
 empty value means "use the coded default". It holds no secrets, but
 `AdminIp` holds your own address. The settings of the components themselves are in the `.env` files; see
@@ -215,6 +215,7 @@ empty value means "use the coded default". It holds no secrets, but
 | `ServiceUser` | The service account (`dauntless`; empty in a sandbox). | `Stack.ps1`, the installer |
 | `ServiceProfile` | The service account's profile folder, under which its `Game.ini` and `Engine.ini` are. | nothing (for your information) |
 | `InteractiveSession` | Whether `-InteractiveSession` was used. | `Stack.ps1`, for a hint |
+| `PerformanceLog` | `true` (the default, also when missing): the stack supervisor writes the [performance log](#performance-log) every minute. `false` turns it off after the next `Stack.ps1 restart`. Installer re-runs keep your value. | `Stack.ps1` |
 | `StackTask`, `AllowlistTask`, `BackupTask` | The names of the scheduled tasks (`AllowlistTask` is empty in private mode). | `Stack.ps1` |
 | `Source`, `Ref`, `Commit`, `SourceUrl` | Where the running code came from. | the updater, `Stack.ps1`, `Deploy-Remote.ps1` |
 | `FirewallChanges` | Each system firewall change the installer made, with the old value, so you can undo it by hand when you uninstall. | the installer |
@@ -387,7 +388,7 @@ keep an eye on the file size on a long-running server.
 
 ## Logs
 
-No component deletes logs by age. Keys and session tokens are kept out of every log: the metagame
+No component deletes logs by age, except the kit's performance log (30 days). Keys and session tokens are kept out of every log: the metagame
 logs only the path of each request (tokens in paths become `<token>` or `<redacted>`), never headers
 or query strings (`bodies.log`, when it is on, also records the query string and body, with tokens
 removed), and the launcher replaces keys with `<hidden>`. Logs do contain account ids,
@@ -416,6 +417,36 @@ usernames and, in public mode, players' IP addresses, so read a log before you s
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | The database copy of the latest backup (`db ok, <n> users`). | Overwritten by each backup. |
 | `data\logs\install\<step>.out.log`, `.err.log` | The output of each installer and updater step: source copy, `npm ci` and `npm run build` per package, the Node.js, runtime and Tailscale installs, game extraction and check, certificate, keys, owner account. | Overwritten when the step runs again. |
 | `backups\backup.log` | One line per backup: time, folder, size, the database check and how many backups are kept. | Moved to `backup.log.1` when over 5 MB. |
+| `data\logs\performance\performance-<yyyy-MM-dd>.csv` | The [performance log](#performance-log): one sample a minute from the stack supervisor, and any `Write-PerformanceLog.ps1` run. Counts only. | A new file every UTC day; files older than 30 days are deleted. |
+
+### Performance log
+
+Roadmap 4.12, started from Vvoidddd's first sampler
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)). CSV with a header line, ASCII, CRLF
+line ends, a decimal point in every number (whatever the Windows language), times in UTC as
+`yyyy-MM-ddTHH:mm:ssZ`. A sample is one `host` row and one row per process, all with the same
+`timestamp_utc`. A cell that does not apply to the row, or could not be read, is empty. **Counts
+only:** no player names, account ids, keys or command lines. It still shows when the server is
+busy, so keep it private. How the numbers are taken:
+[Write-PerformanceLog.ps1]({{ scripts_page.url | relative_url }}#write-performancelogps1).
+
+| Column | Rows | What it holds |
+|:-------|:-----|:--------------|
+| `timestamp_utc` | all | When the sample was taken. |
+| `role` | all | `host`; a component: `metagame`, `content`, `gateway`, `deploy`, `allowlist` (the supervisor, which runs as the service account, cannot see the allowlist helper, which runs as SYSTEM); or a game server: `ramsgate`, `dojo`, `hunt`, `tutorial`, or `unknown` while it has no UDP port yet. |
+| `pid` | processes | The process id. |
+| `udp_port` | game servers | Its UDP port. |
+| `started_utc` | processes | When the process started. |
+| `players` | game servers | The players the metagame places on it (heartbeats of the last 90 seconds). Empty when the metagame did not answer with the owner key. |
+| `cpu_core_percent` | processes | CPU time since the previous sample, as a percentage of one core: 100 is one busy core. Empty in the first sample of a run and for a new process. |
+| `working_set_mb`, `private_mb` | processes | Working set and private (committed) memory, in MB. |
+| `host_cpu_percent` | host | The whole machine's CPU since the previous sample, 0-100. |
+| `logical_cpus` | host | Logical processors; `host_cpu_percent` times this, divided by 100, is the busy cores. |
+| `ram_total_mb`, `ram_free_mb` | host | Physical memory, in MB. |
+| `disk_free_gb` | host | Free space on the drive of the install root, in GB. |
+| `net_in_kbit_s`, `net_out_kbit_s` | host | Traffic on the network adapters since the previous sample, in kilobits per second (loopback, VPN tunnels and virtual switches left out). |
+| `game_servers` | host | How many game servers of this install run. |
+| `players_online` | host | The metagame's count of players online. Empty without the owner key, never a false 0. |
 
 ### Hand-built host and launcher
 

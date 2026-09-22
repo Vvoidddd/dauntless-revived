@@ -340,6 +340,7 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 | `Stack.ps1 stop` / `start` / `restart` | Stops or starts everything through the scheduled tasks. Stopping also closes the game ports. `restart -Only gateway` restarts one part. |
 | `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. The server shows that list to registered players only, so the script asks with the owner key (run it as administrator). From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>' -KeyFile <your account.key>`. Without a key it says the list is hidden. |
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
+| `Write-PerformanceLog.ps1 -Once` | A performance sample now (run it as administrator). The stack takes one every minute by itself, into `data\logs\performance\`: CPU and memory per game server and component, the machine's CPU, RAM, disk and network, and player counts. See [Measure it]({{ admin_page.url | relative_url }}#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
 
 From your PC, `Deploy-Remote.ps1 -Server <address> -Status` shows the status without logging in.
@@ -409,7 +410,7 @@ sharing the machine are on [Run it for a group]({{ admin_page.url | relative_url
 | `data\config\` | `server.json` and the `.env` settings (secrets). Which keys the installer writes and which it keeps: [Configuration]({{ config_page.url | relative_url }}#server-kit). |
 | `data\keys\`, `data\tls\` | The admin account's key and the game-server key; the gateway certificate and its private key. |
 | `data\undaunted.db` | The database: accounts and saves. |
-| `data\logs\` | Logs of every component; `gateway.out.log` is the access log (no keys or tokens). |
+| `data\logs\` | Logs of every component; `gateway.out.log` is the access log (no keys or tokens). `performance\` holds the performance log, one CSV file per day (counts only). |
 | `data\allowlist\` | The allowlist helper's audit log and state (only Administrators and SYSTEM can write there). |
 | `backups\` | Hourly backups. |
 | `staging\` | What `Deploy-Remote.ps1` uploads; the game zip stays here for repairs. |

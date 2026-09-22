@@ -437,7 +437,7 @@ aja koneella vain yksi sarja kerrallaan, äläkä silloin, kun hiekkalaatikkoase
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
 | `UndauntedContent/`, `npm run test:integration` | 62002 ja 62003 (`CONTENT_IT_PORT`, `CONTENT_IT_MOCK_PORT`) |
 | `UndauntedLauncher/`, `npm test` | 62012, 62013, 62401-62404, 62409, 62420-62422, 62429, 62440-62444 |
-| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 (`-Port`, 62000-62499) |
+| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 ja 62451 (`-Port` ja sitä seuraava portti, 62000-62499) |
 | `-Sandbox`-asennus ja `Test-Sandbox.ps1` | Metagame 62000, sisältöpalvelin 62002, sallittujen listan apuri 62005, yhdyskäytävä 62443, yhdyskäytävän WebSocket-kohde 62099. 62001 kirjoitetaan deploy-palvelimelle, joka ei pyöri hiekkalaatikossa. |
 
 Tunnetut päällekkäisyydet: sisältöpalvelimen integraatiotesti ja hiekkalaatikko käyttävät kumpikin

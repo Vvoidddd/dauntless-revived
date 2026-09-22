@@ -61,7 +61,7 @@ These rules apply to every script in `deploy/windows-server/`.
   `Update-DauntlessServer.ps1` refreshes that copy from the new code. `staging\kit` is only the upload
   folder that `Deploy-Remote.ps1` uses.
 - **`-Root`.** `Stack.ps1`, `Update-DauntlessServer.ps1`, `Backup-DauntlessServer.ps1`,
-  `New-Invite.ps1` and `Get-ServerStatus.ps1` take `-Root <install root>`. Without it they use the
+  `New-Invite.ps1`, `Get-ServerStatus.ps1` and `Write-PerformanceLog.ps1` take `-Root <install root>`. Without it they use the
   folder above their own folder if that folder holds `data\config\server.json`, which is the case for
   `<root>\bin`. Otherwise they use `C:\DauntlessRevived`. The installer takes `-InstallRoot` instead.
 - **`-WhatIf` and `-Confirm`** work on `Deploy-Remote.ps1`, `Install-DauntlessServer.ps1`,
@@ -89,6 +89,7 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `New-Invite.ps1` | Yes: it reads `data\keys\owner.key`. |
 | `Get-ServerStatus.ps1` | On the server, if you want the player list: it reads the owner key. Not needed with `-KeyFile`. |
 | `Backup-DauntlessServer.ps1` | Run it elevated, or let the backup task run it as the service account. An account that cannot read a file skips it and names it in the output. |
+| `Write-PerformanceLog.ps1` | On an installed server, yes: without elevation it cannot see the game servers (they run as the service account) or read the owner key for the player counts. Not on a `-Sandbox` install. |
 | `Deploy-Remote.ps1` | No. It runs on your PC as your normal account. The SSH account on the server must be an administrator. |
 
 ## Windows server kit
@@ -103,7 +104,9 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `Get-ServerStatus.ps1` | The server or any PC | Who is online and which worlds and hunts run. |
 | `Backup-DauntlessServer.ps1` | The server | A backup now, with retention. |
 | `backup-hidden.vbs` | The server | Runs the backup without a window (used by the hourly task). |
+| `Write-PerformanceLog.ps1` | The server | A performance sample now, or every minute in a sandbox. The stack supervisor already takes one every minute on an installed server. |
 | `Receive-Upload.ps1` | The server | The server side of the chunked upload. `Deploy-Remote.ps1` calls it; you do not. |
+| `DauntlessServer.Common.ps1`, `DauntlessServer.Performance.ps1` | Both | Shared helpers the scripts dot-source: pins, invites, pinned HTTPS, processes; the performance sampler. |
 | `lib\dr-db.js`, `lib\dr-keys.js`, `lib\verify-game.js` | The server | Node helpers the scripts call. |
 | `tests\Test-*.ps1` | A development PC | The kit's own tests. |
 
@@ -414,11 +417,11 @@ are never touched.
 
 | Action | What it does |
 |:-------|:-------------|
-| `status` | The install and its code version; each component with its process, addresses and memory, or `down`; each game server with its UDP port and role (the highest port, 8777, is Ramsgate, the one below is the Training Dojo, the rest are hunts); the gateway's TLS check; the allowlist helper and its firewall rule; the scheduled tasks; the last backup; the stop flag; and the players online, which the metagame shows only with the owner key. |
+| `status` | The install and its code version; each component with its process, addresses and memory, or `down`; each game server with its UDP port and role (the highest port, 8777, is Ramsgate, the one below is the Training Dojo, the rest are hunts); the gateway's TLS check; the allowlist helper and its firewall rule; the scheduled tasks; the last backup; the stop flag; when the last performance sample was taken (or that the performance log is off); and the players online, which the metagame shows only with the owner key. |
 | `start` | On an installed server, run by an administrator: takes a backup if the metagame is down (and refuses to start without one, unless `-NoBackup`), clears the stop flag, starts the allowlist task and the stack task, and waits up to 2 minutes for the metagame and the gateway. Otherwise (a sandbox, the service account, or `-Direct`): starts the components itself, takes the backup before the metagame, waits up to 30 s for each port, checks the metagame and the gateway, and waits up to 60 s for Ramsgate on UDP 8777. |
 | `stop` | Sets the stop flag, ends the scheduled tasks (when run by an administrator on an installed server), stops the deploy server and its game servers, then the gateway, the content server, the metagame and the allowlist helper. It closes the game ports (the allowlist rule is disabled) and takes a backup. |
 | `restart` | `stop`, a backup, then `start`. `restart -Only <component>` through the tasks only stops that component; its supervisor starts it again within a minute, without a backup. |
-| `supervise` | Runs only inside the scheduled tasks (or in a sandbox). It starts the components, then checks every 15 s. A component that is down is restarted after `min(60, 5 * 2^(n-1))` seconds, where `n` is its crashes in the last 10 minutes. After more than 5 it gives up on that component until the next start. It exits when the stop flag is set; the SYSTEM allowlist supervisor ignores the flag and is ended through its task. A supervised start skips the backup if the newest one is less than 10 minutes old. |
+| `supervise` | Runs only inside the scheduled tasks (or in a sandbox). It starts the components, then checks every 15 s. A component that is down is restarted after `min(60, 5 * 2^(n-1))` seconds, where `n` is its crashes in the last 10 minutes. After more than 5 it gives up on that component until the next start. It exits when the stop flag is set; the SYSTEM allowlist supervisor ignores the flag and is ended through its task. A supervised start skips the backup if the newest one is less than 10 minutes old. Every 4th check (about once a minute) the supervisor also takes a performance sample, as [Write-PerformanceLog.ps1](#write-performancelogps1) describes, unless `server.json` has `"PerformanceLog": false`; the SYSTEM allowlist supervisor never does. A sample that cannot be written (the file is open in another program, or a link was planted in `data\logs`) is skipped, and `supervisor.log` says so once. |
 
 The service account never runs the allowlist helper, and SYSTEM runs nothing else. On an installed
 server, `start` and `stop` therefore work through the two scheduled tasks. Each component runs as
@@ -532,6 +535,55 @@ C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1
 C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1 -Hourly 96 -Daily 60
 ```
 
+### Write-PerformanceLog.ps1
+
+Records what the server uses (roadmap 4.12). One sample is a `host` row plus one row per process: the
+metagame, content server, gateway, deploy server and allowlist helper of this install (found by
+their command line, like `Stack.ps1` finds them), and every game server started from this install's
+game folder. The rows are appended to `<root>\data\logs\performance\performance-<UTC date>.csv`; the
+columns are in [Files and data]({{ files_page.url | relative_url }}#performance-log). Files older than
+`-KeepDays` are deleted. Based on the first sampler by Vvoidddd
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
+
+On an installed server the stack supervisor already takes a sample every minute (see `supervise`
+under [Stack.ps1](#stackps1)), so run this script for one sample now (`-Once`), or for a `-Sandbox`
+install or a stack started by hand, which have no supervisor.
+
+| Parameter | Type | Default | What it does |
+|:----------|:-----|:--------|:-------------|
+| `-Root` | path | See [Before you run a kit script](#before-you-run-a-kit-script) | The install root. |
+| `-Once` | switch | off | Takes a baseline, waits 2 seconds, writes one sample and exits. |
+| `-IntervalSeconds` | 1-3600 | `60` | Seconds between samples. The first sample comes one interval after the start. Stop it with Ctrl+C. |
+| `-KeepDays` | 1-3650 | `30` | Day files to keep, today included. |
+
+How the numbers are taken:
+
+- **CPU** of a process: its CPU time since the previous sample, as a percentage of **one core** (two
+  busy cores read 200). The machine's CPU is the whole machine (0-100), from the processor counter,
+  which reads the same on every Windows language. The first sample of a run has no CPU figures.
+- **Memory:** the working set and the private (committed) memory of each process; the machine's
+  total and free RAM.
+- **Game servers:** the UDP port comes from the process's UDP endpoint (in 8700-8799), never from
+  its command line, which starts with the game-server key and lists the expected players' account
+  ids. The role (`ramsgate`, `dojo`, `hunt`, `tutorial`) comes from the deploy server's list, or from
+  the port the way `Stack.ps1 status` decides it (`UdpPortEnd` from `server.json` is Ramsgate, one
+  below is the Dojo).
+- **Players:** the metagame's `ServerStatus`, asked with the owner key, and the deploy server's
+  `/gameservers`, joined by server id. Only the counts are kept; the names and account ids in those
+  answers are dropped. Without a readable owner key the counts stay empty, never 0.
+- **Network:** bytes on the network adapters, without loopback, VPN tunnels (Tailscale, WireGuard)
+  and virtual switches, whose traffic also crosses a real adapter.
+
+It writes nothing through a junction, symbolic link or hard link: when `data\logs`, its
+`performance` folder or the day's file is one, the sample is refused. A reading that fails (for
+example the metagame is down) leaves its cells empty; the rest of the row is still written. The exit
+code is `1` when `-Once` could not write its sample.
+
+```powershell
+C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once
+.\Write-PerformanceLog.ps1 -Root C:\dr\sandbox-ws2019\root -IntervalSeconds 30
+```
+
 ### Receive-Upload.ps1
 
 The server side of `Deploy-Remote.ps1`'s chunked upload. You do not run it yourself.
@@ -583,9 +635,9 @@ at CRLF line endings, also in `git archive`, which is what `Deploy-Remote.ps1` u
 
 | Script | Parameters | What it tests |
 |:-------|:-----------|:--------------|
-| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper. Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
+| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`; the performance check also uses the port above it) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper; the performance sampler (CPU arithmetic, roles from the port range, the fixed header, day files and their pruning, player counts from a stand-in metagame with no names or keys in the file, a decimal point on a Finnish Windows, and refusing a junction or a hard link). Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
 | `tests\Test-DeployRemote.ps1` | `-WorkDir` (default `%TEMP%\dr-deploy-test`; emptied at the start, deleted at the end) | `Deploy-Remote.ps1` without a server: argument refusals, `-WhatIf`, the kit, source and backup uploads, and the chunked upload with a dropped connection and damaged parts. No network, no SSH key. |
-| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, an update and a rollback, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
+| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, an update and a rollback, a performance sample, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1

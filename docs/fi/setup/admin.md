@@ -462,6 +462,36 @@ Käytännön rajoituksia, jotka on hyvä tietää:
   sulkeminen tappaa sen palvelimen** kaikilta, jotka ovat siinä. Metsästyspalvelimet käynnistetään
   ikkuna piilotettuna.
 
+### Mittaa se {#measure-it}
+
+Yllä olevat luvut ovat yhden pelaajan lukuja palvelinkoneeltamme. Palvelin, joka on asennettu
+[Windows-palvelinpaketilla]({{ winserver_page.url | relative_url }}), mittaa itse itseään: sen
+kokonaisuuden valvoja ottaa minuutin välein mittauksen ja lisää sen tiedostoon
+`C:\DauntlessRevived\data\logs\performance\performance-<päivä>.csv`. Tiedosto vaihtuu joka päivä
+(UTC-aikaa), ja tiedostot säilyvät 30 päivää. Jokaisessa mittauksessa on:
+
+- yksi `host`-rivi: koneen suoritin, keskusmuisti kaikkiaan ja vapaana, asennusaseman vapaa
+  levytila, verkkoliikenne sekä se, montako pelipalvelinta on käynnissä ja montako pelaajaa on
+  paikalla
+- yksi rivi jokaisesta kokonaisuuden prosessista (metagame, sisältöpalvelin, yhdyskäytävä,
+  deploy-palvelin) ja pelipalvelimesta (Ramsgate, harjoitussali, jokainen metsästys): sen UDP-portti,
+  käynnistysaika, pelaajat, suoritinkäyttö prosentteina yhdestä ytimestä ja muisti
+
+Tiedostoihin kirjoitetaan vain lukuja: ei pelaajien nimiä, tilitunnuksia eikä avaimia.
+`Stack.ps1 status` kertoo, milloin viimeisin mittaus otettiin. Mittauksen saa otettua heti
+ajamalla `C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once` järjestelmänvalvojana avatussa
+PowerShellissä. Kirjaamisen saa pois asettamalla `data\config\server.json`-tiedostoon
+`"PerformanceLog": false` ja ajamalla `Stack.ps1 restart`. Sarakkeet on lueteltu sivulla
+[Tiedostot ja data]({{ files_page.url | relative_url }}#performance-log). Pidä tiedostot omana
+tietonasi: niistä näkee, milloin palvelimella on kiireistä.
+
+Tiedostot ovat CSV-muotoisia, joten taulukkolaskentaohjelma avaa ne. Yhteenvetotyökalu, joka laskee
+niistä yhden metsästyksen ja yhden Ramsgaten pelaajan hinnan ja arvion siitä, montako pelaajaa kone
+jaksaa, on vielä tekemättä, samoin metagamen omat ajat (pyyntöjen vasteajat, tapahtumasilmukan viive
+ja tietokantaan kuluva aika). Molemmat kuuluvat tiekartan kohtaan 4.12. Mittarin pohjana oli
+Vvoidddd:n ensimmäinen versio ([#6](https://github.com/mixutin/dauntless-revived/pull/6)). Tällä
+sivulla kuvatulla käsin pystytetyllä palvelinkoneella mittaria ei vielä ole.
+
 ## Koneen pitäminen käytettävissä {#keeping-the-pc-available}
 
 Palvelin on päällä vain, kun palvelinkone on päällä, hereillä ja kirjautuneena.

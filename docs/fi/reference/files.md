@@ -179,7 +179,7 @@ murrettu pelipalvelin ei voi muuttaa sitä, mitä ylläpitäjä seuraavaksi ajaa
 | `data\keys\` | `owner.key` (ylläpitäjätilin avain) ja `gameserver.key` sekä muut varmuuskopiosta palautetut `*.key`-tiedostot. `signing.tmp` ja `tailscale-authkey.tmp` ovat olemassa vain asennusvaiheen ajan; jos asennus keskeytetään väkisin siinä kohdassa, poista ne. **Salaisuuksia: älä koskaan jaa niitä äläkä committoi niitä.** | lukea | asennusohjelma |
 | `data\tls\` | Julkinen tila: `gateway-cert.pem` ja `gateway-key.pem` (avain on **salaisuus: älä koskaan jaa sitä äläkä committoi sitä**). `*.new`-tiedostot ovat olemassa vain uutta varmennetta tehtäessä. | lukea | asennusohjelma |
 | `data\undaunted.db` | [Tietokanta](#the-database). | muokata | metagame |
-| `data\logs\` | Osien lokit, `supervisor.log`, `bodies.log`, varmuuskopion tietokantaloki ja `install\` (katso [Lokit](#logs)). | muokata | `Stack.ps1`, varmuuskopio, asennusohjelma |
+| `data\logs\` | Osien lokit, `supervisor.log`, `bodies.log`, varmuuskopion tietokantaloki, `install\` (katso [Lokit](#logs)) ja `performance\`, [suorituskykyloki](#performance-log). | muokata | `Stack.ps1` (myös suorituskykyloki), varmuuskopio, asennusohjelma |
 | `data\run\` | `<osa>.pid` metagamelle, sisältöpalvelimelle, deploy-palvelimelle ja yhdyskäytävälle sekä `stopped.flag`. Niin kauan kuin `stopped.flag` on olemassa (`Stack.ps1 stop` luo sen, `start` ja `restart` poistavat sen), palvelinkokonaisuuden valvoja ei käynnistä mitään uudelleen. | muokata | `Stack.ps1` |
 | `data\branding\` | Kuvapaketti, jonka sisältöpalvelin antaa käynnistimille: kuvat ja valinnainen `branding.json` (katso [Uutiset ja kuvapaketti](#news-and-art-pack)). Tyhjä asennuksen jälkeen. | muokata | sinä |
 | `data\allowlist\` | Julkinen tila: sallittujen listan apurin `audit.log`, `state.json` (osoitteet, jotka on tällä hetkellä päästetty sisään), `allowlist.pid`, apurin lokit ja sen valvojan `supervisor.log`. | lukea | sallittujen listan apuri (SYSTEM) |
@@ -196,7 +196,7 @@ kaiken.
 
 `data\config\server.json` on paketin oma tila: JSON-muotoinen, UTF-8 ilman BOM-merkkiä (byte order
 mark). Asennusohjelma kirjoittaa sen kokonaan joka ajokerralla ja säilyttää arvot `InstalledAt`,
-`FirewallChanges` ja `ServiceUser` sekä Tailscalen jakolinkin; päivitysohjelma muuttaa vain arvot
+`FirewallChanges`, `ServiceUser` ja `PerformanceLog` sekä Tailscalen jakolinkin; päivitysohjelma muuttaa vain arvot
 `Commit`, `Ref`, `Source` ja `UpdatedAt`, ja `New-Invite.ps1 -SaveShareUrl` vain arvon
 `TailscaleShareUrl`. Muut skriptit lukevat sitä, ja puuttuva tai tyhjä arvo tarkoittaa ”käytä koodin
 oletusta”. Siinä ei ole salaisuuksia, mutta `AdminIp` sisältää oman
@@ -226,6 +226,7 @@ osoitteesi. Osien omat asetukset ovat `.env`-tiedostoissa; katso
 | `ServiceUser` | Palvelutili (`dauntless`; hiekkalaatikossa tyhjä). | `Stack.ps1`, asennusohjelma |
 | `ServiceProfile` | Palvelutilin profiilikansio, jonka alla sen `Game.ini` ja `Engine.ini` ovat. | ei mikään (tiedoksi) |
 | `InteractiveSession` | Käytettiinkö `-InteractiveSession`-valintaa. | `Stack.ps1`, vihjettä varten |
+| `PerformanceLog` | `true` (oletus, myös kun arvo puuttuu): kokonaisuuden valvoja kirjoittaa [suorituskykylokia](#performance-log) minuutin välein. `false` laittaa sen pois seuraavasta `Stack.ps1 restart` -komennosta alkaen. Asennusohjelman uusi ajo säilyttää arvosi. | `Stack.ps1` |
 | `StackTask`, `AllowlistTask`, `BackupTask` | Ajastettujen tehtävien nimet (`AllowlistTask` on yksityisessä tilassa tyhjä). | `Stack.ps1` |
 | `Source`, `Ref`, `Commit`, `SourceUrl` | Mistä käynnissä oleva koodi tuli. | päivitysohjelma, `Stack.ps1`, `Deploy-Remote.ps1` |
 | `FirewallChanges` | Jokainen asennusohjelman tekemä järjestelmän palomuurimuutos vanhoine arvoineen, jotta voit perua ne käsin, kun poistat asennuksen. | asennusohjelma |
@@ -407,7 +408,7 @@ tauluja; seuraa tiedoston kokoa pitkään pyörivällä palvelimella.
 
 ## Lokit {#logs}
 
-Mikään osa ei poista lokeja niiden iän perusteella. Avaimet ja istuntotunnisteet pidetään poissa
+Mikään osa ei poista lokeja niiden iän perusteella, paitsi paketin suorituskykyloki (30 päivää). Avaimet ja istuntotunnisteet pidetään poissa
 jokaisesta lokista: metagame kirjaa jokaisesta pyynnöstä vain polun (polkujen tunnisteet muuttuvat
 muotoon `<token>` tai `<redacted>`), ei koskaan otsakkeita tai kyselymerkkijonoja (query string)
 (`bodies.log` kirjaa päällä ollessaan myös kyselymerkkijonon ja rungon, tunnisteet poistettuina), ja
@@ -437,6 +438,36 @@ käyttäjänimiä ja julkisessa tilassa pelaajien IP-osoitteita, joten lue loki 
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | Viimeisimmän varmuuskopion tietokantakopioinnin tuloste (`db ok, <n> users`). | Jokainen varmuuskopio kirjoittaa ne yli. |
 | `data\logs\install\<vaihe>.out.log`, `.err.log` | Jokaisen asennus- ja päivitysvaiheen tuloste: lähdekoodin kopiointi, `npm ci` ja `npm run build` osa kerrallaan, Node.js:n, ajonaikaisten kirjastojen ja Tailscalen asennukset, pelin purku ja tarkistus, varmenne, avaimet ja ylläpitäjätili. | Kirjoitetaan yli, kun vaihe ajetaan uudelleen. |
 | `backups\backup.log` | Yksi rivi varmuuskopiota kohden: aika, kansio, koko, tietokannan tarkistus ja säilytettyjen varmuuskopioiden määrä. | Siirretään nimelle `backup.log.1`, kun se on yli 5 Mt. |
+| `data\logs\performance\performance-<yyyy-MM-dd>.csv` | [Suorituskykyloki](#performance-log): kokonaisuuden valvojan mittaus minuutin välein sekä jokainen `Write-PerformanceLog.ps1`-ajo. Vain lukuja. | Uusi tiedosto joka UTC-päivä; yli 30 päivää vanhat tiedostot poistetaan. |
+
+### Suorituskykyloki {#performance-log}
+
+Tiekartan kohta 4.12; pohjana on Vvoidddd:n ensimmäinen mittari
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)). CSV-tiedosto otsikkorivillä, ASCII,
+CRLF-rivinvaihdot, jokaisessa luvussa desimaalipiste (Windowsin kielestä riippumatta) ja ajat
+UTC-aikana muodossa `yyyy-MM-ddTHH:mm:ssZ`. Mittaus on yksi `host`-rivi ja yksi rivi prosessia
+kohden, kaikilla sama `timestamp_utc`. Solu, joka ei koske riviä tai jota ei pystytty lukemaan, on
+tyhjä. **Vain lukuja:** ei pelaajien nimiä, tilitunnuksia, avaimia eikä komentorivejä. Siitä näkee
+silti, milloin palvelimella on kiireistä, joten pidä se omana tietonasi. Miten luvut saadaan:
+[Write-PerformanceLog.ps1]({{ scripts_page.url | relative_url }}#write-performancelogps1).
+
+| Sarake | Rivit | Mitä siinä on |
+|:-------|:------|:--------------|
+| `timestamp_utc` | kaikki | Milloin mittaus otettiin. |
+| `role` | kaikki | `host`; osa: `metagame`, `content`, `gateway`, `deploy`, `allowlist` (palvelutilillä pyörivä valvoja ei näe SYSTEM-tilillä pyörivää sallittujen listan apuria); tai pelipalvelin: `ramsgate`, `dojo`, `hunt`, `tutorial`, tai `unknown`, kun sillä ei vielä ole UDP-porttia. |
+| `pid` | prosessit | Prosessin tunniste. |
+| `udp_port` | pelipalvelimet | Sen UDP-portti. |
+| `started_utc` | prosessit | Milloin prosessi käynnistyi. |
+| `players` | pelipalvelimet | Pelaajat, jotka metagame sijoittaa sille (viimeisten 90 sekunnin sydämenlyönnit). Tyhjä, jos metagame ei vastannut omistajan avaimella. |
+| `cpu_core_percent` | prosessit | Suoritinaika edellisen mittauksen jälkeen prosentteina yhdestä ytimestä: 100 on yksi täysin kuormitettu ydin. Tyhjä käynnistyksen ensimmäisessä mittauksessa ja uudella prosessilla. |
+| `working_set_mb`, `private_mb` | prosessit | Working set ja yksityinen (varattu) muisti megatavuina. |
+| `host_cpu_percent` | host | Koko koneen suoritinkäyttö edellisen mittauksen jälkeen, 0-100. |
+| `logical_cpus` | host | Loogiset suorittimet; `host_cpu_percent` kertaa tämä jaettuna sadalla on kuormitettujen ytimien määrä. |
+| `ram_total_mb`, `ram_free_mb` | host | Keskusmuisti megatavuina. |
+| `disk_free_gb` | host | Asennuskansion aseman vapaa tila gigatavuina. |
+| `net_in_kbit_s`, `net_out_kbit_s` | host | Verkkosovittimien liikenne edellisen mittauksen jälkeen kilobitteinä sekunnissa (ilman loopbackia, VPN-tunneleita ja virtuaalikytkimiä). |
+| `game_servers` | host | Montako tämän asennuksen pelipalvelinta on käynnissä. |
+| `players_online` | host | Metagamen laskema paikalla olevien pelaajien määrä. Tyhjä ilman omistajan avainta, ei koskaan virheellinen 0. |
 
 ### Käsin pystytetty palvelinkone ja käynnistin {#hand-built-host-and-launcher}
 

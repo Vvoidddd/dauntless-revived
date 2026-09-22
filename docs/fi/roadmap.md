@@ -313,9 +313,17 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   vaihtuvat päivittäin palvelimen lokikansiossa, ja niihin kirjataan vain lukuja, ei pelaajien nimiä.
   Yhteenvetotyökalu kertoo, paljonko yksi metsästys ja yksi Ramsgaten pelaaja maksavat, ja arvioi,
   montako pelaajaa tietty kone jaksaa. Omistajan syy: palvelimen rajoja ei tarvitse enää arvata.
-  Ensimmäiset mittaukset tehdään ensimmäisissä kaveritesteissä. *Valmis, kun:* kaveri-illan lokeista
-  saadaan yhteenvetotyökalulla mitattu hinta metsästystä ja Ramsgaten pelaajaa kohden sekä arvio
-  siitä, montako pelaajaa vuokrattu palvelin jaksaa.
+  Ensimmäiset mittaukset tehdään ensimmäisissä kaveritesteissä. *Tilanne 22.9.2026:* mittari on
+  rakennettu Vvoidddd:n ensimmäisen mittarin pohjalta
+  ([PR #6](https://github.com/mixutin/dauntless-revived/pull/6)). Windows-palvelinpaketin valvoja
+  kirjoittaa minuutin välein mittauksen tiedostoon `data\logs\performance\performance-<UTC-päivä>.csv`
+  (30 päivää säilytetään, vain lukuja): jokainen pelipalvelin (rooli, UDP-portti, käynnistysaika,
+  pelaajat, suoritin prosentteina yhdestä ytimestä ja muisti), palvelimen omat prosessit sekä kone
+  (suoritin, keskusmuisti, vapaa levytila, verkko, pelipalvelinten ja paikalla olevien pelaajien
+  määrä). Vielä tekemättä: metagamen vasteajat, tapahtumasilmukan viive ja tietokantaan kuluva aika
+  sekä yhteenvetotyökalu. Mittaria ei ole vielä ajettu kaveri-illan aikana. *Valmis, kun:*
+  kaveri-illan lokeista saadaan yhteenvetotyökalulla mitattu hinta metsästystä ja Ramsgaten pelaajaa
+  kohden sekä arvio siitä, montako pelaajaa vuokrattu palvelin jaksaa.
 - **4.13 Lisää peliportteja.** *Mitä:* pelipalvelinten UDP-porttialue laajennetaan yli 8770–8777:n.
   Nyt Ramsgate on portissa 8777, harjoitussali portissa 8776 ja metsästykset porteissa 8770–8775, eli
   kerralla voi olla enintään 6 metsästystä ja 24 metsästävää pelaajaa, oli kone miten iso tahansa.

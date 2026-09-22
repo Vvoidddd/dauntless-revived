@@ -408,7 +408,7 @@ sandbox install or `Test-Sandbox.ps1` is running. How to run the tests is on
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
 | `UndauntedContent/`, `npm run test:integration` | 62002 and 62003 (`CONTENT_IT_PORT`, `CONTENT_IT_MOCK_PORT`) |
 | `UndauntedLauncher/`, `npm test` | 62012, 62013, 62401-62404, 62409, 62420-62422, 62429, 62440-62444 |
-| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 (`-Port`, 62000-62499) |
+| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 and 62451 (`-Port` and the port above it, 62000-62499) |
 | `-Sandbox` install and `Test-Sandbox.ps1` | Metagame 62000, content 62002, allowlist helper 62005, gateway 62443, gateway WebSocket target 62099. 62001 is written for the deploy server, which does not run in a sandbox. |
 
 Known overlaps: the content integration test and the sandbox both use 62002; the launcher's

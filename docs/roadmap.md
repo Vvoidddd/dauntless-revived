@@ -753,7 +753,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** nothing for step 1. It never touches the live server.
   - **Done when:** a client plays Ramsgate and one hunt on a Wine-hosted game server with loot saved, using no more than about 20% more RAM and CPU than on Windows. Or we have a written reason it can't work, and 4.10 stays Windows.
 
-- [ ] **4.12 Performance logging and capacity measurement** (M) — *Added 2026-09-22 at the owner's request, to stop guessing the server's limits. First measurements during the first friends tests.*
+- [ ] **4.12 Performance logging and capacity measurement** (M) — *Added 2026-09-22 at the owner's request, to stop guessing the server's limits. First measurements during the first friends tests.* ***Status 2026-09-22: the sampler is built**, based on Vvoidddd's first sampler ([PR #6](https://github.com/mixutin/dauntless-revived/pull/6)): the Windows server kit's stack supervisor writes a sample every minute to `data\logs\performance\performance-<UTC date>.csv` (30 days kept, counts only). Each sample has every game server (role, UDP port, start time, players, CPU as a percentage of one core, memory), the stack's own processes, and the host (CPU, RAM, free disk, network, game servers, players online). `Write-PerformanceLog.ps1 -Once` takes one by hand. **Still open:** the metagame's request latency, event-loop lag and database time, and the summary tool. Not yet run during a friends session.*
   - **What:**
     - A sampler that runs every 30–60 seconds and logs:
       - for each game server: CPU (as a percentage of one core), memory, its type (Ramsgate, Dojo or hunt), its player count and when it started

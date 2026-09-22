@@ -352,6 +352,7 @@ Nämä ajetaan palvelimella (SSH:n kautta: `ssh -i <avain> Administrator@<palvel
 | `Stack.ps1 stop` / `start` / `restart` | Pysäyttää tai käynnistää kaiken ajastettujen tehtävien kautta. Pysäytys sulkee myös peliportit. `restart -Only gateway` käynnistää yhden osan uudelleen. |
 | `Get-ServerStatus.ps1` | Ketkä ovat paikalla ja mitkä maailmat ja metsästykset ovat käynnissä, kysyttynä yhdyskäytävän kautta kuten kaveri kysyisi. Palvelin näyttää listan vain rekisteröityneille pelaajille, joten skripti kysyy omistajan avaimella (aja se järjestelmänvalvojana). Omalta koneelta: `Get-ServerStatus.ps1 -Invite '<kutsurivi>' -KeyFile <oma account.key>`. Ilman avainta se kertoo, että lista on piilotettu. |
 | `Backup-DauntlessServer.ps1` | Varmuuskopio heti (tehdään myös tunnin välein sekä jokaisen käynnistyksen ja pysäytyksen yhteydessä). |
+| `Write-PerformanceLog.ps1 -Once` | Suorituskykymittaus heti (aja järjestelmänvalvojana). Kokonaisuus ottaa mittauksen itse minuutin välein kansioon `data\logs\performance\`: pelipalvelinten ja osien suoritin ja muisti, koneen suoritin, keskusmuisti, levy ja verkko sekä pelaajamäärät. Katso [Mittaa se]({{ admin_page.url | relative_url }}#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tagi>` | Uusi palvelinkoodi, katso alta. |
 
 Omalta koneelta `Deploy-Remote.ps1 -Server <osoite> -Status` näyttää tilanteen kirjautumatta.
@@ -427,7 +428,7 @@ Koneen jakamisesta kerrotaan sivulla [Palvelin ryhmälle]({{ admin_page.url | re
 | `data\config\` | `server.json` ja `.env`-asetukset (salaisuuksia). Mitkä avaimet asennus kirjoittaa ja mitkä se säilyttää: [asetusten viitesivu]({{ config_page.url | relative_url }}#server-kit). |
 | `data\keys\`, `data\tls\` | Ylläpitäjätilin avain ja pelipalvelimen avain; yhdyskäytävän varmenne ja sen yksityinen avain. |
 | `data\undaunted.db` | Tietokanta: tilit ja tallennukset. |
-| `data\logs\` | Kaikkien osien lokit; `gateway.out.log` on pääsyloki (ei avaimia). |
+| `data\logs\` | Kaikkien osien lokit; `gateway.out.log` on pääsyloki (ei avaimia). `performance\` sisältää suorituskykylokin, yhden CSV-tiedoston päivässä (vain lukuja). |
 | `data\allowlist\` | Apurin tarkastusloki ja tila (vain ylläpitäjät ja SYSTEM voivat kirjoittaa sinne). |
 | `backups\` | Tunnin välein otetut varmuuskopiot. |
 | `staging\` | Mitä `Deploy-Remote.ps1` lähettää; pelin zip jää tänne korjauksia varten. |

@@ -429,6 +429,33 @@ Operational limits to know about:
 - **Ramsgate and the Dojo each keep a console window open on the host's desktop. Closing one kills
   that server** for everyone in it. Hunt servers are started with their window hidden.
 
+### Measure it
+
+The figures above are one player's, measured on our host. A server installed with the
+[Windows server kit]({{ winserver_page.url | relative_url }}) measures itself: its stack supervisor
+takes a sample every minute and adds it to `C:\DauntlessRevived\data\logs\performance\performance-<date>.csv`,
+one file per UTC day, kept for 30 days. Each sample has:
+
+- one `host` row: the machine's CPU, total and free RAM, free disk space on the install drive,
+  network traffic, and how many game servers run and how many players are online
+- one row per stack process (metagame, content server, gateway, deploy server) and per game server
+  (Ramsgate, the Training Dojo, each hunt): its UDP port, when it started, its players, its CPU as a
+  percentage of one core, and its memory
+
+Only numbers are written: no player names, account ids or keys. `Stack.ps1 status` shows when the
+last sample was taken. To take one now, run `C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once`
+in an elevated PowerShell. To turn the log off, set `"PerformanceLog": false` in
+`data\config\server.json` and run `Stack.ps1 restart`. The columns are listed in
+[Files and data]({{ files_page.url | relative_url }}#performance-log). Keep the files private: they
+show when the server is busy.
+
+The files are CSV, so a spreadsheet opens them. A summary tool that turns them into a cost per hunt
+and per Ramsgate player, and an estimate of how many players a machine can host, is still to come,
+as are the metagame's own timings (request latency, event-loop lag and database time). Both are part
+of roadmap 4.12. The sampler started from Vvoidddd's first version
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)). A hand-built host like the one on this
+page has no sampler yet.
+
 ## Keeping the PC available
 
 The server is up only while the host PC is on, awake and signed in.

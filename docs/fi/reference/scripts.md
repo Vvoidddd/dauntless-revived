@@ -63,7 +63,8 @@ Nämä säännöt koskevat jokaista kansion `deploy/windows-server/` skriptiä.
   kopioi paketin sinne, ja `Update-DauntlessServer.ps1` päivittää kopion uudesta koodista.
   `staging\kit` on vain lähetyskansio, jota `Deploy-Remote.ps1` käyttää.
 - **`-Root`.** `Stack.ps1`, `Update-DauntlessServer.ps1`, `Backup-DauntlessServer.ps1`,
-  `New-Invite.ps1` ja `Get-ServerStatus.ps1` ottavat parametrin `-Root <asennuskansio>`. Ilman sitä
+  `New-Invite.ps1`, `Get-ServerStatus.ps1` ja `Write-PerformanceLog.ps1` ottavat parametrin
+  `-Root <asennuskansio>`. Ilman sitä
   ne käyttävät omaa kansiotaan ylempää kansiota, jos siinä on `data\config\server.json`, kuten
   kansion `<root>\bin` kohdalla on. Muuten ne käyttävät kansiota `C:\DauntlessRevived`.
   Asennusohjelma ottaa sen sijaan parametrin `-InstallRoot`.
@@ -95,6 +96,7 @@ Mitkä skriptit tarvitsevat ylläpitäjänä avatun PowerShellin ("Suorita järj
 | `New-Invite.ps1` | Kyllä: se lukee tiedoston `data\keys\owner.key`. |
 | `Get-ServerStatus.ps1` | Palvelimella, jos haluat pelaajalistan: se lukee omistajan avaimen. Ei tarvita `-KeyFile`:n kanssa. |
 | `Backup-DauntlessServer.ps1` | Aja se ylläpitäjänä, tai anna varmuuskopiotehtävän ajaa se palvelutilillä. Tili, joka ei voi lukea jotakin tiedostoa, ohittaa sen ja mainitsee sen tulosteessa. |
+| `Write-PerformanceLog.ps1` | Asennetulla palvelimella kyllä: ilman ylläpitäjän oikeuksia se ei näe pelipalvelimia (ne pyörivät palvelutilillä) eikä pysty lukemaan omistajan avainta pelaajamääriä varten. `-Sandbox`-asennuksessa ei. |
 | `Deploy-Remote.ps1` | Ei. Se pyörii omalla koneellasi tavallisella käyttäjätililläsi. Palvelimen SSH-tilin on oltava ylläpitäjä. |
 
 ## Windows-palvelinpaketti {#windows-server-kit}
@@ -109,7 +111,9 @@ Mitkä skriptit tarvitsevat ylläpitäjänä avatun PowerShellin ("Suorita järj
 | `Get-ServerStatus.ps1` | Palvelin tai mikä tahansa kone | Ketkä ovat paikalla ja mitkä maailmat ja metsästykset ovat käynnissä. |
 | `Backup-DauntlessServer.ps1` | Palvelin | Varmuuskopio heti, vanhojen kopioiden karsinnalla. |
 | `backup-hidden.vbs` | Palvelin | Ajaa varmuuskopion ilman ikkunaa (tuntitehtävän käytössä). |
+| `Write-PerformanceLog.ps1` | Palvelin | Suorituskykymittaus heti, tai minuutin välein hiekkalaatikossa. Asennetulla palvelimella kokonaisuuden valvoja ottaa mittauksen jo minuutin välein. |
 | `Receive-Upload.ps1` | Palvelin | Osissa tehtävän lähetyksen palvelinpää. `Deploy-Remote.ps1` kutsuu sitä; sinä et. |
+| `DauntlessServer.Common.ps1`, `DauntlessServer.Performance.ps1` | Molemmat | Yhteiset apufunktiot, jotka skriptit lataavat: kiinnitykset, kutsut, kiinnitetty HTTPS, prosessit; suorituskykymittari. |
 | `lib\dr-db.js`, `lib\dr-keys.js`, `lib\verify-game.js` | Palvelin | Node-apuohjelmat, joita skriptit kutsuvat. |
 | `tests\Test-*.ps1` | Kehityskone | Paketin omat testit. |
 
@@ -430,11 +434,11 @@ Dauntless-peliohjelmaan ei koskaan kosketa.
 
 | Toiminto | Mitä se tekee |
 |:---------|:--------------|
-| `status` | Asennus ja sen koodiversio; jokainen osa prosesseineen, osoitteineen ja muistinkäyttöineen, tai `down`; jokainen pelipalvelin UDP-portteineen ja rooleineen (korkein portti, 8777, on Ramsgate, sen alapuolinen on Training Dojo, loput ovat metsästyksiä); yhdyskäytävän TLS-tarkistus; sallittujen listan apuri ja sen palomuurisääntö; ajastetut tehtävät; viimeisin varmuuskopio; pysäytyslippu; ja paikalla olevat pelaajat, jotka metagame näyttää vain omistajan avaimella. |
+| `status` | Asennus ja sen koodiversio; jokainen osa prosesseineen, osoitteineen ja muistinkäyttöineen, tai `down`; jokainen pelipalvelin UDP-portteineen ja rooleineen (korkein portti, 8777, on Ramsgate, sen alapuolinen on Training Dojo, loput ovat metsästyksiä); yhdyskäytävän TLS-tarkistus; sallittujen listan apuri ja sen palomuurisääntö; ajastetut tehtävät; viimeisin varmuuskopio; pysäytyslippu; milloin viimeisin suorituskykymittaus otettiin (tai että kirjaaminen on pois päältä); ja paikalla olevat pelaajat, jotka metagame näyttää vain omistajan avaimella. |
 | `start` | Asennetulla palvelimella ylläpitäjän ajamana: ottaa varmuuskopion, jos metagame ei ole käynnissä (eikä käynnisty ilman sitä, ellei annettu `-NoBackup`), poistaa pysäytyslipun, käynnistää apurin tehtävän ja kokonaisuuden tehtävän ja odottaa enintään 2 minuuttia metagamea ja yhdyskäytävää. Muuten (hiekkalaatikko, palvelutili tai `-Direct`): käynnistää osat itse, ottaa varmuuskopion ennen metagamea, odottaa enintään 30 s kutakin porttia, tarkistaa metagamen ja yhdyskäytävän ja odottaa enintään 60 s Ramsgatea UDP-portissa 8777. |
 | `stop` | Asettaa pysäytyslipun, lopettaa ajastetut tehtävät (kun ylläpitäjä ajaa sen asennetulla palvelimella), pysäyttää deploy-palvelimen ja sen pelipalvelimet, sitten yhdyskäytävän, sisältöpalvelimen, metagamen ja sallittujen listan apurin. Se sulkee peliportit (apurin sääntö laitetaan pois käytöstä) ja ottaa varmuuskopion. |
 | `restart` | `stop`, varmuuskopio ja sitten `start`. Tehtävien kautta `restart -Only <osa>` vain pysäyttää sen osan; sen valvoja käynnistää sen uudelleen minuutin sisällä ilman varmuuskopiota. |
-| `supervise` | Ajetaan vain ajastettujen tehtävien sisällä (tai hiekkalaatikossa). Se käynnistää osat ja tarkistaa ne sitten 15 sekunnin välein. Alhaalla oleva osa käynnistetään uudelleen `min(60, 5 * 2^(n-1))` sekunnin päästä, missä `n` on osan kaatumisten määrä viimeisten 10 minuutin aikana. Yli 5 kaatumisen jälkeen valvoja luopuu siitä osasta seuraavaan käynnistykseen asti. Se lopettaa, kun pysäytyslippu on asetettu; SYSTEM-tilillä pyörivä apurin valvoja ei välitä lipusta, vaan se lopetetaan tehtävänsä kautta. Valvottu käynnistys ohittaa varmuuskopion, jos uusin kopio on alle 10 minuuttia vanha. |
+| `supervise` | Ajetaan vain ajastettujen tehtävien sisällä (tai hiekkalaatikossa). Se käynnistää osat ja tarkistaa ne sitten 15 sekunnin välein. Alhaalla oleva osa käynnistetään uudelleen `min(60, 5 * 2^(n-1))` sekunnin päästä, missä `n` on osan kaatumisten määrä viimeisten 10 minuutin aikana. Yli 5 kaatumisen jälkeen valvoja luopuu siitä osasta seuraavaan käynnistykseen asti. Se lopettaa, kun pysäytyslippu on asetettu; SYSTEM-tilillä pyörivä apurin valvoja ei välitä lipusta, vaan se lopetetaan tehtävänsä kautta. Valvottu käynnistys ohittaa varmuuskopion, jos uusin kopio on alle 10 minuuttia vanha. Joka neljännellä tarkistuksella (noin kerran minuutissa) valvoja ottaa myös suorituskykymittauksen, kuten [Write-PerformanceLog.ps1](#write-performancelogps1) kuvaa, ellei `server.json`-tiedostossa ole `"PerformanceLog": false`; SYSTEM-tilillä pyörivä apurin valvoja ei koskaan mittaa. Mittaus, jota ei voi kirjoittaa (tiedosto on auki toisessa ohjelmassa, tai kansioon `data\logs` on istutettu linkki), jätetään väliin, ja `supervisor.log` kertoo siitä kerran. |
 
 Palvelutili ei koskaan aja sallittujen listan apuria, eikä SYSTEM aja mitään muuta. Siksi
 asennetulla palvelimella `start` ja `stop` toimivat kahden ajastetun tehtävän kautta. Jokainen osa
@@ -553,6 +557,59 @@ C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1
 C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1 -Hourly 96 -Daily 60
 ```
 
+### Write-PerformanceLog.ps1 {#write-performancelogps1}
+
+Kirjaa, mitä palvelin käyttää (tiekartan kohta 4.12). Yksi mittaus on `host`-rivi ja yksi rivi
+jokaisesta prosessista: tämän asennuksen metagame, sisältöpalvelin, yhdyskäytävä, deploy-palvelin ja
+sallittujen listan apuri (tunnistetaan komentorivistä, kuten `Stack.ps1` ne tunnistaa) sekä jokainen
+pelipalvelin, joka on käynnistetty tämän asennuksen pelikansiosta. Rivit lisätään tiedostoon
+`<root>\data\logs\performance\performance-<UTC-päivä>.csv`; sarakkeet ovat sivulla
+[Tiedostot ja data]({{ files_page.url | relative_url }}#performance-log). Parametria `-KeepDays`
+vanhemmat tiedostot poistetaan. Pohjana on Vvoidddd:n ensimmäinen mittari
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
+
+Asennetulla palvelimella kokonaisuuden valvoja ottaa mittauksen jo minuutin välein (katso
+`supervise` kohdassa [Stack.ps1](#stackps1)). Aja tämä skripti siis, kun haluat yhden mittauksen heti
+(`-Once`), tai `-Sandbox`-asennuksessa tai käsin käynnistetyssä kokonaisuudessa, joissa valvojaa ei
+ole.
+
+| Parametri | Tyyppi | Oletus | Mitä se tekee |
+|:----------|:-------|:-------|:--------------|
+| `-Root` | polku | Katso [Ennen kuin ajat paketin skriptin](#before-you-run-a-kit-script) | Asennuskansio. |
+| `-Once` | valitsin | pois | Ottaa vertailukohdan, odottaa 2 sekuntia, kirjoittaa yhden mittauksen ja lopettaa. |
+| `-IntervalSeconds` | 1-3600 | `60` | Sekunteja mittausten välillä. Ensimmäinen mittaus tulee yhden välin kuluttua käynnistyksestä. Pysäytä Ctrl+C:llä. |
+| `-KeepDays` | 1-3650 | `30` | Montako päivätiedostoa säilytetään, tämä päivä mukaan lukien. |
+
+Näin luvut saadaan:
+
+- **Prosessin suoritinkäyttö:** sen käyttämä suoritinaika edellisen mittauksen jälkeen prosentteina
+  **yhdestä ytimestä** (kaksi täysin kuormitettua ydintä näkyy lukuna 200). Koneen suoritinkäyttö on
+  koko koneen (0-100), ja se luetaan suorittimen laskurista, joka toimii samoin Windowsin kielestä
+  riippumatta. Käynnistyksen ensimmäisessä mittauksessa suoritinlukuja ei ole.
+- **Muisti:** jokaisen prosessin working set ja yksityinen (varattu) muisti; koneen koko ja vapaa
+  keskusmuisti.
+- **Pelipalvelimet:** UDP-portti luetaan prosessin UDP-päätepisteestä (väliltä 8700-8799), ei koskaan
+  sen komentoriviltä, joka alkaa pelipalvelimen avaimella ja luettelee odotettujen pelaajien
+  tilitunnukset. Rooli (`ramsgate`, `dojo`, `hunt`, `tutorial`) tulee deploy-palvelimen listasta tai
+  portista samalla tavalla kuin `Stack.ps1 status` sen päättelee (`server.json`-tiedoston
+  `UdpPortEnd` on Ramsgate, yhtä alempi Dojo).
+- **Pelaajat:** metagamen `ServerStatus` omistajan avaimella kysyttynä ja deploy-palvelimen
+  `/gameservers`, yhdistettyinä palvelimen tunnisteen perusteella. Vain määrät säilytetään; vastausten
+  nimet ja tilitunnukset hylätään. Jos omistajan avainta ei voi lukea, määrät jäävät tyhjiksi, eivät
+  koskaan 0:ksi.
+- **Verkko:** verkkosovittimien tavut ilman loopbackia, VPN-tunneleita (Tailscale, WireGuard) ja
+  virtuaalikytkimiä, joiden liikenne kulkee myös oikean sovittimen kautta.
+
+Se ei kirjoita mitään liitoskohdan (junction), symbolisen linkin tai kovan linkin kautta: jos
+`data\logs`, sen `performance`-kansio tai päivän tiedosto on sellainen, mittaus torjutaan. Lukema,
+joka epäonnistuu (esimerkiksi metagame ei ole käynnissä), jättää soluunsa tyhjää; muu rivi
+kirjoitetaan silti. Paluukoodi on `1`, kun `-Once` ei pystynyt kirjoittamaan mittaustaan.
+
+```powershell
+C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once
+.\Write-PerformanceLog.ps1 -Root C:\dr\sandbox-ws2019\root -IntervalSeconds 30
+```
+
 ### Receive-Upload.ps1 {#receive-uploadps1}
 
 `Deploy-Remote.ps1`:n osissa tehtävän lähetyksen palvelinpää. Et aja sitä itse.
@@ -606,9 +663,9 @@ tiedostojen `*.ps1`, `*.vbs` ja `*.md` rivinvaihdot CRLF-muodossa myös `git arc
 
 | Skripti | Parametrit | Mitä se testaa |
 |:--------|:-----------|:---------------|
-| `tests\Test-KitUnit.ps1` | `-WorkDir` (oletus `%TEMP%\dr-kit-unit`; tyhjennetään alussa, poistetaan lopussa); `-Port` (62000-62499, oletus `62450`) | Jokainen paketin skripti jäsentyy PowerShell 5.1:ssä ja on pelkkää ASCIIta; kutsurivit v1 ja v2 ja kaikki, mikä pitää torjua; osoitteet ja `.env`-säännöt; varmenteiden sormenjäljet; TLS-kiinnitys paikallista testipalvelinta vasten; `Get-ServerStatus.ps1` avaimen kanssa ja ilman; avaintiedostot; lähetysapuri. Tarvitsee `node`:n `PATH`:issa ja `npm ci`:n kansiossa `UndauntedGateway`. |
+| `tests\Test-KitUnit.ps1` | `-WorkDir` (oletus `%TEMP%\dr-kit-unit`; tyhjennetään alussa, poistetaan lopussa); `-Port` (62000-62499, oletus `62450`; suorituskykytesti käyttää myös sitä seuraavaa porttia) | Jokainen paketin skripti jäsentyy PowerShell 5.1:ssä ja on pelkkää ASCIIta; kutsurivit v1 ja v2 ja kaikki, mikä pitää torjua; osoitteet ja `.env`-säännöt; varmenteiden sormenjäljet; TLS-kiinnitys paikallista testipalvelinta vasten; `Get-ServerStatus.ps1` avaimen kanssa ja ilman; avaintiedostot; lähetysapuri; suorituskykymittari (suoritinlaskut, roolit porttialueesta, kiinteä otsikkorivi, päivätiedostot ja niiden karsinta, pelaajamäärät korvikemetagamesta ilman nimiä tai avaimia tiedostossa, desimaalipiste suomenkielisessä Windowsissa sekä liitoskohdan ja kovan linkin torjunta). Tarvitsee `node`:n `PATH`:issa ja `npm ci`:n kansiossa `UndauntedGateway`. |
 | `tests\Test-DeployRemote.ps1` | `-WorkDir` (oletus `%TEMP%\dr-deploy-test`; tyhjennetään alussa, poistetaan lopussa) | `Deploy-Remote.ps1` ilman palvelinta: parametrien torjunnat, `-WhatIf`, paketin, lähdekoodin ja varmuuskopion lähetys, ja osissa tehtävä lähetys katkenneella yhteydellä ja vahingoittuneilla osilla. Ei verkkoa, ei SSH-avainta. |
-| `tests\Test-Sandbox.ps1` | `-SandboxDir` (oletus `C:\dr\sandbox-ws2019`; kansion nimessä on oltava `sandbox`, koska kansio poistetaan); `-KeepSandbox`; `-SkipRestore` | Täysi julkisen tilan `-Sandbox`-asennus väliaikaiseen kansioon, sitten kutsut, tila, yhdyskäytävän torjunnat, rekisteröityminen yhdyskäytävän kautta, päivitys ja paluu edelliseen, varmuuskopio, palautus toiseen kansioon ja siivous. Tarvitsee vapaat portit 62000, 62002, 62005 ja 62443 ja kääntää koodin `npm ci`:llä. Loki kopioidaan tiedostoon `%TEMP%\dr-sandbox-test.log`, ellei annettu `-KeepSandbox`. |
+| `tests\Test-Sandbox.ps1` | `-SandboxDir` (oletus `C:\dr\sandbox-ws2019`; kansion nimessä on oltava `sandbox`, koska kansio poistetaan); `-KeepSandbox`; `-SkipRestore` | Täysi julkisen tilan `-Sandbox`-asennus väliaikaiseen kansioon, sitten kutsut, tila, yhdyskäytävän torjunnat, rekisteröityminen yhdyskäytävän kautta, päivitys ja paluu edelliseen, suorituskykymittaus, varmuuskopio, palautus toiseen kansioon ja siivous. Tarvitsee vapaat portit 62000, 62002, 62005 ja 62443 ja kääntää koodin `npm ci`:llä. Loki kopioidaan tiedostoon `%TEMP%\dr-sandbox-test.log`, ellei annettu `-KeepSandbox`. |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1

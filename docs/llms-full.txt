@@ -1893,6 +1893,33 @@ Operational limits to know about:
 - **Ramsgate and the Dojo each keep a console window open on the host's desktop. Closing one kills
   that server** for everyone in it. Hunt servers are started with their window hidden.
 
+### Measure it
+
+The figures above are one player's, measured on our host. A server installed with the
+[Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) measures itself: its stack supervisor
+takes a sample every minute and adds it to `C:\DauntlessRevived\data\logs\performance\performance-<date>.csv`,
+one file per UTC day, kept for 30 days. Each sample has:
+
+- one `host` row: the machine's CPU, total and free RAM, free disk space on the install drive,
+  network traffic, and how many game servers run and how many players are online
+- one row per stack process (metagame, content server, gateway, deploy server) and per game server
+  (Ramsgate, the Training Dojo, each hunt): its UDP port, when it started, its players, its CPU as a
+  percentage of one core, and its memory
+
+Only numbers are written: no player names, account ids or keys. `Stack.ps1 status` shows when the
+last sample was taken. To take one now, run `C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once`
+in an elevated PowerShell. To turn the log off, set `"PerformanceLog": false` in
+`data\config\server.json` and run `Stack.ps1 restart`. The columns are listed in
+[Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html#performance-log). Keep the files private: they
+show when the server is busy.
+
+The files are CSV, so a spreadsheet opens them. A summary tool that turns them into a cost per hunt
+and per Ramsgate player, and an estimate of how many players a machine can host, is still to come,
+as are the metagame's own timings (request latency, event-loop lag and database time). Both are part
+of roadmap 4.12. The sampler started from Vvoidddd's first version
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)). A hand-built host like the one on this
+page has no sampler yet.
+
 ## Keeping the PC available
 
 The server is up only while the host PC is on, awake and signed in.
@@ -2763,6 +2790,7 @@ All of these run on the server (over SSH: `ssh -i <key> Administrator@<server>`,
 | `Stack.ps1 stop` / `start` / `restart` | Stops or starts everything through the scheduled tasks. Stopping also closes the game ports. `restart -Only gateway` restarts one part. |
 | `Get-ServerStatus.ps1` | Who is online and which worlds and hunts are running, asked through the gateway like a friend would. The server shows that list to registered players only, so the script asks with the owner key (run it as administrator). From your PC: `Get-ServerStatus.ps1 -Invite '<invite line>' -KeyFile <your account.key>`. Without a key it says the list is hidden. |
 | `Backup-DauntlessServer.ps1` | A backup now (also runs every hour, and around every start and stop). |
+| `Write-PerformanceLog.ps1 -Once` | A performance sample now (run it as administrator). The stack takes one every minute by itself, into `data\logs\performance\`: CPU and memory per game server and component, the machine's CPU, RAM, disk and network, and player counts. See [Measure it](https://mixutin.github.io/dauntless-revived/setup/admin.html#measure-it). |
 | `Update-DauntlessServer.ps1 -Ref <tag>` | New server code; see below. |
 
 From your PC, `Deploy-Remote.ps1 -Server <address> -Status` shows the status without logging in.
@@ -2832,7 +2860,7 @@ sharing the machine are on [Run it for a group](https://mixutin.github.io/dauntl
 | `data\config\` | `server.json` and the `.env` settings (secrets). Which keys the installer writes and which it keeps: [Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html#server-kit). |
 | `data\keys\`, `data\tls\` | The admin account's key and the game-server key; the gateway certificate and its private key. |
 | `data\undaunted.db` | The database: accounts and saves. |
-| `data\logs\` | Logs of every component; `gateway.out.log` is the access log (no keys or tokens). |
+| `data\logs\` | Logs of every component; `gateway.out.log` is the access log (no keys or tokens). `performance\` holds the performance log, one CSV file per day (counts only). |
 | `data\allowlist\` | The allowlist helper's audit log and state (only Administrators and SYSTEM can write there). |
 | `backups\` | Hourly backups. |
 | `staging\` | What `Deploy-Remote.ps1` uploads; the game zip stays here for repairs. |
@@ -4027,7 +4055,7 @@ sandbox install or `Test-Sandbox.ps1` is running. How to run the tests is on
 | `UndauntedContent/`, `npm test` | 62011, 62012, 62019 |
 | `UndauntedContent/`, `npm run test:integration` | 62002 and 62003 (`CONTENT_IT_PORT`, `CONTENT_IT_MOCK_PORT`) |
 | `UndauntedLauncher/`, `npm test` | 62012, 62013, 62401-62404, 62409, 62420-62422, 62429, 62440-62444 |
-| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 (`-Port`, 62000-62499) |
+| `deploy/windows-server/tests/Test-KitUnit.ps1` | 62450 and 62451 (`-Port` and the port above it, 62000-62499) |
 | `-Sandbox` install and `Test-Sandbox.ps1` | Metagame 62000, content 62002, allowlist helper 62005, gateway 62443, gateway WebSocket target 62099. 62001 is written for the deploy server, which does not run in a sandbox. |
 
 Known overlaps: the content integration test and the sandbox both use 62002; the launcher's
@@ -4891,7 +4919,7 @@ but cannot change them, so a compromised game server cannot change what an admin
 | `data\keys\` | `owner.key` (the admin account's key) and `gameserver.key`, plus any other `*.key` restored from a backup. `signing.tmp` and `tailscale-authkey.tmp` exist only while an install step runs; if an install is killed there, delete them. **Secret: never share, never commit.** | read | the installer |
 | `data\tls\` | Public mode: `gateway-cert.pem` and `gateway-key.pem` (the key is **secret: never share, never commit**). `*.new` files exist only while a new certificate is made. | read | the installer |
 | `data\undaunted.db` | [The database](https://mixutin.github.io/dauntless-revived/reference/files.html#the-database). | modify | the metagame |
-| `data\logs\` | The component logs, `supervisor.log`, `bodies.log`, the backup's database log and `install\` (see [Logs](https://mixutin.github.io/dauntless-revived/reference/files.html#logs)). | modify | `Stack.ps1`, the backup, the installer |
+| `data\logs\` | The component logs, `supervisor.log`, `bodies.log`, the backup's database log, `install\` (see [Logs](https://mixutin.github.io/dauntless-revived/reference/files.html#logs)) and `performance\`, the [performance log](https://mixutin.github.io/dauntless-revived/reference/files.html#performance-log). | modify | `Stack.ps1` (the performance log too), the backup, the installer |
 | `data\run\` | `<component>.pid` for the metagame, content server, deploy server and gateway, and `stopped.flag`. While `stopped.flag` exists (set by `Stack.ps1 stop`, removed by `start` and `restart`), the stack supervisor restarts nothing. | modify | `Stack.ps1` |
 | `data\branding\` | The art pack the content server hands to launchers: images and an optional `branding.json` (see [News and art pack](https://mixutin.github.io/dauntless-revived/reference/files.html#news-and-art-pack)). Empty after an install. | modify | you |
 | `data\allowlist\` | Public mode: the allowlist helper's `audit.log`, `state.json` (the addresses currently let in), `allowlist.pid`, its logs and its supervisor's `supervisor.log`. | read | the allowlist helper (SYSTEM) |
@@ -4906,8 +4934,8 @@ A `-Sandbox` install gives the sandbox user full control everywhere, so the test
 ### `server.json`
 
 `data\config\server.json` is the kit's own state: JSON, UTF-8 without a byte order mark. The installer
-writes it in full on every run, carrying over `InstalledAt`, `FirewallChanges`, `ServiceUser` and the
-Tailscale share link; the updater changes only `Commit`, `Ref`, `Source` and `UpdatedAt`, and
+writes it in full on every run, carrying over `InstalledAt`, `FirewallChanges`, `ServiceUser`,
+`PerformanceLog` and the Tailscale share link; the updater changes only `Commit`, `Ref`, `Source` and `UpdatedAt`, and
 `New-Invite.ps1 -SaveShareUrl` only `TailscaleShareUrl`. The other scripts read it, and a missing or
 empty value means "use the coded default". It holds no secrets, but
 `AdminIp` holds your own address. The settings of the components themselves are in the `.env` files; see
@@ -4936,6 +4964,7 @@ empty value means "use the coded default". It holds no secrets, but
 | `ServiceUser` | The service account (`dauntless`; empty in a sandbox). | `Stack.ps1`, the installer |
 | `ServiceProfile` | The service account's profile folder, under which its `Game.ini` and `Engine.ini` are. | nothing (for your information) |
 | `InteractiveSession` | Whether `-InteractiveSession` was used. | `Stack.ps1`, for a hint |
+| `PerformanceLog` | `true` (the default, also when missing): the stack supervisor writes the [performance log](https://mixutin.github.io/dauntless-revived/reference/files.html#performance-log) every minute. `false` turns it off after the next `Stack.ps1 restart`. Installer re-runs keep your value. | `Stack.ps1` |
 | `StackTask`, `AllowlistTask`, `BackupTask` | The names of the scheduled tasks (`AllowlistTask` is empty in private mode). | `Stack.ps1` |
 | `Source`, `Ref`, `Commit`, `SourceUrl` | Where the running code came from. | the updater, `Stack.ps1`, `Deploy-Remote.ps1` |
 | `FirewallChanges` | Each system firewall change the installer made, with the old value, so you can undo it by hand when you uninstall. | the installer |
@@ -5108,7 +5137,7 @@ keep an eye on the file size on a long-running server.
 
 ## Logs
 
-No component deletes logs by age. Keys and session tokens are kept out of every log: the metagame
+No component deletes logs by age, except the kit's performance log (30 days). Keys and session tokens are kept out of every log: the metagame
 logs only the path of each request (tokens in paths become `<token>` or `<redacted>`), never headers
 or query strings (`bodies.log`, when it is on, also records the query string and body, with tokens
 removed), and the launcher replaces keys with `<hidden>`. Logs do contain account ids,
@@ -5137,6 +5166,36 @@ usernames and, in public mode, players' IP addresses, so read a log before you s
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | The database copy of the latest backup (`db ok, <n> users`). | Overwritten by each backup. |
 | `data\logs\install\<step>.out.log`, `.err.log` | The output of each installer and updater step: source copy, `npm ci` and `npm run build` per package, the Node.js, runtime and Tailscale installs, game extraction and check, certificate, keys, owner account. | Overwritten when the step runs again. |
 | `backups\backup.log` | One line per backup: time, folder, size, the database check and how many backups are kept. | Moved to `backup.log.1` when over 5 MB. |
+| `data\logs\performance\performance-<yyyy-MM-dd>.csv` | The [performance log](https://mixutin.github.io/dauntless-revived/reference/files.html#performance-log): one sample a minute from the stack supervisor, and any `Write-PerformanceLog.ps1` run. Counts only. | A new file every UTC day; files older than 30 days are deleted. |
+
+### Performance log
+
+Roadmap 4.12, started from Vvoidddd's first sampler
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)). CSV with a header line, ASCII, CRLF
+line ends, a decimal point in every number (whatever the Windows language), times in UTC as
+`yyyy-MM-ddTHH:mm:ssZ`. A sample is one `host` row and one row per process, all with the same
+`timestamp_utc`. A cell that does not apply to the row, or could not be read, is empty. **Counts
+only:** no player names, account ids, keys or command lines. It still shows when the server is
+busy, so keep it private. How the numbers are taken:
+[Write-PerformanceLog.ps1](https://mixutin.github.io/dauntless-revived/reference/scripts.html#write-performancelogps1).
+
+| Column | Rows | What it holds |
+|:-------|:-----|:--------------|
+| `timestamp_utc` | all | When the sample was taken. |
+| `role` | all | `host`; a component: `metagame`, `content`, `gateway`, `deploy`, `allowlist` (the supervisor, which runs as the service account, cannot see the allowlist helper, which runs as SYSTEM); or a game server: `ramsgate`, `dojo`, `hunt`, `tutorial`, or `unknown` while it has no UDP port yet. |
+| `pid` | processes | The process id. |
+| `udp_port` | game servers | Its UDP port. |
+| `started_utc` | processes | When the process started. |
+| `players` | game servers | The players the metagame places on it (heartbeats of the last 90 seconds). Empty when the metagame did not answer with the owner key. |
+| `cpu_core_percent` | processes | CPU time since the previous sample, as a percentage of one core: 100 is one busy core. Empty in the first sample of a run and for a new process. |
+| `working_set_mb`, `private_mb` | processes | Working set and private (committed) memory, in MB. |
+| `host_cpu_percent` | host | The whole machine's CPU since the previous sample, 0-100. |
+| `logical_cpus` | host | Logical processors; `host_cpu_percent` times this, divided by 100, is the busy cores. |
+| `ram_total_mb`, `ram_free_mb` | host | Physical memory, in MB. |
+| `disk_free_gb` | host | Free space on the drive of the install root, in GB. |
+| `net_in_kbit_s`, `net_out_kbit_s` | host | Traffic on the network adapters since the previous sample, in kilobits per second (loopback, VPN tunnels and virtual switches left out). |
+| `game_servers` | host | How many game servers of this install run. |
+| `players_online` | host | The metagame's count of players online. Empty without the owner key, never a false 0. |
 
 ### Hand-built host and launcher
 
@@ -5867,7 +5926,7 @@ These rules apply to every script in `deploy/windows-server/`.
   `Update-DauntlessServer.ps1` refreshes that copy from the new code. `staging\kit` is only the upload
   folder that `Deploy-Remote.ps1` uses.
 - **`-Root`.** `Stack.ps1`, `Update-DauntlessServer.ps1`, `Backup-DauntlessServer.ps1`,
-  `New-Invite.ps1` and `Get-ServerStatus.ps1` take `-Root <install root>`. Without it they use the
+  `New-Invite.ps1`, `Get-ServerStatus.ps1` and `Write-PerformanceLog.ps1` take `-Root <install root>`. Without it they use the
   folder above their own folder if that folder holds `data\config\server.json`, which is the case for
   `<root>\bin`. Otherwise they use `C:\DauntlessRevived`. The installer takes `-InstallRoot` instead.
 - **`-WhatIf` and `-Confirm`** work on `Deploy-Remote.ps1`, `Install-DauntlessServer.ps1`,
@@ -5895,6 +5954,7 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `New-Invite.ps1` | Yes: it reads `data\keys\owner.key`. |
 | `Get-ServerStatus.ps1` | On the server, if you want the player list: it reads the owner key. Not needed with `-KeyFile`. |
 | `Backup-DauntlessServer.ps1` | Run it elevated, or let the backup task run it as the service account. An account that cannot read a file skips it and names it in the output. |
+| `Write-PerformanceLog.ps1` | On an installed server, yes: without elevation it cannot see the game servers (they run as the service account) or read the owner key for the player counts. Not on a `-Sandbox` install. |
 | `Deploy-Remote.ps1` | No. It runs on your PC as your normal account. The SSH account on the server must be an administrator. |
 
 ## Windows server kit
@@ -5909,7 +5969,9 @@ Which scripts need an elevated PowerShell ("Run as administrator"):
 | `Get-ServerStatus.ps1` | The server or any PC | Who is online and which worlds and hunts run. |
 | `Backup-DauntlessServer.ps1` | The server | A backup now, with retention. |
 | `backup-hidden.vbs` | The server | Runs the backup without a window (used by the hourly task). |
+| `Write-PerformanceLog.ps1` | The server | A performance sample now, or every minute in a sandbox. The stack supervisor already takes one every minute on an installed server. |
 | `Receive-Upload.ps1` | The server | The server side of the chunked upload. `Deploy-Remote.ps1` calls it; you do not. |
+| `DauntlessServer.Common.ps1`, `DauntlessServer.Performance.ps1` | Both | Shared helpers the scripts dot-source: pins, invites, pinned HTTPS, processes; the performance sampler. |
 | `lib\dr-db.js`, `lib\dr-keys.js`, `lib\verify-game.js` | The server | Node helpers the scripts call. |
 | `tests\Test-*.ps1` | A development PC | The kit's own tests. |
 
@@ -6220,11 +6282,11 @@ are never touched.
 
 | Action | What it does |
 |:-------|:-------------|
-| `status` | The install and its code version; each component with its process, addresses and memory, or `down`; each game server with its UDP port and role (the highest port, 8777, is Ramsgate, the one below is the Training Dojo, the rest are hunts); the gateway's TLS check; the allowlist helper and its firewall rule; the scheduled tasks; the last backup; the stop flag; and the players online, which the metagame shows only with the owner key. |
+| `status` | The install and its code version; each component with its process, addresses and memory, or `down`; each game server with its UDP port and role (the highest port, 8777, is Ramsgate, the one below is the Training Dojo, the rest are hunts); the gateway's TLS check; the allowlist helper and its firewall rule; the scheduled tasks; the last backup; the stop flag; when the last performance sample was taken (or that the performance log is off); and the players online, which the metagame shows only with the owner key. |
 | `start` | On an installed server, run by an administrator: takes a backup if the metagame is down (and refuses to start without one, unless `-NoBackup`), clears the stop flag, starts the allowlist task and the stack task, and waits up to 2 minutes for the metagame and the gateway. Otherwise (a sandbox, the service account, or `-Direct`): starts the components itself, takes the backup before the metagame, waits up to 30 s for each port, checks the metagame and the gateway, and waits up to 60 s for Ramsgate on UDP 8777. |
 | `stop` | Sets the stop flag, ends the scheduled tasks (when run by an administrator on an installed server), stops the deploy server and its game servers, then the gateway, the content server, the metagame and the allowlist helper. It closes the game ports (the allowlist rule is disabled) and takes a backup. |
 | `restart` | `stop`, a backup, then `start`. `restart -Only <component>` through the tasks only stops that component; its supervisor starts it again within a minute, without a backup. |
-| `supervise` | Runs only inside the scheduled tasks (or in a sandbox). It starts the components, then checks every 15 s. A component that is down is restarted after `min(60, 5 * 2^(n-1))` seconds, where `n` is its crashes in the last 10 minutes. After more than 5 it gives up on that component until the next start. It exits when the stop flag is set; the SYSTEM allowlist supervisor ignores the flag and is ended through its task. A supervised start skips the backup if the newest one is less than 10 minutes old. |
+| `supervise` | Runs only inside the scheduled tasks (or in a sandbox). It starts the components, then checks every 15 s. A component that is down is restarted after `min(60, 5 * 2^(n-1))` seconds, where `n` is its crashes in the last 10 minutes. After more than 5 it gives up on that component until the next start. It exits when the stop flag is set; the SYSTEM allowlist supervisor ignores the flag and is ended through its task. A supervised start skips the backup if the newest one is less than 10 minutes old. Every 4th check (about once a minute) the supervisor also takes a performance sample, as [Write-PerformanceLog.ps1](https://mixutin.github.io/dauntless-revived/reference/scripts.html#write-performancelogps1) describes, unless `server.json` has `"PerformanceLog": false`; the SYSTEM allowlist supervisor never does. A sample that cannot be written (the file is open in another program, or a link was planted in `data\logs`) is skipped, and `supervisor.log` says so once. |
 
 The service account never runs the allowlist helper, and SYSTEM runs nothing else. On an installed
 server, `start` and `stop` therefore work through the two scheduled tasks. Each component runs as
@@ -6338,6 +6400,55 @@ C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1
 C:\DauntlessRevived\bin\Backup-DauntlessServer.ps1 -Hourly 96 -Daily 60
 ```
 
+### Write-PerformanceLog.ps1
+
+Records what the server uses (roadmap 4.12). One sample is a `host` row plus one row per process: the
+metagame, content server, gateway, deploy server and allowlist helper of this install (found by
+their command line, like `Stack.ps1` finds them), and every game server started from this install's
+game folder. The rows are appended to `<root>\data\logs\performance\performance-<UTC date>.csv`; the
+columns are in [Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html#performance-log). Files older than
+`-KeepDays` are deleted. Based on the first sampler by Vvoidddd
+([#6](https://github.com/mixutin/dauntless-revived/pull/6)).
+
+On an installed server the stack supervisor already takes a sample every minute (see `supervise`
+under [Stack.ps1](https://mixutin.github.io/dauntless-revived/reference/scripts.html#stackps1)), so run this script for one sample now (`-Once`), or for a `-Sandbox`
+install or a stack started by hand, which have no supervisor.
+
+| Parameter | Type | Default | What it does |
+|:----------|:-----|:--------|:-------------|
+| `-Root` | path | See [Before you run a kit script](https://mixutin.github.io/dauntless-revived/reference/scripts.html#before-you-run-a-kit-script) | The install root. |
+| `-Once` | switch | off | Takes a baseline, waits 2 seconds, writes one sample and exits. |
+| `-IntervalSeconds` | 1-3600 | `60` | Seconds between samples. The first sample comes one interval after the start. Stop it with Ctrl+C. |
+| `-KeepDays` | 1-3650 | `30` | Day files to keep, today included. |
+
+How the numbers are taken:
+
+- **CPU** of a process: its CPU time since the previous sample, as a percentage of **one core** (two
+  busy cores read 200). The machine's CPU is the whole machine (0-100), from the processor counter,
+  which reads the same on every Windows language. The first sample of a run has no CPU figures.
+- **Memory:** the working set and the private (committed) memory of each process; the machine's
+  total and free RAM.
+- **Game servers:** the UDP port comes from the process's UDP endpoint (in 8700-8799), never from
+  its command line, which starts with the game-server key and lists the expected players' account
+  ids. The role (`ramsgate`, `dojo`, `hunt`, `tutorial`) comes from the deploy server's list, or from
+  the port the way `Stack.ps1 status` decides it (`UdpPortEnd` from `server.json` is Ramsgate, one
+  below is the Dojo).
+- **Players:** the metagame's `ServerStatus`, asked with the owner key, and the deploy server's
+  `/gameservers`, joined by server id. Only the counts are kept; the names and account ids in those
+  answers are dropped. Without a readable owner key the counts stay empty, never 0.
+- **Network:** bytes on the network adapters, without loopback, VPN tunnels (Tailscale, WireGuard)
+  and virtual switches, whose traffic also crosses a real adapter.
+
+It writes nothing through a junction, symbolic link or hard link: when `data\logs`, its
+`performance` folder or the day's file is one, the sample is refused. A reading that fails (for
+example the metagame is down) leaves its cells empty; the rest of the row is still written. The exit
+code is `1` when `-Once` could not write its sample.
+
+```powershell
+C:\DauntlessRevived\bin\Write-PerformanceLog.ps1 -Once
+.\Write-PerformanceLog.ps1 -Root C:\dr\sandbox-ws2019\root -IntervalSeconds 30
+```
+
 ### Receive-Upload.ps1
 
 The server side of `Deploy-Remote.ps1`'s chunked upload. You do not run it yourself.
@@ -6389,9 +6500,9 @@ at CRLF line endings, also in `git archive`, which is what `Deploy-Remote.ps1` u
 
 | Script | Parameters | What it tests |
 |:-------|:-----------|:--------------|
-| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper. Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
+| `tests\Test-KitUnit.ps1` | `-WorkDir` (default `%TEMP%\dr-kit-unit`; emptied at the start, deleted at the end); `-Port` (62000-62499, default `62450`; the performance check also uses the port above it) | Every kit script parses on PowerShell 5.1 and is ASCII only; invite lines v1 and v2 and everything that must be refused; addresses and `.env` rules; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without a key; key files; the upload helper; the performance sampler (CPU arithmetic, roles from the port range, the fixed header, day files and their pruning, player counts from a stand-in metagame with no names or keys in the file, a decimal point on a Finnish Windows, and refusing a junction or a hard link). Needs `node` on `PATH` and `npm ci` in `UndauntedGateway`. |
 | `tests\Test-DeployRemote.ps1` | `-WorkDir` (default `%TEMP%\dr-deploy-test`; emptied at the start, deleted at the end) | `Deploy-Remote.ps1` without a server: argument refusals, `-WhatIf`, the kit, source and backup uploads, and the chunked upload with a dropped connection and damaged parts. No network, no SSH key. |
-| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, an update and a rollback, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
+| `tests\Test-Sandbox.ps1` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because it is deleted); `-KeepSandbox`; `-SkipRestore` | A full `-Sandbox` public-mode install into a scratch folder, then invites, status, the gateway's refusals, registration through the gateway, an update and a rollback, a performance sample, a backup, a restore into a second folder, and cleanup. Needs ports 62000, 62002, 62005 and 62443 free, and builds the code with `npm ci`. The log is copied to `%TEMP%\dr-sandbox-test.log` unless `-KeepSandbox`. |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\Test-KitUnit.ps1
@@ -6916,7 +7027,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy\windows-server\tests\
 
 | Script | What it checks | Needs | Parameters |
 |---|---|---|---|
-| `Test-KitUnit.ps1` | Every kit script parses in PowerShell 5.1 and is ASCII only; invite strings v1 and v2, including everything that must be refused; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without an account key; account key files; the chunked-upload helper. | `npm ci` in `UndauntedGateway` first: it runs the gateway's certificate tool. | `-WorkDir` (default `%TEMP%\dr-kit-unit`, deleted at the end), `-Port` (default 62450; 62000-62499) |
+| `Test-KitUnit.ps1` | Every kit script parses in PowerShell 5.1 and is ASCII only; invite strings v1 and v2, including everything that must be refused; certificate fingerprints; TLS pinning against a local test server; `Get-ServerStatus.ps1` with and without an account key; account key files; the chunked-upload helper; the performance sampler. | `npm ci` in `UndauntedGateway` first: it runs the gateway's certificate tool. | `-WorkDir` (default `%TEMP%\dr-kit-unit`, deleted at the end), `-Port` (default 62450; 62000-62499; the performance check also uses the port above it) |
 | `Test-DeployRemote.ps1` | `Deploy-Remote.ps1` without a server: argument handling, then the kit, source, backup and game-zip uploads into a local folder that stands in for the server. An interrupted upload that resumes, a part damaged in transit or after it was checked, a second run with nothing left to do, and an upload of the working tree with no `.env`, key, database, `node_modules` or `dist` in it. | Git. No network, no SSH key. | `-WorkDir` (default `%TEMP%\dr-deploy-test`, deleted at the end) |
 | `Test-Sandbox.ps1` | A real `-Sandbox` install of this checkout in public mode, into a scratch folder with a stand-in game folder: `-WhatIf` first, then the install (it builds the four server packages, which takes a few minutes), invites, status and registration through the gateway with the pinned certificate, the gateway's refusals, an update and a rollback, status, backup and stop, and a second install restored from that backup. Then it stops everything and deletes the folder. It also checks that a stack running on 61000/61001 was left alone. The deploy server and the game never run in the sandbox. | Free loopback ports 62000, 62002, 62005 and 62443 (it stops if one is taken); the npm registry, for `npm ci` | `-SandboxDir` (default `C:\dr\sandbox-ws2019`; the folder name must contain `sandbox`, because the folder is deleted), `-KeepSandbox` (keep the folder and the stopped install), `-SkipRestore` (skip the second install) |
 
@@ -11802,7 +11913,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** nothing for step 1. It never touches the live server.
   - **Done when:** a client plays Ramsgate and one hunt on a Wine-hosted game server with loot saved, using no more than about 20% more RAM and CPU than on Windows. Or we have a written reason it can't work, and 4.10 stays Windows.
 
-- [ ] **4.12 Performance logging and capacity measurement** (M) — *Added 2026-09-22 at the owner's request, to stop guessing the server's limits. First measurements during the first friends tests.*
+- [ ] **4.12 Performance logging and capacity measurement** (M) — *Added 2026-09-22 at the owner's request, to stop guessing the server's limits. First measurements during the first friends tests.* ***Status 2026-09-22: the sampler is built**, based on Vvoidddd's first sampler ([PR #6](https://github.com/mixutin/dauntless-revived/pull/6)): the Windows server kit's stack supervisor writes a sample every minute to `data\logs\performance\performance-<UTC date>.csv` (30 days kept, counts only). Each sample has every game server (role, UDP port, start time, players, CPU as a percentage of one core, memory), the stack's own processes, and the host (CPU, RAM, free disk, network, game servers, players online). `Write-PerformanceLog.ps1 -Once` takes one by hand. **Still open:** the metagame's request latency, event-loop lag and database time, and the summary tool. Not yet run during a friends session.*
   - **What:**
     - A sampler that runs every 30–60 seconds and logs:
       - for each game server: CPU (as a percentage of one core), memory, its type (Ramsgate, Dojo or hunt), its player count and when it started
