@@ -9,7 +9,7 @@
      browser's theme colour is the ink brand token, the page background (the tokens are in
      _sass/custom/setup.scss; `python3 brand/build.py --check` compares the two). Plus noindex on the
      404 page.
-  3. Size, type and alt text of the default social preview image (assets/og.png: the full logo and one
+  3. Size, type and alt text of the default social preview image (assets/og-revived.png: the full logo and one
      line of text, from brand/build.py).
   4. JSON-LD. Home page: WebSite + SoftwareSourceCode (the home page sets seo.type to WebPage, so
      jekyll-seo-tag does not add a second WebSite). FAQ pages: FAQPage built from _data/faq_<lang>.yml,
@@ -42,7 +42,7 @@
   {%- endif -%}
 {%- endif -%}
 
-{%- if page.image == "/assets/og.png" -%}
+{%- if page.image == "/assets/og-revived.png" -%}
   {%- if hc_lang == "fi" -%}
     {%- assign hc_alt = "Dauntless Revived -logo: lohikäärmeen pää ja teksti Dauntless Revived. Alla englanniksi: Private server revival of Dauntless 1.4.4 (Dauntless 1.4.4 -pelin yksityinen palvelin)." -%}
   {%- else -%}

@@ -67,13 +67,13 @@ no longer match.
 | `launcher/icon-256.png`, `-512`, `-1024` | square | The launcher's window icon (`assets/icon.png` is the 256 one today) and larger listings. |
 | `launcher/logo-inapp.png`, `logo-inapp@2x.png` | 320x256, 640x512 | The full logo inside the launcher window (1x and 2x). |
 | `social-preview.png` | 1280x640 | GitHub repository settings, Social preview. The same image is kept at `.github/assets/social-preview.png`. |
-| `og.png` | 1200x630 | The docs site's default `og:image`. |
+| `og.png` | 1200x630 | The docs site's default `og:image`, copied as `docs/assets/og-revived.png`. Give the copy a new name whenever the image changes: link previews (Discord, Slack, social sites) cache images by URL. |
 | `../.github/assets/banner.png` | 2560x640 | The banner at the top of `README.md` and `README.fi.md`. |
 
 ### The docs site
 
 GitHub Pages serves only `docs/`, so `build.py` copies what the site uses into `docs/assets/`:
-`favicon.ico`, `icon-192.png`, `apple-touch-icon.png` and `og.png` there, and `emblem-128.png` and
+`favicon.ico`, `icon-192.png`, `apple-touch-icon.png` there, `og.png` as `og-revived.png`, and `emblem-128.png` and
 `logo-400` and `logo-800` (PNG and WebP) in `docs/assets/brand/`. Never edit those copies by hand.
 
 The site's theme uses the palette like this:

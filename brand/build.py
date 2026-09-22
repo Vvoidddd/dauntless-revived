@@ -94,7 +94,7 @@ DOCS_COPIES = {
     "icons/favicon.ico": "docs/assets/favicon.ico",
     "icons/icon-192.png": "docs/assets/icon-192.png",
     "icons/apple-touch-icon.png": "docs/assets/apple-touch-icon.png",
-    "og.png": "docs/assets/og.png",
+    "og.png": "docs/assets/og-revived.png",  # a new name when the image changes: link previews cache by URL
     "web/emblem-128.png": "docs/assets/brand/emblem-128.png",
     "web/logo-400.png": "docs/assets/brand/logo-400.png",
     "web/logo-400.webp": "docs/assets/brand/logo-400.webp",
