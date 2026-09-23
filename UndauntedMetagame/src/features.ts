@@ -130,6 +130,40 @@ export const StoreRepeatableTokens = DefineSwitch({
     Show: ShowOnOff
 });
 
+// POST /progression/:uid (the game server's XP and objective grant): a body identical to the account's
+// last applied grant, within this many seconds of it, is a retry of a request whose answer was lost (the
+// game server retries up to 5 times). It gets the stored answer and adds nothing. 0 turns the check off.
+export const ProgressionReplayWindow = DefineSwitch({
+    Env: "PROGRESSION_REPLAY_WINDOW_S",
+    Label: "replayWindow",
+    Default: 10,
+    Parse: ParseCount,
+    Show: (Value: number) => Value === 0 ? "off" : `${Value}s`
+});
+
+// A Hunt Pass or mastery confirm that raises a rank also grants that rank's permanent entitlements from the
+// progression config (never items, currencies or timed boosts: the game server pays those through
+// /inventory). Off by default: whether the game server grants them itself is open (the in-game test of the
+// Elite ranks 6, 9, 29 and 50 decides).
+export const ProgressionConfirmEntitlements = DefineSwitch({
+    Env: "PROGRESSION_CONFIRM_ENTITLEMENTS",
+    Label: "confirmEntitlements",
+    Default: false,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
+// GET /balance and POST /reconcile report the currencies (CURRENCY_*) the account's active character
+// holds as inventory stacks, over the fixed sheet (0, weapon tokens 25, Notes from users.notes) for every
+// currency it holds. 0 answers the fixed sheet alone, as before.
+export const BalanceFromInventory = DefineSwitch({
+    Env: "BALANCE_FROM_INVENTORY",
+    Label: "balanceFromInventory",
+    Default: true,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;

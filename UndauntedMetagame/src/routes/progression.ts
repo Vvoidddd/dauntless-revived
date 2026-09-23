@@ -2,12 +2,13 @@ import { Router } from "express";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import { logger } from "../logger";
 import { AddEncounteredContent, GetBreadcrumbsForCharacterIdAndUserId, ProgressionError, QueryEncounteredContent, SetBreadcrumbsForCharacterIdAndUserId } from "../controllers/progression";
-import progressionConfig from "../vendor/progression_config.json";
+import { GetProgressionPath } from "../controllers/progressionrank";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
 import { ConfirmRank, GetObjectiveRecord, GetObjectiveRecords, GetTrackRecord, GetTrackRecords, GrantProgression, GrantProgressionInTrack, ResetTrack } from "../controllers/realprogression";
 import { CallerOf } from "../controllers/progressionevents";
 import { RealProgressionOnly, RefuseForeignPlayer, SendRealReply } from "../middleware/RealProgressionOnly";
 import { HasUndauntedAdminApiKey } from "../middleware/HasUndauntedAdminApiKey";
+import { Redact } from "../middleware/BodyLog";
 
 // TODO: We will be gaining progression support very soon, but for now just a stub
 
@@ -29,10 +30,10 @@ const StubbedMasteryTrackIds = [
 ];
 
 const STUB_CONFIRMED_DATE = new Date().toISOString();
-const ProgressionConfigPaths = progressionConfig.payload.paths as { progression_id: string, requirements?: { rank_id: number }[] }[];
 
+// The stub's mastery ranks are the configured maximum (controllers/progressionconfig.ts)
 function GetConfiguredMaxRank(ProgressionId: string){
-    const ProgressionPath = ProgressionConfigPaths.find((Path) => Path.progression_id === ProgressionId);
+    const ProgressionPath = GetProgressionPath(ProgressionId);
 
     if(!ProgressionPath?.requirements?.length){
         return STUB_SEASON_RANK;
@@ -41,27 +42,32 @@ function GetConfiguredMaxRank(ProgressionId: string){
     return Math.max(...ProgressionPath.requirements.map((Requirement) => Requirement.rank_id));
 }
 
-const StubbedMasteryProgressTrackTemplates = StubbedMasteryTrackIds.map((ProgressionId) => {
-    const ConfirmedRank = GetConfiguredMaxRank(ProgressionId);
+function StubbedMasteryProgressTrackTemplates(){
+    return StubbedMasteryTrackIds.map((ProgressionId) => {
+        const ConfirmedRank = GetConfiguredMaxRank(ProgressionId);
 
-    return {
-        progression_id: ProgressionId,
-        progress: STUB_MAX_PROGRESS,
-        confirmed_fremium_rank: ConfirmedRank,
-        confirmed_premium_rank: ConfirmedRank,
-        confirmed_date: STUB_CONFIRMED_DATE,
-    };
-});
-const StubbedProgressTrackTemplates = [
-    {
-        progression_id: "season09b",
-        progress: STUB_MAX_PROGRESS,
-        confirmed_fremium_rank: STUB_SEASON_RANK,
-        confirmed_premium_rank: STUB_SEASON_RANK,
-        confirmed_date: STUB_CONFIRMED_DATE,
-    },
-    ...StubbedMasteryProgressTrackTemplates,
-];
+        return {
+            progression_id: ProgressionId,
+            progress: STUB_MAX_PROGRESS,
+            confirmed_fremium_rank: ConfirmedRank,
+            confirmed_premium_rank: ConfirmedRank,
+            confirmed_date: STUB_CONFIRMED_DATE,
+        };
+    });
+}
+
+function StubbedProgressTrackTemplates(){
+    return [
+        {
+            progression_id: "season09b",
+            progress: STUB_MAX_PROGRESS,
+            confirmed_fremium_rank: STUB_SEASON_RANK,
+            confirmed_premium_rank: STUB_SEASON_RANK,
+            confirmed_date: STUB_CONFIRMED_DATE,
+        },
+        ...StubbedMasteryProgressTrackTemplates(),
+    ];
+}
 
 function StatusForProgressionError(Error: ProgressionError){
     switch(Error){
@@ -184,7 +190,7 @@ progressionRouter.get("/progression/objectives/:userId", HasUndauntedMetagameAut
             objectives: [
                 
             ],
-            progress_tracks: StubbedMasteryProgressTrackTemplates.map((TrackTemplate) => ({ phx_account_id: RequestorAccountId, ...TrackTemplate }))
+            progress_tracks: StubbedMasteryProgressTrackTemplates().map((TrackTemplate) => ({ phx_account_id: RequestorAccountId, ...TrackTemplate }))
         }
     })
 });
@@ -398,6 +404,14 @@ progressionRouter.get("/progression/:userId", HasUndauntedMetagameAuth, (req: an
     res.json({
         code: null,
         message: "OK",
-        payload: StubbedProgressTrackTemplates.map((TrackTemplate) => ({ phx_account_id: RequestorAccountId, ...TrackTemplate }))
+        payload: StubbedProgressTrackTemplates().map((TrackTemplate) => ({ phx_account_id: RequestorAccountId, ...TrackTemplate }))
     })
+});
+
+// Anything under /progression that no route above answered goes on to the catch-all 404; this names it
+// first (from Harmonic's fork, github.com/Harmonicrain/Undaunted 895f7c7): several progression endpoints of
+// the client are still unanswered, and stub-mode accounts get 404 on the real-mode-only routes.
+progressionRouter.use("/progression", (req: any, res, next) => {
+    logger.warn(`Unhandled progression request ${req.method} ${Redact(req.originalUrl)} from a ${req.headers["x-undaunted-gameserver-apikey"] !== undefined ? "game server" : "player"}`);
+    next();
 });

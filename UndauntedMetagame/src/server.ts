@@ -9,6 +9,7 @@ import { CheckGatewayConfig } from "./middleware/RequestOrigin";
 import { StartChat } from "./realtime/chat";
 import { DescribeFeatures } from "./features";
 import { PruneExpiredStorePurchases } from "./controllers/freestore";
+import { CheckProgressionConfig } from "./controllers/progressionconfig";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -30,6 +31,17 @@ if(Gateway.Errors.length > 0){
     logger.fatal(Error);
   }
 
+  process.exit(1);
+}
+
+// The progression config (the Hunt Pass seasons and mastery tracks; PROGRESSION_CONFIG_DIR, ACTIVE_HUNT_PASS):
+// a bad folder, file or season stops the start here, not at a player's first request
+let ProgressionConfig: string;
+
+try {
+  ProgressionConfig = CheckProgressionConfig();
+} catch (error) {
+  logger.fatal(`The progression config could not be loaded: ${(error as Error).message}`);
   process.exit(1);
 }
 
@@ -74,6 +86,7 @@ DrainAndRegisterAPIKeys().then(async () => {
     }
     logger.info(`Dauntless Revived metagame on ${BIND_HOST}:${PORT}`);
     logger.info(`Progression mode: ${DescribeProgressionMode()}`);
+    logger.info(`Progression config: ${ProgressionConfig}`);
     logger.info(DescribeFeatures());
     try {
       const UpgradeNotice = ProgressionUpgradeNotice();

@@ -1,24 +1,43 @@
 import { Router } from "express";
 import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
-import { GetNotesForUser } from "../controllers/store";
+import { GetHeldCurrencies, GetNotesForUser, OverlayHeldCurrencies } from "../controllers/store";
 import { PlayerTokenOnly } from "../middleware/PlayerAuth";
 import { CreateStorePurchase, GetStoreOffer, IsKnownStoreTag, ListStoreOffers, RedeemStorePurchase, StoreError } from "../controllers/freestore";
-import { StoreMode } from "../features";
+import { BalanceFromInventory, StoreMode } from "../features";
 
 export const storeRouter = Router();
+
+// BALANCE_FROM_INVENTORY=1 (the default; roadmap 2.17): the currencies the account's active character
+// holds replace the sheet's fixed values (controllers/store.ts). Off: the fixed sheet, as before.
+function ApplyHeldCurrencies(AccountId: unknown, Sheet: Record<string, unknown>){
+    if(!BalanceFromInventory() || typeof AccountId !== "string"){
+        return;
+    }
+
+    const { CharacterId, Held } = GetHeldCurrencies(AccountId);
+    const Changed = OverlayHeldCurrencies(Sheet, Held);
+
+    if(Changed.length > 0){
+        logger.info(`Balances of ${AccountId} from the inventory of character ${CharacterId}: ${Changed.map((Key) => `${Key} ${Sheet[Key]}`).join(", ")}`);
+    }
+}
 
 storeRouter.post("/reconcile", HasUndauntedMetagameAuth, async (req: any, res) => {
     const Notes = await GetNotesForUser(req.AuthData.userId);
 
     logger.info(`Retrieved notes balance of ${Notes} for ${req.AuthData.userId}`);
 
+    const Balances: Record<string, unknown> = {
+        id_currency_notes: Notes,
+        CURRENCY_NOTES: Notes
+    };
+
+    ApplyHeldCurrencies(req.AuthData.userId, Balances);
+
     res.status(200);
     res.json({
-        balances: {
-            id_currency_notes: Notes,
-            CURRENCY_NOTES: Notes
-        },
+        balances: Balances,
         refreshInventory: true
     });
 });
@@ -41,8 +60,7 @@ storeRouter.get("/balance", HasUndauntedMetagameAuth, async (req: any, res) => {
 
     logger.info(`Fetched notes balance of ${NotesBalance} for userId ${UserId}`);
 
-    res.status(200);
-    res.json({
+    const Sheet: Record<string, unknown> = {
         id_currency_s20_coin: 0,
         CURRENCY_GAUNTLET_COIN_FADED: 0,
         CURRENCY_S20_COIN: 0,
@@ -95,7 +113,12 @@ storeRouter.get("/balance", HasUndauntedMetagameAuth, async (req: any, res) => {
         id_currency_s14_coin: 0,
         CURRENCY_EVENT_RAMSGIVING: 0,
         id_currency_s17_coin: 0
-    });
+    };
+
+    ApplyHeldCurrencies(UserId, Sheet);
+
+    res.status(200);
+    res.json(Sheet);
 });
 
 // ---- The free store (roadmap 3.7, controllers/freestore.ts): only with STORE=free. ----

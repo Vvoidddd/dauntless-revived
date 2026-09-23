@@ -1,4 +1,4 @@
-import { and, asc, eq, exists, notExists, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, notExists, sql } from "drizzle-orm";
 import { GetDb } from "../db";
 import { characters, huntpassselection, objectives, progressionevents, progresstracks, users } from "../db/schema";
 import { logger } from "../logger";
@@ -7,6 +7,9 @@ import { IsProgressionModeStub } from "./progressionmode";
 import { Caller, DoesAccountExist, IsPlainObject, ParsePathInteger, ReadField, ReadInteger, RealReply, RecordProgressionEvent } from "./progressionevents";
 import { ComputeEarnedRanks, GetProgressionPath, GetProgressionPaths, INT32_MAX, MaxRankId, PremiumGatingEntitlement, ProgressionPath, TotalXpToMaxRank } from "./progressionrank";
 import { Tx } from "./savehistory";
+import { GetActiveHuntPass } from "./progressionconfig";
+import { ProgressionConfirmEntitlements, ProgressionReplayWindow } from "../features";
+import { GrantEntitlementInTx } from "./entitlements";
 
 // Progression of real-mode accounts. Wire shapes are from the 1.4.4 client
 // (C:\dr\data\plans\m2\progression.md). The rules that matter:
@@ -37,7 +40,6 @@ export type ObjectiveRecord = {
 
 export type SeedMode = "grandfather" | "fresh";
 
-export const DEFAULT_HUNT_PASS = "season09b";
 const DEFAULT_CONFIRMED_DATE = "1970-01-01T00:00:00.000Z";
 const DEFAULT_GRANT_CAP = 5000;
 
@@ -234,6 +236,54 @@ function Clamp32(Value: number){
     return Math.max(-2147483648, Math.min(INT32_MAX, Value));
 }
 
+const RETRY_NOTE = "retry of event";
+
+// The writes of an account's tracks, in progression_events
+const TRACK_WRITE_ROUTES = ["POST /progression/:uid", "POST /progression/:uid/:track/:amount", "POST /progression/:uid/:track/:rank/confirm/:kind", "DELETE /progression/:uid/:track", "admin SeedProgression"];
+
+// The retry guard of POST /progression/:uid (PROGRESSION_REPLAY_WINDOW_S, 10 s by default, 0 = off). The
+// game server retries a request whose answer it did not get (HTTPRetryCount 5), and a retried grant would
+// add its XP twice. A grant is taken for such a retry when the account's last track write (a grant, a
+// confirm, a reset) was a grant with the same body (the same JSON), applied within the window, or a retry
+// of one: it gets that grant's stored reply and adds nothing. A confirm or any other grant in between means
+// the game server had the answer, so the same body after it is a new grant. The idea is Harmonic's
+// (github.com/Harmonicrain/Undaunted 895f7c7); his skipped track amounts whose objectives had not moved,
+// which could drop real XP. Two identical grants within 10 s, with nothing in between, that were both meant
+// would still lose the second (logged: "repeats the grant of").
+function FindRetriedGrant(tx: Tx, AccountId: string, Route: string, Body: unknown){
+    const Window = ProgressionReplayWindow();
+
+    if(Window === 0){
+        return undefined;
+    }
+
+    const Columns = {id: progressionevents.id, time: progressionevents.time, route: progressionevents.route, status: progressionevents.status, body: progressionevents.body, reply: progressionevents.reply, note: progressionevents.note};
+
+    const Last = tx.select(Columns).from(progressionevents)
+        .where(and(eq(progressionevents.accountId, AccountId), inArray(progressionevents.route, TRACK_WRITE_ROUTES)))
+        .orderBy(desc(progressionevents.id)).limit(1).get();
+
+    if(Last == undefined || Last.route !== Route || Last.status !== 200 || Last.reply == null || Last.body !== JSON.stringify(Body)){
+        return undefined;
+    }
+
+    // An answered retry names the grant it repeated; the window runs from that grant
+    const RetryOf = new RegExp(`^${RETRY_NOTE} (\\d+) `).exec(Last.note ?? "");
+    const Original = RetryOf == null ? Last : tx.select(Columns).from(progressionevents).where(and(eq(progressionevents.id, Number(RetryOf[1])), eq(progressionevents.accountId, AccountId))).get();
+
+    if(Original == undefined || Original.reply == null){
+        return undefined;
+    }
+
+    const Age = Date.now() - Date.parse(Original.time);
+
+    if(!(Age >= 0 && Age <= Window * 1000)){
+        return undefined;
+    }
+
+    return {Reply: JSON.parse(Original.reply) as unknown, Seconds: Math.round(Age / 100) / 10, Note: `${RETRY_NOTE} ${Original.id} within ${Window} s: its reply, nothing added`};
+}
+
 // POST /progression/:uid (game server only). Reply: one track per distinct requested
 // track with the NEW TOTAL and the stored confirmed ranks, and every requested
 // objective as stored. Confirmed ranks are not raised here: the game server
@@ -254,6 +304,15 @@ export function GrantProgression(AccountId: string, Body: unknown, Who: Caller):
             RecordProgressionEvent(tx, {AccountId, Caller: Who, Route, Body, Status: 400, Notes});
             WarnNotes(`Refusing progression grant for ${AccountId}`, Notes);
             return {Status: 400};
+        }
+
+        const Retry = FindRetriedGrant(tx, AccountId, Route, Body);
+
+        if(Retry != undefined){
+            RecordProgressionEvent(tx, {AccountId, Caller: Who, Route, Body, Status: 200, Reply: Retry.Reply, Notes: [Retry.Note, ...Notes]});
+            logger.warn(`Progression grant for ${AccountId} repeats the grant of ${Retry.Seconds} s ago: answered its stored reply, nothing added (PROGRESSION_REPLAY_WINDOW_S=${ProgressionReplayWindow()})`);
+
+            return {Status: 200, Body: Retry.Reply};
         }
 
         const Now = new Date().toISOString();
@@ -289,6 +348,13 @@ export function GrantProgression(AccountId: string, Body: unknown, Who: Caller):
             const Current = tx.select().from(objectives).where(and(eq(objectives.accountId, AccountId), eq(objectives.objectiveId, ObjectiveId))).get();
             const CompletedCount = Clamp32(State.CompletedCount ?? Current?.completedCount ?? 0);
             const Progress = Clamp32(State.Value);
+
+            // Only noted: objective values are absolute and stored as sent. A repeatable objective starts
+            // again at a lower value when its completed_count goes up, which is not "backwards".
+            if(Current != undefined && Progress < Current.progress && CompletedCount <= Current.completedCount){
+                Notes.push(`objective ${ObjectiveId} went backwards (${Current.progress}/${Current.completedCount} -> ${Progress}/${CompletedCount}), stored as sent`);
+                logger.warn(`progression: objective went backwards: ${ObjectiveId} of ${AccountId} from ${Current.progress} (completed ${Current.completedCount}) to ${Progress} (completed ${CompletedCount}); stored as sent`);
+            }
 
             const Written = tx.insert(objectives).values({
                 accountId: AccountId,
@@ -378,6 +444,34 @@ export function GrantProgressionInTrack(AccountId: string, ProgressionId: string
     });
 }
 
+// PROGRESSION_CONFIRM_ENTITLEMENTS=1 only: the permanent entitlements the config lists for the ranks a
+// confirm has just raised (above From, up to To) on one reward list. Items, currencies and timed
+// entitlements are never granted here: the game server pays rank rewards through /inventory (and
+// grants entitlements itself, if it does; the in-game test of the Elite ranks decides).
+function GrantRankEntitlements(tx: Tx, AccountId: string, Path: ProgressionPath, List: "free_rewards" | "premium_rewards", From: number, To: number, Notes: string[]){
+    for(const Reward of (Path[List] ?? []) as any[]){
+        if(!Number.isSafeInteger(Reward?.rank_id) || Reward.rank_id <= From || Reward.rank_id > To || !Array.isArray(Reward.entitlements)){
+            continue;
+        }
+
+        for(const Entitlement of Reward.entitlements){
+            const Name = Entitlement?.entitlement;
+
+            if(typeof Name !== "string" || Name.length === 0){
+                continue;
+            }
+
+            if(Entitlement.duration !== 0){
+                Notes.push(`rank ${Reward.rank_id} ${List}: ${Name} (${Entitlement.duration} h) is timed, not granted on confirm`);
+                continue;
+            }
+
+            GrantEntitlementInTx(tx, AccountId, Name, 0, `confirm:${Path.progression_id}:${Reward.rank_id}`);
+            Notes.push(`rank ${Reward.rank_id} ${List}: granted entitlement ${Name} (PROGRESSION_CONFIRM_ENTITLEMENTS=1)`);
+        }
+    }
+}
+
 // POST /progression/:uid/:track/:rank/confirm/{public|premium} (game server, no body).
 // Raises the confirmed rank to min(rank, earned); never lowers it, never grants items.
 // Premium needs the track's premium_gating_entitlement (season09b_premium).
@@ -455,6 +549,11 @@ export function ConfirmRank(AccountId: string, ProgressionId: string, RankRaw: s
                 confirmedPremiumRank: ConfirmedPremium,
                 confirmedDate: new Date().toISOString()
             });
+
+            if(ProgressionConfirmEntitlements()){
+                GrantRankEntitlements(tx, AccountId, Path, "free_rewards", Current?.confirmedFreeRank ?? 0, ConfirmedFree, Notes);
+                GrantRankEntitlements(tx, AccountId, Path, "premium_rewards", Current?.confirmedPremiumRank ?? 0, ConfirmedPremium, Notes);
+            }
         }
         else{
             Notes.push("already confirmed");
@@ -497,11 +596,11 @@ export function ResetTrack(AccountId: string, ProgressionId: string, Who: Caller
     });
 }
 
-// The selected Hunt Pass track, defaulting to season09b (the only one with reward data)
+// The selected Hunt Pass track; ACTIVE_HUNT_PASS (season09b, the only one with reward data) by default
 export function GetSelectedHuntPass(AccountId: string){
     const Row = GetDb().select().from(huntpassselection).where(eq(huntpassselection.accountId, AccountId)).get();
 
-    return Row != undefined && GetProgressionPath(Row.progressionId) != undefined ? Row.progressionId : DEFAULT_HUNT_PASS;
+    return Row != undefined && GetProgressionPath(Row.progressionId) != undefined ? Row.progressionId : GetActiveHuntPass();
 }
 
 // POST /huntpass/:uid {"progression_id": "..."} (game server, debug only in the binary)

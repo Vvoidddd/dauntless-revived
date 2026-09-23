@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
-import progressionconfig from "../vendor/progression_config.json";
+import { GetActiveHuntPass, GetProgressionConfigPayload } from "../controllers/progressionconfig";
 import { UpdatePlayerActivity } from "../controllers/undauntedapi";
 import { GetServerIdentity, GetServerName, StatusWelcome } from "../controllers/serverstatus";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
@@ -225,7 +225,7 @@ systemRouter.get("/progression/config", HasUndauntedMetagameAuth, (req, res) => 
 	logger.info("Progression Config (stubbed)");
 
 	res.status(200);
-	res.json(progressionconfig);
+	res.json(GetProgressionConfigPayload());
 });
 
 systemRouter.get("/huntpass/:userId", HasUndauntedMetagameAuth, (req: any, res) => {
@@ -254,7 +254,7 @@ systemRouter.get("/huntpass/:userId", HasUndauntedMetagameAuth, (req: any, res) 
 	res.json({
         code: null,
         message: "OK",
-        payload: "season09b"
+        payload: GetActiveHuntPass()
     });
 });
 

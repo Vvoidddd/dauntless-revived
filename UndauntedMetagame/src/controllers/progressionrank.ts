@@ -1,17 +1,11 @@
-import progressionConfig from "../vendor/progression_config.json";
+import { GetConfiguredPath, GetConfiguredPaths, ProgressionPath, RankRequirement } from "./progressionconfig";
 
 // Rank math of the 1.4.4 client (0x140b40fa0), on the same config we serve at
-// /progression/config. The server must agree with the client exactly: it clamps
-// confirms to the earned rank, and a clamp that disagrees would cut a real claim.
+// /progression/config (controllers/progressionconfig.ts). The server must agree with the
+// client exactly: it clamps confirms to the earned rank, and a clamp that disagrees would
+// cut a real claim.
 
-export type RankRequirement = { rank_id: number, xp_required: number };
-
-export type ProgressionPath = {
-    progression_id: string,
-    premium_gating_entitlement?: string,
-    requirements?: RankRequirement[],
-    prestige?: { xp_per_level: number } | null
-};
+export type { ProgressionPath, RankRequirement };
 
 export type EarnedRanks = {
     EarnedFreeRank: number,
@@ -21,14 +15,12 @@ export type EarnedRanks = {
 
 export const INT32_MAX = 2147483647;
 
-const Paths = progressionConfig.payload.paths as ProgressionPath[];
-
 export function GetProgressionPaths(): ProgressionPath[]{
-    return Paths;
+    return GetConfiguredPaths();
 }
 
 export function GetProgressionPath(ProgressionId: string){
-    return Paths.find((Path) => Path.progression_id === ProgressionId);
+    return GetConfiguredPath(ProgressionId);
 }
 
 // Requirements are walked in array order, like the client does (the config keeps them sorted by rank_id)
