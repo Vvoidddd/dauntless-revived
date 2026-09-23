@@ -43,6 +43,24 @@ test("the credits name every contributor, in order, with their role", () => {
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /reverted in launcher 0\.1\.1/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /peruttiin käynnistimen versiossa 0\.1\.1/);
 
+  // Harmonic: the work ported from his Dauntless 1.4.4 fork (Harmonicrain/Undaunted 895f7c7), listed
+  // after Vvoidddd.
+  const harmonic = person(PROJECT_PEOPLE, "Harmonicrain");
+  assert.equal(harmonic.name, "Harmonic");
+  assert.equal(harmonic.role, "contributor");
+  assert.ok(
+    PROJECT_PEOPLE.findIndex((p) => p.github === "Harmonicrain") > PROJECT_PEOPLE.findIndex((p) => p.github === "Vvoidddd"),
+    "Harmonic comes after Vvoidddd",
+  );
+  assert.match(harmonic.note.en, /Dauntless 1\.4\.4 fork of Undaunted/);
+  for (const part of ["Escalation season registry and save rules", "the free store", "Slayer Links", "restart of a dead Ramsgate", "friends' online status", "test cases"]) {
+    assert.ok(harmonic.note.en.includes(part), `Harmonic en: ${part}`);
+  }
+  assert.match(harmonic.note.fi, /Undauntedin Dauntless 1\.4\.4 -haaraa/);
+  for (const part of ["Escalationin kausiluettelo ja tallennussäännöt", "ilmainen kauppa", "Slayer Links", "kaatunut Ramsgate", "kavereiden paikalla olosta", "testitapaukset"]) {
+    assert.ok(harmonic.note.fi.includes(part), `Harmonic fi: ${part}`);
+  }
+
   assert.equal(UPSTREAM_PEOPLE[0].github, "SyST3MDeV", "Undaunted's creator comes first");
   const gwog = person(UPSTREAM_PEOPLE, "SyST3MDeV");
   assert.equal(gwog.role, "creator");
