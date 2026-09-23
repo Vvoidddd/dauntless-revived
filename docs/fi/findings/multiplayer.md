@@ -217,7 +217,7 @@ kautta. Yksityiskohdat ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_
 
 | Instanssi | Upstream | Meidän haaramme |
 |---|---|---|
-| Ramsgate | Yksi jaettu, pysyvä prosessi portissa `PORT_RANGE_END`, käynnistetään heti alussa | Sama |
+| Ramsgate | Yksi jaettu, pysyvä prosessi portissa `PORT_RANGE_END`, käynnistetään heti alussa | Sama, ja käynnistetään uudelleen, kun pelaaja matkustaa sinne sen ollessa kaatunut |
 | Training Dojo | Yksi pysyvä prosessi portissa `PORT_RANGE_END - 1`, käynnistetään heti alussa | Käynnistetään, kun joku ohjataan matchmakingin kautta sinne ensimmäisen kerran. `ENABLE_DOJO=1` palauttaa upstreamin toiminnan. |
 | Metsästykset | **Yksi prosessi jokaista yhteen koottua ryhmää kohden**, portissa väliltä `PORT_RANGE_BEGIN`–`PORT_RANGE_END - 2` | Sama |
 
@@ -233,9 +233,32 @@ kautta. Yksityiskohdat ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_
 - **Valvonta.** Kerran minuutissa vahtikoira (watchdog) tarkistaa jokaisen prosessin kutsulla
   `process.kill(pid, 0)`. Jos Ramsgate- tai Dojo-prosessi on kadonnut, se käynnistää uuden. Se ei
   koskaan tapa mitään, koska metsästyspalvelimet sammuttavat itse itsensä.
+- **Kaatunut Ramsgate tarvittaessa (haaramme, 23.9.2026, Harmonicin haarasta).** Ennen kuin
+  deploy-palvelin antaa Ramsgaten tai Dojon osoitteen (`CITY`-matka, Dojo tai varalla Ramsgate), se
+  tarkistaa samalla tavalla, että prosessi on yhä elossa, ja käynnistää kaatuneen ensin
+  (`PERSISTENT_WORLD_LIVENESS`, oletuksena päällä; `0` jättää sen vahtikoiralle kuten ennen). Ennen
+  pelaaja saatettiin lähettää kaatuneeseen Ramsgateen jopa minuutin ajan. Käynnistys, vahtikoira ja
+  pelaajien pyynnöt jakavat **yhden käynnistyksen maailmaa kohden**, joten UDP-porteissa 8777 tai
+  8776 ei ole koskaan toista prosessia, ja uudelleen käynnistetty prosessi tallennetaan maailman
+  tietueeksi (upstream piti vanhan, kaatuneen tietueen). Tarvittaessa tehty uudelleenkäynnistys odottaa
+  käynnistysjonossa kuten metsästys, palvelinpaketilla noin 10 sekuntia.
+- **Itse deploy-palvelimen kaatumiset.** Jokaisella pelipalvelinprosessilla on `error`- ja
+  `exit`-kuuntelijat: väärä `GAMESERVER_BINARY_PATH` kirjataan lokiin ("Game server on port N failed:
+  ...") ja metsästyksen portti palaa käyttöön, kun ennen se kaatoi deploy-palvelimen käsittelemättömään
+  virheeseen. Jokaisesta prosessin päättymisestä tulee yksi "exited with code" -rivi. Epäonnistunut
+  käynnistys heti alussa on yksi fatal-rivi ja paluukoodi 1, kun prosessi myöhemmin päättyy;
+  deploy-palvelin jatkaa palvelemista, ja seuraava matka Ramsgateen yrittää uudelleen.
+  Matchmaking-pyyntö, jonka pelipalvelinta ei saada käyntiin (ei vapaata porttia, käynnistysvirhe),
+  saa vastauksen 500 `{"error": "no_game_server"}`, ja metagame vastaa pelaajien tilakyselyihin
+  `FAILED`.
 - **Vastaus.** Deploy-palvelin palauttaa `{host, port}` heti, kun se on käynnistänyt prosessin. Se ei
   odota palvelimen valmistumista. Uusi palvelin alkaa kuunnella vasta noin kolme sekuntia sen
-  jälkeen, kun sen maailma on olemassa.
+  jälkeen, kun sen maailma on olemassa. Harmonicin haara odottaa ensin pelin UDP-porttia; jätimme sen
+  toistaiseksi pois, koska se pitäisi pelaajan matkapyynnön auki koko palvelimen käynnistyksen ajan,
+  peliohjelman aikaraja tälle pyynnölle on tuntematon, ja 60 sekunnin takaraja voisi kaataa hitaasti
+  käynnistyvän Ramsgaten (tiekartan kohta 4.6). Myös hänen pelipalvelinten lokitiedostonsa jätettiin
+  pois: palvelin-DLL antaa pelimoottorille kiinteän komentorivin ja ohjaa sen tulosteen muualle, joten
+  tiedostot jäisivät lähes tyhjiksi.
 
 Porttijakomme palvelinkoneella:
 
@@ -275,7 +298,12 @@ client                     metagame                      deploy server          
 
 - **Tilavastaus.** Undauntedin `/candidate/status` palauttaa `MATCHING`, kunnes palvelin on
   tiedossa, ja sen jälkeen `IN_PROGRESS` sekä `serverInfo {buildId, gameSessionId, host, port}`. Se
-  pyytää asiakasta kyselemään 10 sekunnin välein (`candidateStatusPeriodMillis: 10000`).
+  pyytää asiakasta kyselemään 10 sekunnin välein (`candidateStatusPeriodMillis: 10000`). Meidän
+  haaramme vastaa `FAILED` (kentän `statusReason: null` kanssa ja ilman `serverInfo`-kenttää), kun
+  deploy-palvelin ei pystynyt antamaan palvelinta: 500 tai 503, vastaus ilman palvelinta, lainausmerkeissä
+  oleva portti, runko joka ei ole JSONia tai katkennut yhteys, kukin testattuna Ramsgaten, opetusjakson
+  ja jonotetun metsästyksen poluilla (virhetapaukset ovat Harmonicin testeistä). Upstream lähetti ryhmän
+  palvelimeen `""` ja porttiin 0.
 - **Ryhmittely.** Metsästykset, jotka tarvitsevat matchmakingia, ryhmitellään pelaajan
   metsästystunnuksen mukaan. Ryhmä lähetetään deploy-palvelimelle, kun siinä on 4 pelaajaa tai kun
   viimeisen pelaajan liittymisestä on kulunut 20 sekuntia. 20 sekunnin tarkistus ajetaan vain, kun

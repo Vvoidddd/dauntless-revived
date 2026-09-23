@@ -6,7 +6,7 @@ nav_order: 9
 lang: fi
 ref: findings/social
 locale: fi_FI
-description: "Miten Dauntless 1.4.4 hoitaa kaverit, ryhmät ja killat taustapalvelun kanssa, luettuna ohjelmatiedostosta ja oikealta palvelimelta: tunnusketju, tarkat vastaukset, miksi ensimmäisessä kahden pelaajan testissä ei näkynyt mitään ja mikä on vielä vahvistamatta."
+description: "Miten Dauntless 1.4.4 hoitaa kaverit, ryhmät, killat ja Slayer Linksin taustapalvelun kanssa, luettuna ohjelmatiedostosta ja oikealta palvelimelta: tunnusketju, tarkat vastaukset, miksi ensimmäisessä kahden pelaajan testissä ei näkynyt mitään ja mikä on vielä vahvistamatta."
 ---
 
 {% assign api_page = site.pages | where: "path", "fi/reference/api.md" | first %}
@@ -17,12 +17,13 @@ description: "Miten Dauntless 1.4.4 hoitaa kaverit, ryhmät ja killat taustapalv
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
 {% assign friends_page = site.pages | where: "path", "fi/setup/friends.md" | first %}
 {% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "fi/findings/harmonic-fork.md" | first %}
 
 # Kaverit, ryhmät ja killat versiossa 1.4.4
 {: .no_toc }
 
 Tämä sivu kertoo, miten **1.4.4**-peliohjelma hoitaa Sosiaalinen-paneelin (Social): kaverit, estetyt
-pelaajat, ryhmät (party) ja ryhmäkutsut sekä killat (guild). Sivulle on kirjattu, mitä peliohjelma
+pelaajat, ryhmät (party) ja ryhmäkutsut, killat (guild) sekä Slayer Links. Sivulle on kirjattu, mitä peliohjelma
 lähettää palvelimelle, mitä se tarvitsee vastaukseksi ja miksi ensimmäisessä kahden pelaajan
 testissä 22.9.2026 ei näkynyt mitään. Lopuksi kerrotaan, mitä korjasimme metagameen (taustapalvelimeen,
 jonka kanssa peli keskustelee).
@@ -31,9 +32,15 @@ jonka kanssa peli keskustelee).
 Jokainen alla oleva korjaus läpäisee HTTP-testit, jotka toistavat peliohjelman omat pyynnöt ja
 tarkistavat jokaisen vastauksen peliohjelman tulkintaa jäljittelevällä mallilla. Seuraava kahden
 pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne; [Näin se tarkistetaan](#how-to-verify)
-luettelee sen vaiheet ja odotetut lokirivit. Paikalla olon näyttäminen puuttuu vielä (se tarvitsee
-chat-yhteyden läsnäolotiedot, katso [Myöhemmin](#deferred)); tekstichat on rakennettu, ja sillä on
-oma sivunsa: [Tekstichat]({{ chat_page.url | relative_url }}).
+luettelee sen vaiheet ja odotetut lokirivit. Myös tekstichat on rakennettu, ja sillä on oma sivunsa:
+[Tekstichat]({{ chat_page.url | relative_url }}).
+
+**Päivitys 23.9.2026, Harmonicin 1.4.4-forkin siirrosta
+([Harmonicin työn siirto]({{ harmonic_page.url | relative_url }})), rakennettu ja testattu ilman peliä,
+ei vielä palvelimella:** [Slayer Links](#slayer-links) (oletuksena päällä), kavereiden paikalla olo
+chat-palvelimen sisällä (oletuksena pois, [Tekstichat]({{ chat_page.url | relative_url }}#presence)),
+[kahdesti saapuva ryhmäkutsun hyväksyntä](#a-repeated-accept) onnistuu nyt, ja peliohjelman
+[istunnon tarkistus](#verify) nimeää pelaajan oman tilin.
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -67,7 +74,7 @@ Menetelmä, jolla JSON-kenttien nimet luetaan ohjelmatiedostosta, on kuvattu siv
 |:----------------------|:----|:--------|:--------|
 | Ryhmäkutsu tuli toisen pelaajan peliohjelmaan (kutsukysely palautti sen kahdesti), mutta se ei koskaan näkynyt PARTY INVITES -kohdassa. | Ennen kuin paneeli näyttää kutsun, peliohjelma kysyy lähettäjästä reitiltä `POST /accountinfo/public`. Alkuperäiseltä projektilta peritty vastauksemme kuvasi **kysyjää**: kysyjän oma tunnus oli kentissä `accountId` ja `linkedAccounts`. Peliohjelma tallentaa käyttäjätiedot vastauksen `accountId`-tunnuksen alle ja pitää ensimmäisen vastauksen, joten lähettäjä ei koskaan saanut tietoja, se mitätöitiin ja kutsu pudotettiin (B `0x140b74870`, `0x1409ede50`). | `/accountinfo/public` vastaa kysytystä tilistä. | H koodissa, M sille, ettei muuta estettä ole |
 | Kaverin lisääminen (Add Friends) "ei löytänyt mitään". | Add Friends ei ole haku vaan nimikenttä ja Add-painike. Nimi löytyi (`GET /account/api/public/account/displayName/<nimi>`), mutta seuraava vaihe, `POST /account/mapping`, sai ensin 404:n ja sitten vastauksen muodossa, jota peliohjelma ei lue. Ilman yhdistämistä peliohjelma pudottaa kaveripyynnön ilmoittamatta mitään. Yksikään kaveripyyntö ei tullut palvelimelle (0 kutsua, L). | `/account/mapping` vastaa muodossa, jota peliohjelma lukee. | H |
-| Kaikki, myös pelaajat itse, näkyivät tilassa Offline. | Paikalla olo tulee vain XMPP-viestipalvelimen läsnäolotiedoista chat-yhteyden kautta. HTTP-reittiä paikalla ololle ei ole, eikä chat-palvelimemme vielä lähetä läsnäolotietoja chat-huoneiden ulkopuolella. | Ei vielä rakennettu: vaatii chat-yhteyden läsnäolotiedot ([Tekstichat]({{ chat_page.url | relative_url }}#party-safety)). | H |
+| Kaikki, myös pelaajat itse, näkyivät tilassa Offline. | Paikalla olo tulee vain XMPP-viestipalvelimen läsnäolotiedoista chat-yhteyden kautta. HTTP-reittiä paikalla ololle ei ole, eikä chat-palvelimemme lähettänyt läsnäolotietoja chat-huoneiden ulkopuolella. | Rakennettu 23.9.2026, oletuksena pois: kavereiden läsnäolotiedot chat-palvelimessa (`CHAT=1` ja `CHAT_PRESENCE=1`, [Tekstichat]({{ chat_page.url | relative_url }}#presence)); odottaa kahden pelaajan testiä, joka näyttää, että ryhmän automaattinen potku pysyy unessa. | H syylle, M korjaukselle |
 | "Unable to create guild." | `POST /guild/validate` (peliohjelmalta) ja `POST /guild` (**pelipalvelimelta**) saivat kumpikin 404:n. | Yksitoista kiltareittiä (versio 2). | H |
 | Kukaan ei käyttänyt pelin omaa Invite to Party -toimintoa (illan molemmat kutsut tulivat ylläpitäjän varareitiltä). | Pelaajat eivät löytäneet toisiaan: Hunt Members ja kaverit tarvitsevat saman käyttäjätietovaiheen kuin kutsun lähettäjä. | Sama korjaus kuin ensimmäisellä rivillä. | M |
 
@@ -208,8 +215,9 @@ varten). Reitit ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#
 | `DELETE /friends/api/public/blocklist/:minä/:toinen` | Unblock | mikä tahansa 2xx | B | H |
 
 Peliohjelma lukee kummankin listan **vain kirjautuessaan** (L). Kaveripyyntö tai hyväksyntä näkyy
-siksi toiselle pelaajalle vasta hänen seuraavalla kirjautumisellaan, kunnes XMPP-palvelin voi lähettää
-muutoksen suoraan.
+siksi toiselle pelaajalle vasta hänen seuraavalla kirjautumisellaan. Kun kavereiden paikalla olo on
+päällä (`CHAT=1` ja `CHAT_PRESENCE=1`), hyväksyntä lähetetään lisäksi heti chat-yhteyden kautta
+([Tekstichat]({{ chat_page.url | relative_url }}#presence)); uutta pyyntöä ei lähetetä.
 
 **Mitä pelaajan pitäisi nähdä** (M, ellei toisin merkitty):
 
@@ -233,14 +241,15 @@ kutsun toisensa estäneiden pelaajien välillä.
 Ryhmäpalvelu oli jo rakennettu (tiekartan kohta 1.9), ja se vastasi peliohjelman pyyntöjä ja
 vastauksia. Oikean palvelimen reittiluettelo näyttää sen toimineen: 399 ryhmäkyselyä ja 399
 kutsukyselyä, ja kutsu päätyi toisen pelaajan kyselyyn (L). **Ainoa palvelinmuutos, jota ryhmät
-tarvitsivat, on `/accountinfo/public`-korjaus.**
+tarvitsivat, on `/accountinfo/public`-korjaus**; 23.9.2026 alkaen myös
+[kahdesti saapuva hyväksyntä](#a-repeated-accept) sallitaan.
 
 | Kutsu | Milloin | Todiste | Varmuus |
 |:------|:--------|:--------|:--------|
 | `POST /party` `{buildId, featureOverrides: []}` | kysely noin 10 sekunnin välein ja kirjautuessa | B `0x140b57600`, L: 399 kutsua | H |
 | `GET /party/invites` → `{"invitations": [{recipientPlayerId, sendingPlayerId, partyId, sendingPlatform, sendingDisplayName}]}` | kutsukysely | B `0x140b675d0`, L: 399 kutsua | H |
 | `PUT /party/invite` `{recipientPlayerId, partyId, buildId, featureOverrides}` | Invite to Party; chatin `/invite <nimi>` | B | H |
-| `PUT /party/invite/accept/:partyId` | Accept | B | H |
+| `PUT /party/invite/accept/:partyId` | Accept; tunnus on ryhmän, ei kutsun tunnus (B `0x140b35384`) | B | H |
 | `DELETE /party/invite` | Decline | B | H |
 | `DELETE /party/member`, `DELETE /party/member/:id`, `PUT /party/member/promote/:id` | lähteminen (myös jokaisella kirjautumisella), poistaminen, johtajaksi nostaminen | B, L: 12 lähtöä 8 kirjautumisessa | H |
 | `POST /candidate/join` johtajalta | johtaja valitsee metsästyksen; jäsenet seuraavat ryhmäkyselynsä kautta | C, testit | M |
@@ -271,9 +280,25 @@ vastaa yhden hengen ryhmälle ilman ehdokasta (`candidateState: null`, joka luet
 jonkun kutsun, tämä lähettäjä ei voi kutsua häntä uudelleen 2 minuuttiin (kumpikin 409, epäonnistuminen
 peliohjelmalle). Esto poistaa kahden pelaajan väliset odottavat kutsut.
 
+### Kahdesti saapuva hyväksyntä {#a-repeated-accept}
+
+Hyväksyntä voi saapua kahdesti: peliohjelma yrittää uudelleen pyyntöä, jonka vastaus katosi, ja
+Harmonicin haara salli sen (G sille, kuinka usein näin käy versiossa 1.4.4). 23.9.2026 alkaen pyyntö
+`PUT /party/invite/accept/<tunnus>`, joka ei vastaa mitään voimassa olevaa kutsua, saa silti vastauksen
+**200 ja kutsujan ryhmän** (saman rungon kuin ryhmäkysely), kun kutsuja on jo vähintään kahden hengen
+ryhmässä ja tunnus on tuon ryhmän tunnus tai sen toisen jäsenen tunnus (esimerkiksi kutsun lähettäjän).
+Lokirivi on `party: accept by <A> id=<tunnus>: already in P=<ryhmä> size=<n>; answering that party (a
+repeated accept)`. Yhden hengen ryhmä, ryhmä josta kutsuja on lähtenyt, kutsujan oma tunnus ja
+vieraan tunnus saavat yhä vastauksen 404 kuten ennenkin. Kytkintä ei ole: muutos vastaa vain siellä,
+missä vastaus oli ennen 404.
+
+### Automaattinen potku {#the-automatic-kick}
+
 Peliohjelman automaattinen "offline"-jäsenten poisto ryhmästä ei koskaan käynnisty ilman paikalla olotietoa (B `0x1415f6f60`, 10 sekunnin
-raja). Chat-palvelin pitää sen niin: se ei lähetä läsnäolotietoja chat-huoneiden ulkopuolella eikä
-koskaan palauta pelaajan omaa paikalla olotietoa hänelle ([Tekstichat]({{ chat_page.url | relative_url }}#party-safety)).
+raja). Chat-palvelin pitää sen niin: oletuksena se ei lähetä läsnäolotietoja chat-huoneiden
+ulkopuolella lainkaan, ja kun kavereiden paikalla olo on päällä (`CHAT_PRESENCE=1`), se ei silloinkaan
+koskaan lähetä pelaajalle läsnäolotietoa hänen omalta tililtään, ei edes hänen toisesta
+istunnostaan ([Tekstichat]({{ chat_page.url | relative_url }}#party-safety)).
 
 ## Killat {#guilds}
 
@@ -449,6 +474,112 @@ hyväksymistä (peliohjelma kertoo sen itse, B).
 `GET /guild` -kyselyssään (kirjautuminen, maailman lataus tai oma kiltatoiminto). Paneelit eivät
 päivitä itseään (B).
 
+## Slayer Links {#slayer-links}
+
+Slayer Linksin (peliohjelmassa nimellä Linked Slayers; Social-paneelin My Links -välilehti, K
+`USocialPanelTabLinkedSlayers`) avulla kaksi kaveria voi liittoutua viikoksi. Jokaisella pelaajalla on
+kolme linkkipaikkaa. Pelaaja kutsuu kaverin johonkin paikkaan, kaveri hyväksyy kutsun johonkin omaan
+paikkaansa, ja linkki kestää 168 tuntia.
+
+**Tilanne 23.9.2026: rakennettu ja testattu ilman peliä, oletuksena päällä (`SLAYER_LINKS`), ei vielä
+kokeiltu pelissä.** Rajapinnan kuvaus on Harmonicin haarasta, jossa oli ensimmäinen toimiva versio;
+tarkistimme jokaisen reitin ja rungon ohjelmatiedostoa vasten ja korjasimme niistä neljä (alla).
+22.9.2026 reittiluettelossa ei näkynyt yhtään Slayer Link -kutsua (L), joten peliohjelma saattaa pitää
+välilehden piilossa (`ULinkedSlayersFeature`); jos se ei koskaan kutsu näitä reittejä, pelaajille ei
+muutu mitään.
+
+### Reitit {#slayer-link-routes}
+
+Jokainen vastaus käyttää Phoenixin kuorta `{"code": null, "message": "OK", "payload": ...}`. Jokainen
+reitti toimii tunnisteen (bearer token) tilin puolesta; rungon tai polun tunnukset vain nimeävät toisen
+pelaajan.
+
+| Reitti (päätepiste) | Pyyntö | Vastauksen sisältö (payload) | Todiste |
+|:--------------------|:-------|:-----------------------------|:--------|
+| `GET /slayerlink/status_good` (`LinkedSlayersStatusEndpoint`) | ei runkoa | `{invites: [...], links: [...], config: {link_duration_hours: 168, invite_expiry_hours: 24}}` | B: `FOnlineLinkedSlayer::GetStatusUpdate` `0x1415e5990` ja sen käsittelijä `0x1415e8b40` lukevat olion, jossa on avaimet `invites`, `links` ja `config` (jäsennin `0x141600510`); config lukee kaksi tuntimäärää (`0x1415ffc90`). Se, että tämä olio on kuoren sisältö: S. Peliohjelma kyselee uutisia säännöllisesti (S: että kysely on tämä reitti). |
+| `GET /slayerlink/invites` (`LinkedSlayersAllInvitesEndpoint`) | ei runkoa | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: odottavat, voimassa olevat kutsut; `account_id` on toinen pelaaja, `direction` on `Sent` tai `Received`, `status` on `Pending`, `expires` ISO-päivämäärä | B `0x1415e7d00`, merkinnät `0x1415ff170`; luetteloiden kirjoitusasut SDK:sta (S) |
+| `GET /slayerlink/links` (`LinkedSlayersAllLinkSlotsDataEndpoint`) | ei runkoa | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: käynnissä olevat linkit kutsujan paikan mukaan | B `0x1415e8690`, merkinnät `0x141600170` lukevat `account_id`, `slot`, `ends`, `prize_pool`; tilavastauksen linkit lukevat `linked_account_id`, `slot`, `ends`, `link_id`, `prize_pool`. Jokaisessa merkinnässä on kummatkin. |
+| `PUT /slayerlink/invite` (`LinkedSlayersInviteEndpoint`) | `{account_id, slot, action_source}` | `{link_id}`: kutsun tunnus; saman pelaajan kutsuminen uudelleen antaa saman tunnuksen | B `0x1415fcba2`, runko `0x1415ff0e0` |
+| `POST /slayerlink/invite` (`LinkedSlayersInviteAcceptDeclineEndpoint`) | `{account_id, action, slot, action_source}`, `action` = `accept`, `reject` tai `cancel` | `{link_id}` | B: accept `0x1415d4aa6`, cancel `0x1415d96cf`, reject `0x1415dadd6`, runko `0x1415fdc40` |
+| `DELETE /slayerlink/invites/:account_id` (`LinkedSlayersDeleteAllInvitesEndpoint`) | ei runkoa | `{}` | B `0x1415db890`; kenen tunnuksen peliohjelma laittaa polkuun, jäi jäljittämättä (G), joten molemmat merkitykset käsitellään |
+| `DELETE /slayerlink/links` (sama päätepiste kuin linkkilista) | `{account_id, slot, delete_pair}` tai samat kyselyparametreina | `{}` | B: `FOnlineLinkedSlayer::DeleteLinks` `0x1415dc442`, runko `0x141600eb0` |
+| `POST /slayerlink/availability` (`LinkedSlayersGetFriendsAvailabilityEndpoint`) | `{account_ids: [...]}`, enintään 50 | `{availability: [{account_id, available}]}` | B `0x1415e3608`, `0x1415fdf30`, `0x1415fdf90` |
+
+Virheet ovat muotoa `{"code": "<tila>", "message": ..., "payload": null}`: 400 (ei tilitunnusta, paikka
+muu kuin 0–2, tuntematon toiminto), 403 (ei kavereita tai esto), 404 (tiliä tai kutsua ei ole), 409
+(oma itse, paikassa on linkki tai odottava kutsu, jo linkitetty, toinen pelaaja on jo kutsunut sinut,
+ei vapaata paikkaa, kutsu on vanhentunut tai siihen on jo vastattu). Ilman tunnistetta vastaus on 401;
+pelkkä pelipalvelimen avain saa 403.
+
+**Ei vastata:** palkintoreitit `PUT /slayerlink/links/rewards` ja
+`GET /slayerlink/links/rewards/:account_id/:slot` pysyvät 404:nä, kunnes ne on jäljitetty, koska
+väärä onnistumisvastaus voisi hukata palkinnon. Avaimiin `LinkedSlayersInviteCancelEndpoint`,
+`...AllLinksProgressEndpoint`, `...AddLinkProgressEndpoint`, `...DeleteInviteDataEndpoint`
+(`/slayerlink/link`), `...SetEndTimeEndpoint` ja `...SetRemainingTimeEndpoint` ei viitata missään
+ohjelmatiedostossa (B): peliohjelma ei koskaan lähetä niitä.
+
+### Säännöt {#slayer-link-rules}
+
+- **Kuka.** Kummankin pelaajan on oltava hyväksyttyjä kavereita, eikä kumpikaan saa olla estänyt toista.
+- **Paikat.** Kolme pelaajaa kohden (0–2) ja yksi odottava kutsu paikkaa kohden. Hyväksyntä käyttää
+  rungon paikkaa, jos se on vapaa, muuten ensimmäistä vapaata.
+- **Vastaukset.** Hyväksyntä ja hylkäys kuuluvat kutsutulle (`account_id` = lähettäjä), peruutus
+  lähettäjälle (`account_id` = kutsuttu). Jos peliohjelma joskus lähettää rungossa kentän `link_id` tai
+  `invite_id`, sitä kokeillaan ensin. Samanlaisen vastauksen toistaminen antaa taas 200.
+- **Ajat.** Kutsu on voimassa 24 tuntia ja linkki 168 tuntia; vanhentunut kutsu muuttuu tilaan
+  `EXPIRED`, kun sitä seuraavan kerran katsotaan.
+- **Kutsujen tyhjennys.** `DELETE /slayerlink/invites/<oma tunnus>` peruu kaikki kutsujan lähettämät
+  kutsut ja hylkää kaikki hänen saamansa; toisen pelaajan tunnuksella se tekee saman vain näiden
+  kahden välisille kutsuille.
+- **Linkin poisto** päättää kutsujan linkin kyseisessä paikassa tai kyseisen pelaajan kanssa
+  kummaltakin pelaajalta (pari on yksi rivi; `delete_pair` vain kirjataan lokiin). Jos poistettavaa ei
+  ole, vastaus on silti 200.
+- **Kaveruuden purku tai esto** peruu kahden pelaajan väliset odottavat kutsut samassa
+  tietokantatapahtumassa. Käynnissä oleva linkki jatkuu loppuunsa: päättyykö se myös kaveruuden
+  purkuun, on ylläpitäjän päätös.
+- Vastatut ja vanhentuneet kutsut sekä päättyneet linkit poistetaan 30 päivän kuluttua. Kutsut ja linkit
+  tallennetaan SQLiteen (tietokantamuutos `0016_slayer_links`, taulut `slayerlinkinvites` ja
+  `slayerlinks`; katso [Tiedostot ja data]({{ files_page.url | relative_url }})).
+
+### Mitä korjasimme Harmonicin versiosta {#slayer-link-corrections}
+
+| Hänen haaransa | Peliohjelma (B) |
+|:---------------|:----------------|
+| Kutsulista nimeää toisen pelaajan kentällä `linked_account_id` | Se lukee kentän `account_id` (`0x1415ff170`) |
+| Linkki poistetaan osoitteessa `/slayerlink/link` | Tätä avainta ei käytetä; peliohjelma lähettää `DELETE /slayerlink/links` rungon kanssa (`0x1415dc442`) |
+| Reittiä `DELETE /slayerlink/invites/<tunnus>` ei ollut | Peliohjelma lähettää sen (`0x1415db890`) |
+| Tilavastaus oli litteä | Se sisältää kentät `invites`, `links` ja `config` (`0x141600510`) |
+
+**Lokit.** Jokainen toiminto on yksi `slayerlink:`-rivi, esimerkiksi
+`slayerlink: invite by=<A> to=<B> slot=0 -> sent id=<tunnus>` tai
+`slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots 0 and 1)`; torjunta päättyy
+`refused <tila>: <syy>`. `SLAYER_LINKS=0` palauttaa jokaiselle reitille vastauksen 404, jonka ne saivat
+ennen; tallennetut kutsut ja linkit säilyvät. Reitit ovat myös sivulla
+[HTTP-rajapinta]({{ api_page.url | relative_url }}#slayer-links).
+
+## Istunnon tarkistus (`oauth/verify`) {#verify}
+
+Käynnissä ollessaan peliohjelma tarkistaa istuntonsa säännöllisesti pyynnöllä
+`GET /account/api/oauth/verify` (noin 30 sekunnin välein, G tarkalle välille). Alkuperäinen projekti
+vastasi jokaiselle samalla paikkamerkkitilillä, jota peliohjelman käsittelijä ei pysty yhdistämään
+käyttäjäänsä: ohjelmatiedosto kirjaa siitä rivin "Verify auth response ignored, can't find
+UserAccount for %s" (B `0x140965ab8`, käsittelijässä `0x140964040`).
+
+23.9.2026 alkaen vastaus nimeää sen tunnisteen tilin, jonka kanssa pyyntö tuli, kuten oikea palvelu
+teki:
+
+- kelvollinen pelaajan tunniste: `account_id` on pelaajan oma tili;
+- puuttuva, virheellinen, vanhentunut tai vieras tunniste: vanha paikkamerkkivastaus, edelleen
+  vastauksella **200**. Se ei koskaan vastaa 401: tunnisteen 24 tunnin jälkeen 401 voisi kirjata
+  pelaajan ulos (G). Huono tai vanhentunut tunniste kirjataan lokiin enintään kerran minuutissa ("with a
+  bad or expired token: answering the static reply"), mikä on odotettua yli 24 tunnin istunnoissa;
+- `expires_at` pysyy kaukana tulevaisuudessa ja `active` on tosi.
+
+Pelaajan omalla tunnuksella vastaus kulkee peliohjelman "tili löytyi" -polkua; mitä kenttiä se lukee
+ja päivittääkö se vanhenemisajan, jäi jäljittämättä (G). `VERIFY_STUB_ACCOUNT=1` palauttaa
+paikkamerkin kaikille. Pelitesti on yli 30 minuutin istunto, mieluiten yli tunnisteen 24 tunnin, ilman
+uloskirjautumista tai yhteyden uudelleenyrityssilmukkaa.
+
 ## Testaus ilman peliä {#testing-without-the-game}
 
 Korjauksia testataan HTTP:n yli oikeaa metagamea vastaan peliohjelman omilla rungoilla ja otsakkeilla:
@@ -475,6 +606,18 @@ Korjauksia testataan HTTP:n yli oikeaa metagamea vastaan peliohjelman omilla run
   lähteminen ja lakkauttaminen (reittien järjestys mukaan lukien), mitä esto, hylkäys ja alennettu,
   erotettu tai lähtenyt upseeri tekevät avoimille kutsuille, uudelleenkäynnistys, oikeudet ja
   `GUILDS=0`. Jokainen vastaus tarkistetaan tarkkana JSONina ja mallin kautta.
+- **Slayer Links** (`test/slayerlinks.test.ts`, kirjoitettu uudelleen Harmonicin testistä peliohjelman
+  täsmällisillä poluilla ja rungoilla): jokainen reitti avaimineen, kutsulistan kumpikin suunta,
+  hyväksyntä valittuun tai ensimmäiseen vapaaseen paikkaan, hylkäys ja peruutus `account_id`-kentällä,
+  kutsujen poiston kumpikin merkitys, linkin poisto kummaltakin pelaajalta, kolme paikkaa ja yksi
+  odottava kutsu paikkaa kohden, vanheneminen testikellolla, kaveruuden purku tai esto perumassa
+  odottavat kutsut samalla kun käynnissä oleva linkki jatkuu, 401 ja 403 kaikilla kahdeksalla
+  reitillä, `SLAYER_LINKS=0` ja vastaamattomat palkintoreitit.
+- **Pienemmät korjaukset** (`test/socialported.test.ts`): kahdesti saapuva ryhmäkutsun hyväksyntä
+  (ryhmän tunnuksella ja lähettäjän tunnuksella; ei omalla tunnuksella, vieraalla, yhden hengen ryhmässä
+  eikä ryhmässä, josta on lähdetty) sekä `oauth/verify` (kutsujan oma tunnus kelvollisella
+  tunnisteella; paikkamerkki ja 200 ilman tunnistetta sekä huonolla, vanhentuneella tai vieraalla
+  tunnisteella; `VERIFY_STUB_ACCOUNT=1`).
 
 ## Avoimet kysymykset ja oikea testi {#open-questions}
 
@@ -496,6 +639,10 @@ Tarkistetaan seuraavassa kahden pelaajan testissä (vaiheet ovat kohdassa
    `PUT /party/invite`), vai tarvitaanko `PARTY_SOLO_STUB=0`?
 8. Montako `account/mapping`-kutsua kukin kirjautuminen tekee (reittiluettelossa 6 kutsua 8
    kirjautumisessa)?
+9. Lähettääkö peliohjelma koskaan ryhmäkutsun hyväksynnän kahdesti (rivi `(a repeated accept)`)?
+10. Kutsuuko My Links -välilehti Slayer Link -reittejä lainkaan, ja kuinka usein se kyselee reittiä
+    `GET /slayerlink/status_good`?
+11. Pysyykö yli 30 minuutin istunto kirjautuneena uudella `oauth/verify`-vastauksella?
 
 **Jokainen pelaaja kohtaa kolme muuttunutta vastausta jokaisella kirjautumisella**, käytti hän
 Social-paneelia tai ei: `POST /accountinfo/public` (kuvaa nyt kysyttyä tiliä, 404 tuntemattomalle),
@@ -504,7 +651,9 @@ Social-paneelia tai ei: `POST /accountinfo/public` (kuvaa nyt kysyttyä tiliä, 
 "invites": []}` vanhan tyngän `{"code": null, "message": "OK", "payload": {"invites": []}}` sijaan).
 Peliohjelman mallimme lukee kaikki kolme tarkoitetulla tavalla, mutta yhtäkään ei ole nähty oikeassa
 pelissä. Paluukytkimet, jos jokin niistä häiritsee: `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0`
-ja `GUILDS=0` (katso [Asetukset]({{ config_page.url | relative_url }})).
+ja `GUILDS=0` (katso [Asetukset]({{ config_page.url | relative_url }})). 23.9.2026 alkaen neljäs
+vastaus muuttuu kaikille: `oauth/verify` nimeää pelaajan oman tilin (paluukytkin
+`VERIFY_STUB_ACCOUNT=1`).
 
 ## Näin se tarkistetaan {#how-to-verify}
 
@@ -549,7 +698,8 @@ noin 10 sekunnin kuluessa `party: invites for <B> -> 1 (P=<PA> from=<A>)` ja
 
 **3. B hyväksyy.** Lokiin `party: accept by <B> matched=partyId P=<PA> size=2` ja sitten
 `party: poll by=<A> P=<PA> size=2 leader=<A> members=<A>,<B>`. Kummankin ryhmäpaneelissa näkyvät
-molemmat nimet. (Hylkäys kirjaa sen sijaan rivin `party: decline by=<B> ... removed=1`, eikä A voi
+molemmat nimet. Jos peliohjelma lähettää saman ryhmän hyväksynnän toisen kerran, lokiin tulee
+`... (a repeated accept)` ja vastauksena ryhmä (kysymys 9). (Hylkäys kirjaa sen sijaan rivin `party: decline by=<B> ... removed=1`, eikä A voi
 kutsua B:tä uudelleen 2 minuuttiin.)
 
 **4. Yhteinen metsästys.** A (johtaja) valitsee metsästyksen. Lokiin `mm: party P=<PA> candidate <C>
@@ -602,7 +752,17 @@ halutessa: Promote To Guild Officer (`guild: rank by=<A> target=<B> rank="office
 Guild (`guild: leave by=<B> -> 200`), DISBAND GUILD (`guild: disband G=<tunnus> by=<A> -> 200`). Laske
 `GET /guild` -rivit maailman latausta kohden (kysymys 5).
 
-**8. Jälkeenpäin.** Etsi pyyntölokista sosiaalisia reittejä, jotka saivat vastauksen 404, ja
+**8. Slayer Links (vaiheiden 1–7 jälkeen, kun pelaajat ovat kavereita; kun 23.9.2026 päivitys on
+palvelimella).** A: Social, My Links, kutsu B johonkin paikkaan. Lokiin `PUT /slayerlink/invite gs=0`
+ja `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<tunnus>`. B avaa My Links -välilehden:
+lokiin `GET /slayerlink/invites` (tai `/slayerlink/status_good`), ja B näkee kutsun A:n nimellä. B
+hyväksyy: `slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots X and Y)`; kumpikin näkee
+linkin. Sitten halutessa: poista linkki (`slayerlink: delete link by=... -> removed <tunnus> (with
+...)`), ja uudella kierroksella hylkää (`-> declined`) ja peru (`-> canceled`). Jos yhtään
+`/slayerlink`-riviä ei tule, peliohjelma pitää välilehden piilossa: kirjaa se ylös. Jos jokin toimii
+väärin, aseta `SLAYER_LINKS=0` ja käynnistä metagame uudelleen.
+
+**9. Jälkeenpäin.** Etsi pyyntölokista sosiaalisia reittejä, jotka saivat vastauksen 404, ja
 `refused`-rivejä, joita et odottanut. Kytke `LOG_BODIES` taas pois ja poista runkoloki. Kirjaa
 vastaukset yllä oleviin avoimiin kysymyksiin; korjaukset tulevat tälle sivulle ja tiekarttaan.
 
@@ -610,13 +770,13 @@ vastaukset yllä oleviin avoimiin kysymyksiin; korjaukset tulevat tälle sivulle
 
 | Asia | Miksi |
 |:-----|:------|
-| **Paikalla olo** (chat-yhteyden läsnäolotiedot) | Paikalla olo, EPIC FRIENDS, "In Ramsgate" ja kaveripyyntöjen näkyminen ilman uutta kirjautumista kulkevat kaikki XMPP:n läsnäolotietojen kautta. Chat-palvelin on olemassa ([Tekstichat]({{ chat_page.url | relative_url }})), mutta se ei vielä lähetä läsnäolotietoja chat-huoneiden ulkopuolella (tiekartan kohta 3.10). Kun se lähettää, se ei saa koskaan palauttaa pelaajan omaa paikalla olotietoa hänelle (katso [Ryhmät](#parties)), ja ryhmätesti on tehtävä uudelleen. |
+| **Paikalla olo oletuksena** (chat-yhteyden läsnäolotiedot) | Paikalla olo, EPIC FRIENDS, "In Ramsgate" ja uuden kaverin näkyminen ilman uutta kirjautumista kulkevat kaikki XMPP:n läsnäolotietojen kautta. Se on rakennettu chat-palvelimeen 23.9.2026 ([Tekstichat]({{ chat_page.url | relative_url }}#presence)), eikä se koskaan lähetä pelaajalle hänen omaa läsnäolotietoaan, mutta se pysyy pois päältä (`CHAT_PRESENCE=0`), kunnes chat itse on käytössä ja kahden hengen ryhmä on pitänyt molemmat jäsenensä minuutin ajan asetus päällä (tiekartan kohta 3.10). |
 | Kaveripalvelun viimeaikaiset pelaajat | Ei koskaan kutsuttu oikeasti; pelin Recent Players -lista on hahmon tiedoissa. |
 | Muut kaverireitit (asetusten lähteet, kaikkien poisto, sähköpostihaut) | Ei koskaan kutsuttu oikeasti. |
 | Lähetettyjen ryhmäkutsujen listaaminen | Peliohjelma voisi luulla niitä saapuneiksi. |
 | Ryhmänhaku (party finder), konsoli-istunnot, Phoenixin paikalla olon yhteys | Ei koskaan kutsuttu; kyselyt kuljettavat kaiken ryhmän tilan. |
 | Puhe | Vivox on poissa; kiltapuhetta ei ole toteutettu versiossa 1.4.4 lainkaan. |
-| Linked Slayers (My Links) | Ei koskaan kutsuttu oikeasti. |
+| Slayer Linksin palkinnot | Kahta palkintoreittiä ei ole vielä jäljitetty; väärä onnistumisvastaus voisi hukata palkinnon. Muu osa [Slayer Linksistä](#slayer-links) on rakennettu. |
 | Kiltarajapinnan versio 1 | Versio 1.4.4 ei koskaan kutsu sitä. |
 
 [Version 2.1.1 yksinpelikokeilu]({{ awakening_page.url | relative_url }}) kuvaa samat Phoenixin

@@ -13,6 +13,7 @@ ref: findings/chat
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "setup/windows-server.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "findings/harmonic-fork.md" | first %}
 
 # Text chat in 1.4.4
 {: .no_toc }
@@ -31,6 +32,11 @@ two-player test on the rented server confirms or corrects them.
 The first chat server was written and tested with a real 1.4.4 client by **Vvoidddd**
 ([pull request #9](https://github.com/mixutin/dauntless-revived/pull/9)). His observations are what
 this page explains, and his code is what the server grew from.
+
+**Update (23 September 2026): friends' online status is built into the chat server, off by default**
+(`CHAT_PRESENCE=1`, together with `CHAT=1`): [Friends' online status](#presence). The idea of a
+presence service comes from **Harmonic's** 1.4.4 fork; the code is our own and shares nothing with his
+(see [The Harmonic port]({{ harmonic_page.url | relative_url }}#social)).
 
 <details open markdown="block">
   <summary>Contents</summary>
@@ -221,13 +227,58 @@ channel for everyone on the same server is a later step (roadmap 3.10).
 
 The client has an automatic kick for party members who look offline (B `0x1415f6f60`). It runs only
 while the local player's own Phoenix presence is online (B `0x1415f7562`), and it reads only that
-presence. Our server sends **no presence outside chat rooms**: it records the client's own broadcast
-presence and drops it, never echoing or relaying it. Room presence comes from `muc.<domain>`, which the
-presence module leaves to the room code (B `0x143a381d0`). So the automatic kick stays dormant. The
-live test checks that a party of two with chat on keeps both members for a minute
+presence. Room presence comes from `muc.<domain>`, which the presence module leaves to the room code
+(B `0x143a381d0`). So the server keeps one rule, whatever the settings:
+
+- **By default** (`CHAT_PRESENCE` off) it sends **no presence outside chat rooms** at all: it records
+  the client's own broadcast presence and drops it, never echoing or relaying it.
+- **With friends' online status on** (`CHAT_PRESENCE=1`) it relays presence between friends, but
+  **never sends a player a stanza outside a room whose sender is the player's own account**, not even
+  from that account's second session (two are allowed at once). That is what could set the local
+  player's own presence and wake the kick.
+
+So the automatic kick stays dormant. The live test checks that a party of two with chat on, and then
+with friends' online status on, keeps both members for a minute
 ([Friends, parties and guilds]({{ social_page.url | relative_url }}#parties)).
 
-Friends' online status needs presence, so it is not part of this round.
+## Friends' online status {#presence}
+
+**Built and tested without the game, off by default** (`CHAT_PRESENCE=1`, which needs `CHAT=1`; read
+when the chat server starts). With it off, not one presence stanza is sent outside rooms, exactly as
+before. The 1.4.4 client never asks for a roster, never subscribes and never probes: it only knows the
+presence the server pushes (B), so the server does all of the following by itself (C,
+`src/realtime/presence.ts`).
+
+**Who hears whom.** A player's presence goes to every session of each **accepted** friend who has not
+blocked the player and whom the player has not blocked, once that session has sent a presence of its
+own. The player's own sessions are never in that list.
+
+| When | What the server sends |
+|:-----|:----------------------|
+| A session sends its first broadcast presence (no `to`) | That session gets the current presence of each friend who is online; each such friend gets the player's presence. |
+| The presence changes (`<show>` or the `<status>` text) | The new presence, to the same friends. More than 5 changes at once are held back to one every 2 seconds; the latest held-back one goes out at the next second's tick. |
+| The session ends (`<close/>`, a dropped socket, a ping timeout, replacement, an abuse, size or backlog end) or broadcasts `type="unavailable"` | `type="unavailable"` from its full address. If the account still has another session with a presence, that presence follows at once, so the friend does not show as offline. Nothing is sent at a server shutdown. |
+| Two players become friends over HTTP (an accept of a request) | Each player's sessions get the client's friends-list message, from `xmpp-admin@<domain>`: `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId", "status": "ACCEPTED", "direction": "INBOUND" or "OUTBOUND", "created"}, "timestamp"}`, then the two exchange presences. A new request (still pending) pushes nothing. |
+| An accepted friendship ends (unfriend, or a block that removes it) | Each side gets the other's `type="unavailable"` once; after that neither hears of the other. |
+
+- **Exactly as sent.** The presence is relayed from the sender's **full** address
+  (`<account>@<domain>/<resource>`; the client drops a presence without a resource, B `0x143a382b0`),
+  to the receiver's full address, with `<show>` (only `away`, `chat`, `dnd` or `xa`) and the `<status>`
+  JSON unchanged. A `<status>` over 4096 characters is left out; the presence itself still goes.
+- **The friends-list message.** The client accepts that message only from the local part `xmpp-admin`
+  at the receiver's own domain (B `0x1408ba550`, `FOnlineFriendsMcp::OnXmppMessageReceived`).
+- **The rule, enforced three times:** the friend lookup leaves the account itself out; the one function
+  that sends every presence stanza refuses one whose sender is the receiver's own account (compared
+  without case) and logs `chat: presence: refused to send c=<id> a stanza from its own account`, which
+  must never appear; and the tests check every stanza the server sends in every chat test file (below).
+- Room code, the room nicknames and the usernames fix are untouched.
+
+**Log lines** (metagame log): at every start `chat: friends' online status on (CHAT_PRESENCE=1): ...` or
+`chat: friends' online status off: no presence is sent outside rooms`, and a warning when
+`CHAT_PRESENCE` is on without `CHAT=1`; per session `chat: presence c=<id> uid=<account> online: told N
+friend session(s), heard of M` and `... offline (<reason>): told N friend session(s)`; and
+`chat: presence: <A> and <B> are friends now: told N and M session(s)`. The full list is on
+[Troubleshooting]({{ trouble_page.url | relative_url }}#chat-presence).
 
 ## Connections and limits {#limits}
 
@@ -274,6 +325,15 @@ account, so it also shows what a reconnect would do to the others' view. The Web
 and three players through joins, messages, leaves, a reconnect while the old connection lingers, the
 nickname rules, party and guild rooms, blocks, whispers, sessions, pings, limits and the crash guard,
 and one test takes the names through the real account routes.
+
+`test/presence.test.ts` covers friends' online status: the exchange with `<show>` and `<status>`
+unchanged from the full address; two sessions of one account (nothing passes between them, the friend
+hears both, the remaining session's presence follows when one leaves); unavailable on `<close/>`, a
+dropped socket, an unavailable broadcast and a ping timeout; strangers, blocks and an unfriend; the
+friends-list message on an accept (and none for a request); a change, a repeat and a flood held back;
+and zero stanzas outside rooms with `CHAT_PRESENCE` off. `test/chatinvariant.ts` watches **every
+stanza the server sends** in the chat, chat-over-HTTP, chat-model and presence test files, and fails
+the file if a stanza outside a room ever reached a session from its own account.
 
 ## How to verify {#how-to-verify}
 
@@ -346,6 +406,29 @@ The test passes when steps 1-11 go as described and step 12 finds nothing.
   or `Update-DauntlessServer.ps1 -Ref 9f3f78b`. The older code ignores `CHAT`, so nothing else needs
   changing.
 
+### Friends' online status (after the chat test passes) {#how-to-verify-presence}
+
+Only once steps 1-12 above have passed. The server kit's `Set-Chat.ps1` has no switch for it yet, so
+add `CHAT_PRESENCE=1` to `C:\DauntlessRevived\data\config\metagame.env` by hand and restart the
+metagame when nobody is playing. The start line reads `chat: friends' online status on
+(CHAT_PRESENCE=1)`. A and B must be accepted friends.
+
+1. **Both start the game.** Each gets `chat: presence c=<id> uid=<X> online: told N friend session(s),
+   heard of M` (the second one to arrive: `told 1 ..., heard of 1`). In the Social panel each sees the
+   other online, and then "In Ramsgate".
+2. **Party safety.** A and B stay in a party for 60 seconds in Ramsgate, then go on one hunt and back.
+   There must be **no** `DELETE /party/member/...` and no `DELETE /party/leader/...` in the log, and
+   **never** a line `chat: presence: refused to send ... a stanza from its own account`.
+3. **B quits.** `chat: presence c=<id> uid=<B> offline (close): told 1 friend session(s)`; A sees B go
+   offline.
+4. **A new friend.** With a third account C online: A sends C a friend request (nothing is pushed), C
+   accepts; `chat: presence: <A> and <C> are friends now: told N and M session(s)`, and both see the
+   other at once, without a new login.
+
+The test passes when all four go as described. **The way back:** remove `CHAT_PRESENCE=1` (or set it to
+0) and restart the metagame; chat itself keeps working. Only after this test does
+`CHAT_PRESENCE` go on by default, and only once chat itself is on by default.
+
 ## Still unconfirmed {#unconfirmed}
 
 | Open point | Label | How the live test checks it |
@@ -362,6 +445,9 @@ The test passes when steps 1-11 go as described and step 12 finds nothing.
 | Chat after the 24-hour token expiry | B (the retry), C (the expiry) | A `reason=expired` line at most every 10 minutes. |
 | A map load holds up the client's answer to a server ping | S | No `reason=ping-timeout` around a hunt travel (step 6). |
 | A reconnect keeps the player's name for the others | B for the client's member list, C for ours | Step 10, when it happens. |
+| Friends' presence shows them online, then "In Ramsgate", then offline | B for what the client accepts, not seen in game | [Friends' online status](#how-to-verify-presence), steps 1 and 3. |
+| The automatic party kick stays dormant with friends' presence on | B for its conditions, C for the rule | A party of two with `CHAT_PRESENCE=1` for 60 s and a hunt trip: no `DELETE /party/member/...`. |
+| An accept pushed over chat shows the new friend without a new login | B for the handler, not seen in game | Step 4 of the presence test. |
 
 What to do when chat misbehaves is on [Troubleshooting]({{ trouble_page.url | relative_url }}#chat-not-connected);
 turning it on and off on a server is on [Windows server kit]({{ winserver_page.url | relative_url }}#chat).

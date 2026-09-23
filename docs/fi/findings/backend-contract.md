@@ -13,6 +13,10 @@ description: "Dauntlessin taustapalvelut steelyard.ca-palvelimilla (ei PlayFab):
 {% assign awakening_page = site.pages | where: "path", "fi/findings/awakening-2-1-1.md" | first %}
 {% assign mp_page = site.pages | where: "path", "fi/findings/multiplayer.md" | first %}
 {% assign crashes_page = site.pages | where: "path", "fi/findings/crashes.md" | first %}
+{% assign escalation_page = site.pages | where: "path", "fi/findings/escalation.md" | first %}
+{% assign store_page = site.pages | where: "path", "fi/findings/store.md" | first %}
+{% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
+{% assign game_page = site.pages | where: "path", "fi/reference/game-settings.md" | first %}
 
 # Taustapalvelun rajapinta
 {: .no_toc }
@@ -527,7 +531,8 @@ latauksella:
 
 Talent-alkiot ovat muotoa `{"rank", "talent_id"}` ja unlock-alkiot muotoa `{"collected", "reward_id"}`.
 `update_version` on int32 naapuriensa perusteella; sen lukemista emme eristäneet. Undaunted lähettää
-versiolle 1.4.4 saman kuorellisen muodon.
+versiolle 1.4.4 saman kuorellisen muodon. Version 1.4.4 kausiluettelo, tallennusreitti ja palvelimemme
+säännöt (oletuksena pois päältä) ovat sivulla [Escalation]({{ escalation_page.url | relative_url }}).
 
 **Pelaajan polku (`/pjm`).** Asiakasohjelman oma kirjoitus, `POST /pjm/{accountid}`, näyttää tältä:
 
@@ -563,6 +568,52 @@ ja `claimed`. `draft_data` on `{"current_draft_choices": [], "previous_draft_sel
 mutta avaimen nimeä ei esiinny missään ohjelmatiedostossa, joten mikään ei koskaan hae sitä.
 Palkkiotehtävien asetukset tulevat sen sijaan pelin viritysmöhkäleestä `bounty_game_data`
 (`GET /game_tuning/{blobid}`). Undaunted tarjoaa polun `/bounty/game-data` versiolle 1.4.4.
+
+### Oma 1.4.4-palvelimemme: tasopalkinnot, uusinnat ja asetukset {#progression-on-our-server}
+
+Tämä osa koskee **versiota 1.4.4 meidän palvelimellamme** (oikea eteneminen, oletus), ja se perustuu
+ohjelmatiedostoon ja pelitesteihimme. Merkit: **B** luettu 1.4.4-ohjelmatiedostosta, **V** varmistettu
+pelissä, **S** vahva päätelmä.
+
+- **Vahvistus ei maksa mitään.** 1.4.4-pelipalvelin maksaa jokaisen tason palkinnot itse reitin
+  `/inventory` kautta kolmea polkua pitkin (B `0x141472fa0`, `0x1414876a0`, `0x141481920`), ja
+  pelitestimme näki jokaisen palkinnon annettavan täsmälleen kerran (V, tiekartan kohta 2.10). Siksi
+  `POST /progression/<tili>/<rata>/<taso>/confirm/<public tai premium>` vain nostaa vahvistettua tasoa
+  eikä anna mitään. Testi vartioi, että vahvistus jättää tavaraluettelot, tavaralokin ja oikeudet
+  ennalleen. Harmonicin haara maksoi vahvistuksessa; meidän tietokannassamme, jossa sen
+  lunastuskirjanpito alkaisi tyhjänä, se maksaisi uudelleen jokaisen tason, jonka pelaajat ovat jo
+  vahvistaneet.
+- **Elite-tasojen oikeudet (valinnainen).** Vain pelin oma `GrantProgressionAction` nimeää oikeuden
+  myönnön (B `0x1446c84c0`, käytössä kohdassa `0x141487aa5`). Antaako pelipalvelin season09b-tasojen
+  pysyvät oikeudet (premium 6, 9, 29 ja 50, ilmainen 50) itse reitin `POST /entitlementv2` kautta, on
+  auki. `PROGRESSION_CONFIRM_ENTITLEMENTS=1` saa tasoa nostavan vahvistuksen antamaan kyseisen tason
+  pysyvät oikeudet asetuksista (lähde `confirm:<rata>:<taso>`), ei koskaan tavaroita, valuuttoja tai
+  määräaikaisia tehosteita (premium 16, 34, 42 ja 47). Oletuksena pois, kunnes pelitesti ratkaisee:
+  saavuta Elite-taso 6 metsästysten XP:llä ja katso, tuleeko `POST /entitlementv2`.
+- **Uusinnat.** Pelipalvelin yrittää epäonnistunutta pyyntöä uudelleen jopa 5 kertaa
+  (`HTTPRetryCount=5`, B). Myöntö (`POST /progression/<tili>`), jonka runko on tavu tavulta sama kuin
+  tilin edellinen myöntö, `PROGRESSION_REPLAY_WINDOW_S` sekunnin sisällä (oletus 10) eikä välissä ole
+  muuta etenemisen kirjoitusta, saa ensimmäisen myönnön tallennetun vastauksen eikä lisää mitään;
+  tauluun `progression_events` kirjataan rivi. Mikä tahansa välissä tullut vahvistus, nollaus tai muu
+  myöntö tekee samasta rungosta uuden myönnön. Tavoite, joka saapuu tallennettua pienempänä,
+  kirjataan lokiin ("objective went backwards") ja tallennetaan lähetettynä.
+- **Asetukset.** `GET /progression/config` ja tasolaskenta lukevat yhtä lataajaa: mukana tulevaa
+  tiedostoa `vendor/progression_config.json` tai, asetuksella `PROGRESSION_CONFIG_DIR`, kansiota
+  kausitiedostoja, jotka korvaavat ratoja tai lisäävät niitä ja jotka tarkistetaan käynnistyksessä
+  (huono tiedosto pysäyttää käynnistyksen). `ACTIVE_HUNT_PASS` (oletus `season09b`) on Hunt Pass, jonka
+  tili saa, kun mitään ei ole tallennettu. Älä koskaan muokkaa kautta paikallaan, kun pelaajilla on
+  siinä etenemistä (S): tallennettu eteneminen lasketaan sen vaatimuksia vasten.
+- **Saldot.** `GET /balance` ja `POST /reconcile` vastaavat peliohjelman valuuttataulukkoon (se lukee
+  kentän `CURRENCY_PLATINUM`, B `0x14161a790`, `0x1415d16dc`). Jokainen `CURRENCY_*`-avain kummallakin
+  kirjoitusasulla kertoo nyt, mitä tilin aktiivisella hahmolla on tavaraluettelossa pinona
+  (`BALANCE_FROM_INVENTORY`, päällä). `CURRENCY_PLATINUM_UNIV` ei ole mukana: ohjelmatiedosto nimeää
+  sen vain Elite-tarjousnäkymän yhteydessä (B `0x14477fc50`, käytössä kohdissa `0x1417ddd68` ja
+  `0x1417dddeb`), ei siellä, missä saldot luetaan (S).
+
+Nämä asetukset ovat sivuilla [Asetukset]({{ config_page.url | relative_url }}#metagame-progression)
+ja [Pelin asetukset]({{ game_page.url | relative_url }}#hunt-pass-seasons). Version 1.4.4 kauppareitit
+(`/product/...`, `/token/...`, `/notification/...`) ovat sivulla
+[Pelin kauppa]({{ store_page.url | relative_url }}).
 
 ---
 

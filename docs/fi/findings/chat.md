@@ -15,6 +15,7 @@ description: "Miten Dauntless 1.4.4 käyttää tekstichattia palvelimemme kanssa
 {% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
 {% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 {% assign winserver_page = site.pages | where: "path", "fi/setup/windows-server.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "fi/findings/harmonic-fork.md" | first %}
 
 # Tekstichat versiossa 1.4.4
 {: .no_toc }
@@ -34,6 +35,11 @@ malliin. Kahden pelaajan testi vuokratulla palvelimella vahvistaa tai korjaa ne.
 Ensimmäisen chat-palvelimen kirjoitti ja testasi oikealla 1.4.4-pelillä **Vvoidddd**
 ([pull request #9](https://github.com/mixutin/dauntless-revived/pull/9)). Tämä sivu selittää hänen
 havaintonsa, ja palvelin on kasvanut hänen koodistaan.
+
+**Päivitys 23.9.2026: kavereiden paikalla olo on rakennettu chat-palvelimeen, oletuksena pois päältä**
+(`CHAT_PRESENCE=1` yhdessä asetuksen `CHAT=1` kanssa): [Kavereiden paikalla olo](#presence).
+Läsnäolopalvelun idea on **Harmonicin** 1.4.4-haarasta; koodi on omaamme eikä jaa mitään hänen
+koodistaan (katso [Harmonicin työn siirto]({{ harmonic_page.url | relative_url }}#social)).
 
 <details open markdown="block">
   <summary>Sisältö</summary>
@@ -237,15 +243,62 @@ Yhteinen Ramsgate-kanava kaikille saman palvelimen pelaajille on myöhempi vaihe
 
 Peliohjelmassa on automaattinen potku ryhmän jäsenille, jotka näyttävät olevan poissa (B
 `0x1415f6f60`). Se toimii vain, kun paikallisen pelaajan oma Phoenix-läsnäolotieto on "paikalla" (B
-`0x1415f7562`), ja se lukee vain tätä läsnäolotietoa. Palvelimemme **ei lähetä läsnäolotietoja
-chat-huoneiden ulkopuolella**: se kirjaa peliohjelman oman yleisläsnäolotiedon ja pudottaa sen,
-eikä koskaan kaiuta tai välitä sitä. Huoneiden läsnäolotiedot tulevat osoitteesta
-`muc.<verkkotunnus>`, jonka läsnäolomoduuli jättää huonekoodille (B `0x143a381d0`). Automaattinen
-potku pysyy siis lepotilassa. Testissä tarkistetaan, että kahden hengen ryhmä pitää molemmat jäsenet
-minuutin ajan chatin ollessa päällä
-([Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}#parties)).
+`0x1415f7562`), ja se lukee vain tätä läsnäolotietoa. Huoneiden läsnäolotiedot tulevat osoitteesta
+`muc.<verkkotunnus>`, jonka läsnäolomoduuli jättää huonekoodille (B `0x143a381d0`). Siksi palvelin
+noudattaa yhtä sääntöä asetuksista riippumatta:
 
-Kavereiden paikalla olon näyttäminen tarvitsee läsnäolotietoja, joten se ei kuulu tähän vaiheeseen.
+- **Oletuksena** (`CHAT_PRESENCE` pois) se **ei lähetä läsnäolotietoja chat-huoneiden ulkopuolella**
+  lainkaan: se kirjaa peliohjelman oman yleisläsnäolotiedon ja pudottaa sen, eikä koskaan kaiuta tai
+  välitä sitä.
+- **Kun kavereiden paikalla olo on päällä** (`CHAT_PRESENCE=1`), se välittää läsnäolotietoja kavereiden
+  välillä, mutta **ei koskaan lähetä pelaajalle huoneen ulkopuolista viestiä, jonka lähettäjä on
+  pelaajan oma tili**, ei edes saman tilin toisesta istunnosta (kaksi on sallittu yhtä aikaa). Juuri
+  sellainen voisi asettaa paikallisen pelaajan oman läsnäolotiedon ja herättää potkun.
+
+Automaattinen potku pysyy siis lepotilassa. Testissä tarkistetaan, että kahden hengen ryhmä pitää
+molemmat jäsenet minuutin ajan chatin ollessa päällä ja sitten myös kavereiden paikalla olon ollessa
+päällä ([Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}#parties)).
+
+## Kavereiden paikalla olo {#presence}
+
+**Rakennettu ja testattu ilman peliä, oletuksena pois päältä** (`CHAT_PRESENCE=1`, joka tarvitsee
+asetuksen `CHAT=1`; luetaan chat-palvelimen käynnistyessä). Kun se on pois, huoneiden ulkopuolella ei
+lähetetä yhtäkään läsnäoloviestiä, täsmälleen kuten ennenkin. 1.4.4-peliohjelma ei koskaan pyydä
+kaverilistaa (roster), ei tilaa läsnäolotietoja eikä kysele niitä: se tietää vain sen, minkä palvelin
+lähettää (B), joten palvelin tekee kaiken seuraavan itse (C, `src/realtime/presence.ts`).
+
+**Kuka kuulee kenestä.** Pelaajan läsnäolotieto menee jokaisen sellaisen **hyväksytyn** kaverin
+jokaiseen istuntoon, joka ei ole estänyt pelaajaa ja jota pelaaja ei ole estänyt, kunhan tuo istunto
+on lähettänyt oman läsnäolotietonsa. Pelaajan omat istunnot eivät ole koskaan tällä listalla.
+
+| Milloin | Mitä palvelin lähettää |
+|:--------|:-----------------------|
+| Istunto lähettää ensimmäisen yleisläsnäolotietonsa (ei `to`-kenttää) | Istunto saa kunkin paikalla olevan kaverin nykyisen läsnäolotiedon; kukin tällainen kaveri saa pelaajan läsnäolotiedon. |
+| Läsnäolotieto muuttuu (`<show>` tai `<status>`-teksti) | Uusi läsnäolotieto samoille kavereille. Yli 5 muutosta kerralla hidastetaan yhteen kahden sekunnin välein; viimeisin pidätetty lähtee seuraavalla sekunnin kierroksella. |
+| Istunto päättyy (`<close/>`, katkennut yhteys, vastaamaton ping, korvaaminen, väärinkäyttö, koko tai jono) tai lähettää `type="unavailable"` | `type="unavailable"` sen täydestä osoitteesta. Jos tilillä on vielä toinen istunto läsnäolotietoineen, sen läsnäolotieto lähtee heti perään, jottei kaveri näy poissa olevana. Palvelimen sammuessa ei lähetetä mitään. |
+| Kaksi pelaajaa tulee kavereiksi HTTP:n kautta (pyynnön hyväksyntä) | Kummankin pelaajan istunnot saavat peliohjelman kaverilistaviestin osoitteesta `xmpp-admin@<verkkotunnus>`: `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId", "status": "ACCEPTED", "direction": "INBOUND" tai "OUTBOUND", "created"}, "timestamp"}`, ja sitten he vaihtavat läsnäolotiedot. Uusi, vielä odottava pyyntö ei lähetä mitään. |
+| Hyväksytty kaveruus päättyy (kaveruuden purku tai sen poistava esto) | Kumpikin saa toisen `type="unavailable"`-viestin kerran; sen jälkeen kumpikaan ei kuule toisesta. |
+
+- **Täsmälleen lähetettynä.** Läsnäolotieto välitetään lähettäjän **täydestä** osoitteesta
+  (`<tili>@<verkkotunnus>/<resurssi>`; peliohjelma pudottaa läsnäolotiedon ilman resurssia, B
+  `0x143a382b0`) vastaanottajan täyteen osoitteeseen, ja `<show>` (vain `away`, `chat`, `dnd` tai `xa`)
+  ja `<status>`-JSON ovat muuttumattomia. Yli 4096 merkin `<status>` jätetään pois; itse läsnäolotieto
+  lähtee silti.
+- **Kaverilistaviesti.** Peliohjelma hyväksyy sen vain paikallisosalta `xmpp-admin` vastaanottajan omassa
+  verkkotunnuksessa (B `0x1408ba550`, `FOnlineFriendsMcp::OnXmppMessageReceived`).
+- **Sääntö valvotaan kolmesti:** kaverihaku jättää tilin itsensä pois; se yksi funktio, joka lähettää
+  jokaisen läsnäoloviestin, kieltäytyy viestistä, jonka lähettäjä on vastaanottajan oma tili
+  (kirjainkoosta riippumatta), ja kirjaa rivin `chat: presence: refused to send c=<tunnus> a stanza
+  from its own account`, jota ei saa koskaan näkyä; ja testit tarkistavat jokaisen palvelimen
+  lähettämän viestin kaikissa chat-testitiedostoissa (alla).
+- Huonekoodi, huoneiden nimimerkit ja käyttäjänimikorjaus ovat koskemattomia.
+
+**Lokirivit** (metagamen loki): jokaisella käynnistyksellä `chat: friends' online status on
+(CHAT_PRESENCE=1): ...` tai `chat: friends' online status off: no presence is sent outside rooms`, ja
+varoitus, jos `CHAT_PRESENCE` on päällä ilman asetusta `CHAT=1`; istuntoa kohden `chat: presence
+c=<tunnus> uid=<tili> online: told N friend session(s), heard of M` ja `... offline (<syy>): told N
+friend session(s)`; sekä `chat: presence: <A> and <B> are friends now: told N and M session(s)`. Koko
+luettelo on sivulla [Vianetsintä]({{ trouble_page.url | relative_url }}#chat-presence).
 
 ## Yhteydet ja rajat {#limits}
 
@@ -297,6 +350,16 @@ näkymälle. WebSocket-testit vievät kaksi ja kolme pelaajaa liittymisten, vies
 vanhan yhteyden vielä roikkuessa tehdyn uudelleenyhdistämisen, nimimerkkisääntöjen, ryhmä- ja
 kiltahuoneiden, estojen, kuiskausten, istuntojen, pingien, rajojen ja kaatumissuojan läpi, ja yksi
 testi hakee nimet oikeiden tilireittien kautta.
+
+`test/presence.test.ts` kattaa kavereiden paikalla olon: vaihdon, jossa `<show>` ja `<status>` ovat
+muuttumattomia ja lähettäjänä täysi osoite; yhden tilin kaksi istuntoa (niiden välillä ei kulje mitään,
+kaveri kuulee molemmat, jäljelle jäävän istunnon läsnäolotieto lähtee, kun toinen poistuu);
+`unavailable`-viestin tilanteissa `<close/>`, katkennut yhteys, `unavailable`-yleisviesti ja vastaamaton
+ping; vieraat, estot ja kaveruuden purun; kaverilistaviestin hyväksynnässä (eikä pyynnössä); muutoksen,
+toiston ja hidastetun tulvan; sekä nolla huoneen ulkopuolista viestiä, kun `CHAT_PRESENCE` on pois.
+`test/chatinvariant.ts` seuraa **jokaista palvelimen lähettämää viestiä** chat-, chat-HTTP-, chat-malli-
+ja läsnäolotestitiedostoissa ja hylkää tiedoston, jos yksikin huoneen ulkopuolinen viesti saapui
+istunnolle sen omalta tililtä.
 
 ## Näin se tarkistetaan {#how-to-verify}
 
@@ -372,6 +435,31 @@ Testi on läpäisty, kun vaiheet 1-11 menevät kuvatusti ja vaihe 12 ei löydä 
   `Update-DauntlessServer.ps1 -Ref 9f3f78b`. Vanhempi koodi ei lue asetusta `CHAT`, joten muuta ei
   tarvitse muuttaa.
 
+### Kavereiden paikalla olo (kun chat-testi on läpäisty) {#how-to-verify-presence}
+
+Vasta kun yllä olevat vaiheet 1–12 on läpäisty. Palvelinpaketin `Set-Chat.ps1`:ssä ei ole sille vielä
+kytkintä, joten lisää `CHAT_PRESENCE=1` käsin tiedostoon
+`C:\DauntlessRevived\data\config\metagame.env` ja käynnistä metagame uudelleen, kun kukaan ei pelaa.
+Käynnistysrivi on `chat: friends' online status on (CHAT_PRESENCE=1)`. A:n ja B:n on oltava
+hyväksyttyjä kavereita.
+
+1. **Kumpikin käynnistää pelin.** Kumpikin saa rivin `chat: presence c=<tunnus> uid=<X> online: told N
+   friend session(s), heard of M` (jälkimmäisenä saapuva: `told 1 ..., heard of 1`). Social-paneelissa
+   kumpikin näkee toisen paikalla ja sitten "In Ramsgate".
+2. **Ryhmien turvallisuus.** A ja B ovat ryhmässä 60 sekuntia Ramsgatessa ja käyvät sitten yhdellä
+   metsästyksellä. Lokissa **ei** saa olla riviä `DELETE /party/member/...` eikä
+   `DELETE /party/leader/...`, eikä **koskaan** riviä `chat: presence: refused to send ... a stanza from
+   its own account`.
+3. **B lopettaa.** `chat: presence c=<tunnus> uid=<B> offline (close): told 1 friend session(s)`; A näkee
+   B:n menevän pois.
+4. **Uusi kaveri.** Kolmannen tilin C ollessa paikalla: A lähettää C:lle kaveripyynnön (mitään ei
+   lähetetä), C hyväksyy; `chat: presence: <A> and <C> are friends now: told N and M session(s)`, ja
+   kumpikin näkee toisen heti ilman uutta kirjautumista.
+
+Testi on läpäisty, kun kaikki neljä menevät kuvatusti. **Paluutie:** poista `CHAT_PRESENCE=1` (tai
+aseta 0) ja käynnistä metagame uudelleen; chat itse jatkaa toimintaansa. Vasta tämän testin jälkeen
+`CHAT_PRESENCE` tulee oletukseksi, ja vasta kun chat itse on oletuksena päällä.
+
 ## Vielä vahvistamatta {#unconfirmed}
 
 | Avoin kohta | Merkki | Miten testi tarkistaa sen |
@@ -388,6 +476,9 @@ Testi on läpäisty, kun vaiheet 1-11 menevät kuvatusti ja vaihe 12 ei löydä 
 | Chat 24 tunnin tunnisteen vanhenemisen jälkeen | B (uusintayritys), C (vanheneminen) | Rivi `reason=expired` enintään 10 minuutin välein. |
 | Kartan lataus viivästyttää peliohjelman vastausta palvelimen pingiin | S | Metsästysmatkan ympärillä ei rivejä `reason=ping-timeout` (vaihe 6). |
 | Uudelleenyhdistäminen säilyttää pelaajan nimen muille | B peliohjelman jäsenluettelolle, C meidän | Vaihe 10, kun se sattuu. |
+| Kavereiden läsnäolotiedot näyttävät heidät paikalla, sitten "In Ramsgate", sitten poissa | B sille, mitä peliohjelma hyväksyy, ei nähty pelissä | [Kavereiden paikalla olo](#how-to-verify-presence), vaiheet 1 ja 3. |
+| Automaattinen ryhmäpotku pysyy lepotilassa kavereiden läsnäolotietojen ollessa päällä | B sen ehdoille, C säännölle | Kahden hengen ryhmä asetuksella `CHAT_PRESENCE=1` 60 sekuntia ja metsästysmatka: ei `DELETE /party/member/...`. |
+| Chatin kautta lähetetty hyväksyntä näyttää uuden kaverin ilman uutta kirjautumista | B käsittelijälle, ei nähty pelissä | Läsnäolotestin vaihe 4. |
 
 Mitä tehdä, kun chat ei toimi, kerrotaan sivulla [Vianetsintä]({{ trouble_page.url | relative_url }}#chat-not-connected);
 chatin kytkeminen päälle ja pois palvelimella kerrotaan sivulla

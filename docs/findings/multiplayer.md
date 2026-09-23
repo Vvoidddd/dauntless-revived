@@ -189,7 +189,7 @@ has the details.
 
 | Instance | Upstream | Our fork |
 |---|---|---|
-| Ramsgate | One shared, persistent process on `PORT_RANGE_END`, started at boot | Same |
+| Ramsgate | One shared, persistent process on `PORT_RANGE_END`, started at boot | Same, and started again when a player travels there while it is dead |
 | Training Dojo | One persistent process on `PORT_RANGE_END - 1`, started at boot | Started the first time someone is matchmade into it. `ENABLE_DOJO=1` restores the upstream behaviour. |
 | Hunts | **One process per matched group**, on a port from the pool `PORT_RANGE_BEGIN` to `PORT_RANGE_END - 2` | Same |
 
@@ -203,9 +203,28 @@ has the details.
 - **Supervision.** Once a minute, a watchdog checks each process with `process.kill(pid, 0)`. If the
   Ramsgate or Dojo process has disappeared, it starts a new one. It never kills anything, because
   hunt servers shut themselves down.
+- **A dead Ramsgate on demand (our fork, 23 September 2026, from Harmonic's fork).** Before it hands
+  out Ramsgate or the Dojo (a `CITY` trip, the Dojo, or the fallback to Ramsgate), the deploy server
+  checks the same way that the process is still alive, and starts a dead one first
+  (`PERSISTENT_WORLD_LIVENESS`, on by default; `0` leaves it to the watchdog, as before). Before, a
+  player could be sent to a dead Ramsgate for up to a minute. The boot, the watchdog and players'
+  requests share **one launch per world**, so there is never a second process on UDP 8777 or 8776, and
+  the restarted process is stored as the world's record (upstream kept the old, dead one). A restart on
+  demand waits in the launch queue like a hunt does, about 10 seconds with the kit.
+- **Crashes of the deploy server itself.** Every game-server process has `error` and `exit` listeners:
+  a wrong `GAMESERVER_BINARY_PATH` is logged ("Game server on port N failed: ...") and the hunt's port
+  goes back to the pool, where it used to end the deploy server with an unhandled error. Every process
+  end is one "exited with code" line. A failed start at boot is one fatal line and exit code 1 when
+  the process later ends; the deploy server keeps serving, and the next trip to Ramsgate tries again.
+  A matchmaking request whose game server cannot be started (no free port, a spawn failure) answers
+  500 `{"error": "no_game_server"}`, and the metagame answers the players' status polls with `FAILED`.
 - **The reply.** The deploy server returns `{host, port}` as soon as it has spawned the process. It
   does not wait for the server to be ready. A new server only starts listening about three seconds
-  after its world exists.
+  after its world exists. Harmonic's fork waits for the game's UDP port first; we left that out for
+  now, because it would hold the player's travel request open for the whole server boot, the client's
+  time limit for that request is unknown, and a 60-second deadline could kill a Ramsgate that boots
+  slowly (roadmap 4.6). His game-server log files were left out too: the server DLL gives the engine a
+  fixed command line and redirects its output, so the files would stay nearly empty.
 
 Our port layout on the host:
 
@@ -241,7 +260,11 @@ client                     metagame                      deploy server          
 
 - **The status reply.** Undaunted's `/candidate/status` returns `MATCHING` until the server is
   known, then `IN_PROGRESS` with `serverInfo {buildId, gameSessionId, host, port}`. It asks the
-  client to poll every 10 seconds (`candidateStatusPeriodMillis: 10000`).
+  client to poll every 10 seconds (`candidateStatusPeriodMillis: 10000`). Our fork answers `FAILED`
+  (with `statusReason: null` and no `serverInfo`) when the deploy server could not give a server: a
+  500 or 503, a reply without a host, a quoted port, a body that is not JSON or a dropped connection,
+  each tested on the Ramsgate, tutorial and queued-hunt paths (the failure cases come from Harmonic's
+  tests). Upstream sent the group to host `""` and port 0 instead.
 - **Grouping.** Hunts that need matchmaking are grouped by player hunt id. A group is sent to the
   deploy server when it reaches 4 players, or 20 seconds after the last player joined. The
   20-second check only runs when a client polls `/candidate/status`. Hunt ids containing `Ramsgate`

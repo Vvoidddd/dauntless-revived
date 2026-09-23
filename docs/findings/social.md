@@ -2,7 +2,7 @@
 title: Friends, parties and guilds
 parent: Findings
 nav_order: 9
-description: "How the Dauntless 1.4.4 client does friends, parties and guilds against its backend, read from the executable and the live server: the identity chain, the exact replies, why the first two-player test showed nothing, and what is still unconfirmed."
+description: "How the Dauntless 1.4.4 client does friends, parties, guilds and Slayer Links against its backend, read from the executable and the live server: the identity chain, the exact replies, why the first two-player test showed nothing, and what is still unconfirmed."
 lang: en
 ref: findings/social
 ---
@@ -15,21 +15,28 @@ ref: findings/social
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign friends_page = site.pages | where: "path", "setup/friends.md" | first %}
 {% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "findings/harmonic-fork.md" | first %}
 
 # Friends, parties and guilds in 1.4.4
 {: .no_toc }
 
 This page describes how the **1.4.4** client handles the Social panel: friends, blocked players,
-parties and party invites, and guilds. It records what the client sends, what it needs back, and why
-the first test with two players on 22 September 2026 showed nothing. It also lists the fixes we built
-in the metagame.
+parties and party invites, guilds and Slayer Links. It records what the client sends, what it needs
+back, and why the first test with two players on 22 September 2026 showed nothing. It also lists the
+fixes we built in the metagame.
 
 **Status (22 September 2026): built, tested without the game and running on our rented server (60955e1), not yet tried by two players.** Every
 fix below passes HTTP tests that replay the client's own requests and check each reply against a model
 of the client's parsing. The next two-player test on the rented server will confirm or correct them;
-[How to verify](#how-to-verify) lists its steps and the log lines to expect. Online status is not
-built (it needs presence over the chat connection, see [Deferred](#deferred)); text chat is, and has
-a page of its own: [Text chat]({{ chat_page.url | relative_url }}).
+[How to verify](#how-to-verify) lists its steps and the log lines to expect. Text chat is built too,
+and has a page of its own: [Text chat]({{ chat_page.url | relative_url }}).
+
+**Update (23 September 2026), from the port of Harmonic's 1.4.4 fork
+([The Harmonic port]({{ harmonic_page.url | relative_url }})), built and tested without the game, not
+deployed yet:** [Slayer Links](#slayer-links) (on by default), friends' online status inside the chat
+server (off by default, [Text chat]({{ chat_page.url | relative_url }}#presence)), a
+[party accept that arrives twice](#a-repeated-accept) now succeeds, and the client's
+[session check](#verify) names the player's own account.
 
 <details open markdown="block">
   <summary>Contents</summary>
@@ -62,7 +69,7 @@ The method for reading JSON field names out of the executable is on
 |:---------------------|:------|:----|:-----|
 | A party invite reached the other player's client (the invite poll answered it twice) but never appeared under PARTY INVITES. | Before the panel shows an invite, the client asks `POST /accountinfo/public` about the sender. Our reply, inherited from upstream, described the **caller** instead: the caller's id in `accountId` and in `linkedAccounts`. The client files user info under the reply's `accountId` and keeps the first reply per id, so the sender never got any user info, was invalidated, and the invite was dropped (B `0x140b74870`, `0x1409ede50`). | `/accountinfo/public` answers for the asked account. | H in the code, M that nothing else stands in the way |
 | Add Friends "found nothing". | Add Friends is not a search. It is a name box and an Add button. The name was found (`GET /account/api/public/account/displayName/<name>`), but the next step, `POST /account/mapping`, first got 404 and then a reply shape the client does not read. With no mapping, the client drops the friend request without a message. No friend request ever reached the server (0 calls, L). | `/account/mapping` answers in the shape the client parses. | H |
-| Everyone, the players themselves included, showed as Offline. | Online status comes only from XMPP presence, pushed over the chat connection. There is no HTTP presence route, and our chat server sends no presence outside chat rooms yet. | Not built yet: needs presence over the chat connection ([Text chat]({{ chat_page.url | relative_url }}#party-safety)). | H |
+| Everyone, the players themselves included, showed as Offline. | Online status comes only from XMPP presence, pushed over the chat connection. There is no HTTP presence route, and our chat server sent no presence outside chat rooms. | Built on 23 September 2026, off by default: friends' presence in the chat server (`CHAT=1` and `CHAT_PRESENCE=1`, [Text chat]({{ chat_page.url | relative_url }}#presence)), waiting for the two-player test that the party's automatic kick stays asleep. | H for the cause, M for the fix |
 | "Unable to create guild." | `POST /guild/validate` (from the client) and `POST /guild` (from the **game server**) both got 404. | The eleven v2 guild routes. | H |
 | Nobody used the in-game party Invite (both invites of the night came from the host's fallback). | The players could not find each other: Hunt Members and friends need the same user-info step as an invite's sender. | Same fix as the first row. | M |
 
@@ -190,7 +197,9 @@ bearer. Friendships and blocks are stored in SQLite (built for roadmap 1.9). The
 | `DELETE /friends/api/public/blocklist/:me/:them` | Unblock | any 2xx | B | H |
 
 The client reads both lists **only at login** (L). A friend request or an accept therefore shows for
-the other player at their next login, until the XMPP server can push the change.
+the other player at their next login. With friends' online status on (`CHAT=1` and
+`CHAT_PRESENCE=1`), an accept is also pushed at once over the chat connection
+([Text chat]({{ chat_page.url | relative_url }}#presence)); a new request is not.
 
 **What the player should see** (M unless marked):
 
@@ -213,14 +222,15 @@ players who blocked each other.
 
 The party service was already built (roadmap 1.9) and matched the client's requests and replies. The
 live census shows it working: 399 party polls and 399 invite polls, and the invite delivered to the
-other player's poll (L). **The only server change parties needed is the `/accountinfo/public` fix.**
+other player's poll (L). **The only server change parties needed is the `/accountinfo/public` fix**;
+since 23 September 2026 [a repeated accept](#a-repeated-accept) is also tolerated.
 
 | Call | When | Evidence | Conf |
 |:-----|:-----|:---------|:-----|
 | `POST /party` `{buildId, featureOverrides: []}` | the poll, about every 10 seconds, and at login | B `0x140b57600`, L: 399 calls | H |
 | `GET /party/invites` → `{"invitations": [{recipientPlayerId, sendingPlayerId, partyId, sendingPlatform, sendingDisplayName}]}` | the invite poll | B `0x140b675d0`, L: 399 calls | H |
 | `PUT /party/invite` `{recipientPlayerId, partyId, buildId, featureOverrides}` | Invite to Party; the chat's `/invite <name>` | B | H |
-| `PUT /party/invite/accept/:partyId` | Accept | B | H |
+| `PUT /party/invite/accept/:partyId` | Accept; the id is the party's, not an invite id (B `0x140b35384`) | B | H |
 | `DELETE /party/invite` | Decline | B | H |
 | `DELETE /party/member`, `DELETE /party/member/:id`, `PUT /party/member/promote/:id` | leave (also at every login), kick, promote | B, L: 12 leaves in 8 logins | H |
 | `POST /candidate/join` from the leader | the leader picks a hunt; the members follow through their party poll | C, tests | M |
@@ -250,9 +260,24 @@ answers a party of one with no candidate (`candidateState: null`, which reads as
 someone's invite, that sender cannot invite them again for 2 minutes (both 409, a failure to the
 client). A block removes the pending invites between the two.
 
+### A repeated accept {#a-repeated-accept}
+
+An accept can arrive twice: the client retries a request whose answer was lost, and Harmonic's fork
+tolerated that (G for how often it happens in 1.4.4). Since 23 September 2026, a
+`PUT /party/invite/accept/<id>` that matches no live invite still answers **200 with the caller's
+party** (the same body as the party poll) when the caller is already in a party of two or more and the
+id is that party's id, or the id of another member of it (for example the invite's sender). The log
+line is `party: accept by <A> id=<id>: already in P=<party> size=<n>; answering that party (a repeated
+accept)`. A party of one, a party the caller has left, the caller's own id and a stranger's id still get
+404, as before. No switch: it only answers where the reply used to be 404.
+
+### The automatic kick {#the-automatic-kick}
+
 The client's automatic kick of "offline" party members never runs without presence (B `0x1415f6f60`, a
-10-second threshold). The chat server keeps it that way: it sends no presence outside chat rooms and
-never echoes a player's own presence back ([Text chat]({{ chat_page.url | relative_url }}#party-safety)).
+10-second threshold). The chat server keeps it that way: by default it sends no presence outside chat
+rooms at all, and with friends' online status switched on (`CHAT_PRESENCE=1`) it still never sends a
+player a presence from their own account, not even from their second session
+([Text chat]({{ chat_page.url | relative_url }}#party-safety)).
 
 ## Guilds
 
@@ -420,6 +445,108 @@ client says so itself, B).
 **Nothing is pushed.** Other members and invitees see a change at their next `GET /guild` (login,
 world load, or their own guild action). The panels do not refresh themselves (B).
 
+## Slayer Links {#slayer-links}
+
+Slayer Links (the client's name is Linked Slayers; the My Links tab of the Social panel, K
+`USocialPanelTabLinkedSlayers`) let two friends link up for a week. Each player has three link slots.
+One player invites a friend into a slot, the friend accepts into one of theirs, and the link runs for
+168 hours.
+
+**Status (23 September 2026): built and tested without the game, on by default (`SLAYER_LINKS`), not
+yet tried in game.** The contract comes from Harmonic's fork, which had the first working version; we
+checked every route and body against the executable and corrected four of them (below). No Slayer
+Link call appeared in the census of 22 September 2026 (L), so the client may keep the tab hidden
+(`ULinkedSlayersFeature`); if it never calls these routes, nothing changes for players.
+
+### The routes {#slayer-link-routes}
+
+Every reply uses the Phoenix envelope `{"code": null, "message": "OK", "payload": ...}`. Each route
+acts as the account of the bearer token; ids in a body or path only name the other player.
+
+| Route (endpoint key) | Request | Payload of the reply | Evidence |
+|:---------------------|:--------|:---------------------|:---------|
+| `GET /slayerlink/status_good` (`LinkedSlayersStatusEndpoint`) | none | `{invites: [...], links: [...], config: {link_duration_hours: 168, invite_expiry_hours: 24}}` | B: `FOnlineLinkedSlayer::GetStatusUpdate` `0x1415e5990` and its handler `0x1415e8b40` read an object with the keys `invites`, `links` and `config` (serializer `0x141600510`); config reads the two hours (`0x1415ffc90`). That this object is the envelope's payload: S. The client polls for news (S: that the poll is this route). |
+| `GET /slayerlink/invites` (`LinkedSlayersAllInvitesEndpoint`) | none | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: pending, unexpired invites; `account_id` is the other player, `direction` is `Sent` or `Received`, `status` is `Pending`, `expires` an ISO date | B `0x1415e7d00`, entries `0x1415ff170`; the enum spellings from the SDK (S) |
+| `GET /slayerlink/links` (`LinkedSlayersAllLinkSlotsDataEndpoint`) | none | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: running links, by the caller's slot | B `0x1415e8690`, entries `0x141600170` read `account_id`, `slot`, `ends`, `prize_pool`; the status reply's link entries read `linked_account_id`, `slot`, `ends`, `link_id`, `prize_pool`. Every entry carries both sets. |
+| `PUT /slayerlink/invite` (`LinkedSlayersInviteEndpoint`) | `{account_id, slot, action_source}` | `{link_id}`: the invite's id; inviting the same player again answers the same id | B `0x1415fcba2`, body `0x1415ff0e0` |
+| `POST /slayerlink/invite` (`LinkedSlayersInviteAcceptDeclineEndpoint`) | `{account_id, action, slot, action_source}`, `action` = `accept`, `reject` or `cancel` | `{link_id}` | B: accept `0x1415d4aa6`, cancel `0x1415d96cf`, reject `0x1415dadd6`, body `0x1415fdc40` |
+| `DELETE /slayerlink/invites/:account_id` (`LinkedSlayersDeleteAllInvitesEndpoint`) | none | `{}` | B `0x1415db890`; whose id the client puts in the path was not traced (G), so both meanings are handled |
+| `DELETE /slayerlink/links` (the same key as the links list) | `{account_id, slot, delete_pair}`, or the same as a query | `{}` | B: `FOnlineLinkedSlayer::DeleteLinks` `0x1415dc442`, body `0x141600eb0` |
+| `POST /slayerlink/availability` (`LinkedSlayersGetFriendsAvailabilityEndpoint`) | `{account_ids: [...]}`, at most 50 | `{availability: [{account_id, available}]}` | B `0x1415e3608`, `0x1415fdf30`, `0x1415fdf90` |
+
+Errors are `{"code": "<status>", "message": ..., "payload": null}`: 400 (no account id, a slot outside
+0-2, an unknown action), 403 (not friends, or blocked), 404 (no such account or invite), 409 (yourself,
+the slot is linked or has a waiting invite, already linked, the other player already invited you, no
+free slot, the invite ran out or was already answered). No token gets 401; a game server's key alone
+gets 403.
+
+**Not answered:** the reward routes `PUT /slayerlink/links/rewards` and
+`GET /slayerlink/links/rewards/:account_id/:slot` stay 404 until they are traced, because a false
+success could lose a reward. The keys `LinkedSlayersInviteCancelEndpoint`, `...AllLinksProgressEndpoint`,
+`...AddLinkProgressEndpoint`, `...DeleteInviteDataEndpoint` (`/slayerlink/link`),
+`...SetEndTimeEndpoint` and `...SetRemainingTimeEndpoint` have no reference in the executable (B): the
+client never sends them.
+
+### The rules {#slayer-link-rules}
+
+- **Who.** Both players must be accepted friends, and neither may have blocked the other.
+- **Slots.** Three per player (0 to 2), and one waiting invite per slot. An accept uses the slot in
+  the body when it is free, otherwise the first free one.
+- **Answers.** Accept and reject belong to the invited player (`account_id` = the sender), cancel to the
+  sender (`account_id` = the invited player). A `link_id` or `invite_id` in the body, if the client ever
+  sends one, is tried first. Repeating an answer of the same kind is 200 again.
+- **Times.** An invite lasts 24 hours and a link 168 hours; an expired invite turns `EXPIRED` the next
+  time it is looked at.
+- **Clearing invites.** `DELETE /slayerlink/invites/<own id>` withdraws every invite the caller sent and
+  declines every one they received; with another player's id it does that only for the invites
+  between the two.
+- **Removing a link** ends the caller's link in that slot, or with that player, for both players (there
+  is one row per pair; `delete_pair` is only logged). Nothing to remove is still 200.
+- **Unfriending or a block** cancels the waiting invites between the two, inside the same database
+  transaction. A running link stays until it ends: whether an unfriend should also end it is the
+  owner's decision.
+- Answered and expired invites and ended links are deleted 30 days later. Invites and links are stored
+  in SQLite (migration `0016_slayer_links`, tables `slayerlinkinvites` and `slayerlinks`; see
+  [Files and data]({{ files_page.url | relative_url }})).
+
+### What we corrected from Harmonic's version {#slayer-link-corrections}
+
+| His fork | The client (B) |
+|:---------|:---------------|
+| The invite list names the other player `linked_account_id` | It reads `account_id` (`0x1415ff170`) |
+| A link is removed at `/slayerlink/link` | That key is never used; the client sends `DELETE /slayerlink/links` with a body (`0x1415dc442`) |
+| No route for `DELETE /slayerlink/invites/<id>` | The client sends it (`0x1415db890`) |
+| The status reply was flat | It nests `invites`, `links` and `config` (`0x141600510`) |
+
+**Logs.** Every action is one `slayerlink:` line, for example
+`slayerlink: invite by=<A> to=<B> slot=0 -> sent id=<id>` or
+`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots 0 and 1)`; a refusal ends in
+`refused <status>: <reason>`. `SLAYER_LINKS=0` makes every route fall through to the 404 it got
+before; the stored invites and links stay. The routes are also on
+[HTTP API]({{ api_page.url | relative_url }}#slayer-links).
+
+## The session check (`oauth/verify`) {#verify}
+
+While it runs, the client regularly checks its session with `GET /account/api/oauth/verify` (about every
+30 seconds, G for the exact period). Upstream answered every caller with the same placeholder account,
+which the client's handler cannot match to its user: the executable logs "Verify auth response ignored,
+can't find UserAccount for %s" for that case (B `0x140965ab8`, in the handler at `0x140964040`).
+
+Since 23 September 2026 the reply names the account of the token it came with, as the real service
+did:
+
+- a valid player token: `account_id` is that player's own account;
+- a missing, malformed, expired or foreign token: the old placeholder reply, still with **200**. It never
+  answers 401: after the token's 24 hours a 401 could log the player out (G). A bad or expired token is
+  logged at most once a minute ("with a bad or expired token: answering the static reply"), which is
+  expected for sessions older than 24 hours;
+- `expires_at` stays far in the future and `active` true.
+
+With the player's own id the reply takes the client's "found the account" path; which fields that path
+reads, and whether it updates the expiry, was not traced (G). `VERIFY_STUB_ACCOUNT=1` puts the
+placeholder back for everyone. The live test is a session of more than 30 minutes, ideally past the
+token's 24 hours, with no logout and no reconnect loop.
+
 ## Testing without the game {#testing-without-the-game}
 
 The fixes are tested over HTTP against the real metagame, with the client's own bodies and headers:
@@ -443,6 +570,16 @@ The fixes are tested over HTTP against the real metagame, with the client's own 
   expiry, the limits, ranks and hand-over, kick, leave and disband (including the route order), what
   a block, a decline and a demoted, kicked or departed Officer do to open invites, a restart,
   permissions and `GUILDS=0`. Each reply is checked as exact JSON and through the model.
+- **Slayer Links** (`test/slayerlinks.test.ts`, rewritten from Harmonic's case with the client's exact
+  paths and bodies): every route and its keys, both directions of the invite list, accept with the
+  chosen or the first free slot, reject and cancel by `account_id`, both meanings of the invite delete,
+  a link removed for both players, the three slots and one waiting invite per slot, expiry with a test
+  clock, an unfriend or a block cancelling waiting invites while a running link stays, 401 and 403 on
+  all eight routes, `SLAYER_LINKS=0` and the unanswered reward routes.
+- **The smaller fixes** (`test/socialported.test.ts`): the repeated party accept (by the party id and by
+  the sender; not for one's own id, a stranger, a party of one or a party left), and `oauth/verify`
+  (the caller's own id with a valid token; the placeholder with 200 for no token, a bad, expired or
+  foreign one; `VERIFY_STUB_ACCOUNT=1`).
 
 ## Open questions, and the live test
 
@@ -461,6 +598,10 @@ To be checked in the next two-player test ([How to verify](#how-to-verify) has t
 7. Does Invite to Party work for a leader on their own with the placeholder candidate (a
    `PUT /party/invite` line appears), or does it need `PARTY_SOLO_STUB=0`?
 8. How many `account/mapping` calls does each login make (the census had 6 in 8 logins)?
+9. Does the client ever send a party accept twice (a `(a repeated accept)` line)?
+10. Does the My Links tab call the Slayer Link routes at all, and how often does it poll
+    `GET /slayerlink/status_good`?
+11. Does a session of more than 30 minutes stay logged in with the new `oauth/verify` reply?
 
 **Every player hits three changed replies at each login**, whether or not they use the Social panel:
 `POST /accountinfo/public` (now about the asked account, 404 for an unknown one), `POST /account/mapping`
@@ -469,7 +610,8 @@ envelope `{"code": "OK", "message": "", "payload": {"invites": []}, "invites": [
 stub `{"code": null, "message": "OK", "payload": {"invites": []}}`). Our client model reads all three
 as intended, but none has been seen in a real game. The rollback switches, if one disturbs something:
 `ACCOUNTINFO_PUBLIC_LEGACY=1`, `ACCOUNT_MAPPING=0` and `GUILDS=0` (see
-[Configuration]({{ config_page.url | relative_url }})).
+[Configuration]({{ config_page.url | relative_url }})). Since 23 September 2026 a fourth reply changes
+for everyone: `oauth/verify` names the player's own account (`VERIFY_STUB_ACCOUNT=1` is its rollback).
 
 ## How to verify {#how-to-verify}
 
@@ -514,7 +656,8 @@ then within about 10 seconds `party: invites for <B> -> 1 (P=<PA> from=<A>)` and
 
 **3. B accepts.** Expect `party: accept by <B> matched=partyId P=<PA> size=2`, then
 `party: poll by=<A> P=<PA> size=2 leader=<A> members=<A>,<B>`. Both party panels show both names.
-(Declining instead logs `party: decline by=<B> ... removed=1`, and A cannot invite B again for 2
+A second accept of the same party, if the client sends one, logs `... (a repeated accept)` and is
+answered with the party (question 9). (Declining instead logs `party: decline by=<B> ... removed=1`, and A cannot invite B again for 2
 minutes.)
 
 **4. A hunt together.** A (the leader) picks a hunt. Expect `mm: party P=<PA> candidate <C> mode=...
@@ -565,7 +708,16 @@ sees B after A's next `GET /guild` (a world load). Then, as wanted: Promote To G
 DISBAND GUILD (`guild: disband G=<id> by=<A> -> 200`). Count the `GET /guild` lines per world load
 (question 5).
 
-**8. Afterwards.** Look for social routes answered 404 in the request log, and for any
+**8. Slayer Links (after steps 1-7, the two being friends; once the update of 23 September 2026 is
+deployed).** A: Social, My Links, invite B into a slot. Expect `PUT /slayerlink/invite gs=0` and
+`slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<id>`. B opens My Links: expect
+`GET /slayerlink/invites` (or `/slayerlink/status_good`) and sees the invite with A's name. B accepts:
+`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots X and Y)`; both see the link. Then, as
+wanted: remove the link (`slayerlink: delete link by=... -> removed <id> (with ...)`), and in a new round
+decline (`-> declined`) and cancel (`-> canceled`). If no `/slayerlink` line appears at all, the client
+keeps the tab hidden: note it. If anything misbehaves, set `SLAYER_LINKS=0` and restart the metagame.
+
+**9. Afterwards.** Look for social routes answered 404 in the request log, and for any
 `refused` line you did not expect. Turn `LOG_BODIES` off again and delete the body log. Write down the
 answers to the open questions above; the corrections go into this page and the roadmap.
 
@@ -573,13 +725,13 @@ answers to the open questions above; the corrections go into this page and the r
 
 | Item | Why |
 |:-----|:----|
-| **Online status** (presence over the chat connection) | Online status, EPIC FRIENDS, "In Ramsgate" and friend requests showing without a new login all ride on XMPP presence. The chat server exists ([Text chat]({{ chat_page.url | relative_url }})) but sends no presence outside chat rooms yet (roadmap 3.10). When it does, it must never echo a player's own presence back (see [Parties](#parties)), and the party test must be repeated. |
+| **Online status by default** (presence over the chat connection) | Online status, EPIC FRIENDS, "In Ramsgate" and a new friend showing without a new login all ride on XMPP presence. It is built into the chat server since 23 September 2026 ([Text chat]({{ chat_page.url | relative_url }}#presence)) and never sends a player their own presence, but it stays off (`CHAT_PRESENCE=0`) until chat itself is live and a party of two has kept both members for a minute with it on (roadmap 3.10). |
 | Recent players from the friends service | Never called live; the in-game Recent Players list is kept in the character data. |
 | Other friends routes (settings sources, delete all, email lookups) | Never called live. |
 | Listing sent party invites | The client might misread them as received. |
 | Party finder, console sessions, Phoenix's presence socket | Never called; polling carries all party state. |
 | Voice | Vivox is gone; guild voice is not implemented in 1.4.4 itself. |
-| Linked Slayers (My Links) | Never called live. |
+| Slayer Link rewards | The two reward routes are not traced yet; a false success could lose a reward. The rest of [Slayer Links](#slayer-links) is built. |
 | The v1 guild API | Never called by 1.4.4. |
 
 The [2.1.1 standalone attempt]({{ awakening_page.url | relative_url }}) describes the same Phoenix

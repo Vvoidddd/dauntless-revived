@@ -11,6 +11,10 @@ ref: findings/backend-contract
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign mp_page = site.pages | where: "path", "findings/multiplayer.md" | first %}
 {% assign crashes_page = site.pages | where: "path", "findings/crashes.md" | first %}
+{% assign escalation_page = site.pages | where: "path", "findings/escalation.md" | first %}
+{% assign store_page = site.pages | where: "path", "findings/store.md" | first %}
+{% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
+{% assign game_page = site.pages | where: "path", "reference/game-settings.md" | first %}
 
 # Backend contract
 {: .no_toc }
@@ -487,7 +491,8 @@ the value at 0.
 
 Talent elements are `{"rank", "talent_id"}` and unlock elements are `{"collected", "reward_id"}`.
 `update_version` is an int32 by analogy with its neighbours; we did not isolate its read. Undaunted
-sends 1.4.4 the same wrapped shape.
+sends 1.4.4 the same wrapped shape. For 1.4.4, the season registry, the save route and the rules our
+server applies (off by default) are on [Escalation]({{ escalation_page.url | relative_url }}).
 
 **Player journey (`/pjm`).** The client's own write, `POST /pjm/{accountid}`, looks like this:
 
@@ -521,6 +526,47 @@ key, `GetBountiesConfigEndpoint`, is still in the ini, but the key's name does n
 in the executable, so nothing ever looks it up. Bounty configuration comes from the game-tuning
 blob `bounty_game_data` instead (`GET /game_tuning/{blobid}`). Undaunted does serve
 `/bounty/game-data` to 1.4.4.
+
+### Our 1.4.4 server: rank rewards, retries and the config {#progression-on-our-server}
+
+This part is about **1.4.4 on our server** (real progression, the default), and comes from the
+executable and our in-game tests. Labels: **B** read in the 1.4.4 executable, **V** verified in game,
+**S** strong inference.
+
+- **A confirm pays nothing.** The 1.4.4 game server pays every rank's rewards itself through
+  `/inventory`, by three paths (B `0x141472fa0`, `0x1414876a0`, `0x141481920`), and our in-game test saw
+  each reward granted exactly once (V, roadmap 2.10). So
+  `POST /progression/<account>/<track>/<rank>/confirm/<public or premium>` only raises the confirmed
+  rank and grants nothing. A test guards that a confirm leaves inventories, the item log and
+  entitlements unchanged. Harmonic's fork paid on confirm; on our database, whose claims ledger would
+  start empty, that would pay again every rank players had already confirmed.
+- **The Elite ranks' entitlements (an option).** Only the game's `GrantProgressionAction` names an
+  entitlement grant (B `0x1446c84c0`, used at `0x141487aa5`). Whether the game server grants the
+  permanent entitlements of the season09b ranks (premium 6, 9, 29 and 50, free 50) through
+  `POST /entitlementv2` by itself is open. `PROGRESSION_CONFIRM_ENTITLEMENTS=1` makes a confirm that
+  raises a rank grant that rank's permanent config entitlements (source `confirm:<track>:<rank>`), never
+  items, currencies or the timed boosts (premium 16, 34, 42 and 47). Off by default, until the in-game
+  test: reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`.
+- **Retries.** The game server retries a failed request up to 5 times (`HTTPRetryCount=5`, B). A grant
+  (`POST /progression/<account>`) whose body is byte for byte the account's last grant, within
+  `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets the
+  first grant's stored reply and adds nothing; `progression_events` gets an audit row. Any confirm,
+  reset or other grant in between makes the same body a new grant. An objective that arrives lower than
+  stored is logged ("objective went backwards") and stored as sent.
+- **The config.** `GET /progression/config` and the rank math read one loader: the bundled
+  `vendor/progression_config.json`, or, with `PROGRESSION_CONFIG_DIR`, a folder of season files that
+  replace or add tracks, checked at startup (a bad file stops the start). `ACTIVE_HUNT_PASS` (default
+  `season09b`) is the Hunt Pass an account gets when none is stored. Never edit a season in place while
+  players have progress in it (S): stored progress is counted against its requirements.
+- **Balances.** `GET /balance` and `POST /reconcile` answer the client's currency sheet (it reads
+  `CURRENCY_PLATINUM`, B `0x14161a790`, `0x1415d16dc`). Each `CURRENCY_*` key, in both spellings, now
+  reports what the account's active character holds as an inventory stack (`BALANCE_FROM_INVENTORY`,
+  on). `CURRENCY_PLATINUM_UNIV` is not mapped: the executable names it only next to the Elite upsell
+  screen (B `0x14477fc50`, used at `0x1417ddd68` and `0x1417dddeb`), not where balances are read (S).
+
+Where these settings live: [Configuration]({{ config_page.url | relative_url }}#metagame-progression)
+and [Game settings]({{ game_page.url | relative_url }}#hunt-pass-seasons). The store routes of 1.4.4
+(`/product/...`, `/token/...`, `/notification/...`) are on [The in-game store]({{ store_page.url | relative_url }}).
 
 ---
 
