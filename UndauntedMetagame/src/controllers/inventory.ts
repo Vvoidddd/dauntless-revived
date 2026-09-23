@@ -1,7 +1,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import crypto from "node:crypto";
 import { GetDb } from "../db";
-import { inventory, inventorylog, inventorytransactions } from "../db/schema";
+import { characters, inventory, inventorylog, inventorytransactions } from "../db/schema";
 import { logger } from "../logger";
 import { DoesCharacterBelongToUserId } from "./character";
 import type { Tx } from "./savehistory";
@@ -9,24 +9,49 @@ import type { Tx } from "./savehistory";
 export type InventoryError = "forbidden" | "not_found" | "conflict" | "insufficient_quantity" | "invalid_inventory_item" | "invalid_inventory_data" | "db_error";
 export type InventoryResult<T = void> = { success: true, data?: T } | { success: false, error: InventoryError };
 
-export type InventoryCaller = "client" | "gameserver" | "admin";
+// "store": grants of the storefront (roadmap 3.7), made inside its own purchase transaction
+export type InventoryCaller = "client" | "gameserver" | "admin" | "store";
 export type InventoryContext = { Caller: InventoryCaller, Source?: unknown };
 export type TransactionResponse = { createdInstancedItems: any, updatedInstancedItems: any[], updatedStackedItems: any[], removedInstancedItems: any };
+
+// One POST /inventory body, the lists exactly as they arrived (undefined when missing)
+export type InventoryTransactionRequest = {
+    UserId: string,
+    CharacterId: string,
+    TransactionId: unknown,
+    InstancedItemsToAdd?: any,
+    StackedItemsToAdd?: any,
+    InstancedItemsToRemove?: any,
+    StackedItemsToRemove?: any,
+    InstancedItemsToSave?: any
+};
+
+// What the core did: the reply, whether it was the stored reply of an earlier identical request, and
+// the overspends it clamped (the caller logs those once its transaction has committed)
+export type AppliedInventoryTransaction = { response: TransactionResponse, replayed: boolean, overspent: string[] };
 
 // Stored results older than this are dropped; a retry arrives within seconds
 const TRANSACTION_RECORD_DAYS = 30;
 
-class InventoryConflictError extends Error {
+export class InventoryConflictError extends Error {
     constructor(message: string){
         super(message);
         this.name = "InventoryConflictError";
     }
 }
 
-class InventoryValidationError extends Error {
+export class InventoryValidationError extends Error {
     constructor(message: string){
         super(message);
         this.name = "InventoryValidationError";
+    }
+}
+
+// The character is not (or no longer) the account's
+export class InventoryForbiddenError extends Error {
+    constructor(message: string){
+        super(message);
+        this.name = "InventoryForbiddenError";
     }
 }
 
@@ -345,204 +370,308 @@ export async function UpdateInstancedItem(CharacterId: string, UserId: string, I
     }
 }
 
-// The lists are passed exactly as they arrived; the reply echoes two of them the
-// way the route always has. Everything (the stored-result lookup, the checks, the
-// inventory write, the item log and the stored result) is one SQLite transaction:
-// a refused transaction changes nothing.
-export async function RunInventoryTransaction(UserId: string, CharacterId: string, TransactionId: string, RawInstancedItemsToAdd: any, RawStackedItemsToAdd: any, RawInstancedItemsToRemove: any, RawStackedItemsToRemove: any, RawInstancedItemsToSave: any, Context: InventoryContext = {Caller: "client"}): Promise<InventoryResult<{response: TransactionResponse, replayed: boolean}>>{
-    const InstancedItemsToAdd = RawInstancedItemsToAdd ?? [];
-    const StackedItemsToAdd = RawStackedItemsToAdd ?? [];
-    const InstancedItemsToRemove = RawInstancedItemsToRemove ?? [];
-    const StackedItemsToRemove = RawStackedItemsToRemove ?? [];
-    const InstancedItemsToSave = RawInstancedItemsToSave ?? [];
+type PreparedInventoryTransaction = {
+    Request: InventoryTransactionRequest,
+    InstancedItemsToAdd: any[],
+    StackedItemsToAdd: any[],
+    InstancedItemsToRemove: any[],
+    StackedItemsToRemove: any[],
+    InstancedItemsToSave: any[],
+    ShouldTouchInstancedItems: boolean,
+    ShouldTouchStackedItems: boolean,
+    DedupeKey: string | undefined,
+    RequestHash: string
+};
 
-    const MakeResponse = (TouchedStackedItems: any[]): TransactionResponse => ({
-        createdInstancedItems: RawInstancedItemsToAdd,
+// The checks that need no database: every list is a list of items. Throws InventoryValidationError.
+function PrepareInventoryTransaction(Request: InventoryTransactionRequest): PreparedInventoryTransaction {
+    const InstancedItemsToAdd = Request.InstancedItemsToAdd ?? [];
+    const StackedItemsToAdd = Request.StackedItemsToAdd ?? [];
+    const InstancedItemsToRemove = Request.InstancedItemsToRemove ?? [];
+    const StackedItemsToRemove = Request.StackedItemsToRemove ?? [];
+    const InstancedItemsToSave = Request.InstancedItemsToSave ?? [];
+
+    AssertItemList(InstancedItemsToAdd, "addInstancedItems");
+    AssertItemList(StackedItemsToAdd, "addStackedItems");
+    AssertItemList(InstancedItemsToRemove, "removeInstancedItems");
+    AssertItemList(StackedItemsToRemove, "removeStackedItems");
+    AssertItemList(InstancedItemsToSave, "saveInstancedItems");
+
+    return {
+        Request,
+        InstancedItemsToAdd,
+        StackedItemsToAdd,
+        InstancedItemsToRemove,
+        StackedItemsToRemove,
+        InstancedItemsToSave,
+        ShouldTouchInstancedItems: InstancedItemsToAdd.length > 0 || InstancedItemsToRemove.length > 0 || InstancedItemsToSave.length > 0,
+        ShouldTouchStackedItems: StackedItemsToAdd.length > 0 || StackedItemsToRemove.length > 0,
+        DedupeKey: GetTransactionDedupeKey(Request.TransactionId),
+        RequestHash: HashTransactionRequest(Request.CharacterId, Request.InstancedItemsToAdd, Request.StackedItemsToAdd, Request.InstancedItemsToRemove, Request.StackedItemsToRemove, Request.InstancedItemsToSave)
+    };
+}
+
+// The reply echoes two of the lists the way the route always has
+function MakeTransactionResponse(Request: InventoryTransactionRequest, TouchedStackedItems: any[]): TransactionResponse {
+    return {
+        createdInstancedItems: Request.InstancedItemsToAdd,
         updatedInstancedItems: [], // TODO: Actually properly diff & merge the JSON blobs
         updatedStackedItems: TouchedStackedItems,
-        removedInstancedItems: RawInstancedItemsToRemove
-    });
+        removedInstancedItems: Request.InstancedItemsToRemove
+    };
+}
+
+// DoesCharacterBelongToUserId inside a transaction
+function AssertCharacterOwnedInTx(tx: Tx, UserId: unknown, CharacterId: unknown){
+    const Owned = typeof UserId === "string" && typeof CharacterId === "string" && tx.select({characterId: characters.characterId}).from(characters)
+        .where(and(eq(characters.characterId, CharacterId), eq(characters.userId, UserId))).get() !== undefined;
+
+    if(!Owned){
+        throw new InventoryForbiddenError(`Specified characterId ${CharacterId} does not belong to user ${UserId}`);
+    }
+}
+
+// Everything that touches the database, inside the caller's transaction: the stored-result lookup,
+// the checks, the inventory write, the item log and the stored result. Throws on a refusal, so the
+// caller's transaction rolls back and nothing is changed.
+function ApplyPreparedInventoryTransaction(tx: Tx, Prepared: PreparedInventoryTransaction, Context: InventoryContext): AppliedInventoryTransaction {
+    const { Request, InstancedItemsToAdd, StackedItemsToAdd, InstancedItemsToRemove, StackedItemsToRemove, InstancedItemsToSave, DedupeKey, RequestHash } = Prepared;
+    const { UserId, CharacterId, TransactionId } = Request;
+
+    if(DedupeKey != undefined){
+        const Stored = tx.select().from(inventorytransactions).where(and(
+            eq(inventorytransactions.characterId, CharacterId),
+            eq(inventorytransactions.transactionId, DedupeKey),
+            eq(inventorytransactions.requestHash, RequestHash)
+        )).get();
+
+        if(Stored != undefined){
+            return {response: JSON.parse(Stored.response), replayed: true, overspent: []};
+        }
+
+        const SameIdOtherBody = tx.select({id: inventorytransactions.id}).from(inventorytransactions).where(and(
+            eq(inventorytransactions.characterId, CharacterId),
+            eq(inventorytransactions.transactionId, DedupeKey)
+        )).get();
+
+        if(SameIdOtherBody != undefined){
+            logger.warn(`transactionId ${DedupeKey} for userId ${UserId} and characterId ${CharacterId} was seen before with a different body; running it as a new transaction`);
+        }
+    }
+
+    let CurrentInventory = tx.query.inventory.findFirst({where: eq(inventory.characterId, CharacterId)}).sync();
+
+    if(CurrentInventory == undefined){
+        logger.info(`Creating inventory for characterId ${CharacterId}`)
+
+        CurrentInventory = MakeEmptyInventoryRow(CharacterId);
+
+        tx.insert(inventory).values(CurrentInventory).run();
+    }
+
+    const Update: Partial<typeof inventory.$inferInsert> = {};
+    const Log: LogEntry[] = [];
+    let TouchedStackedItems: any[] = [];
+    let Overspent: string[] = [];
+
+    if(Prepared.ShouldTouchInstancedItems){
+        const InstancedItems: any[] = JSON.parse(CurrentInventory.instancedItems);
+        let DidUpdateInstancedItems = false;
+
+        for(const ItemToRemove of InstancedItemsToRemove){
+            const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToRemove.instanceId);
+
+            if(ItemIndex >= 0){
+                AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToRemove, "remove");
+                Log.push(LogInstancedItem("remove", InstancedItems[ItemIndex]));
+                InstancedItems.splice(ItemIndex, 1);
+                DidUpdateInstancedItems = true;
+            }
+            else{
+                logger.warn(`transactionId ${TransactionId} removes instanced item ${ItemToRemove.catalogId}/${ItemToRemove.instanceId}, which characterId ${CharacterId} does not hold; ignored`);
+            }
+        }
+
+        for(const ItemToSave of InstancedItemsToSave){
+            const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToSave.instanceId);
+
+            if(ItemIndex >= 0){
+                if(AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToSave, "save") === "skip"){
+                    continue;
+                }
+
+                InstancedItems[ItemIndex] = ItemToSave;
+                DidUpdateInstancedItems = true;
+            }
+            else{
+                AssertValidIncomingInstancedItem(ItemToSave, "save");
+                InstancedItems.push(ItemToSave);
+                DidUpdateInstancedItems = true;
+            }
+
+            Log.push(LogInstancedItem("save", ItemToSave));
+        }
+
+        for(const ItemToAdd of InstancedItemsToAdd){
+            const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToAdd.instanceId);
+
+            if(ItemIndex >= 0){
+                if(AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToAdd, "add") === "skip"){
+                    continue;
+                }
+
+                InstancedItems[ItemIndex] = ItemToAdd;
+                DidUpdateInstancedItems = true;
+            }
+            else{
+                AssertValidIncomingInstancedItem(ItemToAdd, "add");
+                InstancedItems.push(ItemToAdd);
+                DidUpdateInstancedItems = true;
+            }
+
+            Log.push(LogInstancedItem("add", ItemToAdd));
+        }
+
+        if(DidUpdateInstancedItems){
+            Update.instancedItems = JSON.stringify(InstancedItems);
+        }
+    }
+
+    if(Prepared.ShouldTouchStackedItems){
+        const StackedItems: any[] = JSON.parse(CurrentInventory.stackedItems);
+
+        const Applied = ApplyStackedChanges(StackedItems, StackedItemsToRemove, StackedItemsToAdd, IsOverspendRefused());
+        TouchedStackedItems = Applied.Touched;
+        Overspent = Applied.Overspent;
+        Log.push(...Applied.Log);
+
+        Update.stackedItems = JSON.stringify(StackedItems);
+    }
+
+    if(Object.keys(Update).length > 0){
+        tx.update(inventory).set(Update).where(eq(inventory.characterId, CharacterId)).run();
+    }
+
+    WriteLog(tx, UserId, CharacterId, DedupeKey ?? (typeof TransactionId === "string" ? TransactionId : undefined), Context, Log);
+
+    const Response = MakeTransactionResponse(Request, TouchedStackedItems);
+
+    if(DedupeKey != undefined){
+        const Now = new Date();
+
+        tx.insert(inventorytransactions).values({
+            transactionId: DedupeKey,
+            characterId: CharacterId,
+            userId: UserId,
+            requestHash: RequestHash,
+            status: 200,
+            response: JSON.stringify(Response),
+            createdDate: Now.toISOString()
+        }).run();
+
+        tx.delete(inventorytransactions).where(lt(inventorytransactions.createdDate, new Date(Now.getTime() - TRANSACTION_RECORD_DAYS * 24 * 60 * 60 * 1000).toISOString())).run();
+    }
+
+    return {response: Response, replayed: false, overspent: Overspent};
+}
+
+// The inventory core for a caller that already holds a transaction (the store grants items inside its
+// purchase transaction). Synchronous, as better-sqlite3 transactions are: nothing may be awaited in
+// between. Same rules as POST /inventory: the same ledger (a repeated request answers the stored reply
+// and changes nothing), the same inventorylog rows (with Context.Caller) and the same checks. A refusal
+// throws (InventoryForbiddenError, InventoryValidationError, InventoryConflictError,
+// InventoryInsufficientError; a SyntaxError for a stored inventory that is not JSON), which rolls back
+// the caller's whole transaction; InventoryErrorOf maps it to an InventoryError. The overspends it
+// clamped come back in `overspent` for the caller to log after its commit.
+export function ApplyInventoryTransactionInTx(tx: Tx, Request: InventoryTransactionRequest, Context: InventoryContext): AppliedInventoryTransaction {
+    AssertCharacterOwnedInTx(tx, Request.UserId, Request.CharacterId);
+
+    const Prepared = PrepareInventoryTransaction(Request);
+
+    if(!Prepared.ShouldTouchInstancedItems && !Prepared.ShouldTouchStackedItems){
+        return {response: MakeTransactionResponse(Request, []), replayed: false, overspent: []};
+    }
+
+    return ApplyPreparedInventoryTransaction(tx, Prepared, Context);
+}
+
+// The InventoryError for an error the core threw; undefined for anything else (a database error)
+export function InventoryErrorOf(error: unknown): InventoryError | undefined {
+    if(error instanceof InventoryForbiddenError) return "forbidden";
+    if(error instanceof InventoryInsufficientError) return "insufficient_quantity";
+    if(error instanceof InventoryConflictError) return "conflict";
+    if(error instanceof InventoryValidationError) return "invalid_inventory_item";
+    if(error instanceof SyntaxError) return "invalid_inventory_data";
+    return undefined;
+}
+
+function LogOverspend(Request: InventoryTransactionRequest, Context: InventoryContext, Overspent: string[]){
+    if(Overspent.length === 0){
+        return;
+    }
+
+    const Source = typeof Context.Source === "string" ? `, source ${Context.Source}` : "";
+
+    logger.warn(`Allowing overspend in transactionId ${Request.TransactionId} for userId ${Request.UserId} and characterId ${Request.CharacterId} (${Context.Caller}${Source}): ${Overspent.join("; ")}; clamped at 0 as before (INVENTORY_REFUSE_OVERSPEND=1 refuses these)`);
+}
+
+// POST /inventory. The lists are passed exactly as they arrived; the reply echoes two of them the
+// way the route always has. Everything (the stored-result lookup, the checks, the inventory write,
+// the item log and the stored result) is one SQLite transaction, opened here around the core above:
+// a refused transaction changes nothing.
+export async function RunInventoryTransaction(UserId: string, CharacterId: string, TransactionId: string, RawInstancedItemsToAdd: any, RawStackedItemsToAdd: any, RawInstancedItemsToRemove: any, RawStackedItemsToRemove: any, RawInstancedItemsToSave: any, Context: InventoryContext = {Caller: "client"}): Promise<InventoryResult<{response: TransactionResponse, replayed: boolean}>>{
+    const Request: InventoryTransactionRequest = {
+        UserId,
+        CharacterId,
+        TransactionId,
+        InstancedItemsToAdd: RawInstancedItemsToAdd,
+        StackedItemsToAdd: RawStackedItemsToAdd,
+        InstancedItemsToRemove: RawInstancedItemsToRemove,
+        StackedItemsToRemove: RawStackedItemsToRemove,
+        InstancedItemsToSave: RawInstancedItemsToSave
+    };
 
     if(!await DoesCharacterBelongToUserId(UserId, CharacterId)){
         logger.error(`Specified characterId ${CharacterId} does not belong to user ${UserId}`);
         return {success: false, error: "forbidden"};
     }
 
+    let Prepared: PreparedInventoryTransaction;
+
     try{
-        AssertItemList(InstancedItemsToAdd, "addInstancedItems");
-        AssertItemList(StackedItemsToAdd, "addStackedItems");
-        AssertItemList(InstancedItemsToRemove, "removeInstancedItems");
-        AssertItemList(StackedItemsToRemove, "removeStackedItems");
-        AssertItemList(InstancedItemsToSave, "saveInstancedItems");
+        Prepared = PrepareInventoryTransaction(Request);
     }
     catch(error){
         logger.warn(`transactionId ${TransactionId} for userId ${UserId} and characterId ${CharacterId}: ${(error as Error).message}`);
         return {success: false, error: "invalid_inventory_item"};
     }
 
-    const ShouldTouchInstancedItems = InstancedItemsToAdd.length > 0 || InstancedItemsToRemove.length > 0 || InstancedItemsToSave.length > 0;
-    const ShouldTouchStackedItems = StackedItemsToAdd.length > 0 || StackedItemsToRemove.length > 0;
-
-    if(!ShouldTouchInstancedItems && !ShouldTouchStackedItems){
-        return {success: true, data: {response: MakeResponse([]), replayed: false}};
+    if(!Prepared.ShouldTouchInstancedItems && !Prepared.ShouldTouchStackedItems){
+        return {success: true, data: {response: MakeTransactionResponse(Request, []), replayed: false}};
     }
 
-    const DedupeKey = GetTransactionDedupeKey(TransactionId);
-    const RequestHash = HashTransactionRequest(CharacterId, RawInstancedItemsToAdd, RawStackedItemsToAdd, RawInstancedItemsToRemove, RawStackedItemsToRemove, RawInstancedItemsToSave);
-
-    if(DedupeKey == undefined){
+    if(Prepared.DedupeKey == undefined){
         logger.warn(`transactionId ${JSON.stringify(TransactionId)} for userId ${UserId} and characterId ${CharacterId} is not usable for retry detection; running it without`);
     }
 
-    let Overspent: string[] = [];
-
     try{
-        const Result = GetDb().transaction((tx) => {
-            if(DedupeKey != undefined){
-                const Stored = tx.select().from(inventorytransactions).where(and(
-                    eq(inventorytransactions.characterId, CharacterId),
-                    eq(inventorytransactions.transactionId, DedupeKey),
-                    eq(inventorytransactions.requestHash, RequestHash)
-                )).get();
+        const Applied = GetDb().transaction((tx) => {
+            // Checked again inside the transaction, like every caller of the core
+            AssertCharacterOwnedInTx(tx, UserId, CharacterId);
 
-                if(Stored != undefined){
-                    return {success: true, data: {response: JSON.parse(Stored.response), replayed: true}} as InventoryResult<{response: TransactionResponse, replayed: boolean}>;
-                }
-
-                const SameIdOtherBody = tx.select({id: inventorytransactions.id}).from(inventorytransactions).where(and(
-                    eq(inventorytransactions.characterId, CharacterId),
-                    eq(inventorytransactions.transactionId, DedupeKey)
-                )).get();
-
-                if(SameIdOtherBody != undefined){
-                    logger.warn(`transactionId ${DedupeKey} for userId ${UserId} and characterId ${CharacterId} was seen before with a different body; running it as a new transaction`);
-                }
-            }
-
-            let CurrentInventory = tx.query.inventory.findFirst({where: eq(inventory.characterId, CharacterId)}).sync();
-
-            if(CurrentInventory == undefined){
-                logger.info(`Creating inventory for characterId ${CharacterId}`)
-
-                CurrentInventory = MakeEmptyInventoryRow(CharacterId);
-
-                tx.insert(inventory).values(CurrentInventory).run();
-            }
-
-            const Update: Partial<typeof inventory.$inferInsert> = {};
-            const Log: LogEntry[] = [];
-            let TouchedStackedItems: any[] = [];
-
-            if(ShouldTouchInstancedItems){
-                const InstancedItems: any[] = JSON.parse(CurrentInventory.instancedItems);
-                let DidUpdateInstancedItems = false;
-
-                for(const ItemToRemove of InstancedItemsToRemove){
-                    const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToRemove.instanceId);
-
-                    if(ItemIndex >= 0){
-                        AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToRemove, "remove");
-                        Log.push(LogInstancedItem("remove", InstancedItems[ItemIndex]));
-                        InstancedItems.splice(ItemIndex, 1);
-                        DidUpdateInstancedItems = true;
-                    }
-                    else{
-                        logger.warn(`transactionId ${TransactionId} removes instanced item ${ItemToRemove.catalogId}/${ItemToRemove.instanceId}, which characterId ${CharacterId} does not hold; ignored`);
-                    }
-                }
-
-                for(const ItemToSave of InstancedItemsToSave){
-                    const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToSave.instanceId);
-
-                    if(ItemIndex >= 0){
-                        if(AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToSave, "save") === "skip"){
-                            continue;
-                        }
-
-                        InstancedItems[ItemIndex] = ItemToSave;
-                        DidUpdateInstancedItems = true;
-                    }
-                    else{
-                        AssertValidIncomingInstancedItem(ItemToSave, "save");
-                        InstancedItems.push(ItemToSave);
-                        DidUpdateInstancedItems = true;
-                    }
-
-                    Log.push(LogInstancedItem("save", ItemToSave));
-                }
-
-                for(const ItemToAdd of InstancedItemsToAdd){
-                    const ItemIndex = FindInstancedItemIndex(InstancedItems, ItemToAdd.instanceId);
-
-                    if(ItemIndex >= 0){
-                        if(AssertExistingInstancedItemWrite(InstancedItems[ItemIndex], ItemToAdd, "add") === "skip"){
-                            continue;
-                        }
-
-                        InstancedItems[ItemIndex] = ItemToAdd;
-                        DidUpdateInstancedItems = true;
-                    }
-                    else{
-                        AssertValidIncomingInstancedItem(ItemToAdd, "add");
-                        InstancedItems.push(ItemToAdd);
-                        DidUpdateInstancedItems = true;
-                    }
-
-                    Log.push(LogInstancedItem("add", ItemToAdd));
-                }
-
-                if(DidUpdateInstancedItems){
-                    Update.instancedItems = JSON.stringify(InstancedItems);
-                }
-            }
-
-            if(ShouldTouchStackedItems){
-                const StackedItems: any[] = JSON.parse(CurrentInventory.stackedItems);
-
-                const Applied = ApplyStackedChanges(StackedItems, StackedItemsToRemove, StackedItemsToAdd, IsOverspendRefused());
-                TouchedStackedItems = Applied.Touched;
-                Overspent = Applied.Overspent;
-                Log.push(...Applied.Log);
-
-                Update.stackedItems = JSON.stringify(StackedItems);
-            }
-
-            if(Object.keys(Update).length > 0){
-                tx.update(inventory).set(Update).where(eq(inventory.characterId, CharacterId)).run();
-            }
-
-            WriteLog(tx, UserId, CharacterId, DedupeKey ?? (typeof TransactionId === "string" ? TransactionId : undefined), Context, Log);
-
-            const Response = MakeResponse(TouchedStackedItems);
-
-            if(DedupeKey != undefined){
-                const Now = new Date();
-
-                tx.insert(inventorytransactions).values({
-                    transactionId: DedupeKey,
-                    characterId: CharacterId,
-                    userId: UserId,
-                    requestHash: RequestHash,
-                    status: 200,
-                    response: JSON.stringify(Response),
-                    createdDate: Now.toISOString()
-                }).run();
-
-                tx.delete(inventorytransactions).where(lt(inventorytransactions.createdDate, new Date(Now.getTime() - TRANSACTION_RECORD_DAYS * 24 * 60 * 60 * 1000).toISOString())).run();
-            }
-
-            return {success: true, data: {response: Response, replayed: false}} as InventoryResult<{response: TransactionResponse, replayed: boolean}>;
+            return ApplyPreparedInventoryTransaction(tx, Prepared, Context);
         });
 
-        if(Overspent.length > 0){
-            const Source = typeof Context.Source === "string" ? `, source ${Context.Source}` : "";
+        LogOverspend(Request, Context, Applied.overspent);
 
-            logger.warn(`Allowing overspend in transactionId ${TransactionId} for userId ${UserId} and characterId ${CharacterId} (${Context.Caller}${Source}): ${Overspent.join("; ")}; clamped at 0 as before (INVENTORY_REFUSE_OVERSPEND=1 refuses these)`);
-        }
-
-        return Result;
+        return {success: true, data: {response: Applied.response, replayed: Applied.replayed}};
     }
     catch(error){
+        if(error instanceof InventoryForbiddenError){
+            logger.error(error.message);
+            return {success: false, error: "forbidden"};
+        }
+
         if(error instanceof InventoryInsufficientError){
             logger.warn(`Refusing transactionId ${TransactionId} for userId ${UserId} and characterId ${CharacterId}: ${error.message}; nothing was changed`);
             return {success: false, error: "insufficient_quantity"};
