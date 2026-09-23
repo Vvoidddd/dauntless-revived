@@ -187,6 +187,16 @@ export const ChatPresence = DefineSwitch({
     Show: ShowOnOff
 });
 
+// GET /account/api/oauth/verify (the client's check every 30 s) names the account of the token it was
+// sent with, as the real service did. 1 answers the old fixed placeholder account to everyone.
+export const VerifyStubAccount = DefineSwitch({
+    Env: "VERIFY_STUB_ACCOUNT",
+    Label: "verifyStubAccount",
+    Default: false,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;

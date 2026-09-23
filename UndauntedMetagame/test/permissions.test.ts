@@ -135,7 +135,7 @@ const EXPECTED_ROUTES = [
     "PUT /gamesession/epic [HasUndauntedMetagameAuth]",
     "POST /accountinfo/public [HasUndauntedMetagameAuth]",
     "POST /account/api/oauth/token []",
-    "GET /account/api/oauth/verify []",
+    "GET /account/api/oauth/verify [SoftMetagameAuth]",
     "GET /account/api/public/account/:AccId [SoftMetagameAuth]",
     "GET /account/api/public/account/displayName/:displayName [SoftMetagameAuth]",
     "GET /account/api/public/account/:AccId/externalAuths []",

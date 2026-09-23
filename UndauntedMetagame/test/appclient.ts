@@ -32,9 +32,9 @@ export async function StopApp(){
 
 export type Reply = { status: number, json: any, text: string };
 
-// as: the account whose token is sent (the bearer); gs: send the game-server key
-export async function Call(Method: string, Path: string, Options: { as?: string, gs?: boolean, body?: unknown, raw?: string } = {}): Promise<Reply> {
-    const Headers: Record<string, string> = {};
+// as: the account whose token is sent (the bearer); gs: send the game-server key; headers: any others
+export async function Call(Method: string, Path: string, Options: { as?: string, gs?: boolean, body?: unknown, raw?: string, headers?: Record<string, string> } = {}): Promise<Reply> {
+    const Headers: Record<string, string> = { ...(Options.headers ?? {}) };
 
     if(Options.as !== undefined) Headers["authorization"] = `bearer ${SignMetagameJWTForUid(Options.as)}`;
     if(Options.gs) Headers["x-undaunted-gameserver-apikey"] = GS_KEY;

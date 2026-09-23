@@ -573,7 +573,7 @@ export function InviteToParty(CallerId: string, RecipientId: unknown, RequestedP
 
 // PUT /party/invite/accept/:inviteId. The client puts the invite's partyId in the URL (and in
 // body.partyId); in case it is really the sender's id, that is tried second. The answer is
-// the joined party.
+// the joined party, also for an accept repeated after it succeeded.
 export async function AcceptPartyInvite(CallerId: string, InviteId: unknown): Promise<PartyActionResult> {
     GlobalSweep();
     TouchPlayer(CallerId);
@@ -590,6 +590,21 @@ export async function AcceptPartyInvite(CallerId: string, InviteId: unknown): Pr
     const ShownId = typeof InviteId === "string" ? InviteId.slice(0, 64) : "<none>";
 
     if(TheInvite === undefined){
+        // A repeated accept: the client can send the accept again while it applies the party the first one
+        // joined (seen in game by Harmonic, github.com/Harmonicrain/Undaunted 895f7c7). The accepted invite is
+        // gone by then, so when the caller already sits in a party of two or more that the id names (its
+        // party id, or another member such as the sender), the answer is that party instead of a 404.
+        const Current = GetPartyOf(CallerId);
+
+        if(Current !== undefined && typeof InviteId === "string" && InviteId.length > 0){
+            Refresh(Current, CallerId);
+
+            if(Current.Members.length > 1 && (Current.PartyId === InviteId || Current.Members.some((Member) => Member !== CallerId && Member === InviteId))){
+                logger.info(`party: accept by ${CallerId} id=${ShownId}: already in P=${Current.PartyId} size=${Current.Members.length}; answering that party (a repeated accept)`);
+                return { Status: 200, Body: await PartyReply(Current) };
+            }
+        }
+
         logger.info(`party: accept by ${CallerId} id=${ShownId}: no such invite (${Live.length} pending)`);
         return { Status: 404, Body: {} };
     }

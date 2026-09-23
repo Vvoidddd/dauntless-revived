@@ -138,7 +138,11 @@ describe("T1: invite and accept", () => {
         InviteToParty(B, A, PartyB);
         assert.equal((await AcceptPartyInvite(A, "not-a-party")).Status, 404);
         assert.equal((await AcceptPartyInvite(A, PartyB)).Status, 200);
-        assert.equal((await AcceptPartyInvite(A, PartyB)).Status, 404, "the invite is gone once used");
+        assert.deepEqual(ListPartyInvites(A).invitations, [], "the invite is gone once used");
+        // A repeated accept answers the party A already joined (it was 404 before the Harmonic port)
+        const Again = await AcceptPartyInvite(A, PartyB);
+        assert.equal(Again.Status, 200);
+        assert.deepEqual((Again.Body as any).playerIds, [B, A]);
         assert.deepEqual(GetPartyOf(A)?.Members, [B, A]);
     });
 });

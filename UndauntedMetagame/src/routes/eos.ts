@@ -4,6 +4,7 @@ import { GetUserIDForAPIKey, SignMetagameJWTForUid } from "../controllers/auth";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import { DisplayNameForUserId, FindAccountByUsername, FindUsernameForUserId, FindUsernames } from "../controllers/login";
 import { SoftMetagameAuth, SoftPlayerOf } from "../middleware/PlayerAuth";
+import { VerifyStubAccount } from "../features";
 
 export const eosRouter = Router();
 
@@ -67,10 +68,19 @@ eosRouter.post("/account/api/oauth/token", async (req, res) => {
     }
 });
 
-eosRouter.get("/account/api/oauth/verify", (req, res) => {
+// The account upstream's stub named for everyone
+const VERIFY_STUB_ACCOUNT_ID = "9626f441055349ce8cb7d7d5a483eaa2";
+
+// The client's token check, every 30 s (VerifyTokenInterval) for as long as it runs. The client looks its
+// logged-in account up by the account_id of the reply ("Verify auth response ignored, can't find
+// UserAccount for %s" otherwise), so a valid token now gets its own account, as the real service answered
+// (Harmonic's fork did the same). It never answers 401: after the token's 24 hours a refusal here could log
+// the player out mid-session, so a missing, bad or expired token still gets the old stub, and expires_at
+// stays far off. VERIFY_STUB_ACCOUNT=1 answers the stub to everyone again.
+eosRouter.get("/account/api/oauth/verify", SoftMetagameAuth, (req: any, res) => {
     logger.info("Verifying token");
 
-    // TODO: EOS treats this as a "just checking in" endpoint, so I've gone with a minimal stub. Validate this is correct.
+    const Caller = VerifyStubAccount() ? undefined : SoftPlayerOf(req);
 
     res.json({
       "active": true,
@@ -78,7 +88,7 @@ eosRouter.get("/account/api/oauth/verify", (req, res) => {
       "token_type": "bearer",
       "expires_in": 86400,
       "expires_at": "2085-09-09T01:01:01.703Z",
-      "account_id": "9626f441055349ce8cb7d7d5a483eaa2",
+      "account_id": Caller ?? VERIFY_STUB_ACCOUNT_ID,
       "client_id": "xyza7891lhxMVYGCON7LgnKZZ8HQGD5H",
       "application_id": "fghi4567O03HROxEjwbn7kgXpBhnhWwv"
     });
