@@ -70,8 +70,8 @@ tarvinnut muuttaa.
 - Ostokoodi tekee kaksi ostokutsua tässä järjestyksessä (B `0x140b39657` tunnisteelle ja `0x140b55011`
   vahvistukselle). Se, että `POST` on vahvistus eli hetki, jolloin osto tapahtuu, on vahva päätelmä (S):
   sen jälkeen ei tule muuta.
-- Polun valuutta on `platinum` jokaisessa myymässämme tarjouksessa (peliohjelma ottaa sen tarjouksen
-  hintakentistä).
+- Polun valuutta on `platinum` jokaisessa myymässämme tarjouksessa (S: peliohjelma valitsee sen
+  tarjouksen hintakentistä; muu valuutta torjutaan vastauksella 400).
 - Tarjouksen hintakentät ovat **litteitä**: `platinumPrice`, `platinumSalePrice`, `cellDustPrice`,
   `prestigePrice`, `event01Price`, `steelMarksPrice` ja `gildedMarksPrice` (B, kenttien nimet
   1.4.4-ohjelmatiedostossa, Harmonicin lukemina). Myöhempien versioiden `prices: [{currencyId, price}]`

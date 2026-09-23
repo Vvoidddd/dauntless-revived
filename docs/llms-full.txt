@@ -13709,8 +13709,8 @@ The store uses four endpoint keys, all of them already pointed at the metagame b
 - The two purchase calls are made in that order by the purchase code (B `0x140b39657` for the token,
   `0x140b55011` for the confirm). That the `POST` is the confirmation, the point where the purchase
   happens, is strong inference (S): nothing else follows it.
-- The currency in the path is `platinum` for every offer we sell (the client takes it from the
-  offer's price fields).
+- The currency in the path is `platinum` for every offer we sell (S: the client picks it from the
+  offer's price fields; any other currency is refused with 400).
 - The offer's price fields are **flat**: `platinumPrice`, `platinumSalePrice`, `cellDustPrice`,
   `prestigePrice`, `event01Price`, `steelMarksPrice` and `gildedMarksPrice` (B, the field names in the
   1.4.4 executable, read by Harmonic). The newer `prices: [{currencyId, price}]` array of later clients
