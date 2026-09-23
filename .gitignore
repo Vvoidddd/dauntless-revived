@@ -23,3 +23,10 @@
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite-*
+
+# Local backups and tool leftovers
+*.bak
+*.bak-*
+*.drizzle-generated
