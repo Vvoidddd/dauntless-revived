@@ -85,6 +85,29 @@ export const BodyLogPerPath = DefineSwitch({
     Show: (Value: number) => Value === 0 ? "no-cap" : String(Value)
 });
 
+// Escalation saves (roadmap 2.16; controllers/escalation.ts). stub, the default: every account reads
+// upstream's fake maximum and the save route answers 404, as before. real: accounts in real progression
+// mode read and save their own seasons; players drop from the fake maximum to level 0 and level up for
+// real, so switching it on is the owner's decision after the in-game test.
+export const EscalationMode = DefineSwitch({
+    Env: "ESCALATION_MODE",
+    Label: "escalation",
+    Default: "stub" as "stub" | "real",
+    Parse: ParseChoice(["stub", "real"] as const),
+    Show: (Value: string) => Value
+});
+
+// ESCALATION_MODE=real only. The save rules that depend on how the talent tiers, the level costs and
+// the reward levels are modelled: off (the default) logs a save that breaks one and stores it anyway;
+// on refuses it (409). The rules every save must pass are always enforced.
+export const EscalationStrict = DefineSwitch({
+    Env: "ESCALATION_STRICT",
+    Label: "escalationStrict",
+    Default: false,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;

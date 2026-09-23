@@ -3,6 +3,7 @@ import { loginRouter } from "./routes/login.js";
 import { logger } from "./logger.js";
 import { eosRouter } from "./routes/eos.js";
 import { systemRouter } from "./routes/system.js";
+import { escalationRouter } from "./routes/escalation.js";
 import { friendsRouter } from "./routes/friends.js";
 import { characterRouter } from "./routes/character.js";
 import { inventoryRouter } from "./routes/inventory.js";
@@ -53,6 +54,7 @@ if (process.env.LOG_BODIES === "1") {
 app.use("/", loginRouter);
 app.use("/", eosRouter);
 app.use("/", systemRouter);
+app.use("/", escalationRouter);
 app.use("/", friendsRouter);
 app.use("/", characterRouter);
 app.use("/", inventoryRouter);

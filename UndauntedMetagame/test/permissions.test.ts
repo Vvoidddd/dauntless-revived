@@ -155,7 +155,6 @@ const EXPECTED_ROUTES = [
     "POST /entitlementv2/:userId [HasUndauntedMetagameAuth]",
     "DELETE /entitlement/:userId/:entitlement [RealProgressionOnly, HasUndauntedMetagameAuth]",
     "GET /playertreatments/:userId [HasUndauntedMetagameAuth]",
-    "GET /escalation/:escalationSeason/:userId [HasUndauntedMetagameAuth]",
     "GET /eventstats/ [HasUndauntedMetagameAuth]",
     "GET /progression/config [HasUndauntedMetagameAuth]",
     "GET /huntpass/:userId [HasUndauntedMetagameAuth]",
@@ -169,6 +168,9 @@ const EXPECTED_ROUTES = [
     "POST /bounty/:userId [HasUndauntedMetagameAuth]",
     "GET /all/ [HasUndauntedMetagameAuth]",
     "GET /motd/trigger [MiscRoutesOn]",
+    // Escalation (roadmap 2.16): the save is a game server's, and exists only with ESCALATION_MODE=real
+    "GET /escalation/:escalationSeason/:userId [HasUndauntedMetagameAuth]",
+    "POST /escalation/:escalationSeason/:userId [EscalationSavesOn, RealProgressionOnly, HasUndauntedMetagameAuth]",
     "GET /friends/api/public/friends/:userId [MiscRoutesOn, SoftMetagameAuth]",
     "GET /friends/api/public/blocklist/:userId [MiscRoutesOn, SoftMetagameAuth]",
     "POST /friends/api/public/friends/:userId/:friendId [HasUndauntedMetagameAuth, PlayerTokenOnly]",

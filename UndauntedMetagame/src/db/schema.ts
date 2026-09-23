@@ -260,6 +260,43 @@ export const blocks = sqliteTable("blocks", {
     index("blocks_blocked").on(table.blockedId)
 ]);
 
+// Escalation (roadmap 2.16; from Harmonic's fork, github.com/Harmonicrain/Undaunted 895f7c7). The last
+// season snapshot a game server saved, per account and season, in canonical form: level, the XP towards
+// the next level, the talent ranks held and the rewards collected. updateVersion and contentHash (the
+// snapshot without its version) of the last accepted save tell a retry from a stale or reordered save.
+// Only read and written with ESCALATION_MODE=real; every save is also in progression_events.
+export const escalationprogression = sqliteTable("escalationprogression", {
+    accountId: text("accountId").notNull(),
+    seasonId: text("seasonId").notNull(),
+    level: integer("level").notNull(),
+    xp: integer("xp").notNull(),
+    updateVersion: integer("updateVersion").notNull(),
+    contentHash: text("contentHash").notNull(),
+    updatedDate: text("updatedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.seasonId]})
+]);
+
+// Talent ranks above 0 of the last accepted snapshot (a talent reset removes rows)
+export const escalationtalents = sqliteTable("escalationtalents", {
+    accountId: text("accountId").notNull(),
+    seasonId: text("seasonId").notNull(),
+    talentId: text("talentId").notNull(),
+    rank: integer("rank").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.seasonId, table.talentId]})
+]);
+
+// Collected rewards; a collection is never undone, and collectedDate is the first save that had it
+export const escalationunlocks = sqliteTable("escalationunlocks", {
+    accountId: text("accountId").notNull(),
+    seasonId: text("seasonId").notNull(),
+    unlockId: text("unlockId").notNull(),
+    collectedDate: text("collectedDate").notNull()
+}, (table) => [
+    primaryKey({columns: [table.accountId, table.seasonId, table.unlockId]})
+]);
+
 // Guilds (roadmap 3.11, the 1.4.4 client's v2 guild API; docs/findings/social.md). guildId is a
 // random UUID (it also names the chat room Guild-<guildId>). nameKey and nameplateKey are lowercase
 // copies for case-insensitive uniqueness; nameplateKey is NULL for a guild without a nameplate
