@@ -483,7 +483,7 @@ paikkaansa, ja linkki kestää 168 tuntia.
 
 **Tilanne 23.9.2026: rakennettu ja testattu ilman peliä, oletuksena päällä (`SLAYER_LINKS`), ei vielä
 kokeiltu pelissä.** Rajapinnan kuvaus on Harmonicin haarasta, jossa oli ensimmäinen toimiva versio;
-tarkistimme jokaisen reitin ja rungon ohjelmatiedostoa vasten ja korjasimme niistä neljä (alla).
+tarkistimme jokaisen reitin ja rungon ohjelmatiedostoa vasten ja korjasimme viisi kohtaa (alla).
 22.9.2026 reittiluettelossa ei näkynyt yhtään Slayer Link -kutsua (L), joten peliohjelma saattaa pitää
 välilehden piilossa (`ULinkedSlayersFeature`); jos se ei koskaan kutsu näitä reittejä, pelaajille ei
 muutu mitään.
@@ -506,9 +506,10 @@ pelaajan.
 | `POST /slayerlink/availability` (`LinkedSlayersGetFriendsAvailabilityEndpoint`) | `{account_ids: [...]}`, enintään 50 | `{availability: [{account_id, available}]}` | B `0x1415e3608`, `0x1415fdf30`, `0x1415fdf90` |
 
 Virheet ovat muotoa `{"code": "<tila>", "message": ..., "payload": null}`: 400 (ei tilitunnusta, paikka
-muu kuin 0–2, tuntematon toiminto), 403 (ei kavereita tai esto), 404 (tiliä tai kutsua ei ole), 409
+muu kuin 1–3, tuntematon toiminto), 403 (ei kavereita tai esto), 404 (tiliä tai kutsua ei ole), 409
 (oma itse, paikassa on linkki tai odottava kutsu, jo linkitetty, toinen pelaaja on jo kutsunut sinut,
-ei vapaata paikkaa, kutsu on vanhentunut tai siihen on jo vastattu). Ilman tunnistetta vastaus on 401;
+ei vapaata paikkaa, yli 20 uutta kutsua 10 minuutissa, kutsu on vanhentunut tai siihen on jo vastattu).
+Ilman tunnistetta vastaus on 401;
 pelkkä pelipalvelimen avain saa 403.
 
 **Ei vastata:** palkintoreitit `PUT /slayerlink/links/rewards` ja
@@ -521,8 +522,15 @@ ohjelmatiedostossa (B): peliohjelma ei koskaan lähetä niitä.
 ### Säännöt {#slayer-link-rules}
 
 - **Kuka.** Kummankin pelaajan on oltava hyväksyttyjä kavereita, eikä kumpikaan saa olla estänyt toista.
-- **Paikat.** Kolme pelaajaa kohden (0–2) ja yksi odottava kutsu paikkaa kohden. Hyväksyntä käyttää
-  rungon paikkaa, jos se on vapaa, muuten ensimmäistä vapaata.
+- **Paikat.** Kolme pelaajaa kohden, numeroituina 1–3 niin kuin peliohjelma ne numeroi, ja yksi
+  odottava kutsu paikkaa kohden. Peliohjelma täyttää paikkataulunsa avaimilla ykkösestä arvoon
+  `MaxLinkSlotsCount` asti, joka on 3 (B: silmukka `0x1415ea22d`–`0x1415ea3a5`, määrä asetetaan
+  kohdassa `0x1415ce5f6`), ja hakee jokaisen paikan tällä avaimella; paikasta, jota taulussa ei ole, se
+  kirjaa "Invalid Slot Id" (B `0x1415ef4a0`). Paikka 0 torjutaan siksi (400) eikä sitä koskaan
+  tallenneta. Hyväksyntä käyttää rungon paikkaa, jos se on vapaa, muuten ensimmäistä vapaata.
+- **Kutsuraja.** Pelaaja lähettää enintään 20 uutta kutsua 10 minuutissa (sen jälkeen 409, sama raja
+  kuin kaveripyynnöillä). Raja lasketaan tallennetuista kutsuista, joten uudelleenkäynnistys ei nollaa
+  sitä. Saman pelaajan kutsuminen uudelleen vastaa odottavalla kutsulla eikä lasketa.
 - **Vastaukset.** Hyväksyntä ja hylkäys kuuluvat kutsutulle (`account_id` = lähettäjä), peruutus
   lähettäjälle (`account_id` = kutsuttu). Jos peliohjelma joskus lähettää rungossa kentän `link_id` tai
   `invite_id`, sitä kokeillaan ensin. Samanlaisen vastauksen toistaminen antaa taas 200.
@@ -537,8 +545,9 @@ ohjelmatiedostossa (B): peliohjelma ei koskaan lähetä niitä.
 - **Kaveruuden purku tai esto** peruu kahden pelaajan väliset odottavat kutsut samassa
   tietokantatapahtumassa. Käynnissä oleva linkki jatkuu loppuunsa: päättyykö se myös kaveruuden
   purkuun, on ylläpitäjän päätös.
-- Vastatut ja vanhentuneet kutsut sekä päättyneet linkit poistetaan 30 päivän kuluttua. Kutsut ja linkit
-  tallennetaan SQLiteen (tietokantamuutos `0016_slayer_links`, taulut `slayerlinkinvites` ja
+- Hylätyt, perutut ja vanhentuneet kutsut poistetaan, kun niiden 24 tuntia on kulunut, hyväksytyt
+  kutsut ja päättyneet linkit 30 päivän kuluttua (kumpikin seuraavan uuden kutsun yhteydessä). Kutsut ja
+  linkit tallennetaan SQLiteen (tietokantamuutos `0016_slayer_links`, taulut `slayerlinkinvites` ja
   `slayerlinks`; katso [Tiedostot ja data]({{ files_page.url | relative_url }})).
 
 ### Mitä korjasimme Harmonicin versiosta {#slayer-link-corrections}
@@ -549,10 +558,11 @@ ohjelmatiedostossa (B): peliohjelma ei koskaan lähetä niitä.
 | Linkki poistetaan osoitteessa `/slayerlink/link` | Tätä avainta ei käytetä; peliohjelma lähettää `DELETE /slayerlink/links` rungon kanssa (`0x1415dc442`) |
 | Reittiä `DELETE /slayerlink/invites/<tunnus>` ei ollut | Peliohjelma lähettää sen (`0x1415db890`) |
 | Tilavastaus oli litteä | Se sisältää kentät `invites`, `links` ja `config` (`0x141600510`) |
+| Paikat numeroidaan 0–2 | Paikkataulun avaimet ovat 1–3 (`0x1415ea22d`), ja jokainen haku käyttää niitä |
 
 **Lokit.** Jokainen toiminto on yksi `slayerlink:`-rivi, esimerkiksi
-`slayerlink: invite by=<A> to=<B> slot=0 -> sent id=<tunnus>` tai
-`slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots 0 and 1)`; torjunta päättyy
+`slayerlink: invite by=<A> to=<B> slot=1 -> sent id=<tunnus>` tai
+`slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots 1 and 2)`; torjunta päättyy
 `refused <tila>: <syy>`. `SLAYER_LINKS=0` palauttaa jokaiselle reitille vastauksen 404, jonka ne saivat
 ennen; tallennetut kutsut ja linkit säilyvät. Reitit ovat myös sivulla
 [HTTP-rajapinta]({{ api_page.url | relative_url }}#slayer-links).
@@ -609,8 +619,9 @@ Korjauksia testataan HTTP:n yli oikeaa metagamea vastaan peliohjelman omilla run
 - **Slayer Links** (`test/slayerlinks.test.ts`, kirjoitettu uudelleen Harmonicin testistä peliohjelman
   täsmällisillä poluilla ja rungoilla): jokainen reitti avaimineen, kutsulistan kumpikin suunta,
   hyväksyntä valittuun tai ensimmäiseen vapaaseen paikkaan, hylkäys ja peruutus `account_id`-kentällä,
-  kutsujen poiston kumpikin merkitys, linkin poisto kummaltakin pelaajalta, kolme paikkaa ja yksi
-  odottava kutsu paikkaa kohden, vanheneminen testikellolla, kaveruuden purku tai esto perumassa
+  kutsujen poiston kumpikin merkitys, linkin poisto kummaltakin pelaajalta, kolme paikkaa numeroilla 1–3
+  (0 ja 4 torjutaan, kolmatta paikkaa käytetään) ja yksi odottava kutsu paikkaa kohden, kutsuraja ja
+  vastattujen kutsujen siivous, vanheneminen testikellolla, kaveruuden purku tai esto perumassa
   odottavat kutsut samalla kun käynnissä oleva linkki jatkuu, 401 ja 403 kaikilla kahdeksalla
   reitillä, `SLAYER_LINKS=0` ja vastaamattomat palkintoreitit.
 - **Pienemmät korjaukset** (`test/socialported.test.ts`): kahdesti saapuva ryhmäkutsun hyväksyntä

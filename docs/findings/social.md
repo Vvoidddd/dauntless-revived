@@ -454,7 +454,7 @@ One player invites a friend into a slot, the friend accepts into one of theirs, 
 
 **Status (23 September 2026): built and tested without the game, on by default (`SLAYER_LINKS`), not
 yet tried in game.** The contract comes from Harmonic's fork, which had the first working version; we
-checked every route and body against the executable and corrected four of them (below). No Slayer
+checked every route and body against the executable and corrected five points (below). No Slayer
 Link call appeared in the census of 22 September 2026 (L), so the client may keep the tab hidden
 (`ULinkedSlayersFeature`); if it never calls these routes, nothing changes for players.
 
@@ -475,9 +475,10 @@ acts as the account of the bearer token; ids in a body or path only name the oth
 | `POST /slayerlink/availability` (`LinkedSlayersGetFriendsAvailabilityEndpoint`) | `{account_ids: [...]}`, at most 50 | `{availability: [{account_id, available}]}` | B `0x1415e3608`, `0x1415fdf30`, `0x1415fdf90` |
 
 Errors are `{"code": "<status>", "message": ..., "payload": null}`: 400 (no account id, a slot outside
-0-2, an unknown action), 403 (not friends, or blocked), 404 (no such account or invite), 409 (yourself,
+1-3, an unknown action), 403 (not friends, or blocked), 404 (no such account or invite), 409 (yourself,
 the slot is linked or has a waiting invite, already linked, the other player already invited you, no
-free slot, the invite ran out or was already answered). No token gets 401; a game server's key alone
+free slot, more than 20 new invites in 10 minutes, the invite ran out or was already answered). No
+token gets 401; a game server's key alone
 gets 403.
 
 **Not answered:** the reward routes `PUT /slayerlink/links/rewards` and
@@ -490,8 +491,15 @@ client never sends them.
 ### The rules {#slayer-link-rules}
 
 - **Who.** Both players must be accepted friends, and neither may have blocked the other.
-- **Slots.** Three per player (0 to 2), and one waiting invite per slot. An accept uses the slot in
-  the body when it is free, otherwise the first free one.
+- **Slots.** Three per player, numbered 1 to 3 as the client numbers them, and one waiting invite per
+  slot. The client fills its slot map with the keys 1 up to its `MaxLinkSlotsCount`, which is 3
+  (B: the loop `0x1415ea22d`-`0x1415ea3a5`, the count set at `0x1415ce5f6`), and looks every slot up
+  by that key; a slot it does not hold logs "Invalid Slot Id" (B `0x1415ef4a0`). A slot of 0 is
+  therefore refused (400) and never stored. An accept uses the slot in the body when it is free,
+  otherwise the first free one.
+- **Invite limit.** A player sends at most 20 new invites in 10 minutes (409 after that, the same
+  limit as friend requests), counted from the stored invites, so a restart does not reset it. Inviting
+  the same player again answers the waiting invite and does not count.
 - **Answers.** Accept and reject belong to the invited player (`account_id` = the sender), cancel to the
   sender (`account_id` = the invited player). A `link_id` or `invite_id` in the body, if the client ever
   sends one, is tried first. Repeating an answer of the same kind is 200 again.
@@ -505,7 +513,8 @@ client never sends them.
 - **Unfriending or a block** cancels the waiting invites between the two, inside the same database
   transaction. A running link stays until it ends: whether an unfriend should also end it is the
   owner's decision.
-- Answered and expired invites and ended links are deleted 30 days later. Invites and links are stored
+- Declined, cancelled and expired invites are deleted once their 24 hours are over, accepted invites
+  and ended links 30 days later (both when the next new invite is made). Invites and links are stored
   in SQLite (migration `0016_slayer_links`, tables `slayerlinkinvites` and `slayerlinks`; see
   [Files and data]({{ files_page.url | relative_url }})).
 
@@ -517,10 +526,11 @@ client never sends them.
 | A link is removed at `/slayerlink/link` | That key is never used; the client sends `DELETE /slayerlink/links` with a body (`0x1415dc442`) |
 | No route for `DELETE /slayerlink/invites/<id>` | The client sends it (`0x1415db890`) |
 | The status reply was flat | It nests `invites`, `links` and `config` (`0x141600510`) |
+| Slots are numbered 0 to 2 | The slot map's keys are 1 to 3 (`0x1415ea22d`), and every lookup uses them |
 
 **Logs.** Every action is one `slayerlink:` line, for example
-`slayerlink: invite by=<A> to=<B> slot=0 -> sent id=<id>` or
-`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots 0 and 1)`; a refusal ends in
+`slayerlink: invite by=<A> to=<B> slot=1 -> sent id=<id>` or
+`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots 1 and 2)`; a refusal ends in
 `refused <status>: <reason>`. `SLAYER_LINKS=0` makes every route fall through to the 404 it got
 before; the stored invites and links stay. The routes are also on
 [HTTP API]({{ api_page.url | relative_url }}#slayer-links).
@@ -573,8 +583,9 @@ The fixes are tested over HTTP against the real metagame, with the client's own 
 - **Slayer Links** (`test/slayerlinks.test.ts`, rewritten from Harmonic's case with the client's exact
   paths and bodies): every route and its keys, both directions of the invite list, accept with the
   chosen or the first free slot, reject and cancel by `account_id`, both meanings of the invite delete,
-  a link removed for both players, the three slots and one waiting invite per slot, expiry with a test
-  clock, an unfriend or a block cancelling waiting invites while a running link stays, 401 and 403 on
+  a link removed for both players, the three slots numbered 1 to 3 (0 and 4 refused, the third slot
+  used) and one waiting invite per slot, the invite limit and the clean-up of answered invites, expiry
+  with a test clock, an unfriend or a block cancelling waiting invites while a running link stays, 401 and 403 on
   all eight routes, `SLAYER_LINKS=0` and the unanswered reward routes.
 - **The smaller fixes** (`test/socialported.test.ts`): the repeated party accept (by the party id and by
   the sender; not for one's own id, a stranger, a party of one or a party left), and `oauth/verify`

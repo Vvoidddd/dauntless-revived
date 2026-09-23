@@ -2696,7 +2696,7 @@ Metagame lines unless marked.
 |:-----|:--------|
 | `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<id>` | An invite was sent. |
 | `slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots X and Y)` | A link began (`reject` and `cancel` log the same way). |
-| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). |
+| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). `the slot must be 1 to 3` means a client sent a slot the 1.4.4 client does not have; `too many invites` means more than 20 new invites in 10 minutes from one player. |
 | `slayerlink: delete link by=<A> ... -> removed <id> (with <B>)` | A link was ended for both players. |
 | `friends: ... (N Slayer Link invite(s) between them cancelled)` | An unfriend or a block also cancelled waiting invites. |
 
@@ -5475,18 +5475,18 @@ other player. Replies use the envelope `{code: null, message: "OK", payload}`; r
 | GET | `/slayerlink/status_good` | player | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: the two lists below together, the client's poll for news. |
 | GET | `/slayerlink/invites` | player | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: the caller's pending, unexpired invites; `account_id` is the other player, `direction` `Sent` or `Received`, `status` `Pending`, `slot` the sender's slot. |
 | GET | `/slayerlink/links` | player | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: running links, by the caller's slot; both id keys name the other player. |
-| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (0-2). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
+| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (1-3, the client's numbers). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
 | POST | `/slayerlink/invite` | player | `{account_id, action, slot, action_source}` with `action` `accept` or `reject` (the invited player; `account_id` is the sender) or `cancel` (the sender; `account_id` is the invited player). A `link_id` or `invite_id` in the body is tried first. An accept takes the body's `slot` when it is free, else the first free one. Answers `{link_id}`; repeating the same answer is 200 again. |
 | DELETE | `/slayerlink/invites/:accountId` | player | With the caller's own id: withdraws every invite the caller sent and declines every one received. With another player's id: only the invites between the two. Answers `{}`. |
 | DELETE | `/slayerlink/links` | player | `{account_id, slot, delete_pair}` (or the same as a query): ends the caller's link in that slot or with that player, for both players. Answers `{}`, also when there was nothing to remove. |
 | POST | `/slayerlink/availability` | player | `{account_ids: [...]}` (at most 50) → `{availability: [{account_id, available}]}`: which of them the caller could invite now. |
 
 Rules: both players must be accepted friends and neither may have blocked the other (403); 3 slots
-per player and one waiting invite per slot; an invite lasts 24 hours and a link 168 hours; unfriending
+per player and one waiting invite per slot; at most 20 new invites per player in 10 minutes; an invite lasts 24 hours and a link 168 hours; unfriending
 or a block cancels the waiting invites between the two (a running link stays until it ends). Other
-refusals: 400 (no account id, a slot outside 0-2, an unknown action), 404 (no such account or
+refusals: 400 (no account id, a slot outside 1-3, an unknown action), 404 (no such account or
 invite), 409 (yourself, the slot is taken or has a waiting invite, already linked, the other player
-already invited you, no free slot, the invite ran out or was answered). **Not answered** (404): the
+already invited you, no free slot, the invite limit, the invite ran out or was answered). **Not answered** (404): the
 reward routes `PUT /slayerlink/links/rewards` and `GET /slayerlink/links/rewards/:accountId/:slot`.
 
 ## Metagame: the management API
@@ -6238,10 +6238,12 @@ Added with migration `0016_slayer_links`. Times are in milliseconds, as in the f
 
 | Table | What it stores |
 |:------|:---------------|
-| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot, created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
-| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot, and when it began and ends (168 hours later). A removal deletes the row for both. |
+| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot (1 to 3, the client's numbers), created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
+| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot (1 to 3), and when it began and ends (168 hours later). A removal deletes the row for both. |
 
-Answered and expired invites and ended links are deleted 30 days later, when the next invite is made.
+Declined, cancelled and expired invites are deleted once their 24 hours are over, accepted invites and
+ended links 30 days later, when the next new invite is made. The invite limit (20 new invites per
+player in 10 minutes) is counted from this table.
 [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links) explains
 the rules.
 
@@ -12944,7 +12946,7 @@ One player invites a friend into a slot, the friend accepts into one of theirs, 
 
 **Status (23 September 2026): built and tested without the game, on by default (`SLAYER_LINKS`), not
 yet tried in game.** The contract comes from Harmonic's fork, which had the first working version; we
-checked every route and body against the executable and corrected four of them (below). No Slayer
+checked every route and body against the executable and corrected five points (below). No Slayer
 Link call appeared in the census of 22 September 2026 (L), so the client may keep the tab hidden
 (`ULinkedSlayersFeature`); if it never calls these routes, nothing changes for players.
 
@@ -12965,9 +12967,10 @@ acts as the account of the bearer token; ids in a body or path only name the oth
 | `POST /slayerlink/availability` (`LinkedSlayersGetFriendsAvailabilityEndpoint`) | `{account_ids: [...]}`, at most 50 | `{availability: [{account_id, available}]}` | B `0x1415e3608`, `0x1415fdf30`, `0x1415fdf90` |
 
 Errors are `{"code": "<status>", "message": ..., "payload": null}`: 400 (no account id, a slot outside
-0-2, an unknown action), 403 (not friends, or blocked), 404 (no such account or invite), 409 (yourself,
+1-3, an unknown action), 403 (not friends, or blocked), 404 (no such account or invite), 409 (yourself,
 the slot is linked or has a waiting invite, already linked, the other player already invited you, no
-free slot, the invite ran out or was already answered). No token gets 401; a game server's key alone
+free slot, more than 20 new invites in 10 minutes, the invite ran out or was already answered). No
+token gets 401; a game server's key alone
 gets 403.
 
 **Not answered:** the reward routes `PUT /slayerlink/links/rewards` and
@@ -12980,8 +12983,15 @@ client never sends them.
 ### The rules
 
 - **Who.** Both players must be accepted friends, and neither may have blocked the other.
-- **Slots.** Three per player (0 to 2), and one waiting invite per slot. An accept uses the slot in
-  the body when it is free, otherwise the first free one.
+- **Slots.** Three per player, numbered 1 to 3 as the client numbers them, and one waiting invite per
+  slot. The client fills its slot map with the keys 1 up to its `MaxLinkSlotsCount`, which is 3
+  (B: the loop `0x1415ea22d`-`0x1415ea3a5`, the count set at `0x1415ce5f6`), and looks every slot up
+  by that key; a slot it does not hold logs "Invalid Slot Id" (B `0x1415ef4a0`). A slot of 0 is
+  therefore refused (400) and never stored. An accept uses the slot in the body when it is free,
+  otherwise the first free one.
+- **Invite limit.** A player sends at most 20 new invites in 10 minutes (409 after that, the same
+  limit as friend requests), counted from the stored invites, so a restart does not reset it. Inviting
+  the same player again answers the waiting invite and does not count.
 - **Answers.** Accept and reject belong to the invited player (`account_id` = the sender), cancel to the
   sender (`account_id` = the invited player). A `link_id` or `invite_id` in the body, if the client ever
   sends one, is tried first. Repeating an answer of the same kind is 200 again.
@@ -12995,7 +13005,8 @@ client never sends them.
 - **Unfriending or a block** cancels the waiting invites between the two, inside the same database
   transaction. A running link stays until it ends: whether an unfriend should also end it is the
   owner's decision.
-- Answered and expired invites and ended links are deleted 30 days later. Invites and links are stored
+- Declined, cancelled and expired invites are deleted once their 24 hours are over, accepted invites
+  and ended links 30 days later (both when the next new invite is made). Invites and links are stored
   in SQLite (migration `0016_slayer_links`, tables `slayerlinkinvites` and `slayerlinks`; see
   [Files and data](https://mixutin.github.io/dauntless-revived/reference/files.html)).
 
@@ -13007,10 +13018,11 @@ client never sends them.
 | A link is removed at `/slayerlink/link` | That key is never used; the client sends `DELETE /slayerlink/links` with a body (`0x1415dc442`) |
 | No route for `DELETE /slayerlink/invites/<id>` | The client sends it (`0x1415db890`) |
 | The status reply was flat | It nests `invites`, `links` and `config` (`0x141600510`) |
+| Slots are numbered 0 to 2 | The slot map's keys are 1 to 3 (`0x1415ea22d`), and every lookup uses them |
 
 **Logs.** Every action is one `slayerlink:` line, for example
-`slayerlink: invite by=<A> to=<B> slot=0 -> sent id=<id>` or
-`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots 0 and 1)`; a refusal ends in
+`slayerlink: invite by=<A> to=<B> slot=1 -> sent id=<id>` or
+`slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots 1 and 2)`; a refusal ends in
 `refused <status>: <reason>`. `SLAYER_LINKS=0` makes every route fall through to the 404 it got
 before; the stored invites and links stay. The routes are also on
 [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#slayer-links).
@@ -13063,8 +13075,9 @@ The fixes are tested over HTTP against the real metagame, with the client's own 
 - **Slayer Links** (`test/slayerlinks.test.ts`, rewritten from Harmonic's case with the client's exact
   paths and bodies): every route and its keys, both directions of the invite list, accept with the
   chosen or the first free slot, reject and cancel by `account_id`, both meanings of the invite delete,
-  a link removed for both players, the three slots and one waiting invite per slot, expiry with a test
-  clock, an unfriend or a block cancelling waiting invites while a running link stays, 401 and 403 on
+  a link removed for both players, the three slots numbered 1 to 3 (0 and 4 refused, the third slot
+  used) and one waiting invite per slot, the invite limit and the clean-up of answered invites, expiry
+  with a test clock, an unfriend or a block cancelling waiting invites while a running link stays, 401 and 403 on
   all eight routes, `SLAYER_LINKS=0` and the unanswered reward routes.
 - **The smaller fixes** (`test/socialported.test.ts`): the repeated party accept (by the party id and by
   the sender; not for one's own id, a stranger, a party of one or a party left), and `oauth/verify`
@@ -14204,7 +14217,7 @@ held bounties, and `/bounty/game-data` keeps an empty bounty list).
 | The friends routes | **Keep ours** | His block list is sent under a key the client does not read (`blocklistedUsers`; the client reads `blockedUsers`, B `0x1443fd258`), and his friends route uses the Mystic Paradox-derived presence code. |
 | Parties | **Keep ours, merge the accept retry** | His accept looks up an invite id the client never sends (it sends the party id, B `0x140b35384`), and he had no decline, leader removal or party status. We took his tolerance for an accept that arrives twice. |
 | Guilds | **Keep ours** | His fork has upstream's stub. |
-| Slayer Links | **Adopt, corrected** | A real 1.4.4 feature. Read from the executable: the invite list's other player is `account_id`, not `linked_account_id`; removing a link is `DELETE /slayerlink/links` with a body, not `/slayerlink/link`; `DELETE /slayerlink/invites/<id>` was missing; and the status reply nests invites, links and settings. It only answers routes that got 404 before, so it is on (`SLAYER_LINKS`). |
+| Slayer Links | **Adopt, corrected** | A real 1.4.4 feature. Read from the executable: the invite list's other player is `account_id`, not `linked_account_id`; removing a link is `DELETE /slayerlink/links` with a body, not `/slayerlink/link`; `DELETE /slayerlink/invites/<id>` was missing; the status reply nests invites, links and settings; and the slots are numbered 1 to 3, not 0 to 2. It only answers routes that got 404 before, so it is on (`SLAYER_LINKS`). |
 | `oauth/verify` names the caller's own account | **Merge (the account id)** | That is what the real service answered. We never answer 401: the client checks every 30 seconds, and after the 24-hour token expiry a 401 could log players out. `VERIFY_STUB_ACCOUNT=1` brings back the placeholder. |
 | Account lookups that require a token (401) | **Keep ours** | Our soft check gives the same answers without refusing anyone. |
 | `/account/mapping`, `/accountinfo/public` | **Already ours** | We made the same fixes on 22 September. |
@@ -14958,7 +14971,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 
 - [ ] **3.14 Skyfishing** (M; only if 3.1 shows it is there)
 
-- [ ] **3.15 Slayer Links** (M) — *Added and **built 2026-09-23, on by default** (`SLAYER_LINKS`), not yet tried in game. The contract comes from Harmonic's fork, the first that worked; four points were corrected against the executable (the invite list's other player is `account_id`, a link is removed with `DELETE /slayerlink/links` and a body, `DELETE /slayerlink/invites/<id>` was missing, and the status reply nests invites, links and config). Eight routes; three slots per player; invites last 24 hours and links 168; both players must be friends and not blocked; an unfriend or a block cancels waiting invites, while a running link stays until it ends. Tables in migration `0016_slayer_links`. The two reward routes stay unanswered until traced. Details: [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links).*
+- [ ] **3.15 Slayer Links** (M) — *Added and **built 2026-09-23, on by default** (`SLAYER_LINKS`), not yet tried in game. The contract comes from Harmonic's fork, the first that worked; five points were corrected against the executable (the invite list's other player is `account_id`, a link is removed with `DELETE /slayerlink/links` and a body, `DELETE /slayerlink/invites/<id>` was missing, the status reply nests invites, links and config, and the slots are numbered 1 to 3 like the client's). Eight routes; three slots per player; at most 20 new invites per player in 10 minutes; invites last 24 hours and links 168; both players must be friends and not blocked; an unfriend or a block cancels waiting invites, while a running link stays until it ends. Tables in migration `0016_slayer_links`. The two reward routes stay unanswered until traced. Details: [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links).*
   - **What:** the My Links tab of the Social panel: invite a friend into a link slot, accept, reject, cancel, list, remove.
   - **Needs:** 1.9 (friends).
   - **The live test:** two players who are friends invite, accept, view the links, remove a link, and in a second round decline and cancel. The panel shows the other player's name and removal works. No Slayer Link call was seen in the 22 September census, so the client may keep the tab hidden: then nothing changes for players. If anything misbehaves: `SLAYER_LINKS=0`.

@@ -420,11 +420,12 @@ Lisätty migraatiolla `0016_slayer_links`. Ajat ovat millisekunteja, kuten kaver
 
 | Taulu | Mitä se tallentaa |
 |:------|:------------------|
-| `slayerlinkinvites` | Yksi rivi kutsua kohden: `inviteId` (peliohjelman näkemä `link_id`), lähettäjä, kutsuttu, lähettäjän paikka, luonti- ja vanhenemisaika sekä `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` tai `EXPIRED`). Parilla voi olla enintään yksi odottava kutsu (osittainen yksilöllinen indeksi). Kaveruuden purku tai esto asettaa parin odottavat kutsut tilaan `CANCELED`. |
-| `slayerlinks` | Yksi rivi käynnissä olevaa linkkiä kohden (molemmat pelaajat jakavat sen): `linkId` (hyväksytyn kutsun tunnus), kaksi pelaajaa, kummankin paikka sekä alkamis- ja päättymisaika (168 tuntia myöhemmin). Poisto poistaa rivin kummaltakin. |
+| `slayerlinkinvites` | Yksi rivi kutsua kohden: `inviteId` (peliohjelman näkemä `link_id`), lähettäjä, kutsuttu, lähettäjän paikka (1–3, peliohjelman numerot), luonti- ja vanhenemisaika sekä `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` tai `EXPIRED`). Parilla voi olla enintään yksi odottava kutsu (osittainen yksilöllinen indeksi). Kaveruuden purku tai esto asettaa parin odottavat kutsut tilaan `CANCELED`. |
+| `slayerlinks` | Yksi rivi käynnissä olevaa linkkiä kohden (molemmat pelaajat jakavat sen): `linkId` (hyväksytyn kutsun tunnus), kaksi pelaajaa, kummankin paikka (1–3) sekä alkamis- ja päättymisaika (168 tuntia myöhemmin). Poisto poistaa rivin kummaltakin. |
 
-Vastatut ja vanhentuneet kutsut sekä päättyneet linkit poistetaan 30 päivän kuluttua, kun seuraava
-kutsu tehdään. [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}#slayer-links)
+Hylätyt, perutut ja vanhentuneet kutsut poistetaan, kun niiden 24 tuntia on kulunut, hyväksytyt kutsut
+ja päättyneet linkit 30 päivän kuluttua, kun seuraava uusi kutsu tehdään. Kutsuraja (20 uutta kutsua
+pelaajaa kohden 10 minuutissa) lasketaan tästä taulusta. [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}#slayer-links)
 kertoo säännöt.
 
 ### Vain muistissa {#kept-only-in-memory}

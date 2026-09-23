@@ -631,19 +631,20 @@ käyttävät kuorta `{code: null, message: "OK", payload}`; torjunnat ovat muoto
 | GET | `/slayerlink/status_good` | pelaaja | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: alla olevat kaksi listaa yhdessä, peliohjelman uutiskysely. |
 | GET | `/slayerlink/invites` | pelaaja | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: pelaajan odottavat, voimassa olevat kutsut; `account_id` on toinen pelaaja, `direction` `Sent` tai `Received`, `status` `Pending`, `slot` lähettäjän paikka. |
 | GET | `/slayerlink/links` | pelaaja | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: käynnissä olevat linkit pelaajan paikan mukaan; kumpikin tunnusavain nimeää toisen pelaajan. |
-| PUT | `/slayerlink/invite` | pelaaja | `{account_id, slot, action_source}`: kutsuu kaverin johonkin pelaajan paikoista (0–2). Vastaa `{link_id}`, kutsun tunnus; saman pelaajan kutsuminen uudelleen antaa saman tunnuksen. |
+| PUT | `/slayerlink/invite` | pelaaja | `{account_id, slot, action_source}`: kutsuu kaverin johonkin pelaajan paikoista (1–3, peliohjelman numerot). Vastaa `{link_id}`, kutsun tunnus; saman pelaajan kutsuminen uudelleen antaa saman tunnuksen. |
 | POST | `/slayerlink/invite` | pelaaja | `{account_id, action, slot, action_source}`, jossa `action` on `accept` tai `reject` (kutsuttu; `account_id` on lähettäjä) tai `cancel` (lähettäjä; `account_id` on kutsuttu). Rungon `link_id` tai `invite_id` kokeillaan ensin. Hyväksyntä käyttää rungon paikkaa `slot`, jos se on vapaa, muuten ensimmäistä vapaata. Vastaa `{link_id}`; saman vastauksen toisto on taas 200. |
 | DELETE | `/slayerlink/invites/:accountId` | pelaaja | Pelaajan omalla tunnuksella: peruu jokaisen pelaajan lähettämän kutsun ja hylkää jokaisen saadun. Toisen pelaajan tunnuksella: vain näiden kahden väliset kutsut. Vastaa `{}`. |
 | DELETE | `/slayerlink/links` | pelaaja | `{account_id, slot, delete_pair}` (tai samat kyselyparametreina): päättää pelaajan linkin kyseisessä paikassa tai kyseisen pelaajan kanssa, kummaltakin pelaajalta. Vastaa `{}`, myös kun poistettavaa ei ollut. |
 | POST | `/slayerlink/availability` | pelaaja | `{account_ids: [...]}` (enintään 50) → `{availability: [{account_id, available}]}`: keitä heistä pelaaja voisi nyt kutsua. |
 
 Säännöt: kummankin pelaajan on oltava hyväksyttyjä kavereita, eikä kumpikaan saa olla estänyt toista
-(403); 3 paikkaa pelaajaa kohden ja yksi odottava kutsu paikkaa kohden; kutsu on voimassa 24 tuntia ja
+(403); 3 paikkaa pelaajaa kohden ja yksi odottava kutsu paikkaa kohden; enintään 20 uutta kutsua pelaajaa
+kohden 10 minuutissa; kutsu on voimassa 24 tuntia ja
 linkki 168 tuntia; kaveruuden purku tai esto peruu kahden pelaajan väliset odottavat kutsut (käynnissä
-oleva linkki jatkuu loppuunsa). Muut torjunnat: 400 (ei tilitunnusta, paikka muu kuin 0–2, tuntematon
+oleva linkki jatkuu loppuunsa). Muut torjunnat: 400 (ei tilitunnusta, paikka muu kuin 1–3, tuntematon
 toiminto), 404 (tiliä tai kutsua ei ole), 409 (oma itse, paikka on varattu tai siinä on odottava kutsu,
-jo linkitetty, toinen pelaaja on jo kutsunut sinut, ei vapaata paikkaa, kutsu on vanhentunut tai siihen
-on vastattu). **Ei vastata** (404): palkintoreitit `PUT /slayerlink/links/rewards` ja
+jo linkitetty, toinen pelaaja on jo kutsunut sinut, ei vapaata paikkaa, kutsuraja, kutsu on vanhentunut
+tai siihen on vastattu). **Ei vastata** (404): palkintoreitit `PUT /slayerlink/links/rewards` ja
 `GET /slayerlink/links/rewards/:accountId/:slot`.
 
 ## Metagame: hallintarajapinta {#undaunted-api}

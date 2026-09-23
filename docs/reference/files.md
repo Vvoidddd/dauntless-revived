@@ -402,10 +402,12 @@ Added with migration `0016_slayer_links`. Times are in milliseconds, as in the f
 
 | Table | What it stores |
 |:------|:---------------|
-| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot, created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
-| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot, and when it began and ends (168 hours later). A removal deletes the row for both. |
+| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot (1 to 3, the client's numbers), created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
+| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot (1 to 3), and when it began and ends (168 hours later). A removal deletes the row for both. |
 
-Answered and expired invites and ended links are deleted 30 days later, when the next invite is made.
+Declined, cancelled and expired invites are deleted once their 24 hours are over, accepted invites and
+ended links 30 days later, when the next new invite is made. The invite limit (20 new invites per
+player in 10 minutes) is counted from this table.
 [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}#slayer-links) explains
 the rules.
 

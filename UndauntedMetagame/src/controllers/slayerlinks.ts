@@ -1,7 +1,7 @@
 // Ported from Harmonicrain/Undaunted (895f7c7), Copyright (C) 2026 Harmonic, AGPL-3.0-only; rewritten and
 // corrected against the 1.4.4 executable for Dauntless Revived.
 import crypto from "node:crypto";
-import { and, asc, eq, gt, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, lte, ne, or } from "drizzle-orm";
 import { GetDb } from "../db";
 import { slayerlinkinvites, slayerlinks, users } from "../db/schema";
 import { logger } from "../logger";
@@ -34,16 +34,23 @@ import { AreFriendsInTx, IsBlockedEitherWayInTx } from "./friends";
 // payload: null} with that HTTP status. The reward routes (links/rewards) are not answered: a false
 // success there could lose a reward, so they wait until they are traced.
 //
-// Rules: 3 slots each; an invite runs out after 24 h and a link after a week (168 h). Only two ACCEPTED
-// friends who have not blocked each other can link. Unfriending or a block cancels the pending invites
-// between the two (in the same transaction, controllers/friends.ts); a link that is already running stays
-// until it ends.
+// Rules: 3 slots each, numbered 1 to 3 as the client numbers them (its slot map is filled with the keys
+// 1..MaxLinkSlotsCount, 0x1415ea22d-0x1415ea3a5, and MaxLinkSlotsCount is 3, 0x1415ce5f6; a slot outside
+// the map is "Invalid Slot Id"). An invite runs out after 24 h and a link after a week (168 h). Only two
+// ACCEPTED friends who have not blocked each other can link. A player sends at most MAX_INVITES_PER_WINDOW
+// new invites per INVITE_WINDOW_MS. Unfriending or a block cancels the pending invites between the two (in
+// the same transaction, controllers/friends.ts); a link that is already running stays until it ends.
 
 export const LINK_SLOTS = 3;
 export const INVITE_EXPIRY_HOURS = 24;
 export const LINK_DURATION_HOURS = 168;
 export const MAX_AVAILABILITY_IDS = 50;
-// Answered or expired invites and ended links are kept this long for the log's sake, then removed
+// New invites one player may send in a sliding window, whatever became of them. Counted from the stored
+// invites, so a restart does not reset it; the same limit as friend requests (controllers/friends.ts).
+export const MAX_INVITES_PER_WINDOW = 20;
+export const INVITE_WINDOW_MS = 10 * 60 * 1000;
+// Accepted invites and ended links are kept this long for the log's sake, then removed. Declined,
+// cancelled and expired invites are removed once their 24 hours are over.
 export const KEEP_DAYS = 30;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -76,12 +83,15 @@ function Shown(Value: unknown){
     return IsAccountIdShape(Value) ? Value : typeof Value === "string" ? "<not an account id>" : "<none>";
 }
 
-// A slot the client sent: a whole number 0..2 (a number, or a numeric string)
+// A slot the client sent: a whole number 1..LINK_SLOTS (a number, or a numeric string). Slots are stored
+// and answered with the client's own numbers.
 function SlotOf(Value: unknown): number | undefined {
     const Slot = typeof Value === "number" ? Value : typeof Value === "string" && /^\d{1,2}$/.test(Value) ? Number(Value) : NaN;
 
-    return Number.isInteger(Slot) && Slot >= 0 && Slot < LINK_SLOTS ? Slot : undefined;
+    return Number.isInteger(Slot) && Slot >= 1 && Slot <= LINK_SLOTS ? Slot : undefined;
 }
+
+const ALL_SLOTS = Array.from({ length: LINK_SLOTS }, (_, Index) => Index + 1);
 
 function OtherOf(Row: { senderId: string, targetId: string }, AccountId: string){
     return Row.senderId === AccountId ? Row.targetId : Row.senderId;
@@ -127,19 +137,27 @@ function ActiveLinksOf(tx: Tx, AccountId: string, Now: number): LinkRow[] {
 function FreeSlots(tx: Tx, AccountId: string, Now: number): number[] {
     const Used = new Set(ActiveLinksOf(tx, AccountId, Now).map((Link) => LinkSlotOf(Link, AccountId)));
 
-    return [...Array(LINK_SLOTS).keys()].filter((Slot) => !Used.has(Slot));
+    return ALL_SLOTS.filter((Slot) => !Used.has(Slot));
 }
 
 function LinkedWith(tx: Tx, A: string, B: string, Now: number){
     return ActiveLinksOf(tx, A, Now).some((Link) => OtherOf(Link, A) === B);
 }
 
-// Old rows the client no longer sees: answered or expired invites and links that ended over KEEP_DAYS ago
+// Old rows the client no longer sees: declined, cancelled and expired invites once their 24 hours are
+// over; accepted invites and links that ended over KEEP_DAYS ago
 function SweepInTx(tx: Tx, Now: number){
     const Before = Now - KEEP_DAYS * 24 * HOUR_MS;
 
+    tx.delete(slayerlinkinvites).where(and(inArray(slayerlinkinvites.status, ["DECLINED", "CANCELED", "EXPIRED"]), lte(slayerlinkinvites.expiresAt, Now))).run();
     tx.delete(slayerlinkinvites).where(and(ne(slayerlinkinvites.status, "PENDING"), lte(slayerlinkinvites.expiresAt, Before))).run();
     tx.delete(slayerlinks).where(lte(slayerlinks.endsAt, Before)).run();
+}
+
+// New invites this player sent in the last INVITE_WINDOW_MS, whatever became of them
+function RecentInvitesBy(tx: Tx, AccountId: string, Now: number){
+    return tx.select({ Sent: count() }).from(slayerlinkinvites)
+        .where(and(eq(slayerlinkinvites.senderId, AccountId), gt(slayerlinkinvites.createdAt, Now - INVITE_WINDOW_MS))).get()?.Sent ?? 0;
 }
 
 // ---- Replies ----
@@ -218,7 +236,7 @@ export function InviteToSlayerLink(Caller: string, Body: any): SlayerLinkReply {
     }
 
     if(Slot === undefined){
-        return Refuse(400, `the slot must be 0 to ${LINK_SLOTS - 1}`);
+        return Refuse(400, `the slot must be 1 to ${LINK_SLOTS}`);
     }
 
     if(Target === Caller){
@@ -267,6 +285,10 @@ export function InviteToSlayerLink(Caller: string, Body: any): SlayerLinkReply {
 
         if(FreeSlots(tx, Target, Now).length === 0){
             return Refuse(409, "the player has no free slot");
+        }
+
+        if(RecentInvitesBy(tx, Caller, Now) >= MAX_INVITES_PER_WINDOW){
+            return Refuse(409, `too many invites: at most ${MAX_INVITES_PER_WINDOW} in ${INVITE_WINDOW_MS / 60000} minutes`);
         }
 
         const InviteId = crypto.randomUUID();

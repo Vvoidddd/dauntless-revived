@@ -602,18 +602,18 @@ other player. Replies use the envelope `{code: null, message: "OK", payload}`; r
 | GET | `/slayerlink/status_good` | player | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: the two lists below together, the client's poll for news. |
 | GET | `/slayerlink/invites` | player | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: the caller's pending, unexpired invites; `account_id` is the other player, `direction` `Sent` or `Received`, `status` `Pending`, `slot` the sender's slot. |
 | GET | `/slayerlink/links` | player | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: running links, by the caller's slot; both id keys name the other player. |
-| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (0-2). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
+| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (1-3, the client's numbers). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
 | POST | `/slayerlink/invite` | player | `{account_id, action, slot, action_source}` with `action` `accept` or `reject` (the invited player; `account_id` is the sender) or `cancel` (the sender; `account_id` is the invited player). A `link_id` or `invite_id` in the body is tried first. An accept takes the body's `slot` when it is free, else the first free one. Answers `{link_id}`; repeating the same answer is 200 again. |
 | DELETE | `/slayerlink/invites/:accountId` | player | With the caller's own id: withdraws every invite the caller sent and declines every one received. With another player's id: only the invites between the two. Answers `{}`. |
 | DELETE | `/slayerlink/links` | player | `{account_id, slot, delete_pair}` (or the same as a query): ends the caller's link in that slot or with that player, for both players. Answers `{}`, also when there was nothing to remove. |
 | POST | `/slayerlink/availability` | player | `{account_ids: [...]}` (at most 50) → `{availability: [{account_id, available}]}`: which of them the caller could invite now. |
 
 Rules: both players must be accepted friends and neither may have blocked the other (403); 3 slots
-per player and one waiting invite per slot; an invite lasts 24 hours and a link 168 hours; unfriending
+per player and one waiting invite per slot; at most 20 new invites per player in 10 minutes; an invite lasts 24 hours and a link 168 hours; unfriending
 or a block cancels the waiting invites between the two (a running link stays until it ends). Other
-refusals: 400 (no account id, a slot outside 0-2, an unknown action), 404 (no such account or
+refusals: 400 (no account id, a slot outside 1-3, an unknown action), 404 (no such account or
 invite), 409 (yourself, the slot is taken or has a waiting invite, already linked, the other player
-already invited you, no free slot, the invite ran out or was answered). **Not answered** (404): the
+already invited you, no free slot, the invite limit, the invite ran out or was answered). **Not answered** (404): the
 reward routes `PUT /slayerlink/links/rewards` and `GET /slayerlink/links/rewards/:accountId/:slot`.
 
 ## Metagame: the management API {#undaunted-api}

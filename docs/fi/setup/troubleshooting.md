@@ -512,7 +512,7 @@ metagamen lokista, ellei toisin mainita.
 |:-----|:---------|
 | `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<tunnus>` | Kutsu lähetettiin. |
 | `slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots X and Y)` | Linkki alkoi (`reject` ja `cancel` kirjataan samoin). |
-| `slayerlink: ... refused <tila>: <syy>` | Torjuttu toiminto syineen (ei kavereita, paikka on varattu, kutsu on vanhentunut). |
+| `slayerlink: ... refused <tila>: <syy>` | Torjuttu toiminto syineen (ei kavereita, paikka on varattu, kutsu on vanhentunut). `the slot must be 1 to 3` tarkoittaa, että asiakas lähetti paikan, jota 1.4.4-peliohjelmalla ei ole; `too many invites` tarkoittaa yli 20 uutta kutsua yhdeltä pelaajalta 10 minuutissa. |
 | `slayerlink: delete link by=<A> ... -> removed <tunnus> (with <B>)` | Linkki päätettiin kummaltakin pelaajalta. |
 | `friends: ... (N Slayer Link invite(s) between them cancelled)` | Kaveruuden purku tai esto perui myös odottavat kutsut. |
 

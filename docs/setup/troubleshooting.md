@@ -482,7 +482,7 @@ Metagame lines unless marked.
 |:-----|:--------|
 | `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<id>` | An invite was sent. |
 | `slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots X and Y)` | A link began (`reject` and `cancel` log the same way). |
-| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). |
+| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). `the slot must be 1 to 3` means a client sent a slot the 1.4.4 client does not have; `too many invites` means more than 20 new invites in 10 minutes from one player. |
 | `slayerlink: delete link by=<A> ... -> removed <id> (with <B>)` | A link was ended for both players. |
 | `friends: ... (N Slayer Link invite(s) between them cancelled)` | An unfriend or a block also cancelled waiting invites. |
 
