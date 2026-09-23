@@ -6,6 +6,7 @@ import { logger } from "../logger";
 import { IsRealProgressionAccount } from "../controllers/progressionmode";
 import { CallerOf } from "../controllers/progressionevents";
 import { RealProgressionOnly, SendRealReply } from "../middleware/RealProgressionOnly";
+import { RefuseUnlessGameserver } from "../middleware/GameServerOnly";
 
 export const loadoutRouter = Router();
 
@@ -32,18 +33,7 @@ async function ResolveRealLoadoutCharacter(req: any, res: any){
 }
 
 // Unlocks and the active slot are the game server's (unlock follows the level and quest
-// conditions it checks); a player's own client may not set them
-function RefuseUnlessGameserver(req: any, res: any, What: string){
-    if(req.AuthData.IsGameserver){
-        return false;
-    }
-
-    logger.warn(`Refusing ${What} for characterId ${req.params.characterId} from a player client`);
-    res.status(403);
-    res.send();
-    return true;
-}
-
+// conditions it checks); a player's own client may not set them (middleware/GameServerOnly.ts)
 loadoutRouter.post("/loadout/:userId/:characterId/unlock/:numSlots", RealProgressionOnly, HasUndauntedMetagameAuth, async (req: any, res, next) => {
     const Target = await ResolveRealLoadoutCharacter(req, res);
 
@@ -52,7 +42,7 @@ loadoutRouter.post("/loadout/:userId/:characterId/unlock/:numSlots", RealProgres
         return;
     }
 
-    if(Target !== null && !RefuseUnlessGameserver(req, res, "loadout slot unlock")){
+    if(Target !== null && !RefuseUnlessGameserver(req, res, "loadout slot unlock", `characterId ${req.params.characterId}`)){
         SendRealReply(res, UnlockLoadoutSlots(Target.AccountId, Target.CharacterId, req.params.numSlots, CallerOf(req)));
     }
 });
@@ -79,7 +69,7 @@ loadoutRouter.post("/loadout/:userId/:characterId/active/:index", RealProgressio
         return;
     }
 
-    if(Target !== null && !RefuseUnlessGameserver(req, res, "active loadout slot")){
+    if(Target !== null && !RefuseUnlessGameserver(req, res, "active loadout slot", `characterId ${req.params.characterId}`)){
         SendRealReply(res, SetActiveLoadoutSlot(Target.AccountId, Target.CharacterId, req.params.index, CallerOf(req)));
     }
 });

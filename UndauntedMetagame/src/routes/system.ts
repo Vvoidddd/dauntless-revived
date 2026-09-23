@@ -13,20 +13,9 @@ import { CallerOf, DoesAccountExist, ReadField, ReadInteger, RecordProgressionEv
 import { RealProgressionOnly, RefuseForeignPlayer, SendRealReply } from "../middleware/RealProgressionOnly";
 import { GetDb } from "../db";
 import { TouchPlayer } from "../controllers/party";
+import { RefuseUnlessGameserver } from "../middleware/GameServerOnly";
 
 export const systemRouter = Router();
-
-// Game-server-only writes of real-mode accounts
-function RefuseUnlessGameserver(req: any, res: any, What: string){
-	if(req.AuthData.IsGameserver){
-		return false;
-	}
-
-	logger.warn(`Refusing ${What} for ${req.params.userId} from a player client`);
-	res.status(403);
-	res.send();
-	return true;
-}
 
 // Replies for routes that 404'd since upstream, where the client binary shows an
 // empty answer is harmless. MISC_ROUTES=0 puts the 404s back.
