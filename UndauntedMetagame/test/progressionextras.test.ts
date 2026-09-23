@@ -375,6 +375,19 @@ describe("GET /balance and POST /reconcile (BALANCE_FROM_INVENTORY)", () => {
 });
 
 describe("log lines", () => {
+    it("a game server's grant, confirm or track grant that relays another player's token is logged and kept for the named account", async () => {
+        const A = await MakePlayer(), B = await MakePlayer();
+
+        assert.equal((await Call("POST", `/progression/${A.UserId}`, { gs: true, as: B.UserId, body: { progress_tracks: [{ progression_id: "season09b", progress: 100 }], objectives: [] } })).status, 200);
+        assert.equal((await Call("POST", `/progression/${A.UserId}/season09b/100`, { gs: true, as: B.UserId })).status, 200);
+        assert.equal((await Call("POST", `/progression/${A.UserId}/season09b/2/confirm/public`, { gs: true, as: B.UserId })).status, 200);
+
+        assert.deepEqual([Track(A.UserId, "season09b").progress, Track(A.UserId, "season09b").confirmed_fremium_rank, Track(B.UserId, "season09b").progress], [200, 2, 0]);
+        for(const What of ["progression grant", "progression grant in a track", "rank confirm"]){
+            assert.ok(Warnings.includes(`Game server ${What} for ${A.UserId} carries the token of ${B.UserId}: accepted for ${A.UserId}, the account the request names`), What);
+        }
+    });
+
     it("names a progression request no route answered, then the catch-all answers 404", async () => {
         const { UserId } = await MakePlayer();
 

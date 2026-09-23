@@ -9,6 +9,7 @@ import { CallerOf } from "../controllers/progressionevents";
 import { RealProgressionOnly, RefuseForeignPlayer, SendRealReply } from "../middleware/RealProgressionOnly";
 import { HasUndauntedAdminApiKey } from "../middleware/HasUndauntedAdminApiKey";
 import { Redact } from "../middleware/BodyLog";
+import { NoteRelayedAccountMismatch } from "../middleware/GameServerOnly";
 
 // TODO: We will be gaining progression support very soon, but for now just a stub
 
@@ -293,6 +294,7 @@ progressionRouter.post("/progression/:userId", HasUndauntedMetagameAuth, (req: a
             return;
         }
 
+        NoteRelayedAccountMismatch(req, RequestorAccountId, "progression grant");
         SendRealReply(res, GrantProgression(RequestorAccountId, req.body, CallerOf(req)));
         return;
     }
@@ -320,6 +322,7 @@ progressionRouter.post("/progression/:userId/:progressionId/:rank/confirm/:kind"
         return;
     }
 
+    NoteRelayedAccountMismatch(req, req.params.userId, "rank confirm");
     SendRealReply(res, ConfirmRank(req.params.userId, req.params.progressionId, req.params.rank, req.params.kind, CallerOf(req)));
 });
 
@@ -331,6 +334,7 @@ progressionRouter.post("/progression/:userId/:progressionId/:amount", RealProgre
         return;
     }
 
+    NoteRelayedAccountMismatch(req, req.params.userId, "progression grant in a track");
     SendRealReply(res, GrantProgressionInTrack(req.params.userId, req.params.progressionId, req.params.amount, CallerOf(req)));
 });
 
