@@ -27,7 +27,8 @@ Dauntless Revived exists because other people did the hard parts first and publi
 | Project | By | What we owe it |
 |---|---|---|
 | [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford, [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) and [its other contributors](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Our fork is built on it, starting from upstream commit `7f692aa`. It supplies the server-mode DLL that turns a second copy of the 1.4.4 client into a game server, the deploy server that runs those processes, the metagame backend, and the launcher, all created by gwog. EisigesEis worked on the metagame: inventory and loadouts, progression and mastery, invite codes and the admin API. Multiplayer Ramsgate and hunts on 1.4.4 are Undaunted's achievement. |
-| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | its authors | A related project porting the same approach to the Dauntless 1.12.0 client, for content released after 1.4.4. Our fork contains none of its code, and we have not tested it. We list it so that people looking for later content can find it. |
+| [Harmonic's Dauntless 1.4.4 fork](https://github.com/Harmonicrain/Undaunted) | Harmonic | Another fork of Undaunted for the 1.4.4 client (AGPL-3.0-only). From its commit `895f7c7` we ported the Escalation season registry and save rules, the free store (catalogue, purchase flow, store tabs), Slayer Links, the deploy server's restart of a dead Ramsgate, the idea of friends' online status and his test cases, among smaller ideas. What we took and what we did not, with the reasons: [The Harmonic port]({{ '/findings/harmonic-fork.html' | relative_url }}). |
+| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | its authors | A related project porting the same approach to the Dauntless 1.12.0 client, for content released after 1.4.4. Our fork contains none of its code (Harmonic's fork carries some; we copied none of it), and we have not tested it. We list it so that people looking for later content can find it. |
 | [ooz](https://github.com/powzix/ooz) | powzix | An open-source Oodle (Kraken) decompressor. The 2.1.1 client links Oodle statically and ships no Oodle DLL, so the usual pak tools could not read its config. We built ooz as a local library to extract the config for analysis. It is an analysis tool only and is not part of the fork. |
 | [Dumper-7](https://github.com/Encryqed/Dumper-7) | Encryqed and contributors | An Unreal Engine SDK generator. Undaunted's server DLL is built against a Dumper-7 SDK generated from the 1.4.4 client. |
 | [MinHook](https://github.com/TsudaKageyu/minhook) | Tsuda Kageyu | The function-hooking library the server DLL uses. BSD 2-Clause license. |
@@ -49,6 +50,11 @@ And **Phoenix Labs**, who made Dauntless. Nothing here would be worth preserving
   Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8));
   wrote the first in-game text chat server (XMPP) and tested it with a real 1.4.4 client
   ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
+- **Harmonic** ([his 1.4.4 fork](https://github.com/Harmonicrain/Undaunted)): the Escalation season
+  registry and save rules, the free store, the first working Slayer Links, the deploy server's restart
+  of a dead Ramsgate, the idea of friends' online status, and the test cases we ported from his fork
+  (see the table above). The commit that added his data files carries his name as author, and every
+  other commit with his work names him as co-author.
 
 Everyone who has contributed is on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors). The launcher
@@ -111,7 +117,12 @@ MinHook, reproduce MinHook's copyright notice and disclaimer.
 ### Where we stand ourselves
 
 - This repository is the fork's complete source. The [roadmap]({{ roadmap_page.url | relative_url }})
-  lists our changes against upstream.
+  lists our changes against upstream, and `NOTICE.md` at its root records where each part comes from:
+  Undaunted, the work ported from Harmonic's 1.4.4 fork (the four source files ported from his carry
+  his copyright notice), MinHook and the SDK headers.
+- Harmonic's fork contains realtime chat code derived from Mystic Paradox, which carries additional
+  terms under section 7 of the AGPL. We copied none of it: our chat and presence code was written for
+  this project. Those terms therefore do not apply to this repository.
 - One gap is known. Upstream ships a prebuilt `dxgi.dll` proxy whose source is not in its repository,
   and as far as we know it has not been published anywhere. From its disassembly, it loads the
   system `dxgi.dll`, forwards three exports (`CreateDXGIFactory`, `CreateDXGIFactory1`,
@@ -130,6 +141,19 @@ MinHook, reproduce MinHook's copyright notice and disclaimer.
     `UndauntedMetagame/src/vendor/progression_config.json` (about 190 KB), which it serves to the
     client as progression and reward data. It has the shape of a recorded Phoenix backend response,
     not of a file from the game install. Our fork carries it unchanged from upstream.
+  - Upstream also includes four of the game's data tables as JSON exports,
+    `UndauntedDeployServer/src/vendor/*_table.json` (about 2.2 MB: player hunts, matchmaker hunts and
+    the two Trials tables), which the deploy server reads to pick a hunt's behemoth and map. They are
+    exports of table rows, not files from the install. Our fork carries them unchanged, and our
+    `UndauntedMetagame/src/vendor/hunt_titles.json` is generated from them (hunt ids and their English
+    titles).
+  - From Harmonic's fork we carry four data files: `UndauntedMetagame/src/vendor/escalation/seasons.json`
+    (the Escalation seasons), `store_catalog.json` and `store_item_kinds.json` (the free store), and
+    `UndauntedMetagame/test/data/store_art_skus.json` (store SKU ids, for a test). They hold identifiers
+    and tuning values read from the installed client for interoperability, and about 330 short English
+    names; no textures, models, sounds or other assets. `seasons.json` names the game files it was read
+    from by their SHA-256, as our game manifest does. Each file says where it comes from in its
+    `_comment`.
 - Each player needs **their own copy** of the Dauntless 1.4.4 client. The
   [Setup]({{ '/setup/' | relative_url }}) section explains how to check that a copy is genuine and
   unmodified.

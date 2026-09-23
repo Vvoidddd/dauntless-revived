@@ -134,7 +134,7 @@ sen metagamen käynnistysrivistä, joka alkaa `features:`.
   kuluta sitä varaa, jota pelaajan peliliikenne tarvitsee
   ([Asetukset]({{ config_page.url | relative_url }}#gateway)).
 - **Ei tietokannan siirtoa, ei palomuurisääntöä eikä uutta käynnistintä.** Jokainen käynnistin
-  versiosta v0.1.0 alkaen välittää chatin; v0.1.5:ssä on päivitetyt tekijätiedot.
+  versiosta v0.1.0 alkaen välittää chatin; v0.1.6:ssa on uusimmat tekijätiedot.
 
 ### Mitä pelaajasi näkevät {#chat-what-players-see}
 

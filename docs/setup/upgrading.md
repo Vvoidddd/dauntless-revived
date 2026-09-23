@@ -122,7 +122,7 @@ start line that begins `features:`.
   default `20,12`: 20 at once, then 12 per minute per address), so chat reconnects never use up the
   budget a player's game traffic needs ([Configuration]({{ config_page.url | relative_url }}#gateway)).
 - **No database migration, no firewall rule and no new launcher.** Every launcher from v0.1.0 on
-  relays chat; v0.1.5 has the updated credits.
+  relays chat; v0.1.6 has the newest credits.
 
 ### What your players will see {#chat-what-players-see}
 

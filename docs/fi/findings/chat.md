@@ -380,7 +380,7 @@ pudottaa muistissa olevat ryhmät ja matchmaking-jonot):
 4. **Tarkista**, että `Stack.ps1 status` näyttää rivin `chat             : listening 127.0.0.1:61099`
    ja että metagamen lokissa on `chat: listening on 127.0.0.1:61099 (nick check enforce)`.
 5. Kumpikin pelaaja käyttää omaa tiliään ja mitä tahansa käynnistintä versiosta v0.1.0 alkaen (jokainen
-   välittää chatin; 0.1.5:ssä on päivitetyt tekijätiedot). He käynnistävät pelin vasta, kun chat on
+   välittää chatin; 0.1.6:ssa on uusimmat tekijätiedot). He käynnistävät pelin vasta, kun chat on
    päällä; jo käynnissä ollut peli yhdistää noin 45 sekunnissa.
 
 Alla olevat rivit ovat metagamen lokista.

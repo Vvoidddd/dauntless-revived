@@ -76,11 +76,14 @@ The rows marked "(solo)" mean exactly that. A test with a second player is next.
 | A server on a rented machine | Running | The [Windows server kit](https://mixutin.github.io/dauntless-revived/setup/windows-server.html) was deployed to a rented Windows Server 2019 VPS in public mode on 21–22 September 2026. Checked there: the stack starts at boot as the service account, Ramsgate runs and sends heartbeats, the gateway answers from the internet with the pinned certificate, and the hourly backup runs. In the first real test (22 September 2026) three game servers ran at once, and the UDP allowlist opened the game ports for the player and closed them after they left |
 | Friend launcher | Released | The first release, 0.1.0, was published on [GitHub Releases](https://github.com/mixutin/dauntless-revived/releases/latest) by CI, with `SHA256SUMS.txt` and a build provenance attestation; installed launchers update themselves. The owner registered with it on the rented server and downloaded the game (about 11 GB) through the gateway. 0.1.1, published the same night, stopped turning off the game's automatic exposure, which had made Ramsgate far too dark. Not code-signed yet: on the owner's PC SmartScreen blocked the installer outright, and checking it against `SHA256SUMS.txt` and unblocking it worked ([how](https://mixutin.github.io/dauntless-revived/setup/friends.html)) |
 | Playing with friends over the internet | Works (two players) | Tested on 22 September 2026 on the rented server. First one player: an invite, registration, the game download, the tutorial, Ramsgate, the Training Dojo and the first hunt. Then two players together: they saw each other in Ramsgate and hunted together, after queueing the same hunt within a few seconds of each other (parties don't work in game yet, see the next row) |
-| Parties, friends and guilds | Built, awaiting a live test | Server side: party invites, accept and decline, promote, kick and leave, the whole party on one hunt server, back to Ramsgate together, lookups by name, a friends list and blocklist, and guilds (create, invite, ranks, kick, leave, disband), all but parties saved in SQLite. In the two-player test on 22 September 2026 a party invite reached the other player's game but never showed, and Add Friends did nothing: the server described the wrong player in `POST /accountinfo/public` and answered `POST /account/mapping` in a shape the game does not read. Both are fixed, running on our rented server since 22 September 2026, and pass tests that replay the game's own requests; nobody has tried them in the game yet ([details](https://mixutin.github.io/dauntless-revived/findings/social.html)). Invites don't require being friends. Showing players as online needs presence over the chat connection, which is not built yet |
+| Parties, friends and guilds | Built, awaiting a live test | Server side: party invites, accept and decline, promote, kick and leave, the whole party on one hunt server, back to Ramsgate together, lookups by name, a friends list and blocklist, and guilds (create, invite, ranks, kick, leave, disband), all but parties saved in SQLite. In the two-player test on 22 September 2026 a party invite reached the other player's game but never showed, and Add Friends did nothing: the server described the wrong player in `POST /accountinfo/public` and answered `POST /account/mapping` in a shape the game does not read. Both are fixed, running on our rented server since 22 September 2026, and pass tests that replay the game's own requests; nobody has tried them in the game yet ([details](https://mixutin.github.io/dauntless-revived/findings/social.html)). Invites don't require being friends. Showing players as online needs presence over the chat connection: built since 23 September 2026, off by default (see the chat row) |
 | Backups | Works on our hosts | Hourly, plus one around every server start and stop. The Windows server kit has its own backup task (running on the rented server). The scripts of our original host PC, where a restore was tested, are not in this repository ([do-it-yourself version](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database)) |
 | Friend kit | Built | The Tailscale-only fallback: hash-checked setup and play scripts. Not used by a friend yet |
 | Bounties | Not yet | Stored with real progression; drafting and claiming not yet tried in game |
-| Text chat and online status | Built, awaiting a live test (chat); online status not yet | Ramsgate, hunt, party and guild chat and whispers, with usernames, in the metagame itself; off by default until two players have tried it (`Set-Chat.ps1 -On` on a kit server). The first chat server was written and tested by Vvoidddd; why it showed `UID-...` instead of names, and the fix: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html). Showing players as online is not built yet. Use Discord meanwhile |
+| Text chat and online status | Built, awaiting a live test; both off by default | Ramsgate, hunt, party and guild chat and whispers, with usernames, in the metagame itself; off by default until two players have tried it (`Set-Chat.ps1 -On` on a kit server). The first chat server was written and tested by Vvoidddd; why it showed `UID-...` instead of names, and the fix: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html). Friends' online status is built into the chat server since 23 September 2026 (the idea came from Harmonic's fork) and stays off (`CHAT_PRESENCE=1`) until two players have shown that the party's automatic kick stays asleep. Use Discord meanwhile |
+| Slayer Links | Built, on by default, awaiting a live test | The My Links tab: two friends link up for a week. From Harmonic's fork, corrected against the 1.4.4 executable (23 September 2026); not tried in game yet, and the game may keep the tab hidden ([details](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links)) |
+| Escalation | Built, off by default | Real Escalation saves from Harmonic's fork: the season registry read from the client and his save rules (23 September 2026). Off (`ESCALATION_MODE=real`) because switching it on drops every player from the fake maximum to level 0; not tried in game ([details](https://mixutin.github.io/dauntless-revived/findings/escalation.html)) |
+| Store | Built, off by default | A free store from Harmonic's fork: 200 free cosmetics, bought with the game's own purchase flow (23 September 2026). Off (`STORE=free`) until the owner decides whether it stays free and it has been tried in game ([details](https://mixutin.github.io/dauntless-revived/findings/store.html)) |
 | Multiple loadouts | Not yet | Slot unlocks stored with real progression; the extra slots not yet tried in game |
 
 The live checklist, with every step and what "done" means for it, is [ROADMAP.md](ROADMAP.md).
@@ -120,7 +123,7 @@ The component folders keep upstream's `Undaunted...` names for now (renaming the
 | `UndauntedGateway/` | Public mode only: the TLS gateway (the game's one public TCP port) and the helper that opens the game ports for logged-in players |
 | `UndauntedContent/` | The content server: the game files (checked against a manifest of 410 files), news and the art pack, for registered launchers only |
 | `UndauntedLauncher/` | The Dauntless Revived Launcher: the Windows app for invited friends, based on Undaunted's launcher. `assets/` holds the two pinned prebuilt DLLs every setup installs |
-| `UndauntedInternalServer/` | The C++ source of Undaunted's server DLL, which lets the retail client run as a game server and points clients at the backend. Nothing in this repository builds it; every setup uses the prebuilt DLLs from `UndauntedLauncher/assets/` |
+| `UndauntedInternalServer/` | The C++ source of Undaunted's server DLL, which lets the retail client run as a game server and points clients at the backend. It compiles with the Visual Studio 2022 Build Tools, but nothing in this repository builds it; every setup uses the prebuilt DLLs from `UndauntedLauncher/assets/` |
 | `deploy/windows-server/` | The Windows server kit: installs and runs the whole server on Windows Server 2019, in public or private mode, with backups, invites and updates |
 | `friend-kit/` | The Tailscale-only setup and play scripts for invited friends' PCs |
 | `tools/` | `sync-roadmap.js` and `build-llms.js` (the generated docs files), `make-friend-kit.ps1`, `make-game-manifest.js`, and in `ci/` the checks CI runs |
@@ -154,6 +157,12 @@ The component folders keep upstream's `Undaunted...` names for now (renaming the
   by name, a friends list and blocklist, and the 1.4.4 client's guilds, saved in SQLite. Upstream's
   account info reply described the caller instead of the asked player, which hid every other player
   in the Social panel; ours answers for the asked account.
+- **Work ported from Harmonic's 1.4.4 fork** ([Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted),
+  September 2026): real Escalation saves and a free in-game store (both built, off by default),
+  Slayer Links, friends' online status inside our chat server (off by default), a dead Ramsgate
+  started again when a player travels there, protection against retried progression grants, and
+  more. What was taken and what was not, with the reasons:
+  [The Harmonic port](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html).
 - **Live server status for the launcher.** The list of players online and running hunts is shown to
   registered players only. `/dauntless-status` gives the server's name, version, source URL and
   commit (for the AGPL), and no player count.
@@ -258,6 +267,11 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
   Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8));
   wrote the first in-game text chat server (XMPP) and tested it with a real 1.4.4 client
   ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
+- **Harmonic** ([Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted), his Dauntless
+  1.4.4 fork of Undaunted): the Escalation season registry and save rules, the free store (its
+  catalogue, purchase flow and store tabs), the first working Slayer Links, the deploy server's restart
+  of a dead Ramsgate, the idea of friends' online status, and the test cases we ported from his fork.
+  [NOTICE.md](NOTICE.md) lists what came from his fork.
 
 Everyone who has contributed is listed on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors).
@@ -272,7 +286,8 @@ This is a **modified version of [Undaunted](https://github.com/SyST3MDeV/Undaunt
 recorded in this repository's commit history, and planned work is in [ROADMAP.md](ROADMAP.md).
 
 GNU Affero General Public License v3.0 only — see [LICENSE.txt](LICENSE.txt). If you run a modified
-version for other people, you must offer them its source code.
+version for other people, you must offer them its source code. [NOTICE.md](NOTICE.md) records where
+each part of the repository comes from, including the work ported from Harmonic's 1.4.4 fork.
 
 Not affiliated with or endorsed by Phoenix Labs or Epic Games. "Dauntless" is a trademark of its owners.
 No game files are distributed in this repository or on the docs site.

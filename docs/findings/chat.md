@@ -352,8 +352,8 @@ matchmaking queues held in memory):
    server; see [Windows server kit]({{ winserver_page.url | relative_url }}#chat)).
 4. **Check** that `Stack.ps1 status` has the line `chat             : listening 127.0.0.1:61099`, and
    that the metagame log has `chat: listening on 127.0.0.1:61099 (nick check enforce)`.
-5. Both players use their own account and any launcher from v0.1.0 on (every one relays chat; 0.1.5
-   has the updated credits). They start the game after chat is on; a game that was already running
+5. Both players use their own account and any launcher from v0.1.0 on (every one relays chat; 0.1.6
+   has the newest credits). They start the game after chat is on; a game that was already running
    connects within about 45 s.
 
 The lines below are from the metagame log.

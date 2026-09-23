@@ -35,7 +35,8 @@ Dauntless Revived on olemassa, koska muut tekivät vaikeat osat ensin ja julkais
 | Projekti | Tekijä | Mitä olemme sille velkaa |
 |---|---|---|
 | [Undaunted](https://github.com/SyST3MDeV/Undaunted) | gwog (Gregory Morford, [SyST3MDeV](https://github.com/SyST3MDeV)), [EisigesEis](https://github.com/EisigesEis) ja [sen muut tekijät](https://github.com/SyST3MDeV/Undaunted/graphs/contributors) | Haaramme (fork, eli oma muokattu kopiomme) on rakennettu sen päälle, alkaen upstream-muutoksesta (commit) `7f692aa`. Undauntedista tulevat palvelintilan DLL, joka tekee 1.4.4-peliohjelman toisesta kopiosta pelipalvelimen, deploy-palvelin, joka pyörittää noita prosesseja, metagame-taustapalvelu ja käynnistin, ja kaikki ne on tehnyt gwog. EisigesEis kehitti metagamea: inventaario ja varustelut, eteneminen ja mestaruus, kutsukoodit ja ylläpidon rajapinta. Moninpeli-Ramsgate ja metsästykset versiossa 1.4.4 ovat Undauntedin saavutus. |
-| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | sen tekijät | Sukulaisprojekti, joka siirtää saman lähestymistavan Dauntlessin 1.12.0-peliohjelmaan, jotta mukana olisi myös 1.4.4:n jälkeen julkaistu sisältö. Haarassamme ei ole sen koodia, emmekä ole testanneet sitä. Mainitsemme sen, jotta myöhempää sisältöä etsivät löytävät sen. |
+| [Harmonicin Dauntless 1.4.4 -haara](https://github.com/Harmonicrain/Undaunted) | Harmonic | Toinen Undaunted-haara 1.4.4-peliohjelmalle (AGPL-3.0-only). Sen muutoksesta `895f7c7` siirsimme Escalationin kausiluettelon ja tallennussäännöt, ilmaisen kaupan (valikoima, ostotapa, kaupan välilehdet), Slayer Linksin, deploy-palvelimen tavan käynnistää kaatunut Ramsgate uudelleen, idean kavereiden paikalla olosta ja hänen testitapauksensa sekä pienempiä ideoita. Mitä otimme ja mitä emme, syineen: [Harmonicin työn siirto]({{ '/fi/findings/harmonic-fork.html' | relative_url }}). |
+| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) | sen tekijät | Sukulaisprojekti, joka siirtää saman lähestymistavan Dauntlessin 1.12.0-peliohjelmaan, jotta mukana olisi myös 1.4.4:n jälkeen julkaistu sisältö. Haarassamme ei ole sen koodia (Harmonicin haarassa on sitä jonkin verran; me emme kopioineet siitä mitään), emmekä ole testanneet sitä. Mainitsemme sen, jotta myöhempää sisältöä etsivät löytävät sen. |
 | [ooz](https://github.com/powzix/ooz) | powzix | Avoimen lähdekoodin Oodle (Kraken) -purkaja. 2.1.1-peliohjelma linkittää Oodlen staattisesti eikä toimita Oodle-DLL:ää, joten tavalliset pak-työkalut eivät pystyneet lukemaan sen asetuksia. Käänsimme ooz:n paikalliseksi kirjastoksi, jotta saimme purettua asetukset analyysiä varten. Se on vain analyysityökalu eikä osa haaraa. |
 | [Dumper-7](https://github.com/Encryqed/Dumper-7) | Encryqed ja muut tekijät | Unreal Engine -SDK:n generaattori. Undauntedin palvelin-DLL on käännetty Dumper-7-SDK:ta vasten, joka on generoitu 1.4.4-peliohjelmasta. |
 | [MinHook](https://github.com/TsudaKageyu/minhook) | Tsuda Kageyu | Funktioiden koukutuskirjasto (hooking), jota palvelin-DLL käyttää. BSD 2-Clause -lisenssi. |
@@ -60,6 +61,12 @@ heidän peliään.
   ([#8](https://github.com/mixutin/dauntless-revived/pull/8)); kirjoitti ensimmäisen pelinsisäisen
   tekstichat-palvelimen (XMPP) ja testasi sen oikealla 1.4.4-pelillä
   ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
+- **Harmonic** ([hänen 1.4.4-haaransa](https://github.com/Harmonicrain/Undaunted)): Escalationin
+  kausiluettelo ja tallennussäännöt, ilmainen kauppa, ensimmäinen toimiva Slayer Links,
+  deploy-palvelimen tapa käynnistää kaatunut Ramsgate uudelleen, idea kavereiden paikalla olosta sekä
+  hänen haarastaan siirtämämme testitapaukset (katso yllä oleva taulukko). Muutoksen, joka lisäsi hänen
+  datatiedostonsa, tekijäksi on merkitty hän, ja jokainen muu hänen työtään sisältävä muutos nimeää
+  hänet toiseksi tekijäksi.
 
 Kaikki osallistujat ovat [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 Käynnistin näyttää samat tiedot **Tekijät**-sivullaan, ja sen mukana tulee tiedosto
@@ -123,7 +130,12 @@ sisältää MinHookin, toista mukana MinHookin tekijänoikeusilmoitus ja vastuuv
 ### Missä itse olemme {#where-we-stand-ourselves}
 
 - Tämä repositorio on haaran koko lähdekoodi. [Tiekartta]({{ roadmap_page.url | relative_url }})
-  luettelee muutoksemme upstreamiin verrattuna.
+  luettelee muutoksemme upstreamiin verrattuna, ja sen juuressa oleva `NOTICE.md` kertoo, mistä kukin
+  osa on peräisin: Undaunted, Harmonicin 1.4.4-haarasta siirretty työ (neljä hänen koodistaan
+  siirrettyä lähdetiedostoa kantavat hänen tekijänoikeusmerkintäänsä), MinHook ja SDK-otsaketiedostot.
+- Harmonicin haarassa on Mystic Paradoxista johdettua reaaliaikaista chat-koodia, jota koskevat AGPL:n
+  kohdan 7 lisäehdot. Emme kopioineet siitä mitään: oma chat- ja läsnäolokoodimme on kirjoitettu tätä
+  projektia varten. Siksi nuo lisäehdot eivät koske tätä repositoriota.
 - Yksi puute on tiedossa. Upstream toimittaa valmiiksi käännetyn `dxgi.dll`-välitys-DLL:n (proxy),
   jonka lähdekoodi ei ole sen repositoriossa, eikä sitä tietääksemme ole julkaistu missään muualla.
   Konekielen purun (disassembly) perusteella se lataa järjestelmän oman `dxgi.dll`-tiedoston,
@@ -145,6 +157,19 @@ sisältää MinHookin, toista mukana MinHookin tekijänoikeusilmoitus ja vastuuv
     se antaa peliohjelmalle edistymis- ja palkintotietoina. Se on muodoltaan Phoenixin
     taustapalvelun tallennettu vastaus, ei pelin asennuksesta peräisin oleva tiedosto. Haaramme
     sisältää sen muuttamattomana upstreamista.
+  - Upstream sisältää myös neljä pelin datataulukkoa JSON-muotoon vietyinä,
+    `UndauntedDeployServer/src/vendor/*_table.json` (noin 2,2 Mt: pelaajien metsästykset,
+    matchmakerin metsästykset ja kaksi Trials-taulukkoa), joista deploy-palvelin valitsee metsästyksen
+    hirviön ja kartan. Ne ovat vientejä taulukoiden riveistä, eivät asennuksen tiedostoja. Haaramme
+    sisältää ne muuttamattomina, ja oma `UndauntedMetagame/src/vendor/hunt_titles.json` tuotetaan
+    niistä (metsästysten tunnukset ja englanninkieliset nimet).
+  - Harmonicin haarasta mukana on neljä datatiedostoa: `UndauntedMetagame/src/vendor/escalation/seasons.json`
+    (Escalation-kaudet), `store_catalog.json` ja `store_item_kinds.json` (ilmainen kauppa) sekä
+    `UndauntedMetagame/test/data/store_art_skus.json` (kaupan tarjoustunnuksia testiä varten). Niissä on
+    asennetusta peliohjelmasta yhteentoimivuuden vuoksi luettuja tunnisteita ja viritysarvoja sekä noin
+    330 lyhyttä englanninkielistä nimeä; ei tekstuureja, malleja, ääniä tai muuta pelin sisältöä.
+    `seasons.json` nimeää pelitiedostot, joista se luettiin, niiden SHA-256-tiivisteillä, kuten
+    pelin tiedostoluettelomme tekee. Jokaisen tiedoston `_comment` kertoo, mistä se on peräisin.
 - Jokainen pelaaja tarvitsee **oman kopionsa** Dauntless 1.4.4 -peliohjelmasta.
   [Asennus]({{ setup_page.url | relative_url }}) -osio kertoo, miten tarkistetaan, että kopio on
   aito ja muuttamaton.
