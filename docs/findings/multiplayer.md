@@ -223,7 +223,7 @@ has the details.
   after its world exists. Harmonic's fork waits for the game's UDP port first; we left that out for
   now, because it would hold the player's travel request open for the whole server boot, the client's
   time limit for that request is unknown, and a 60-second deadline could kill a Ramsgate that boots
-  slowly (roadmap 4.6). His game-server log files were left out too: the server DLL gives the engine a
+  slowly (roadmap 4.6). The fork's game-server log files were left out too: the server DLL gives the engine a
   fixed command line and redirects its output, so the files would stay nearly empty.
 
 Our port layout on the host:

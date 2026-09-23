@@ -23,7 +23,7 @@ import { Tx } from "./savehistory";
 // vendor/store_catalog.json, and only free offers (platinumPrice 0) in platinum are sold.
 //
 // Differences from Harmonic's freeStore.ts: an account may hold several characters, so a token is bound
-// to the account's active character when it is issued (his refused accounts with more than one); items
+// to the account's active character when it is issued (that fork refused accounts with more than one); items
 // go through our inventory core (the ledger, inventorylog with caller "store"), entitlements through
 // GrantEntitlementInTx (source "store:<sku>"), ownership through HasActiveEntitlement (a revoked
 // entitlement can be bought again; the default Elite pass reads as owned); the bounty-token bundle is

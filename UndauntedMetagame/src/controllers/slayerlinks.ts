@@ -11,7 +11,7 @@ import { AreFriendsInTx, IsBlockedEitherWayInTx } from "./friends";
 
 // Slayer Links: two friends link up for a week (the social panel's Linked Slayers tab). Stored in SQLite
 // (migration 0016_slayer_links), so an invite waits for a player who is offline. Harmonic's fork had the
-// first working contract; the routes and shapes below follow the 1.4.4 exe where his differed (the
+// first working contract; the routes and shapes below follow the 1.4.4 exe where that contract differed (the
 // evidence is in the notes of the port, docs/findings/social.md once written):
 //
 // - PUT /slayerlink/invite {account_id, slot, action_source}: invite a friend into one of your slots
@@ -20,12 +20,12 @@ import { AreFriendsInTx, IsBlockedEitherWayInTx } from "./friends";
 //   "cancel" (0x1415d4820, 0x1415dab50, 0x1415d9330; serializer 0x1415fdc40). account_id names the other
 //   player of the invite; a link_id or invite_id, if one is ever sent, is tried first.
 // - GET /slayerlink/invites: {invites: [{account_id, slot, direction, status, expires, link_id}]}
-//   (entry serializer 0x1415ff170; his fork answered linked_account_id, which the client does not read)
+//   (entry serializer 0x1415ff170; that fork answered linked_account_id, which the client does not read)
 // - GET /slayerlink/links: {links: [{account_id, slot, ends, prize_pool}]} (entry 0x141600170). The status
 //   reply's links read linked_account_id and link_id instead (0x1415ffd00), so every link entry carries both.
 // - DELETE /slayerlink/links {account_id, slot, delete_pair}: remove a link (FOnlineLinkedSlayer::DeleteLinks
-//   0x1415dc1d0, body 0x141600eb0). His fork answered DELETE /slayerlink/link, which the client never sends.
-// - DELETE /slayerlink/invites/{account_id}: DeleteAllInvites (0x1415db730); his fork had no route for it.
+//   0x1415dc1d0, body 0x141600eb0). That fork answered DELETE /slayerlink/link, which the client never sends.
+// - DELETE /slayerlink/invites/{account_id}: DeleteAllInvites (0x1415db730); that fork had no route for it.
 // - POST /slayerlink/availability {account_ids}: {availability: [{account_id, available}]} (0x1415e33b0)
 // - GET /slayerlink/status_good: {invites, links, config: {link_duration_hours, invite_expiry_hours}}
 //   (0x1415e5990; reply serializer 0x141600510, read by HandleGetStatusUpdateComplete 0x1415e8b40)

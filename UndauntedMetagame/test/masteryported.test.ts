@@ -12,7 +12,7 @@ import { ConfirmRank, GetObjectiveRecords, GetTrackRecord, GrantProgression } fr
 import { Count, MakePlayer } from "./helpers";
 
 // Harmonic's mastery cases (github.com/Harmonicrain/Undaunted 895f7c7, test/mastery.test.js) against our
-// real progression; each names the line of his test. Inverted: 110 (a replayed award adds nothing through
+// real progression; each names the line of the original test. Inverted: 110 (a replayed award adds nothing through
 // the retry guard of the grant, not by skipping tracks whose objectives did not move), 147 (a confirm pays
 // no Rams: the play-through in progressionextras.test.ts), 204 (one malformed entry does not throw away
 // the valid entries' XP; the game server does not retry a refused grant). Skipped: 138 (objective values
@@ -122,7 +122,7 @@ describe("mastery tracks (test/mastery.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/mastery.test.js:121, the no-leak part: a game server reads the account
-    // it names; another player's token is refused (403; his answered that player's own, empty list)
+    // it names; another player's token is refused (403; the fork answered that player's own, empty list)
     it("a game server's objective read gets the named account, and another player cannot read it", async () => {
         const A = await MakePlayer(), B = await MakePlayer();
         Award(A.UserId, [{ progression_id: SWORD, progress: 2 }], [{ objective_id: "CraftSword", value: 1, completed_count: 1 }]);
@@ -137,7 +137,7 @@ describe("mastery tracks (test/mastery.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/mastery.test.js:178: the zero-quantity Slayer cores of PlayerLevel
-    // ranks 6, 8 and 10 made his claim fail; here a confirm pays nothing, so they cannot block it
+    // ranks 6, 8 and 10 made the fork's claim fail; here a confirm pays nothing, so they cannot block it
     it("PlayerLevel ranks with zero-quantity rewards in the config can be confirmed", async () => {
         const { UserId, CharacterId } = await MakePlayer();
         Award(UserId, [{ progression_id: PLAYER, progress: 62 }]);
@@ -151,7 +151,7 @@ describe("mastery tracks (test/mastery.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/mastery.test.js:195, adapted: a confirm above the earned rank is
-    // clamped (his answered 400), and a player's own XP award is refused
+    // clamped (the fork answered 400), and a player's own XP award is refused
     it("unearned claims and player-authenticated XP awards stay blocked", async () => {
         const { UserId } = await MakePlayer();
 
@@ -162,7 +162,7 @@ describe("mastery tracks (test/mastery.test.js)", () => {
         assert.equal(GetTrackRecord(UserId, SWORD)!.progress, 0);
     });
 
-    // from Harmonicrain/Undaunted test/mastery.test.js:204, inverted: his refused the whole batch for one bad
+    // from Harmonicrain/Undaunted test/mastery.test.js:204, inverted: the fork refused the whole batch for one bad
     // entry, and the game server does not retry, so the valid XP was lost; ours stores the valid entries
     // and notes the rest
     it("a malformed entry does not throw away the valid entries' XP", async () => {

@@ -14,10 +14,10 @@ import { GrantEntitlementInTx, ListEntitlements } from "../src/controllers/entit
 import { Count, MakePlayer } from "./helpers";
 
 // Harmonic's Hunt Pass cases (github.com/Harmonicrain/Undaunted 895f7c7, test/huntpass.test.js and the
-// progression part of test/huntpass-progress.test.js), run against our real progression. His ran on his
-// own progression tables and his confirm-time payout; ours derive ranks from the stored XP exactly as the
+// progression part of test/huntpass-progress.test.js), run against our real progression. The fork's ran on its
+// own progression tables and its confirm-time payout; ours derive ranks from the stored XP exactly as the
 // client does (progressionrank.ts), and a confirm records the claim and pays nothing (the game server pays
-// through /inventory). Each case names the line of his test; where his asserted behaviour we do not share,
+// through /inventory). Each case names the line of the original test; where one asserted behaviour we do not share,
 // the case asserts ours and says so. Skipped from huntpass-progress.test.js: 97 (we store a track the
 // config does not know, on purpose), 205 (no wallet: the balance test in progressionextras.test.ts
 // replaces it), 465 (we serve no bounty definitions; see bountiesported.test.ts).
@@ -83,7 +83,7 @@ describe("rank derivation (test/huntpass.test.js)", () => {
         assert.equal(Derived.XpInLevel, 50);
     });
 
-    // from Harmonicrain/Undaunted test/huntpass.test.js:107, inverted: his clamped season09b at 50, which made
+    // from Harmonicrain/Undaunted test/huntpass.test.js:107, inverted: the fork clamped season09b at 50, which made
     // Claim hand out the prestige reward again and again; the client counts prestige ranks past 50
     it("season09b goes past 50 with prestige; a track without prestige stays at its maximum", () => {
         assert.equal(Earned(SEASON, 5000).EarnedFreeRank, 50);
@@ -101,7 +101,7 @@ describe("rank derivation (test/huntpass.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/huntpass.test.js:120, adapted: stored progress is a whole number of at
-    // least 0 (grants clamp at 0), so his NaN case cannot occur here
+    // least 0 (grants clamp at 0), so the fork's NaN case cannot occur here
     it("a negative total does not produce a negative rank", () => {
         assert.equal(Earned(SEASON, -500).EarnedFreeRank, 0);
     });
@@ -246,7 +246,7 @@ describe("XP and claims (test/huntpass-progress.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/huntpass-progress.test.js:106, the persistence part: objectives persist.
-    // His kept the higher of two values; ours stores the game server's absolute value as sent and notes a
+    // The fork kept the higher of two values; ours stores the game server's absolute value as sent and notes a
     // value that went backwards (see progressionextras.test.ts)
     it("objectives persist", async () => {
         const { UserId } = await MakePlayer();
@@ -256,7 +256,7 @@ describe("XP and claims (test/huntpass-progress.test.js)", () => {
         assert.deepEqual([Stored.progress, Stored.completed_count], [5, 1]);
     });
 
-    // from Harmonicrain/Undaunted test/huntpass-progress.test.js:121, inverted: his confirm granted the rank's
+    // from Harmonicrain/Undaunted test/huntpass-progress.test.js:121, inverted: the fork's confirm granted the rank's
     // rewards; the 1.4.4 game server pays them through /inventory, so ours records the claim and grants nothing
     it("confirming a rank records the claim and grants nothing", async () => {
         const { UserId, CharacterId } = await MakePlayer();

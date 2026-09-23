@@ -32,7 +32,7 @@ the store screen gets the same error as before.
 The catalogue, the purchase-token flow, the tab layout and the list of how each item is granted come
 from **Harmonic's** Dauntless 1.4.4 fork
 ([github.com/Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted), commit `895f7c7`),
-where he tried the store in game. We rebuilt the routes on our own inventory, entitlement and audit
+where Harmonic tried the store in game. We rebuilt the routes on our own inventory, entitlement and audit
 code. What we took and what we changed is on [The Harmonic port]({{ harmonic_page.url | relative_url }}).
 
 <details open markdown="block">
@@ -48,7 +48,7 @@ code. What we took and what we changed is on [The Harmonic port]({{ harmonic_pag
 |:------|:-------|
 | **B** | The 1.4.4 executable (`Dauntless-Win64-Shipping.exe`): strings and disassembly. Addresses are virtual addresses with image base `0x140000000`. |
 | **K** | The endpoint table in `UndauntedInternalServer/dllmain.cpp` and the client's own data tables. |
-| **O** | Observed in game by Harmonic on his own fork (one client), not yet on our server. |
+| **O** | Observed in game by Harmonic on that fork (one client), not yet on our server. |
 | **S** | Strong inference: one link in the chain was not traced. |
 | **G** | A design decision of ours, where nothing in the client decides it. |
 | **C** | Our own code and tests. |
@@ -186,7 +186,7 @@ alone gets 403. Purchases can be traced (`inventorylog.caller = 'store'`, `entit
 
 | Left out | Why |
 |:---------|:----|
-| Harmonic's `season09b_10_ranks` offer (ten Hunt Pass ranks) | It granted `CURRENCY_PRESTIGE`, which his own store code could not sell (no grant kind: 409). A real rank skip is a progression grant through the rank rules, not an item. |
+| Harmonic's `season09b_10_ranks` offer (ten Hunt Pass ranks) | It granted `CURRENCY_PRESTIGE`, which the fork's own store code could not sell (no grant kind: 409). A real rank skip is a progression grant through the rank rules, not an item. |
 | Prices | Every offer is free until the owner decides otherwise (roadmap 3.7). The code refuses any offer whose `platinumPrice` is not 0. |
 | The bounty-token bundle, by default | `bundle_currency_bounty_small` gives 20 `TOKEN_BOUNTY_DRAFT_PREMIUM`, the premium bounty token that lasts into the next season, and may be bought any number of times: unlimited free premium bounty drafts. It is listed only with `STORE_REPEATABLE_TOKENS=1`, an owner decision. A token issued while it was on is refused (409) after it is switched off. |
 | The Trials, event and prestige stores, the cell-dust exchange, loadout-slot purchases | The same service ran them; nothing is built for them yet (roadmap 3.7, 3.9). |

@@ -33,25 +33,25 @@ named below.
   - the Escalation season registry, its save rules and version rules (real Escalation saves);
   - the free store: the catalogue, the two-step purchase token, the store tabs and tile-art list, the
     grant kind of each item, and the sheen and hair-tint entitlements;
-  - Slayer Links (his contract, corrected against the 1.4.4 executable);
+  - Slayer Links (the fork's contract, corrected against the 1.4.4 executable);
   - the deploy server's restart of a dead Ramsgate or Dojo on demand, the stored restart record, and
     the handling of a failed game-server start;
-  - the idea of friends' online status (rebuilt inside our own chat server, with none of his code);
+  - the idea of friends' online status (rebuilt inside our own chat server, with none of the fork's code);
   - smaller ideas: protection against retried progression grants, Hunt Pass seasons from a folder on
     disk and `ACTIVE_HUNT_PASS`, real currencies in `/balance`, the caller's own account in
     `oauth/verify`, tolerance for a repeated party accept, status and duration in the body log, a log
     line for unhandled progression requests, the MinHook include fix and five `.gitignore` patterns;
-  - his test cases: 103 of his 119 ported and 7 turned around to assert our behaviour, each marked
-    with his file and line.
-- Files that carry his copyright notice (`Ported from Harmonicrain/Undaunted (895f7c7), Copyright (C)
+  - the fork's test cases: 103 of its 119 ported and 7 turned around to assert our behaviour, each
+    marked with the original file and line.
+- Files that carry Harmonic's copyright notice (`Ported from Harmonicrain/Undaunted (895f7c7), Copyright (C)
   2026 Harmonic, AGPL-3.0-only`, with how each was modified for Dauntless Revived):
   `UndauntedMetagame/src/controllers/escalationConfig.ts`, `escalation.ts`, `freestore.ts` and
   `slayerlinks.ts`.
-- Data files from his fork, each with a provenance note in its `_comment`:
+- Data files from the fork, each with a provenance note in its `_comment`:
   `UndauntedMetagame/src/vendor/escalation/seasons.json`, `src/vendor/store_catalog.json`,
   `src/vendor/store_item_kinds.json` and `test/data/store_art_skus.json`. They hold identifiers and
   tuning values read from the installed 1.4.4 client for interoperability, and no game assets.
-- Code of ours built on his ideas names his fork in its comments.
+- Code of ours built on Harmonic's ideas names the fork in its comments.
 - What was not taken, and why, is recorded on
   [The Harmonic port](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html).
 

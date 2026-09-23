@@ -82,7 +82,7 @@ The rows marked "(solo)" mean exactly that. A test with a second player is next.
 | Bounties | Not yet | Stored with real progression; drafting and claiming not yet tried in game |
 | Text chat and online status | Built, awaiting a live test; both off by default | Ramsgate, hunt, party and guild chat and whispers, with usernames, in the metagame itself; off by default until two players have tried it (`Set-Chat.ps1 -On` on a kit server). The first chat server was written and tested by Vvoidddd; why it showed `UID-...` instead of names, and the fix: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html). Friends' online status is built into the chat server since 23 September 2026 (the idea came from Harmonic's fork) and stays off (`CHAT_PRESENCE=1`) until two players have shown that the party's automatic kick stays asleep. Use Discord meanwhile |
 | Slayer Links | Built, on by default, awaiting a live test | The My Links tab: two friends link up for a week. From Harmonic's fork, corrected against the 1.4.4 executable (23 September 2026); not tried in game yet, and the game may keep the tab hidden ([details](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links)) |
-| Escalation | Built, off by default | Real Escalation saves from Harmonic's fork: the season registry read from the client and his save rules (23 September 2026). Off (`ESCALATION_MODE=real`) because switching it on drops every player from the fake maximum to level 0; not tried in game ([details](https://mixutin.github.io/dauntless-revived/findings/escalation.html)) |
+| Escalation | Built, off by default | Real Escalation saves from Harmonic's fork: the season registry read from the client and its save rules (23 September 2026). Off (`ESCALATION_MODE=real`) because switching it on drops every player from the fake maximum to level 0; not tried in game ([details](https://mixutin.github.io/dauntless-revived/findings/escalation.html)) |
 | Store | Built, off by default | A free store from Harmonic's fork: 200 free cosmetics, bought with the game's own purchase flow (23 September 2026). Off (`STORE=free`) until the owner decides whether it stays free and it has been tried in game ([details](https://mixutin.github.io/dauntless-revived/findings/store.html)) |
 | Multiple loadouts | Not yet | Slot unlocks stored with real progression; the extra slots not yet tried in game |
 
@@ -267,11 +267,11 @@ or game files. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version of the r
   Dauntless 1.4.4 folder by pasting its path ([#8](https://github.com/mixutin/dauntless-revived/pull/8));
   wrote the first in-game text chat server (XMPP) and tested it with a real 1.4.4 client
   ([#9](https://github.com/mixutin/dauntless-revived/pull/9)).
-- **Harmonic** ([Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted), his Dauntless
-  1.4.4 fork of Undaunted): the Escalation season registry and save rules, the free store (its
+- **Harmonic** ([Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted), Harmonic's
+  Dauntless 1.4.4 fork of Undaunted): the Escalation season registry and save rules, the free store (its
   catalogue, purchase flow and store tabs), the first working Slayer Links, the deploy server's restart
-  of a dead Ramsgate, the idea of friends' online status, and the test cases we ported from his fork.
-  [NOTICE.md](NOTICE.md) lists what came from his fork.
+  of a dead Ramsgate, the idea of friends' online status, and the test cases we ported from that fork.
+  [NOTICE.md](NOTICE.md) lists what came from it.
 
 Everyone who has contributed is listed on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors).

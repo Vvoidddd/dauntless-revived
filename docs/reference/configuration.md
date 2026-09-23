@@ -657,5 +657,5 @@ Only the automated tests read these. How to run the tests is in the
   `WIRE_CAPTURE`, `WIRE_CAPTURE_MAX_BODY` and `WIRE_CAPTURE_MAX_PER_PATH` (our `LOG_BODIES` and
   `BODY_LOG_PER_PATH` do that job), `HUNT_PASS_SEASONS_DIR` (ours is `PROGRESSION_CONFIG_DIR`),
   `HUNT_PASS_PREMIUM_MODE`, `XMPP_PORT`, and in the deploy server `ENABLE_WATCHDOG`, `HOST`,
-  `GAMESERVER_LOG_DIR`, `GAMESERVER_LOG_CMDS` and `METAGAME_ADDRESS`; in his DLL, `UNDAUNTED_DIAG_LOG`.
+  `GAMESERVER_LOG_DIR`, `GAMESERVER_LOG_CMDS` and `METAGAME_ADDRESS`; in the fork's DLL, `UNDAUNTED_DIAG_LOG`.
   Nothing here reads them.

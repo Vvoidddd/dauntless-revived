@@ -9,10 +9,10 @@ import { MakePlayer } from "./helpers";
 
 // Harmonic's bounty and cooldown cases (github.com/Harmonicrain/Undaunted 895f7c7,
 // test/huntpass-progress.test.js), run against ours: the board is stored per bounty with its
-// update_version, and only a game server writes bounties and cooldowns (his let a player's token write
-// them). Each case names the line of his test. Inverted: 409 (a post with an empty board and zeroed draft
-// data keeps the bounties players still hold; his cleared them) and 443 (we serve no bounty definitions: an
-// id without one is eligible, and his list would cut the Gold reward from 100 to 60 Hunt Pass XP). Skipped:
+// update_version, and only a game server writes bounties and cooldowns (the fork let a player's token write
+// them). Each case names the line of the original test. Inverted: 409 (a post with an empty board and zeroed draft
+// data keeps the bounties players still hold; the fork cleared them) and 443 (we serve no bounty definitions: an
+// id without one is eligible, and the fork's list would cut the Gold reward from 100 to 60 Hunt Pass XP). Skipped:
 // 465 (the fields of a definition list we do not serve).
 
 before(async () => {
@@ -192,7 +192,7 @@ describe("cooldowns (test/huntpass-progress.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/huntpass-progress.test.js:544, adapted: the game server's PUT (the
-    // client never sends his POST), and a player's own client may not start its cooldowns
+    // client never sends the fork's POST), and a player's own client may not start its cooldowns
     it("starting a cooldown by id records it now", async () => {
         const { UserId } = await MakePlayer();
 

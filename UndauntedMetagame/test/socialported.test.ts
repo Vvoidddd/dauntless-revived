@@ -11,8 +11,8 @@ import { ResetPartiesForTests } from "../src/controllers/party";
 
 // The two small social fixes taken from Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7): a
 // repeated party accept answers the party instead of 404, and GET /account/api/oauth/verify names the
-// caller's own account. His account-lookup case is ported with our answers where they differ: verify
-// never answers 401 (his did without a token), and the mapping reply is ours (accountType "phoenix", with
+// caller's own account. The fork's account-lookup case is ported with our answers where they differ: verify
+// never answers 401 (the fork did without a token), and the mapping reply is ours (accountType "phoenix", with
 // the envelope keys the client ignores).
 
 const STUB_ACCOUNT = "9626f441055349ce8cb7d7d5a483eaa2";
@@ -60,7 +60,7 @@ describe("a repeated party accept", () => {
         assert.deepEqual(First.json.playerIds, [John, Manda]);
 
         const Again = await Accept(Manda, PartyJohn);
-        assert.equal(Again.status, 200, "his fork's retry case: the invite is used up, the party is the answer");
+        assert.equal(Again.status, 200, "the fork's retry case: the invite is used up, the party is the answer");
         assert.deepEqual(Again.json, First.json);
         assert.deepEqual(Again.json, (await Poll(Manda)).json, "the same as the poll");
 

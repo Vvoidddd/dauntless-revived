@@ -43,8 +43,8 @@ test("the credits name every contributor, in order, with their role", () => {
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.en, /reverted in launcher 0\.1\.1/);
   assert.match(person(PROJECT_PEOPLE, "Vvoidddd").note.fi, /peruttiin käynnistimen versiossa 0\.1\.1/);
 
-  // Harmonic: the work ported from his Dauntless 1.4.4 fork (Harmonicrain/Undaunted 895f7c7), listed
-  // after Vvoidddd.
+  // Harmonic: the work ported from Harmonic's Dauntless 1.4.4 fork (Harmonicrain/Undaunted 895f7c7),
+  // listed after Vvoidddd. The English note names no gender (nothing we have says which).
   const harmonic = person(PROJECT_PEOPLE, "Harmonicrain");
   assert.equal(harmonic.name, "Harmonic");
   assert.equal(harmonic.role, "contributor");
@@ -53,6 +53,7 @@ test("the credits name every contributor, in order, with their role", () => {
     "Harmonic comes after Vvoidddd",
   );
   assert.match(harmonic.note.en, /Dauntless 1\.4\.4 fork of Undaunted/);
+  assert.doesNotMatch(harmonic.note.en, /\b(he|his|him|she|her|hers)\b/i);
   for (const part of ["Escalation season registry and save rules", "the free store", "Slayer Links", "restart of a dead Ramsgate", "friends' online status", "test cases"]) {
     assert.ok(harmonic.note.en.includes(part), `Harmonic en: ${part}`);
   }

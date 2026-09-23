@@ -520,7 +520,7 @@ client never sends them.
 
 ### What we corrected from Harmonic's version {#slayer-link-corrections}
 
-| His fork | The client (B) |
+| Harmonic's fork | The client (B) |
 |:---------|:---------------|
 | The invite list names the other player `linked_account_id` | It reads `account_id` (`0x1415ff170`) |
 | A link is removed at `/slayerlink/link` | That key is never used; the client sends `DELETE /slayerlink/links` with a body (`0x1415dc442`) |

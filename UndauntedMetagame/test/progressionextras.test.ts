@@ -18,7 +18,7 @@ import { ListEntitlements } from "../src/controllers/entitlements";
 import { Count, MakePlayer } from "./helpers";
 import BundledConfig from "../src/vendor/progression_config.json";
 
-// The progression extras of the Harmonic port (github.com/Harmonicrain/Undaunted 895f7c7, ideas from his
+// The progression extras of the Harmonic port (github.com/Harmonicrain/Undaunted 895f7c7, ideas from its
 // progressionWrites.ts, huntpass.ts, wallet.ts and routes/progression.ts), rebuilt on our real
 // progression: the retry guard of the grant, the progression config folder and ACTIVE_HUNT_PASS, the
 // currencies of /balance from the inventory, the optional entitlements on confirm, the log lines. And

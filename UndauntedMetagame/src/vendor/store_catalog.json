@@ -21,7 +21,7 @@
     "Repeatable offers: TOKEN_BOUNTY_DRAFT_PREMIUM (bounty_token_id's premium twin in /bounty/game-data - the purchased kind that persists across seasons) may be bought any number of times, in any positive quantity. Everything else is a one-time cosmetic unlock.",
     "Sheens and premium hair tints are entitlement unlocks, not items. Their SKU -> entitlement pairs come from the client's own tables: /Game/Gameplay/dye_sheen_table and /Game/UI/Appearance/appearance_hair_colour_premium_table (columns SkuId and Entitlements). Dye palette bundles (bundle_dyes_palette_NN) are not sold: the client defines their sets (dye_set_info_table) but assigns no dyes to them, so their contents were server-side only.",
     "From github.com/Harmonicrain/Undaunted (895f7c7) by Harmonic, AGPL-3.0-only. Identifiers and tuning values read from the 1.4.4 client for interoperability; no game assets.",
-    "Dauntless Revived changes: season09b_rank is served empty (his season09b_10_ranks offer granted CURRENCY_PRESTIGE, which the store cannot sell; a rank skip would be a progression grant). The repeatable bounty-token bundle is listed only with STORE_REPEATABLE_TOKENS=1. store_art_skus.json lives in test/data/, since only a test reads it. The store answers only with STORE=free."
+    "Dauntless Revived changes: season09b_rank is served empty (the fork's season09b_10_ranks offer granted CURRENCY_PRESTIGE, which the store cannot sell; a rank skip would be a progression grant). The repeatable bounty-token bundle is listed only with STORE_REPEATABLE_TOKENS=1. store_art_skus.json lives in test/data/, since only a test reads it. The store answers only with STORE=free."
   ],
   "webstore": [
     {

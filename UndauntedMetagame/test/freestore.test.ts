@@ -17,8 +17,8 @@ import { Count, MakePlayer, StackQuantity } from "./helpers";
 
 // The free store (roadmap 3.7, STORE=free). The catalogue, the purchase-token flow and most of these
 // cases come from Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7, test/free-store.test.js and
-// test/entitlements.test.js); each ported case names the line of his test. Where ours differs: a token
-// goes to the account's active character (his refused accounts with more than one), items go through our
+// test/entitlements.test.js); each ported case names the line of the original test. Where ours differs: a token
+// goes to the account's active character (the fork refused accounts with more than one), items go through our
 // inventory core (ledger and inventorylog, caller "store"), ownership of an entitlement is an active one
 // (every account owns the Elite pass by default, so the cases about buying it empty ENTITLEMENTS_DEFAULT),
 // and the bounty-token bundle is sold only with STORE_REPEATABLE_TOKENS=1.
@@ -168,7 +168,7 @@ describe("purchases (Harmonic's free-store cases)", () => {
     });
 
     // from Harmonicrain/Undaunted test/free-store.test.js:81, adapted: an account with several characters
-    // buys for the one it played last (his refused the purchase); a character moved away is refused
+    // buys for the one it played last (the fork refused the purchase); a character moved away is refused
     it("buys for the character played last, never an arbitrary one, and not for a character moved away", async () => {
         const A = await MakePlayer();
         const Second = await CreateCharacterForUid(A.UserId, "Second");

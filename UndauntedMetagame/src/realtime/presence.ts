@@ -5,7 +5,7 @@ import { Bucket, ChildNamed, EscapeXml, NS, TakeToken, TextOf } from "./xmpp";
 
 // Friends' online status (CHAT_PRESENCE=1, with CHAT=1; docs/findings/chat.md). Harmonic's fork
 // (github.com/Harmonicrain/Undaunted 895f7c7) had the idea of a presence service; this is written for our
-// chat server and shares no code with his. The 1.4.4 client never asks for a roster, never subscribes and
+// chat server and shares no code with that one. The 1.4.4 client never asks for a roster, never subscribes and
 // never probes: it only knows what the server pushes (C:\dr\data\plans\chat\presence-friends.md, B), so:
 //
 // - A player's own broadcast presence (no "to") is relayed to every session of each ACCEPTED friend the

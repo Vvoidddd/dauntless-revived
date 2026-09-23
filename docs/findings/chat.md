@@ -35,7 +35,7 @@ this page explains, and his code is what the server grew from.
 
 **Update (23 September 2026): friends' online status is built into the chat server, off by default**
 (`CHAT_PRESENCE=1`, together with `CHAT=1`): [Friends' online status](#presence). The idea of a
-presence service comes from **Harmonic's** 1.4.4 fork; the code is our own and shares nothing with his
+presence service comes from **Harmonic's** 1.4.4 fork; the code is our own and shares nothing with the fork's
 (see [The Harmonic port]({{ harmonic_page.url | relative_url }}#social)).
 
 <details open markdown="block">

@@ -11,9 +11,9 @@ import { Count, MakePlayer } from "./helpers";
 
 // Escalation saves (roadmap 2.16). The season registry and the save rules come from Harmonic's fork
 // (github.com/Harmonicrain/Undaunted 895f7c7, test/escalation.test.js); each ported case names the line of
-// his test. Here the rules are split in two: the hard ones always refuse, the soft ones (level costs,
+// the original test. Here the rules are split in two: the hard ones always refuse, the soft ones (level costs,
 // talent budget and tier gates, reward levels) refuse only with ESCALATION_STRICT=1 and are otherwise
-// stored and logged, so each soft case runs twice. Refusals of a soft rule answer 409, his 400.
+// stored and logged, so each soft case runs twice. Refusals of a soft rule answer 409, the fork's 400.
 
 const S1 = "ESC_SEASON_1";
 const S2 = "ESC_SEASON_2";
@@ -112,7 +112,7 @@ describe("reads (ESCALATION_MODE=real)", () => {
     });
 
     // from Harmonicrain/Undaunted test/escalation.test.js:97, adapted: another player's account is refused
-    // (403, as every real-mode read here), where his answered the asking player's own state
+    // (403, as every real-mode read here), where the fork answered the asking player's own state
     it("a player reads only their own season; a game server reads the named account", async () => {
         const A = await MakePlayer(), B = await MakePlayer();
         assert.equal((await Write(A, Snap({ escalation_level: 1, next_level_xp: 10 }))).status, 200);
@@ -129,7 +129,7 @@ describe("reads (ESCALATION_MODE=real)", () => {
 
 describe("saves (ESCALATION_MODE=real)", () => {
     // from Harmonicrain/Undaunted test/escalation.test.js:108, adapted: a game server's save that relays
-    // another player's token is logged and kept for the named account (his refused it with 403)
+    // another player's token is logged and kept for the named account (the fork refused it with 403)
     it("only a game server may save; a relayed token for another account is logged, not refused", async () => {
         const A = await MakePlayer(), B = await MakePlayer();
 
@@ -362,7 +362,7 @@ describe("saves (ESCALATION_MODE=real)", () => {
         const A = await MakePlayer();
 
         assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 99999, update_version: 2 }))).status, 409);
-        assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 99999 + 4321, update_version: 3 }))).status, 409, "his guard checked 99999 exactly");
+        assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 99999 + 4321, update_version: 3 }))).status, 409, "the fork's guard checked 99999 exactly");
         assert.equal(Rows("escalationprogression", A.UserId), 0);
         assert.match(Events(A.UserId)[0].note, /first save carries the old stub values/);
 

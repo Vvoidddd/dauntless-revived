@@ -12,7 +12,7 @@ import { Count } from "./helpers";
 
 // Slayer Links over HTTP, with the bodies and paths the 1.4.4 client sends (controllers/slayerlinks.ts has
 // the exe addresses). Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7) had the first working
-// contract; his case is ported below with the client's own shapes where his differed: invites list the
+// contract; the fork's case is ported below with the client's own shapes where they differed: invites list the
 // other player as account_id (not linked_account_id), an answer names the other player in account_id,
 // a link is removed with DELETE /slayerlink/links, and DELETE /slayerlink/invites/{account_id} exists.
 // Slots are 1 to 3, the keys of the client's slot map (0x1415ea22d; see the controller).
