@@ -385,6 +385,64 @@ describe("friends' online status (CHAT_PRESENCE=1)", () => {
         assert.deepEqual(await Frames(Bob), []);
     });
 
+    it("(f) going offline and online in a loop is held back like any other change, and the friends lookups stay few", async () => {
+        let Lookups = 0, BlockChecks = 0;
+        const Own = new ChatServer({ Clock: () => Now, AutoTick: false, Presence: true, Friends: {
+            FriendsOf: (Uid) => { Lookups++; return Uid === D ? [E] : Uid === E ? [D] : []; },
+            IsBlockedEitherWay: () => { BlockChecks++; return false; }
+        } });
+        await Own.listen(0);
+
+        try{
+            const Eve = await Online(E, Own);
+            const Dee = await Online(D, Own);
+            Broadcast(Eve, CITY);
+            await Frames(Eve);
+            Broadcast(Dee, CITY);
+            await Frames(Dee);
+            assert.equal((await Frames(Eve)).length, 1, "Eve hears Dee come online");
+            Lookups = 0;
+            BlockChecks = 0;
+
+            // The first presence took one of PRESENCE_BURST tokens; each unavailable and each return takes one
+            for(let Round = 0; Round < PRESENCE_BURST + 2; Round++){
+                Dee.Send(`<presence type="unavailable"/>`);
+                Broadcast(Dee, CITY);
+            }
+
+            await Frames(Dee);
+            const Heard = await Frames(Eve);
+            assert.ok(Heard.length <= PRESENCE_BURST, `${Heard.length} stanzas`);
+            assert.deepEqual(Heard.map((Each) => Each.Type ?? "available"), ["unavailable", "available", "unavailable", "available"], "two rounds, then held back");
+            assert.ok(Lookups <= PRESENCE_BURST - 1 && BlockChecks <= PRESENCE_BURST - 1, `${Lookups} lookups, ${BlockChecks} block checks`);
+
+            // Only the latest state goes out when its turn comes. Dee ended the loop online as Eve last saw
+            // it, so Eve is told nothing; Dee, deaf for a while, hears of Eve again.
+            Now += PRESENCE_REFILL_MS;
+            Own.Tick();
+            assert.deepEqual(await Frames(Eve), []);
+            assert.deepEqual((await Frames(Dee)).map((Each) => Each.From), [Jid(Eve)]);
+
+            Dee.Send(`<presence type="unavailable"/>`);
+            Broadcast(Dee, HUNT);
+            await Frames(Dee);
+            assert.deepEqual(await Frames(Eve), [], "no token left");
+            Now += PRESENCE_REFILL_MS;
+            Own.Tick();
+            assert.deepEqual((await Frames(Eve)).map((Each) => [Each.From, Each.Type, Each.Status]), [[Jid(Dee), undefined, HUNT]], "the latest one, once");
+            Own.Tick();
+            assert.deepEqual(await Frames(Eve), []);
+
+            // Ending the session is never held back
+            await Dee.Logout();
+            assert.deepEqual((await Frames(Eve)).map((Each) => [Each.From, Each.Type]), [[Jid(Dee), "unavailable"]]);
+        }
+        finally{
+            for(const Client of Opened.splice(0)) await Client.Logout();
+            await Own.close();
+        }
+    });
+
     it("(g) CHAT_PRESENCE off: not one presence or friends-list stanza outside rooms", async () => {
         const Saved = process.env.CHAT_PRESENCE;
         delete process.env.CHAT_PRESENCE;

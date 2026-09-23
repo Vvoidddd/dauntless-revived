@@ -13483,8 +13483,8 @@ own. The player's own sessions are never in that list.
 | When | What the server sends |
 |:-----|:----------------------|
 | A session sends its first broadcast presence (no `to`) | That session gets the current presence of each friend who is online; each such friend gets the player's presence. |
-| The presence changes (`<show>` or the `<status>` text) | The new presence, to the same friends. More than 5 changes at once are held back to one every 2 seconds; the latest held-back one goes out at the next second's tick. |
-| The session ends (`<close/>`, a dropped socket, a ping timeout, replacement, an abuse, size or backlog end) or broadcasts `type="unavailable"` | `type="unavailable"` from its full address. If the account still has another session with a presence, that presence follows at once, so the friend does not show as offline. Nothing is sent at a server shutdown. |
+| The presence changes (`<show>` or the `<status>` text) | The new presence, to the same friends. More than 5 changes at once are held back to one every 2 seconds; only the latest state goes out, at the next second's tick. The limit counts every change a connected session makes, its first presence, an unavailable broadcast and coming back after one included, so going offline and online in a loop is held back too. |
+| The session ends (`<close/>`, a dropped socket, a ping timeout, replacement, an abuse, size or backlog end) or broadcasts `type="unavailable"` | `type="unavailable"` from its full address (at once when the session ends; an unavailable broadcast counts as a change under the limit above, and the session hears of its friends again when it comes back). If the account still has another session with a presence, that presence follows at once, so the friend does not show as offline. Nothing is sent at a server shutdown. |
 | Two players become friends over HTTP (an accept of a request) | Each player's sessions get the client's friends-list message, from `xmpp-admin@<domain>`: `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId", "status": "ACCEPTED", "direction": "INBOUND" or "OUTBOUND", "created"}, "timestamp"}`, then the two exchange presences. A new request (still pending) pushes nothing. |
 | An accepted friendship ends (unfriend, or a block that removes it) | Each side gets the other's `type="unavailable"` once; after that neither hears of the other. |
 
@@ -13558,7 +13558,8 @@ unchanged from the full address; two sessions of one account (nothing passes bet
 hears both, the remaining session's presence follows when one leaves); unavailable on `<close/>`, a
 dropped socket, an unavailable broadcast and a ping timeout; strangers, blocks and an unfriend; the
 friends-list message on an accept (and none for a request); a change, a repeat and a flood held back;
-and zero stanzas outside rooms with `CHAT_PRESENCE` off. `test/chatinvariant.ts` watches **every
+going offline and online in a loop held back the same way, with the friends lookups counted; and zero
+stanzas outside rooms with `CHAT_PRESENCE` off. `test/chatinvariant.ts` watches **every
 stanza the server sends** in the chat, chat-over-HTTP, chat-model and presence test files, and fails
 the file if a stanza outside a room ever reached a session from its own account.
 

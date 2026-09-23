@@ -27,7 +27,11 @@ import { Bucket, ChildNamed, EscapeXml, NS, TakeToken, TextOf } from "./xmpp";
 // every stanza the server sends.
 //
 // A client that changes its presence too often has the changes held back (PRESENCE_BURST, then one per
-// PRESENCE_REFILL_MS); the latest one goes out at the next tick.
+// PRESENCE_REFILL_MS), and the latest state goes out at the next tick. That covers every change a session
+// makes while it stays connected: its first presence, an unavailable broadcast and coming back after one
+// too, so going offline and online in a loop cannot get past the limit. Only the end of a session is sent
+// at once (it gets no more ticks). The friends lookup and the block checks run only when something is
+// sent, and the block check only for friends who are online.
 
 export const PRESENCE_BURST = 5;
 export const PRESENCE_REFILL_MS = 2000;
@@ -46,7 +50,14 @@ export type PresenceSession = {
     Domain: string,
     Resource?: string,
     Ended: boolean,
+    // The client's latest broadcast (undefined: none yet, or it said unavailable). A session with one hears
+    // its friends' changes.
     LastPresence?: ClientPresence,
+    // What its friends were last told (undefined: offline to them). Differs from LastPresence while a
+    // change is held back.
+    Shown?: ClientPresence,
+    // It was deaf for a while (it said unavailable): at its next announcement it hears of its friends again
+    CatchUpDue?: boolean,
     PresenceTokens: Bucket,
     PresencePending: boolean
 };
@@ -79,6 +90,11 @@ function IsOnline(Session: PresenceSession){
     return !Session.Ended && Session.Uid !== undefined && Session.Resource !== undefined;
 }
 
+// It sent a presence of its own and has not said unavailable since: it hears its friends' changes
+function Listening(Session: PresenceSession){
+    return Session.LastPresence !== undefined;
+}
+
 export class FriendPresence {
     private readonly host: PresenceHost;
     private readonly access: PresenceAccess;
@@ -90,9 +106,22 @@ export class FriendPresence {
 
     // ---- Who sees whom ----
 
-    private friendsOf(Uid: string): string[] {
+    // The online sessions of the account's ACCEPTED friends who have not blocked it and are not blocked by
+    // it. One friends lookup; the block check only for friends with a session online. Never one of the
+    // account's own sessions.
+    private friendSessions(Uid: string): PresenceSession[] {
         try{
-            return [...new Set(this.access.FriendsOf(Uid))].filter((Friend) => !SameAccount(Friend, Uid) && !this.access.IsBlockedEitherWay(Uid, Friend));
+            const Sessions: PresenceSession[] = [];
+
+            for(const Friend of new Set(this.access.FriendsOf(Uid))){
+                const Online = SameAccount(Friend, Uid) ? [] : this.host.SessionsOf(Friend).filter(IsOnline);
+
+                if(Online.length > 0 && !this.access.IsBlockedEitherWay(Uid, Friend)){
+                    Sessions.push(...Online);
+                }
+            }
+
+            return Sessions;
         }
         catch(error){
             if(this.host.LogOnce(`presence-friends|${Uid}`, 60 * 1000)){
@@ -103,15 +132,18 @@ export class FriendPresence {
         }
     }
 
-    // The sessions of the account's friends that are online for presence: bound, and they sent a presence of
-    // their own (a session that has not sent one yet hears of its friends at its first). Never one of the
-    // account's own sessions.
+    // Those who hear the account's changes: friends' sessions that sent a presence of their own (a session
+    // that has not sent one yet hears of its friends when its own is announced)
     private audience(Uid: string): PresenceSession[] {
-        return this.friendsOf(Uid).flatMap((Friend) => this.present(Friend));
+        return this.friendSessions(Uid).filter(Listening);
     }
 
-    private present(Uid: string): PresenceSession[] {
-        return this.host.SessionsOf(Uid).filter((Each) => IsOnline(Each) && Each.LastPresence !== undefined);
+    private listening(Uid: string): PresenceSession[] {
+        return this.host.SessionsOf(Uid).filter((Each) => IsOnline(Each) && Listening(Each));
+    }
+
+    private shown(Uid: string): PresenceSession[] {
+        return this.host.SessionsOf(Uid).filter((Each) => IsOnline(Each) && Each.Shown !== undefined);
     }
 
     // ---- Sending ----
@@ -129,12 +161,13 @@ export class FriendPresence {
         this.host.Send(To, Stanza);
     }
 
+    // The presence friends were last told of (Shown)
     private presenceStanza(From: PresenceSession, To: PresenceSession): string {
-        const Shown = From.LastPresence ?? {};
+        const Told = From.Shown ?? {};
 
         return `<presence xmlns="${NS.CLIENT}" from="${EscapeXml(FullJidOf(From))}" to="${EscapeXml(FullJidOf(To))}">`
-            + (Shown.Show !== undefined ? `<show>${Shown.Show}</show>` : "")
-            + (Shown.Status !== undefined ? `<status>${EscapeXml(Shown.Status)}</status>` : "")
+            + (Told.Show !== undefined ? `<show>${Told.Show}</show>` : "")
+            + (Told.Status !== undefined ? `<status>${EscapeXml(Told.Status)}</status>` : "")
             + `</presence>`;
     }
 
@@ -154,14 +187,86 @@ export class FriendPresence {
         return `<message xmlns="${NS.CLIENT}" from="${ADMIN_LOCAL}@${EscapeXml(To.Domain)}" to="${EscapeXml(FullJidOf(To))}"><body>${EscapeXml(Body)}</body></message>`;
     }
 
-    private relay(Session: PresenceSession): number {
-        const Audience = this.audience(Session.Uid!);
+    // ---- Announcing a session's state ----
+
+    // A change of a session that stays connected: sent now if the session has a token left, else held back
+    // for the tick (only the latest state is sent then)
+    private announce(Session: PresenceSession): void {
+        if(TakeToken(Session.PresenceTokens, PRESENCE_BURST, PRESENCE_REFILL_MS, this.host.Clock())){
+            this.flush(Session);
+        }
+        else{
+            Session.PresencePending = true;
+        }
+    }
+
+    // Tells the session's friends what changed since they were last told (Shown -> LastPresence)
+    private flush(Session: PresenceSession): void {
+        const Now = Session.LastPresence;
+        const Before = Session.Shown;
+
+        Session.PresencePending = false;
+
+        if(Now === undefined){
+            if(Before !== undefined){
+                this.wentOffline(Session, "unavailable");
+            }
+
+            return;
+        }
+
+        const Friends = this.friendSessions(Session.Uid!);
+        const Audience = Friends.filter(Listening);
+        let Heard = 0;
+
+        // It hears of its friends who are online, as they are shown to everyone
+        if(Before === undefined || Session.CatchUpDue === true){
+            for(const Friend of Friends.filter((Each) => Each.Shown !== undefined)){
+                this.deliver(Friend.Uid, Session, this.presenceStanza(Friend, Session));
+                Heard++;
+            }
+
+            Session.CatchUpDue = false;
+        }
+
+        if(Before !== undefined && Before.Show === Now.Show && Before.Status === Now.Status){
+            // Back to what its friends were last told (a change and its undoing, both held back)
+            return;
+        }
+
+        Session.Shown = Now;
 
         for(const To of Audience){
             this.deliver(Session.Uid, To, this.presenceStanza(Session, To));
         }
 
-        return Audience.length;
+        if(Before === undefined){
+            logger.info(`chat: presence c=${Session.Id} uid=${Session.Uid} online: told ${Audience.length} friend session(s), heard of ${Heard}`);
+        }
+        else{
+            logger.debug(`chat: presence c=${Session.Id} changed: relayed to ${Audience.length} friend session(s)`);
+        }
+    }
+
+    // Its friends see it go; if the account has another session they were shown, that one's presence follows
+    private wentOffline(Session: PresenceSession, Why: string): void {
+        Session.Shown = undefined;
+
+        const Audience = this.audience(Session.Uid!);
+
+        for(const To of Audience){
+            this.deliver(Session.Uid, To, this.unavailableStanza(Session, To));
+        }
+
+        const Other = this.host.SessionsOf(Session.Uid!).find((Each) => Each !== Session && IsOnline(Each) && Each.Shown !== undefined);
+
+        if(Other !== undefined){
+            for(const To of Audience){
+                this.deliver(Other.Uid, To, this.presenceStanza(Other, To));
+            }
+        }
+
+        logger.info(`chat: presence c=${Session.Id} uid=${Session.Uid} offline (${Why}): told ${Audience.length} friend session(s)${Other !== undefined ? `; c=${Other.Id} is still online` : ""}`);
     }
 
     // ---- The chat server's events ----
@@ -188,60 +293,34 @@ export class FriendPresence {
 
         Session.LastPresence = Next;
 
-        if(Previous === undefined){
-            // First presence of this session: it hears of the friends who are online, they hear of it
-            let Told = 0;
-
-            for(const Friend of this.audience(Session.Uid!)){
-                this.deliver(Friend.Uid, Session, this.presenceStanza(Friend, Session));
-                Told++;
-            }
-
-            TakeToken(Session.PresenceTokens, PRESENCE_BURST, PRESENCE_REFILL_MS, this.host.Clock());
-            Session.PresencePending = false;
-            logger.info(`chat: presence c=${Session.Id} uid=${Session.Uid} online: told ${this.relay(Session)} friend session(s), heard of ${Told}`);
+        if(Previous !== undefined && Previous.Show === Next.Show && Previous.Status === Next.Status){
             return;
         }
 
-        if(Previous.Show === Next.Show && Previous.Status === Next.Status){
-            return;
-        }
-
-        if(TakeToken(Session.PresenceTokens, PRESENCE_BURST, PRESENCE_REFILL_MS, this.host.Clock())){
-            Session.PresencePending = false;
-            logger.debug(`chat: presence c=${Session.Id} changed: relayed to ${this.relay(Session)} friend session(s)`);
-        }
-        else{
-            Session.PresencePending = true;
-        }
+        this.announce(Session);
     }
 
-    // The session went offline: an unavailable broadcast, or the session ended (it is no longer among the
-    // account's sessions by then)
+    // The session went offline: an unavailable broadcast from a session that stays connected (held back
+    // like any other change when it comes too often), or the end of the session (sent at once; by then it
+    // is no longer among the account's sessions)
     Unavailable(Session: PresenceSession, Why: string): void {
-        if(Session.LastPresence === undefined || Session.Uid === undefined || Session.Resource === undefined){
+        if(Session.Uid === undefined || Session.Resource === undefined || (Session.LastPresence === undefined && Session.Shown === undefined)){
             return;
         }
 
         Session.LastPresence = undefined;
+
+        if(!Session.Ended){
+            Session.CatchUpDue = true;
+            this.announce(Session);
+            return;
+        }
+
         Session.PresencePending = false;
 
-        const Audience = this.audience(Session.Uid);
-
-        for(const To of Audience){
-            this.deliver(Session.Uid, To, this.unavailableStanza(Session, To));
+        if(Session.Shown !== undefined){
+            this.wentOffline(Session, Why);
         }
-
-        // Another session of the same account is still online: its presence again
-        const Other = this.host.SessionsOf(Session.Uid).find((Each) => Each !== Session && IsOnline(Each) && Each.LastPresence !== undefined);
-
-        if(Other !== undefined){
-            for(const To of Audience){
-                this.deliver(Other.Uid, To, this.presenceStanza(Other, To));
-            }
-        }
-
-        logger.info(`chat: presence c=${Session.Id} uid=${Session.Uid} offline (${Why}): told ${Audience.length} friend session(s)${Other !== undefined ? `; c=${Other.Id} is still online` : ""}`);
     }
 
     // Held-back changes whose turn has come (the chat server's 1 s tick)
@@ -249,9 +328,8 @@ export class FriendPresence {
         const Now = this.host.Clock();
 
         for(const Session of this.host.Sessions()){
-            if(Session.PresencePending && IsOnline(Session) && Session.LastPresence !== undefined && TakeToken(Session.PresenceTokens, PRESENCE_BURST, PRESENCE_REFILL_MS, Now)){
-                Session.PresencePending = false;
-                this.relay(Session);
+            if(Session.PresencePending && IsOnline(Session) && TakeToken(Session.PresenceTokens, PRESENCE_BURST, PRESENCE_REFILL_MS, Now)){
+                this.flush(Session);
             }
         }
     }
@@ -275,7 +353,8 @@ export class FriendPresence {
         const OfAccepter = this.host.SessionsOf(Accepter).filter(IsOnline);
 
         // The list entry to every session first, then the presences between the sessions that are online
-        // for presence (the others hear of the new friend at their first presence)
+        // for presence: each shown session's presence to each listening one (the others hear of the new
+        // friend when their own presence is announced)
         for(const To of OfAccepter){
             this.deliver(ADMIN_LOCAL, To, this.friendMessage(To, Requester, "INBOUND", CreatedAt));
         }
@@ -284,7 +363,7 @@ export class FriendPresence {
             this.deliver(ADMIN_LOCAL, To, this.friendMessage(To, Accepter, "OUTBOUND", CreatedAt));
         }
 
-        for(const [From, To] of [[this.present(Requester), this.present(Accepter)], [this.present(Accepter), this.present(Requester)]]){
+        for(const [From, To] of [[this.shown(Requester), this.listening(Accepter)], [this.shown(Accepter), this.listening(Requester)]]){
             for(const Sender of From){
                 for(const Receiver of To){
                     this.deliver(Sender.Uid, Receiver, this.presenceStanza(Sender, Receiver));
@@ -299,10 +378,7 @@ export class FriendPresence {
 
     // Each sees the other go, once; after that neither is in the other's audience
     private ended(A: string, B: string): void {
-        const OfA = this.present(A);
-        const OfB = this.present(B);
-
-        for(const [From, To] of [[OfA, OfB], [OfB, OfA]]){
+        for(const [From, To] of [[this.shown(A), this.listening(B)], [this.shown(B), this.listening(A)]]){
             for(const Sender of From){
                 for(const Receiver of To){
                     this.deliver(Sender.Uid, Receiver, this.unavailableStanza(Sender, Receiver));

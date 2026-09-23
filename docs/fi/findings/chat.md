@@ -274,8 +274,8 @@ on lähettänyt oman läsnäolotietonsa. Pelaajan omat istunnot eivät ole koska
 | Milloin | Mitä palvelin lähettää |
 |:--------|:-----------------------|
 | Istunto lähettää ensimmäisen yleisläsnäolotietonsa (ei `to`-kenttää) | Istunto saa kunkin paikalla olevan kaverin nykyisen läsnäolotiedon; kukin tällainen kaveri saa pelaajan läsnäolotiedon. |
-| Läsnäolotieto muuttuu (`<show>` tai `<status>`-teksti) | Uusi läsnäolotieto samoille kavereille. Yli 5 muutosta kerralla hidastetaan yhteen kahden sekunnin välein; viimeisin pidätetty lähtee seuraavalla sekunnin kierroksella. |
-| Istunto päättyy (`<close/>`, katkennut yhteys, vastaamaton ping, korvaaminen, väärinkäyttö, koko tai jono) tai lähettää `type="unavailable"` | `type="unavailable"` sen täydestä osoitteesta. Jos tilillä on vielä toinen istunto läsnäolotietoineen, sen läsnäolotieto lähtee heti perään, jottei kaveri näy poissa olevana. Palvelimen sammuessa ei lähetetä mitään. |
+| Läsnäolotieto muuttuu (`<show>` tai `<status>`-teksti) | Uusi läsnäolotieto samoille kavereille. Yli 5 muutosta kerralla hidastetaan yhteen kahden sekunnin välein; vain viimeisin tila lähtee, seuraavalla sekunnin kierroksella. Raja laskee jokaisen muutoksen, jonka yhteydessä pysyvä istunto tekee, myös ensimmäisen läsnäolotiedon, `unavailable`-yleisviestin ja paluun sen jälkeen, joten poistuminen ja paluu silmukassa hidastetaan myös. |
+| Istunto päättyy (`<close/>`, katkennut yhteys, vastaamaton ping, korvaaminen, väärinkäyttö, koko tai jono) tai lähettää `type="unavailable"` | `type="unavailable"` sen täydestä osoitteesta (heti, kun istunto päättyy; `unavailable`-yleisviesti on yllä olevan rajan alainen muutos, ja palatessaan istunto kuulee kavereistaan uudelleen). Jos tilillä on vielä toinen istunto läsnäolotietoineen, sen läsnäolotieto lähtee heti perään, jottei kaveri näy poissa olevana. Palvelimen sammuessa ei lähetetä mitään. |
 | Kaksi pelaajaa tulee kavereiksi HTTP:n kautta (pyynnön hyväksyntä) | Kummankin pelaajan istunnot saavat peliohjelman kaverilistaviestin osoitteesta `xmpp-admin@<verkkotunnus>`: `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId", "status": "ACCEPTED", "direction": "INBOUND" tai "OUTBOUND", "created"}, "timestamp"}`, ja sitten he vaihtavat läsnäolotiedot. Uusi, vielä odottava pyyntö ei lähetä mitään. |
 | Hyväksytty kaveruus päättyy (kaveruuden purku tai sen poistava esto) | Kumpikin saa toisen `type="unavailable"`-viestin kerran; sen jälkeen kumpikaan ei kuule toisesta. |
 
@@ -356,7 +356,8 @@ muuttumattomia ja lähettäjänä täysi osoite; yhden tilin kaksi istuntoa (nii
 kaveri kuulee molemmat, jäljelle jäävän istunnon läsnäolotieto lähtee, kun toinen poistuu);
 `unavailable`-viestin tilanteissa `<close/>`, katkennut yhteys, `unavailable`-yleisviesti ja vastaamaton
 ping; vieraat, estot ja kaveruuden purun; kaverilistaviestin hyväksynnässä (eikä pyynnössä); muutoksen,
-toiston ja hidastetun tulvan; sekä nolla huoneen ulkopuolista viestiä, kun `CHAT_PRESENCE` on pois.
+toiston ja hidastetun tulvan; samalla tavalla hidastetun poistumisen ja paluun silmukan, jossa
+kaverihaut lasketaan; sekä nolla huoneen ulkopuolista viestiä, kun `CHAT_PRESENCE` on pois.
 `test/chatinvariant.ts` seuraa **jokaista palvelimen lähettämää viestiä** chat-, chat-HTTP-, chat-malli-
 ja läsnäolotestitiedostoissa ja hylkää tiedoston, jos yksikin huoneen ulkopuolinen viesti saapui
 istunnolle sen omalta tililtä.

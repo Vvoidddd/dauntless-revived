@@ -129,8 +129,11 @@ export type ChatSession = {
     LastDropLog: number,
     Namespaces: Set<string>,
     Available: boolean,
-    // CHAT_PRESENCE=1: the last broadcast presence (relayed to friends), and held-back changes
+    // CHAT_PRESENCE=1: the last broadcast presence, what friends were last told of it, and held-back changes
+    // (realtime/presence.ts)
     LastPresence?: ClientPresence,
+    Shown?: ClientPresence,
+    CatchUpDue?: boolean,
     PresenceTokens: Bucket,
     PresencePending: boolean,
     // Bare room JID -> the nickname held there
