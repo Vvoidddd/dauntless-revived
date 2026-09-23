@@ -32,8 +32,8 @@ things in the same weeks. So we compared them feature by feature. **Where Harmon
 something we did not have, we took it**, apart from a few platform items listed below with their
 reasons (the DLL-side ones wait for the owner's decision on shipping a DLL we build). **Where he
 rewrote something we had already built and tried in the game, we kept ours**, and each such case
-below says why, with the evidence. This page is that record, written
-for readers who do not know either code base, Harmonic among them.
+below says why, with the evidence. This page is that record, written for readers who do not know
+either code base, Harmonic among them.
 
 Thank you, Harmonic: Escalation and the store exist on our server because of your work.
 
@@ -236,7 +236,9 @@ that already has players is on [Upgrading]({{ upgrade_page.url | relative_url }}
 
 - **Decisions for the owner:** a free or priced store; unlimited bounty tokens; when to switch
   Escalation on; whether an unfriend also ends a running Slayer Link; shipping a DLL we build
-  ourselves (which would bring in his DLL changes).
+  ourselves (which would bring in his DLL changes); and, before the push, confirming that
+  "Harmonicrain" is Harmonic's own GitHub account: the push publishes launcher 0.1.6, whose Credits
+  page shows that handle, unless automatic launcher releases are paused (`LAUNCHER_AUTO_RELEASE=false`).
 - **Tests in the game:** a killed Ramsgate, Escalation, the store, the Elite ranks' entitlements,
   Claim, Slayer Links, online status with two players, and a long session with the new `oauth/verify`.
 

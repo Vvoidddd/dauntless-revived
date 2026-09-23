@@ -870,7 +870,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 13. **When to switch Escalation to real** (`ESCALATION_MODE=real`). Every player drops from the fake maximum (level 25, 25 talent points) to level 0 and levels up for real. Announce it, and restart the game servers together with the metagame. (2.16)
 14. **Should an unfriend or a block also end a running Slayer Link?** Today it only cancels waiting invites; a running link lasts its 168 hours. (3.15)
 15. **Ship a DLL we build ourselves?** It would carry a new hash (launcher, kit, friend kit) and would bring in the DLL changes of Harmonic's fork. (4.4)
-16. **Before the Harmonic credits go public:** confirm that "Harmonicrain" is Harmonic's own GitHub account and not an organisation's. (Credits, `NOTICE.md`)
+16. **Before the Harmonic credits go public:** confirm that "Harmonicrain" is Harmonic's own GitHub account and not an organisation's. (Credits, `NOTICE.md`) **Settle this before the push:** the port bumps the launcher to 0.1.6, and with automatic launcher releases on (CI), a push to `dauntless-revived` publishes that version at once and installed launchers update themselves, so the launcher's Credits page shows `@Harmonicrain` as Harmonic's own handle everywhere. If it is not settled yet, set the repository variable `LAUNCHER_AUTO_RELEASE` to `false` (Settings, Secrets and variables, Actions, Variables) before pushing, and publish the release by hand once it is.
 
 ## Unknowns, and the experiment that settles each
 

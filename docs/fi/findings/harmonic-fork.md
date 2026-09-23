@@ -34,8 +34,8 @@ samoina viikkoina rakennettu osin samoja asioita. Siksi vertasimme niitä ominai
 hänen työnsä toi jotain, mitä meillä ei ollut, otimme sen**, lukuun ottamatta muutamaa alla syineen
 lueteltua alustan kohtaa (DLL-puolen kohdat odottavat ylläpitäjän päätöstä itse käännetyn DLL:n
 jakamisesta). **Kun hän oli kirjoittanut uudelleen jotain, minkä olimme jo rakentaneet ja kokeilleet
-pelissä, pidimme omamme**, ja jokainen tällainen kohta alla kertoo syyn ja todisteet. Tämä sivu on tuo kirjanpito, kirjoitettu lukijoille, jotka eivät tunne
-kumpaakaan koodia, Harmonic heidän joukossaan.
+pelissä, pidimme omamme**, ja jokainen tällainen kohta alla kertoo syyn ja todisteet. Tämä sivu on tuo
+kirjanpito, kirjoitettu lukijoille, jotka eivät tunne kumpaakaan koodia, Harmonic heidän joukossaan.
 
 Kiitos, Harmonic: Escalation ja kauppa ovat palvelimellamme sinun työsi ansiosta.
 
@@ -243,7 +243,10 @@ pelaajia, kerrotaan sivulla [Päivittäminen]({{ upgrade_page.url | relative_url
 
 - **Ylläpitäjän päätökset:** ilmainen vai hinnoiteltu kauppa; rajattomat palkkiotehtävien tunnisteet;
   milloin Escalation otetaan käyttöön; päättyykö käynnissä oleva Slayer Link, kun kaveruus puretaan;
-  itse käännetyn DLL:n jakaminen (joka toisi mukaan hänen DLL-muutoksensa).
+  itse käännetyn DLL:n jakaminen (joka toisi mukaan hänen DLL-muutoksensa); ja ennen muutosten
+  lähettämistä GitHubiin sen varmistaminen, että "Harmonicrain" on Harmonicin oma GitHub-tili: lähetys
+  julkaisee käynnistimen version 0.1.6, jonka Tekijät-sivu näyttää tämän tunnuksen, ellei käynnistimen
+  automaattisia julkaisuja ole keskeytetty (`LAUNCHER_AUTO_RELEASE=false`).
 - **Testit pelissä:** kaatunut Ramsgate, Escalation, kauppa, Elite-tasojen oikeudet, Claim, Slayer
   Links, verkkotila kahdella pelaajalla ja pitkä istunto uudella `oauth/verify`-vastauksella.
 
