@@ -73,12 +73,12 @@ them are named `dauntless-revived-*` (for example `dauntless-revived-metagame`).
 
 | Folder | What it holds | Build output (git-ignored) |
 |:-------|:--------------|:---------------------------|
-| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends, guilds, the `/undaunted/api` admin API and the game's text chat (`src/realtime/`, an XMPP listener in the same process, on when `CHAT=1`). `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json` and the generated `hunt_titles.json`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
+| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends, guilds, the `/undaunted/api` admin API and the game's text chat (`src/realtime/`, an XMPP listener in the same process, on when `CHAT=1`). `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json`, the generated `hunt_titles.json`, and the data from Harmonic's 1.4.4 fork: `escalation/seasons.json` (the Escalation season registry), `store_catalog.json` (the free store's offers) and `store_item_kinds.json` (how each store item is granted). `test/data/store_art_skus.json` lists the store SKU ids with a 2:1 tile image, for a test. The build copies `src/vendor/` to `dist/vendor/`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
 | `UndauntedDeployServer/` | Starts and supervises the game-server processes (Ramsgate, the Training Dojo, hunts). `src/vendor/` holds the hunt tables. | `dist/`, `build/` |
 | `UndauntedGateway/` | Public mode only: the TLS gateway (`dist/server.js`) and the allowlist helper (`dist/allowlist/server.js`). `tools/make-cert.js` makes the gateway certificate. | `dist/`, `build/` |
 | `UndauntedContent/` | The content server: game files, news and the art pack for registered launchers. `data/dauntless-1.4.4.json` is the game manifest (410 files) that the launcher also compiles in. | `dist/`, `build/` |
 | `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons (copies from `brand/launcher/`). `src/renderer/brand/` holds copies of the logo and emblem images the window shows. `scripts/` holds the test runner, the brand image copier (`make-icon.mjs`) and `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests), `release/` (the release files that `scripts/collect-release.ps1` collects after `npm run make`: the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`). |
-| `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. | Visual Studio output (`x64/`, `*.dll` and the like) |
+| `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. Since the MinHook include fix (September 2026) it compiles with the Visual Studio 2022 Build Tools (Release, x64), but no DLL built here is shipped. | Visual Studio output (`x64/`, `*.dll` and the like) |
 | `deploy/windows-server/` | The Windows server kit: the scripts, `lib/` (Node helpers `dr-db.js`, `dr-keys.js`, `verify-game.js`) and `tests/`. | none |
 | `friend-kit/` | The Tailscale-only setup and play scripts for invited friends. | `tools/make-friend-kit.ps1` builds the zip outside the repository |
 | `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js`, and in `ci/` what CI uses: `check-repo.js` (the repository check) and `launcher-version.js` (the launcher version rules). | none |
@@ -296,6 +296,13 @@ update; on a hand-built host, back up before you pull new code.
 | `0011_real_progression` | Creates `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft`, `loadoutslots`, and `progression_events` with its append-only triggers. |
 | `0012_friends_and_blocks` | Creates `friendships` and `blocks`. |
 | `0013_guilds` | Creates `guilds`, `guildmembers` and `guildinvites`. Adds tables only. |
+| `0014_escalation` | Creates `escalationprogression`, `escalationtalents` and `escalationunlocks`. Adds tables only. |
+| `0015_store_purchases` | Creates `storepurchases` and its index on `accountId`. Adds tables only. |
+| `0016_slayer_links` | Creates `slayerlinkinvites` and `slayerlinks` with their indexes. Adds tables only. |
+
+Migrations 0014 to 0016 came with the port of Harmonic's fork. None of them changes, copies or converts
+an existing table; the build before them still starts on a migrated database and ignores the new
+tables ([Upgrading]({{ upgrade_page.url | relative_url }}#harmonic-port)).
 
 To add a migration, change `src/db/schema.ts` and run `npm run db:generate`; see
 [Developer guide]({{ dev_page.url | relative_url }}).
@@ -350,15 +357,26 @@ number at startup. The [Upgrade notes]({{ upgrade_page.url | relative_url }}) ex
 |:------|:---------------|
 | `progress_tracks` | Per account and track (Slayer level, behemoth and weapon mastery, the Hunt Pass): the total XP and the free and premium (Elite) ranks already confirmed. The earned ranks are worked out from `progression_config.json`, as the game does. No row means 0. |
 | `objectives` | Per account: each mastery objective's progress and completed count, as the game server last sent them. |
-| `huntpassselection` | Per account: the selected Hunt Pass. No row means `season09b`. |
-| `entitlements` | Per account: entitlements such as the Elite Hunt Pass, with activation date, duration in hours (0 = permanent), source (`default`, `gameserver` or `admin:<id>`) and revoked date. The defaults (`ENTITLEMENTS_DEFAULT`) are added once per account; a revoked row is kept, so a revoked default is not handed out again. |
+| `huntpassselection` | Per account: the selected Hunt Pass. No row means `ACTIVE_HUNT_PASS` (default `season09b`). |
+| `entitlements` | Per account: entitlements such as the Elite Hunt Pass, with activation date, duration in hours (0 = permanent), source (`default`, `gameserver`, `admin:<id>`, `store:<sku>` for a store purchase or `confirm:<track>:<rank>` with `PROGRESSION_CONFIRM_ENTITLEMENTS=1`) and revoked date. The defaults (`ENTITLEMENTS_DEFAULT`) are added once per account; a revoked row is kept, so a revoked default is not handed out again. |
 | `cooldowns` | Per account: the start time of each daily or weekly limit, as the game server sent it. Harvest cooldowns older than 24 hours are removed the next time the game server starts a single cooldown for that account. |
 | `bounties`, `bountydraft` | Per account: each bounty's JSON with its slot, and the current bounty draft. |
 | `loadoutslots` | Per character: unlocked loadout slots (at most 6) and the active one. No row means one slot, slot 0. |
-| `progression_events` | **Append-only** audit of every write the game server, a player's game or an admin makes to the tables above, refused ones included (the default entitlements are added without an entry): time, account, caller (`gameserver`, `client` or `admin`), route, the raw request body, status, reply and a note. Triggers refuse `UPDATE` and `DELETE`. Kept forever. |
+| `progression_events` | **Append-only** audit of every write the game server, a player's game or an admin makes to the tables above and to the Escalation tables, refused ones included (the default entitlements are added without an entry): time, account, caller (`gameserver`, `client` or `admin`), route, the raw request body, status, reply and a note (for example `retry of event <id> within 10 s: its reply, nothing added`, or an Escalation save's `season <id>`). Triggers refuse `UPDATE` and `DELETE`. Kept forever. |
 
 The admin routes `Progression`, `SeedProgression`, `GrantEntitlement` and `RevokeEntitlement` read
 and change these tables; see [HTTP API]({{ api_page.url | relative_url }}).
+
+### Escalation and store tables {#escalation-and-store-tables}
+
+Added with migrations `0014_escalation` and `0015_store_purchases`. Dates are ISO text.
+
+| Table | What it stores |
+|:------|:---------------|
+| `escalationprogression` | Only with `ESCALATION_MODE=real`: per account and season, the Escalation level, the XP towards the next level, the last saved `updateVersion`, a hash of the saved content (to recognise a retry) and when it was saved. No row means level 0, version 0. [Escalation]({{ '/findings/escalation.html' | relative_url }}). |
+| `escalationtalents` | Per account, season and talent: the rank. Replaced as a whole by each save (a talent reset lowers ranks). |
+| `escalationunlocks` | Per account, season and reward: when it was collected. A collected reward is never removed. |
+| `storepurchases` | Only with `STORE=free`: one row per purchase token. The SHA-256 of the token (the token itself is never stored), the account, the character the purchase goes to, the SKU, a hash of the offer when the token was issued, the created and expiry dates (10 minutes) and the redeemed date. Unredeemed rows past their expiry are deleted at every start and whenever a token is issued; redeemed rows are kept as receipts. The items and entitlements a purchase grants are in `inventories` and `entitlements`, logged in `inventorylog` (caller `store`) and `inventorytransactions`. [The in-game store]({{ '/findings/store.html' | relative_url }}). |
 
 ### Friends
 
@@ -377,6 +395,19 @@ and change these tables; see [HTTP API]({{ api_page.url | relative_url }}).
 
 A disband deletes the guild's rows in all three tables. The admin routes `Guilds` and `DisbandGuild`
 list and remove guilds; see [HTTP API]({{ api_page.url | relative_url }}#guilds).
+
+### Slayer Links {#slayer-links}
+
+Added with migration `0016_slayer_links`. Times are in milliseconds, as in the friends tables.
+
+| Table | What it stores |
+|:------|:---------------|
+| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot, created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
+| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot, and when it began and ends (168 hours later). A removal deletes the row for both. |
+
+Answered and expired invites and ended links are deleted 30 days later, when the next invite is made.
+[Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}#slayer-links) explains
+the rules.
 
 ### Kept only in memory
 
@@ -429,7 +460,7 @@ usernames and, in public mode, players' IP addresses, so read a log before you s
 | `data\allowlist\audit.log` | The allowlist helper's audit, one JSON object per line (`t`, `event` and fields): addresses let in and expired, refusals, firewall rule changes, the exact script in dry-run mode, failed secrets. Never the secret itself. | Never rotated. |
 | `data\logs\supervisor.log` | A PowerShell transcript of the stack supervisor: starts, crashes, restarts, give-ups. | Moved to `supervisor.log.1` when a supervisor starts and the file is over 5 MB. |
 | `data\allowlist\supervisor.log` | The same for the allowlist helper's supervisor (SYSTEM). | As above. |
-| `data\logs\bodies.log` | Only with `LOG_BODIES=1`: one JSON object per line (`t`, `method`, `url`, `gs`, `body`) for a fixed list of routes (progression, Hunt Pass, bounties, cooldowns, escalations, entitlements, loadout unlocks, store, SKUs and balance, inventory, matchmaking candidates, parties, friends and account lookups), bodies cut at 8 KB (64 KB for inventory), tokens removed. The kit forces `LOG_BODIES=0` in public mode. Private: it records what players' games send. | Never rotated. |
+| `data\logs\bodies.log` | Only with `LOG_BODIES=1`: one JSON object per line, `t` (arrival), `method`, `url`, `gs`, `body`, `status` and `ms` (plus `"aborted": true` when the connection closed first), written once the answer is done, for a fixed list of routes (progression, Hunt Pass, bounties, cooldowns, Escalation, entitlements, loadout unlocks, the store (`/product`, `/token`, `/notification`), balance and `/reconcile`, Slayer Links, inventory, matchmaking candidates, parties, friends and account lookups), bodies cut at 8 KB (64 KB for inventory), tokens and account keys removed, at most `BODY_LOG_PER_PATH` lines per path when that is set. The kit forces `LOG_BODIES=0` in public mode. Private: it records what players' games send. | Never rotated. |
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | The database copy of the latest backup (`db ok, <n> users`). | Overwritten by each backup. |
 | `data\logs\install\<step>.out.log`, `.err.log` | The output of each installer and updater step: source copy, `npm ci` and `npm run build` per package, the Node.js, runtime and Tailscale installs, game extraction and check, certificate, keys, owner account. | Overwritten when the step runs again. |
 | `backups\backup.log` | One line per backup: time, folder, size, the database check and how many backups are kept. | Moved to `backup.log.1` when over 5 MB. |

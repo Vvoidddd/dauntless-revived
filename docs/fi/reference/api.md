@@ -187,6 +187,11 @@ Tästä seuraa:
   koskaan. Kaikki muut saavat vastauksen 403 ennen kuin avainta tarkistetaan; väärä avain saa
   vastauksen 401.
 - Yhdyskäytävä vastaa 403 jokaiseen pyyntöön, jossa tämä otsake on lainkaan, arvosta riippumatta.
+- Kun pelipalvelimen kirjoitus nimeää osoitteessa yhden tilin mutta välittää toisen tilin tunnisteen,
+  metagame pitää kirjoituksen osoitteen tilille ja kirjaa sen lokiin (`Game server <what> for <tili>
+  carries the token of <toinen tili>: accepted for <tili>, the account the request names`, enintään
+  kerran minuutissa paria kohden). Se ei koskaan hylkää tällaista kirjoitusta: hylkäys voisi hukata
+  tallennuksen metsästyksessä, jossa on useita pelaajia.
 - Pelipalvelimen pyyntö, jonka välittämä pelaajan tunniste on vanhentunut tai virheellinen, saa
   vastauksen 500 eikä 401: tällä polulla tunniste tarkistetaan ilman virheenkäsittelyä. Siksi
   pelipalvelimen tallennukset epäonnistuvat, kun pelaajan tunniste on yli 24 tuntia vanha (katso
@@ -250,10 +255,15 @@ luetellut tilit, ja kaikki muut saavat alkuperäisen projektin kiinteät maksimi
   HTML-muotoisen 500-sivun. Kummassakin on pinojälki (stack trace), ellei `NODE_ENV=production`.
 - Jokainen pyyntö kirjataan lokiin muodossa `<METHOD> <path> gs=0|1` (`gs=1`, kun pyynnössä on
   pelipalvelinavain), ja polussa olevat tunnisteet korvataan. `LOG_REQUESTS=0` kytkee tämän pois.
-  `LOG_BODIES=1` kirjoittaa lisäksi joidenkin pelireittien rungot (muun muassa ryhmä-, kaveri- ja
-  kiltareittien sekä reittien `/account/mapping` ja `/accountinfo/public`) tiedostoon `BODY_LOG_FILE`
-  (oletus `bodies.log`) tunnisteet poistettuina. Tiedostossa on silti pelaajien tietoja: pidä se
+  `LOG_BODIES=1` kirjoittaa lisäksi joidenkin pelireittien rungot (muun muassa ryhmä-, kaveri-,
+  kilta-, kauppa-, Escalation- ja Slayer Link -reittien sekä reittien `/account/mapping` ja
+  `/accountinfo/public`) tiedostoon `BODY_LOG_FILE` (oletus `bodies.log`), rivi pyyntöä kohden, kun
+  siihen on vastattu, vastauksen tilan ja keston kanssa ja tunnisteet ja tiliavaimet poistettuina.
+  `BODY_LOG_PER_PATH` rajoittaa rivejä polkua kohden. Tiedostossa on silti pelaajien tietoja: pidä se
   yksityisenä.
+- `/progression`-alkuinen pyyntö, johon mikään reitti ei vastaa, kirjataan varoituksena
+  (`Unhandled progression request <METHOD> <polku> from a game server` tai `from a player`) ennen
+  tavallista 404-vastausta.
 - Monet pelireitit vastaavat `{"code": null, "message": "OK", "payload": ...}`, kuten alkuperäinen
   taustapalvelu. [Taustapalvelun rajapinta]({{ contract_page.url | relative_url }}) kertoo muodot,
   joita peliohjelma odottaa.
@@ -272,6 +282,14 @@ luetellut tilit, ja kaikki muut saavat alkuperäisen projektin kiinteät maksimi
 | `ACCOUNT_MAPPING` | puuttuu: päällä | `0` saa reitin `POST /account/mapping` yhdistämään ei mitään (`accountMappings: {}`), kuten ennen. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | puuttuu: pois | `1` palauttaa alkuperäisen projektin `POST /accountinfo/public` -vastauksen: pyytäjän oma tunnus ja tuntemattomalle tunnukselle 200 tyhjällä nimellä. |
 | `GUILDS` | puuttuu: päällä | `0` palauttaa vanhat kiltatyngät (`GET /guild` 204, `GET /guild/invite/player` tyhjä lista); kaikki muut kiltareitit ja hallintarajapinnan kolme kiltareittiä vastaavat 404. |
+| `ESCALATION_MODE` | puuttuu: `stub` | `real` tallentaa Escalationin oikean etenemisen tileille: `GET /escalation/...` lukee tallennetun kauden, ja `POST /escalation/...` on olemassa (muuten 404). |
+| `STORE` | puuttuu: `off` | `free` ottaa käyttöön neljä kauppareittiä; arvolla `off` kauppa vastaa vanhan 400:n ja kolme ostoreittiä 404. |
+| `STORE_REPEATABLE_TOKENS` | puuttuu: pois | `1` näyttää ja myy palkkiotehtävien tunnisteiden paketin (vain kun `STORE=free`). |
+| `SLAYER_LINKS` | puuttuu: päällä | `0` saa jokaisen `/slayerlink`-reitin vastaamaan 404, kuten ennen. |
+| `VERIFY_STUB_ACCOUNT` | puuttuu: pois | `1` palauttaa kiinteän paikkamerkki-`account_id`:n vastaukseen `GET /account/api/oauth/verify`. |
+| `BALANCE_FROM_INVENTORY` | puuttuu: päällä | `0` palauttaa kiinteän valuuttataulukon vastauksiin `GET /balance` ja `POST /reconcile`. |
+| `PROGRESSION_REPLAY_WINDOW_S` | puuttuu: `10` | Reitin `POST /progression/:userId` uusintavahti; `0` kytkee sen pois. |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | puuttuu: pois | `1` saa tason vahvistuksen antamaan myös tason pysyvät oikeudet asetuksista. |
 
 ## Metagame: pelireitit {#game-routes}
 
@@ -285,7 +303,7 @@ toimivat vain palvelinkoneella.
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
 | POST | `/account/api/oauth/token` | ei mitään (avain on rungossa) | Kirjautuminen: `exchange_code` = tiliavain, vastauksena 24 tuntia voimassa oleva `access_token` (katso [Kirjautuminen](#login)). 400 tuntemattomalle avaimelle. |
-| GET | `/account/api/oauth/verify` | ei mitään | Kiinteä `{"active": true, ...}` kiinteällä `account_id`-arvolla. Se ei tarkista mitään tunnistetta. |
+| GET | `/account/api/oauth/verify` | valinnainen tunniste | Peliohjelman säännöllinen istunnon tarkistus. Kelvollisella pelaajan tunnisteella: `{"active": true, ...}`, jonka `account_id` on pelaajan oma tili. Ilman tunnistetta tai virheellisellä, vanhentuneella tai vieraalla tunnisteella: vanha kiinteä vastaus paikkamerkki-`account_id`:llä, silti 200 (ei koskaan 401; huono tai vanhentunut tunniste kirjataan enintään kerran minuutissa). `expires_at` pysyy kaukana tulevaisuudessa. `VERIFY_STUB_ACCOUNT=1` antaa paikkamerkin kaikille. |
 | DELETE | `/account/api/oauth/sessions/kill` | ei mitään | Vastaa `{}`. Ei peru mitään. |
 | DELETE | `/account/api/oauth/sessions/kill/:token` | ei mitään | Sama. Polussa oleva tunniste korvataan merkinnällä `<token>` metagamen ja yhdyskäytävän lokeissa. |
 | GET | `/account/api/public/account` | tunniste | Ilman kyselyä: pyytäjän oma Epic-tyylinen tilitietue, `displayName` = käyttäjänimi. Kyselyllä `?accountId=A&accountId=B` (enintään 100): taulukko `{id, displayName, externalAuths}` niistä tileistä, jotka ovat olemassa. |
@@ -306,7 +324,7 @@ toimivat vain palvelinkoneella.
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
 | GET | `/dauntless-status` | ei mitään | Tilailmoitus, jonka peliohjelma näyttää (`show-status` ja tervetulotoivotus palvelimen nimellä, `Welcome to <SERVER_NAME>!`, kahdeksalle kielelle käännettynä), sekä `name`, `version`, `commit` ja `sourceUrl` (AGPL-lähdekoodilinkki), ellei `STATUS_EXTRA=0`. Ei pelaajatietoja. Palvelimen skriptit käyttävät sitä terveystarkistuksena. |
-| POST | `/heartbeat` | tunniste | Runko `{map, state?}`, 20 sekunnin välein. Merkitsee pelaajan paikalla olevaksi 90 sekunniksi ja pitää hänet ryhmässään. Vastaa tekstillä `20000`. Pelipalvelimen elonmerkki ilman pelaajan tunnistetta ei kirjaa mitään. Yhdyskäytävän kautta 2xx-vastaus pyyntöön, jossa on bearer-tunniste, avaa peliportit pelaajan osoitteelle. |
+| POST | `/heartbeat` | tunniste | Runko `{map, state?}`, 20 sekunnin välein. Merkitsee pelaajan paikalla olevaksi 90 sekunniksi ja pitää hänet ryhmässään. Vastaa tekstillä `20000`. Pelipalvelimen elonmerkki ilman pelaajan tunnistetta ei kirjaa mitään. Yhdyskäytävän kautta 2xx-vastaus pyyntöön, jossa on bearer-tunniste, avaa peliportit pelaajan osoitteelle, joten puuttuvan tai väärän tunnisteen on saatava 401 (testi vartioi tätä). |
 | POST | `/event` | ei mitään | Telemetrian nielu. Vastaa `{}`. |
 | POST | `/account/migrate` | tunniste | Vastaa `{migration_failed: false, migration_finished: true}`. |
 | POST | `/profile/update` | tunniste | Tyhjä 200 (tulostaulukon profiili). |
@@ -314,7 +332,6 @@ toimivat vain palvelinkoneella.
 | POST | `/motd/` | tunniste | 204: ei päivän viestiä. |
 | GET | `/motd/trigger` | ei mitään | 204: ei metsästyksen jälkeisiä uutisia. 404 asetuksella `MISC_ROUTES=0`. |
 | GET | `/playertreatments/:userId` | tunniste | Kiinteä kohorttilista. |
-| GET | `/escalation/:season/:userId` | tunniste | Kiinteä escalation-taso. Mitään ei tallenneta. |
 | GET | `/eventstats/` | tunniste | Vastaa `{stats: []}`. |
 | GET | `/all/` | tunniste | Tyhjä postilaatikko. |
 | GET | `/game_tuning/seasonal_event_schedule` | ei mitään | Ei ajastettuja tapahtumia. |
@@ -331,10 +348,27 @@ toimivat vain palvelinkoneella.
 | POST | `/inventory` | tunniste | Yksi tavaraluettelotapahtuma: `{characterId, transactionId, addInstancedItems, addStackedItems, removeInstancedItems, removeStackedItems, saveInstancedItems, source}`, sekä pelipalvelimelta `accountId` (pelaajalta se ohitetaan). Toistuva `transactionId` saa tallennetun vastauksen eikä muuta mitään. `INVENTORY_REFUSE_OVERSPEND` ja `INVENTORY_REPORT_REMOVALS` säätävät toimintaa. |
 | POST | `/inventory/instanceditem` | tunniste | Päivittää yhden esineen: `{characterId, instanceId, catalogId, itemData, updateVersion}`, sekä pelipalvelimelta `accountId`. |
 | POST | `/inventory/:characterId/:changeList` | tunniste | Tavaraluettelon siirron tynkä. Vastaa `{code: null, message: ""}`. |
-| POST | `/reconcile` | tunniste | Pyytäjän notes-saldo. |
-| GET | `/balance` | tunniste | Kaikki valuutat: notes tietokannasta, 25 asepolettia (weapon token), muut 0. |
+| POST | `/reconcile` | tunniste | `{balances: {id_currency_notes, CURRENCY_NOTES}, refreshInventory: true}`. Kun `BALANCE_FROM_INVENTORY` on päällä (oletus), jokainen avain on kyseisen valuutan pinon määrä (`CURRENCY_NOTES` eli Ramsit) tilin aktiivisen hahmon tavaraluettelossa (viimeksi tallennettu hahmo); valuutta, jota hahmolla ei ole, pitää vanhan arvonsa (taulun `users` notes-sarake). `0`: vain vanhat arvot. |
+| GET | `/balance` | tunniste | Valuuttataulukko: samat 52 avainta kuin ennen (kumpikin kirjoitusasu, `CURRENCY_X` ja `id_currency_x`). Kun `BALANCE_FROM_INVENTORY` on päällä, jokainen avain, jonka `CURRENCY_*`-pino aktiivisella hahmolla on, kertoo sen määrän; muut pitävät vanhat arvonsa (notes tietokannasta, 25 asepolettia (weapon token), muut 0). Avaimia ei lisätä, poisteta eikä järjestetä uudelleen. `CURRENCY_PLATINUM_UNIV` ei ole mukana. `0`: vanha kiinteä taulukko. |
 | GET | `/creator` | tunniste | Kiinteä support-a-creator-vastaus. |
-| GET | `/product/skus/public` | tunniste | 400: kauppaa ei ole. |
+
+### Kauppa {#store}
+
+Pelin kauppa ([Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }})). **Vain asetuksella
+`STORE=free`**; asetuksella `STORE=off` (oletus) kauppa vastaa vanhan 400:n
+(`{"code": "400", "message": "The store is not available on Dauntless Revived yet."}`) ja kolme muuta
+reittiä tyhjän 404:n. Jokainen reitti toimii bearer-tunnisteen pelaajan puolesta: ilman tunnistetta 401,
+pelkkä pelipalvelinavain 403. Torjunnat ovat muotoa `{"code": "<tila>", "message": ...}`.
+
+| Metodi | Polku | Pääsy | Mitä se tekee |
+|:-------|:------|:------|:--------------|
+| GET | `/product/skus/public?requiredTags=<tunniste>` | pelaaja | Yhden tunnisteen tarjoukset pelkkänä taulukkona, jokaisella `remaining` (0, kun aktiivisella hahmolla on jokainen tarjouksen tavara ja jokainen sen oikeus on voimassa). Kauppanäkymä pyytää tunnistetta `webstore` (200 tarjousta; Elite-passi on tunnisteen `season09b_pass` alla). Tuntematon tunniste on `[]` ja varoitus; puuttuva tunniste on 400. |
+| GET | `/product/sku/:skuId` | pelaaja | Yksi tarjous mistä tahansa tunnisteesta; 404 tuntemattomalle (tai palkkiotehtävien tunnistepaketille, kun `STORE_REPEATABLE_TOKENS` on pois). |
+| GET | `/token/:currency/:skuId` | pelaaja | `{purchaseToken}`: 64 heksamerkkiä, voimassa 10 minuuttia, sidottu tilin aktiiviseen hahmoon ja tarjoukseen sellaisena kuin se nyt on (rivi taulussa `storepurchases`, joka tallentaa vain tunnisteen SHA-256-tiivisteen). `currency` on oltava `platinum` (400); vain sallittujen tavaroiden ilmaisia tarjouksia myydään (409); 404 tuntemattomalle tarjoukselle; 409, kun tilillä ei ole hahmoa. |
+| POST | `/notification/:currency?token=<tunniste>` | pelaaja | Lunastaa tunnisteen ja vastaa 204 ilman runkoa. Yhtenä tapahtumana: tavarat tavaraluettelon ytimen kautta (kutsuja `store`, lähde `store:<tarjous>`, tapahtuman tunnus `store:<tunnisteen tiiviste>`; tavarat, jotka hahmolla jo on, ohitetaan), oikeudet oikeuksien myöntökoodin kautta (lähde `store:<tarjous>`), ja sitten tunniste merkitään lunastetuksi. 403 toisen tilin tai tuntemattomalle tunnisteelle tai sellaiselle, jonka hahmo ei enää kuulu tilille; 410 vanhentuneelle; 409, kun tarjous muuttui tai sitä ei enää myydä; 400 virheelliselle tunnisteelle tai muulle valuutalle. Jo lunastettu tunniste saa taas vastauksen 204 eikä anna mitään. |
+
+Ostotunniste poistetaan jokaiselta lokiriviltä (pyyntöloki ei koskaan kirjaa kyselymerkkijonoa,
+yhdyskäytävä peittää `token=`-arvon, ja runkoloki peittää sen myös).
 
 ### Eteneminen, Hunt Pass, oikeudet, odotusajat ja palkkiotehtävät {#progression-hunt-pass-entitlements-cooldowns-and-bounties}
 
@@ -345,17 +379,19 @@ kiinteillä vastauksilla, ja *vain oikea* -reitit vastaavat 404. Merkinnät seli
 
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
-| GET | `/progression/config` | tunniste | Etenemisen asetukset (radat ja tasot) metagamen omasta kopiosta pelin asetuksista. |
+| GET | `/progression/config` | tunniste | Etenemisen asetukset (radat ja tasot) metagamen omasta kopiosta pelin asetuksista, tai asetuksella `PROGRESSION_CONFIG_DIR` kyseisen kansion kausitiedostoista (tarkistetaan käynnistyksessä; katso [Pelin asetukset]({{ game_page.url | relative_url }}#hunt-pass-seasons)). Ilman kansiota tavut ovat ennallaan. |
 | GET | `/progression/:userId` | tunniste, oma | Jokainen rata, tallennettuna tai nollassa. Tynkä: kiinteät maksimitasot pyytäjälle. |
-| POST | `/progression/:userId` | tunniste, pelipalvelin | Tallentaa etenemisen lisäyksen `{progress_tracks, objectives}` ja vastaa uusilla kokonaismäärillä. `PROGRESSION_GRANT_CAP` (5000) rajoittaa, mitä yksi pyyntö voi lisätä rataan; ylimenevä osa leikataan ja kirjataan lokiin. Tynkä: aina tarkoituksella 400 (mikä tahansa muu saa peliohjelman toistamaan mestaruusilmoitustaan loputtomiin). |
+| POST | `/progression/:userId` | tunniste, pelipalvelin | Tallentaa etenemisen lisäyksen `{progress_tracks, objectives}` ja vastaa uusilla kokonaismäärillä. `PROGRESSION_GRANT_CAP` (5000) rajoittaa, mitä yksi pyyntö voi lisätä rataan; ylimenevä osa leikataan ja kirjataan lokiin. **Uusintavahti:** runko, joka on tavu tavulta sama kuin tilin edellinen myöntö, `PROGRESSION_REPLAY_WINDOW_S` sekunnin sisällä (oletus 10) eikä välissä ole muuta radan kirjoitusta, saa tuon myönnön tallennetun vastauksen eikä lisää mitään (tapahtumariviin tulee merkintä). Tallennettua pienempi tavoite kirjataan lokiin ja tallennetaan lähetettynä. Toisen tilin välitetty pelaajan tunniste kirjataan, ei koskaan hylätä. Tynkä: aina tarkoituksella 400 (mikä tahansa muu saa peliohjelman toistamaan mestaruusilmoitustaan loputtomiin). |
 | GET | `/progression/:userId/:progressionId` | vain oikea, tunniste, oma | Yksi rata; 404, jos mitään ei ole tallennettu. |
 | POST | `/progression/:userId/:progressionId/:amount` | vain oikea, tunniste, pelipalvelin | Lisää yhteen rataan määrän `amount`, enintään `PROGRESSION_GRANT_CAP`. |
-| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | vain oikea, tunniste, pelipalvelin | Vahvistaa ilmaisen tai premium-tason. 404 asetuksella `PROGRESSION_CONFIRM=off`. |
+| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | vain oikea, tunniste, pelipalvelin | Vahvistaa ilmaisen (`public`) tai premium-tason. Se ei anna mitään: pelipalvelin maksaa tasopalkinnot itse reitin `/inventory` kautta. Asetuksella `PROGRESSION_CONFIRM_ENTITLEMENTS=1` tasoa nostava vahvistus antaa myös juuri vahvistettujen tasojen pysyvät oikeudet asetuksista (ei koskaan tavaroita, valuuttoja tai määräaikaisia); vastaus on sama. 404 asetuksella `PROGRESSION_CONFIRM=off`. |
 | DELETE | `/progression/:userId/:progressionId` | vain oikea; ylläpitäjän avain, tai pelipalvelinavain asetuksella `PROGRESSION_ALLOW_DELETE=1` | Nollaa yhden radan. Jos `x-undaunted-user-api-key` on mukana, sovelletaan ylläpitäjän avaimen tarkistusta. Muuten tarvitaan pelipalvelinavain ja `PROGRESSION_ALLOW_DELETE=1` (ilman niitä 403). Peli lähettää tämän vain vianetsintäkomennosta. |
 | GET | `/progression/objectives/:userId` | tunniste, oma | Tallennetut tavoitteet (objectives). Tynkä: mestaruusradat maksimissa eikä tavoitteita. |
 | GET | `/progression/objectives/:userId/:objectiveId` | tunniste, oma | Yksi tavoite, nollat, jos mitään ei ole tallennettu. Tynkä: kiinteät arvot. |
-| GET | `/huntpass/:userId` | tunniste, oma | Valittu Hunt Pass, `season09b`, ellei jotain muuta ole tallennettu. |
+| GET | `/huntpass/:userId` | tunniste, oma | Valittu Hunt Pass: tallennettu, muuten `ACTIVE_HUNT_PASS` (oletus `season09b`). |
 | POST | `/huntpass/:userId` | vain oikea, tunniste, pelipalvelin | Tallentaa Hunt Pass -valinnan. |
+| GET | `/escalation/:season/:userId` | tunniste; oma asetuksella `ESCALATION_MODE=real` | `ESCALATION_MODE=stub` (oletus) sekä tynkäetenemisen tilit: kiinteä vastaus `{code: null, message: "OK", payload: {escalation_level: 99999, next_level_xp: 99999, talents_progress: [], unlock_progress: [], update_version: 1}}` kenelle tahansa, mitään ei tallenneta. `real`: tallennettu kausi samassa kuoressa tai taso 0 ja versio 0, jos mitään ei ole tallennettu (luku ei luo riviä); 404 `{code: "404", ...}` kaudelle, jota ei ole luettelossa ([Escalation]({{ '/fi/findings/escalation.html' | relative_url }})). |
+| POST | `/escalation/:season/:userId` | vain asetuksella `ESCALATION_MODE=real`; vain oikea, tunniste, pelipalvelin | Tallentaa koko kauden `{escalation_level, next_level_xp, talents_progress: [{rank, talent_id}], unlock_progress: [{collected, reward_id}], update_version}` ja vastaa tallennetulla tilalla. 400 virheelliselle tallennukselle, 404 tuntemattomalle tilille tai kaudelle, 409 pois käytöstä olevalle kaudelle (Frost), vanhemmalle versiolle, samalle versiolle eri sisällöllä, alemmalle etenemiselle, palautetulle palkinnolle tai ensimmäiselle tallennukselle, jossa on vanhan tyngän arvot; sama versio samalla sisällöllä saa tallennetun tilan (uusinta). `ESCALATION_STRICT=1` torjuu (409) myös pehmeän säännön rikkovan tallennuksen. Jokainen tallennus, hyväksytty tai torjuttu, on rivi taulussa `progression_events`. Asetuksella `stub` reitti päätyy tyhjään 404-vastaukseen. |
 | GET | `/entitlementsv2` | tunniste | Tunnisteen tilin oikeudet (pelipalvelimen on välitettävä pelaajan tunniste). Oikea: litteä `{entitlements: [...]}` ilman vanhentuneita. Tynkä: tyhjä lista. |
 | POST | `/entitlementv2/:userId` | tunniste, pelipalvelin | Myöntää `{entitlement, duration}` (tunteina; 0 tai puuttuva = pysyvä) ja vastaa tilin koko listalla. 404 tuntemattomalle tilille. Tynkä: tyhjä vastaus. |
 | DELETE | `/entitlement/:userId/:entitlement` | vain oikea, tunniste, pelipalvelin | Peruu oikeuden. |
@@ -418,7 +454,7 @@ ehdokasta (katso [Asetukset]({{ config_page.url | relative_url }}#metagame-socia
 | POST | `/party` | pelaaja | Ryhmän tilakysely noin 10 sekunnin välein: pelaajan oma ryhmä tai yhden hengen ryhmä. |
 | GET | `/party/invites` | valinnainen tunniste | Pelaajalle osoitetut odottavat kutsut. Ilman kelvollista tunnistetta: `{invitations: []}`. |
 | PUT | `/party/invite` | pelaaja | Kutsuu pelaajan `{recipientPlayerId}` omaan ryhmään. Vain johtaja. |
-| PUT | `/party/invite/accept/:inviteId` | pelaaja | Hyväksyy yhden pelaajalle itselleen osoitetuista kutsuista. |
+| PUT | `/party/invite/accept/:inviteId` | pelaaja | Hyväksyy yhden pelaajalle itselleen osoitetuista kutsuista (peliohjelman lähettämä tunnus on ryhmän). Jos voimassa olevaa kutsua ei ole, toistunut hyväksyntä saa vastauksen 200 ja pelaajan ryhmän, kun pelaaja on jo vähintään kahden hengen ryhmässä ja tunnus on sen ryhmän tai toisen jäsenen; muuten 404. |
 | DELETE | `/party/invite` | pelaaja | Hylkää kutsun tai peruu pelaajan itse lähettämän kutsun. |
 | DELETE | `/party/member` | pelaaja | Pelaaja poistuu ryhmästään. |
 | DELETE | `/party/member/:memberId` | pelaaja | Poistaa jäsenen. Vain johtaja. |
@@ -429,8 +465,10 @@ ehdokasta (katso [Asetukset]({{ config_page.url | relative_url }}#metagame-socia
 ### Kaverit {#friends}
 
 Epic-tyylinen kaveripalvelu. Kaveruudet ja estot tallennetaan tietokantaan (kumpaakin enintään 200
-tiliä kohden). Kaikki näkyvät offline-tilassa: paikalla olo tarvitsee chat-yhteyden
-läsnäolotietoja, joita [chat-palvelin](#chat) ei vielä lähetä.
+tiliä kohden). Kaikki näkyvät offline-tilassa, ellei kavereiden paikalla olo ole päällä
+[chat-palvelimessa](#chat) (`CHAT=1` ja `CHAT_PRESENCE=1`, oletuksena pois): paikalla olo tulee vain
+chat-yhteyden läsnäolotiedoista. Kaveruuden purku tai esto peruu myös kahden pelaajan väliset
+odottavat [Slayer Link](#slayer-links) -kutsut.
 
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
@@ -577,6 +615,37 @@ killan (hänestä tulee upseeri). Kutsulista jättää pois, ja hyväksyminen va
 `UninvitedAdorableQuillshot`, jokaisen kutsun, joka on toisensa estäneiden pelaajien välinen tai jonka
 kutsuja ei ole enää killan johtaja tai upseeri.
 
+### Slayer Links {#slayer-links}
+
+Kaksi kaveria liittoutuu viikoksi (My Links -välilehti; miten peliohjelma lukee kunkin vastauksen,
+kerrotaan sivulla [Kaverit, ryhmät ja killat]({{ social_page.url | relative_url }}#slayer-links)).
+Tallennetaan tietokantaan (taulut `slayerlinkinvites` ja `slayerlinks`). Oletuksena päällä;
+asetuksella `SLAYER_LINKS=0` jokainen alla oleva reitti päätyy tyhjään 404-vastaukseen, ja tallennetut
+rivit säilyvät. Jokainen reitti toimii bearer-tunnisteen pelaajan puolesta (ilman tunnistetta 401,
+pelkkä pelipalvelinavain 403); rungon tai polun tunnukset vain nimeävät toisen pelaajan. Vastaukset
+käyttävät kuorta `{code: null, message: "OK", payload}`; torjunnat ovat muotoa
+`{code: "<tila>", message, payload: null}`.
+
+| Metodi | Polku | Pääsy | Mitä se tekee |
+|:-------|:------|:------|:--------------|
+| GET | `/slayerlink/status_good` | pelaaja | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: alla olevat kaksi listaa yhdessä, peliohjelman uutiskysely. |
+| GET | `/slayerlink/invites` | pelaaja | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: pelaajan odottavat, voimassa olevat kutsut; `account_id` on toinen pelaaja, `direction` `Sent` tai `Received`, `status` `Pending`, `slot` lähettäjän paikka. |
+| GET | `/slayerlink/links` | pelaaja | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: käynnissä olevat linkit pelaajan paikan mukaan; kumpikin tunnusavain nimeää toisen pelaajan. |
+| PUT | `/slayerlink/invite` | pelaaja | `{account_id, slot, action_source}`: kutsuu kaverin johonkin pelaajan paikoista (0–2). Vastaa `{link_id}`, kutsun tunnus; saman pelaajan kutsuminen uudelleen antaa saman tunnuksen. |
+| POST | `/slayerlink/invite` | pelaaja | `{account_id, action, slot, action_source}`, jossa `action` on `accept` tai `reject` (kutsuttu; `account_id` on lähettäjä) tai `cancel` (lähettäjä; `account_id` on kutsuttu). Rungon `link_id` tai `invite_id` kokeillaan ensin. Hyväksyntä käyttää rungon paikkaa `slot`, jos se on vapaa, muuten ensimmäistä vapaata. Vastaa `{link_id}`; saman vastauksen toisto on taas 200. |
+| DELETE | `/slayerlink/invites/:accountId` | pelaaja | Pelaajan omalla tunnuksella: peruu jokaisen pelaajan lähettämän kutsun ja hylkää jokaisen saadun. Toisen pelaajan tunnuksella: vain näiden kahden väliset kutsut. Vastaa `{}`. |
+| DELETE | `/slayerlink/links` | pelaaja | `{account_id, slot, delete_pair}` (tai samat kyselyparametreina): päättää pelaajan linkin kyseisessä paikassa tai kyseisen pelaajan kanssa, kummaltakin pelaajalta. Vastaa `{}`, myös kun poistettavaa ei ollut. |
+| POST | `/slayerlink/availability` | pelaaja | `{account_ids: [...]}` (enintään 50) → `{availability: [{account_id, available}]}`: keitä heistä pelaaja voisi nyt kutsua. |
+
+Säännöt: kummankin pelaajan on oltava hyväksyttyjä kavereita, eikä kumpikaan saa olla estänyt toista
+(403); 3 paikkaa pelaajaa kohden ja yksi odottava kutsu paikkaa kohden; kutsu on voimassa 24 tuntia ja
+linkki 168 tuntia; kaveruuden purku tai esto peruu kahden pelaajan väliset odottavat kutsut (käynnissä
+oleva linkki jatkuu loppuunsa). Muut torjunnat: 400 (ei tilitunnusta, paikka muu kuin 0–2, tuntematon
+toiminto), 404 (tiliä tai kutsua ei ole), 409 (oma itse, paikka on varattu tai siinä on odottava kutsu,
+jo linkitetty, toinen pelaaja on jo kutsunut sinut, ei vapaata paikkaa, kutsu on vanhentunut tai siihen
+on vastattu). **Ei vastata** (404): palkintoreitit `PUT /slayerlink/links/rewards` ja
+`GET /slayerlink/links/rewards/:accountId/:slot`.
+
 ## Metagame: hallintarajapinta {#undaunted-api}
 
 Kaikki nämä ovat metagamessa polun `/undaunted/api/` alla, ja alla olevat polut ovat suhteessa
@@ -721,7 +790,8 @@ kirjautumista, ja sen on sitouduttava 10 sekunnissa kirjautumisesta.
 | `<presence type="unavailable" to="Huone@...">` (poistuminen) | Muut saavat poistujan unavailable-läsnäolotiedon; poistuja saa omansa tilakoodilla 110. |
 | `<message type="groupchat" to="Huone@muc.<verkkotunnus>">` | Toimitetaan jokaiselle huoneessa olijalle lähettäjä mukaan lukien osoitteesta `Huone@muc.<verkkotunnus>/<lähettäjän nimimerkki>` samalla `id`:llä. Ei niille, jotka ovat estäneet lähettäjän. |
 | `<message type="chat" to="<tili>@<verkkotunnus>[/<resurssi>]">` (kuiskaus) | Toimitetaan lähettäjän täydestä JID:stä kyseiselle istunnolle tai tilin jokaiselle istunnolle. Ei toimiteta, eikä virhettä lähetetä, jos pelaaja ei ole paikalla tai jompikumpi on estänyt toisen. |
-| Yleinen `<presence>` (ei `to`-kenttää) | Kirjataan ja pudotetaan: ei koskaan kaiuteta eikä välitetä. Paikalla olon näyttämistä ei ole vielä rakennettu. |
+| Yleinen `<presence>` (ei `to`-kenttää) | Kun `CHAT_PRESENCE` on pois (oletus): kirjataan ja pudotetaan, ei koskaan kaiuteta eikä välitetä. Asetuksella `CHAT_PRESENCE=1`: välitetään lähettäjän täydestä JID-osoitteesta, `<show>` ja `<status>` muuttumattomina, jokaisen hyväksytyn, estämättömän kaverin niihin istuntoihin, jotka ovat lähettäneet oman läsnäolotietonsa; istunto saa ensimmäisellä läsnäolotiedollaan myös heidän tietonsa. Ei koskaan lähettäjän oman tilin istuntoon. |
+| `<presence type="unavailable">` (ei `to`-kenttää), tai yhteys päättyy | Asetuksella `CHAT_PRESENCE=1`: `type="unavailable"` täydestä JID-osoitteesta samoille kavereille, ja sitten tilin toisen istunnon läsnäolotieto, jos sellainen on. |
 | `<iq>`: ping, session tai mikä tahansa muu | Tyhjä `result` samalla `id`:llä. |
 | `<close/>` | `<close/>`, sitten yhteys suljetaan. |
 
@@ -729,6 +799,13 @@ Kun peliohjelma on ollut 50 sekuntia hiljaa, palvelin pingaa sitä ja päättä�
 ei tule seuraavien 100 sekunnin aikana (peliohjelma vastaa pelisäikeensä kierroksella, jonka kartan
 lataus pysäyttää). Peliohjelmalle, joka lakkaa lukemasta, ei lähetetä enää mitään, kun 256 KiB odottaa
 lähtemättä, ja sen yhteys päättyy.
+
+**Palvelimen itse lähettämät, vain asetuksella `CHAT_PRESENCE=1`:** kun kaveripyyntö hyväksytään
+HTTP:n kautta, kummankin pelaajan jokainen istunto saa viestin `<message from="xmpp-admin@<verkkotunnus>">`,
+jonka runko on peliohjelman kaverilistan päivitys `{"type": "com.epicgames.friends.core.apiobjects.Friend",
+"payload": {"accountId", "status": "ACCEPTED", "direction", "created"}, "timestamp"}`, ja he vaihtavat
+läsnäolotiedot; kaveruuden purku tai esto lähettää kummallekin toisen `unavailable`-tiedon.
+Yksityiskohdat: [Tekstichat]({{ chat_page.url | relative_url }}#presence).
 
 **Huoneet.** `City-<tunnus>`, `Hunt-<tunnus>` ja `General<tunnus>` ovat avoimia kaikille
 kirjautuneille pelaajille, `Party-<partyId>` vain sen ryhmän jäsenille ja `Guild-<guildId>` vain sen
@@ -762,7 +839,7 @@ ei ole reittiä siihen. **Älä koskaan avaa sen porttia.**
 
 | Metodi | Polku | Pääsy | Mitä se tekee |
 |:-------|:------|:------|:--------------|
-| POST | `/api/matchmaker/handle-matchmaking-for-player` | ei mitään; vain loopback | Runko `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (enintään 16 tilitunnusta). Käynnistää tai valitsee pelipalvelimen ja vastaa `{host, port}`, jossa `host` on `MY_IP`. `CITY`: Ramsgate. `SHARED` metsästystunnuksella `ShatteredIsles_TrainingDojo`: Dojo, joka käynnistetään ensimmäisellä käyttökerralla (tai jo palvelimen käynnistyessä asetuksella `ENABLE_DOJO=1`). `ISLAND` peliparametrien kanssa: parametreissa nimetty kenttä (opetusjakso). `ISLAND` metsästystunnuksen ja odotettujen pelaajien kanssa: uusi metsästyspalvelin. Mikä tahansa muu: Ramsgate. 400 `{error: "bad_request", message}` syötteelle, joka ei läpäise tarkistuksia. |
+| POST | `/api/matchmaker/handle-matchmaking-for-player` | ei mitään; vain loopback | Runko `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (enintään 16 tilitunnusta). Käynnistää tai valitsee pelipalvelimen ja vastaa `{host, port}`, jossa `host` on `MY_IP`. `CITY`: Ramsgate. `SHARED` metsästystunnuksella `ShatteredIsles_TrainingDojo`: Dojo, joka käynnistetään ensimmäisellä käyttökerralla (tai jo palvelimen käynnistyessä asetuksella `ENABLE_DOJO=1`). `ISLAND` peliparametrien kanssa: parametreissa nimetty kenttä (opetusjakso). `ISLAND` metsästystunnuksen ja odotettujen pelaajien kanssa: uusi metsästyspalvelin. Mikä tahansa muu: Ramsgate. Ennen kuin se antaa Ramsgaten tai Dojon, se tarkistaa, että prosessi on elossa, ja käynnistää kaatuneen ensin (`PERSISTENT_WORLD_LIVENESS`, päällä) saman yhden käynnistyksen kautta, jota palvelimen käynnistys ja vahtikoira käyttävät. 400 `{error: "bad_request", message}` syötteelle, joka ei läpäise tarkistuksia; 500 `{error: "no_game_server"}`, kun pelipalvelinta ei saatu käyntiin (ei vapaata metsästysporttia, käynnistys epäonnistui). |
 | GET | `/gameservers` | ei mitään; vain loopback | Käynnissä olevat pelipalvelimet: `{servers: [{id, port, kind, map, gameMode, behemoth, huntId, matchmakerHuntId, expectedPlayers, maxPlayers, startedAt}]}`, jossa `kind` = `city`, `hunt`, `dojo` tai `tutorial`. Siinä on tilitunnuksia, joten se on vain metagamea varten. |
 
 - Metagame kutsuu sitä tavallisella HTTP:llä ilman tunnistetietoja osoitteessa `DEPLOYSERVER_URL`
@@ -772,8 +849,11 @@ ei ole reittiä siihen. **Älä koskaan avaa sen porttia.**
   pelipalvelimen komentoriville.
 - Se vastaa heti, kun prosessi on käynnistetty, ei vasta silloin, kun palvelin on valmis.
   Käynnistykset jonotetaan `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` sekunnin välein.
-- Kun vapaata metsästysporttia ei ole, pyyntö epäonnistuu vastauksella 500 (deploy-palvelin kirjaa
-  lokiin `No free ports left!`), ja metagame vastaa pelaajien tilakyselyihin `FAILED`.
+- Kun vapaata metsästysporttia ei ole tai pelipalvelimen käynnistys epäonnistuu, pyyntö epäonnistuu
+  vastauksella 500 `{error: "no_game_server"}` (deploy-palvelin kirjaa lokiin `Matchmaking for <tila>
+  <metsästys> failed: No free ports left!` tai käynnistysvirheen), ja metagame vastaa pelaajien
+  tilakyselyihin `FAILED`. Samoin käy kaikissa muissa tämän kutsun virheissä: muu tila, vastaus ilman
+  palvelinta, lainausmerkeissä oleva portti, runko joka ei ole JSONia tai katkennut yhteys.
 - Yleistä kiinniottoreittiä (catch-all) ei ole: tuntematon polku saa Expressin oletusarvoisen
   HTML-muotoisen 404-sivun. JSON-rungot on rajattu Expressin oletukseen, 100 kt. Virheissä on
   pinojälki, ellei `NODE_ENV=production`.

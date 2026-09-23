@@ -2,7 +2,7 @@
 title: Game settings
 parent: Reference
 nav_order: 5
-description: "What Dauntless Revived changes in the 1.4.4 client and its game servers: the user ini files and who writes them, command lines, the two DLLs and the pinned build."
+description: "What Dauntless Revived changes in the 1.4.4 client and its game servers: the user ini files and who writes them, command lines, the two DLLs, the pinned build, and the game data the metagame serves."
 lang: en
 ref: reference/game-settings
 ---
@@ -487,8 +487,8 @@ command line; see [HTTP API]({{ api_page.url | relative_url }}).
 - The DLL opens a console window for every server. Ramsgate and the Dojo are started with their
   window visible ("Running as a server!"). Hunt servers are started with their window hidden, so a
   new window does not flash up for every hunt. **Closing a visible console window ends that server**
-  for everyone on it. The deploy server's watchdog, which runs once a minute, restarts Ramsgate and
-  the Dojo.
+  for everyone on it. The deploy server starts Ramsgate and the Dojo again when a player travels
+  there, or its watchdog does within a minute, whichever comes first.
 - On a server installed with the kit, the stack runs as `dauntless` without a desktop (Windows
   "session 0") unless the installer ran with `-InteractiveSession`. The console windows should work
   there too, but that has not been tested yet; see
@@ -625,6 +625,75 @@ together, and only together with the files they describe.
 | Zip SHA-256 | `deploy/windows-server/DauntlessServer.Common.ps1` (with the byte count), `friend-kit/setup.ps1`, `tools/make-game-manifest.js` |
 | Build string | `UndauntedLauncher/src/main/manifest.ts`, `UndauntedContent/src/manifest.ts`, `deploy/windows-server/DauntlessServer.Common.ps1`, `tools/make-game-manifest.js`, the manifest JSON |
 | Changelist | `deploy/windows-server/DauntlessServer.Common.ps1`, which writes the metagame's `TARGET_CHANGELIST` |
+
+---
+
+## Game data the metagame serves {#server-data}
+
+Some of what the game shows comes from the metagame's own data files, not from the game's paks: the
+progression tracks (Hunt Pass seasons and mastery), the store's offers and the Escalation seasons. They
+live in `UndauntedMetagame/src/vendor/` and are copied to `dist/vendor/` by the build. They hold
+identifiers and tuning values read from the 1.4.4 client, and no game assets.
+
+### Hunt Pass seasons and mastery tracks {#hunt-pass-seasons}
+
+`vendor/progression_config.json` (from upstream) holds 10 tracks: the Hunt Pass `season09b`,
+`MasteryTrack_PlayerLevel` (Slayer level), `MasteryTrack_Behemoth` and seven
+`MasteryTrack_Weapon_*` tracks. The metagame
+serves it at `GET /progression/config`, and the same data drives its rank math, so the game and the
+server always agree.
+
+**`PROGRESSION_CONFIG_DIR`** (unset by default) points at a folder of your own `.json` files that
+replace or add tracks, without editing the bundled file:
+
+- Each file holds one path object (the shape of an entry in `payload.paths` of the bundled file), a
+  list of them, or a whole config `{"payload": {"paths": [...]}}`. Files are read in name order.
+- A path whose `progression_id` exists in the bundled file replaces it in place (the client sees the
+  same order); a new id is added at the end.
+- Each path needs a `progression_id` and a non-empty `requirements` list of
+  `{"rank_id", "xp_required"}` pairs of whole numbers, in rising `rank_id` order. `free_rewards` and
+  `premium_rewards`, when present, are lists; `premium_gating_entitlement` is a string (the Elite
+  pass's entitlement); `prestige`, when present, has a whole `xp_per_level` above 0. Every `rank_id`
+  used in a reward list needs its requirement, or the client complains
+  ([Backend contract]({{ '/findings/backend-contract.html' | relative_url }}#progression-progression-prod)).
+- The same id twice in the folder, invalid JSON, a missing folder or a folder without `.json` files
+  stops the metagame at startup with a line naming the file (`The progression config could not be
+  loaded: ...`). The boot line then reads, for example, `Progression config: 10 tracks, from
+  C:/dr/seasons: season09b replaced; active Hunt Pass season09b`.
+- The folder is read once; restart the metagame after a change.
+
+**`ACTIVE_HUNT_PASS`** (default `season09b`) is the Hunt Pass an account has until one is stored for
+it. It must be a loaded track, or the metagame stops at startup.
+
+**Never change a season's ranks in place while players have progress in it.** Players' stored XP is
+turned into ranks with the new requirements at the next read, so they could jump or fall. The rank
+rewards themselves are paid by the game server, from the client's own reward tables
+([why]({{ '/findings/backend-contract.html' | relative_url }}#progression-on-our-server)).
+
+### The store catalogue {#store-catalogue}
+
+Only used with `STORE=free` ([The in-game store]({{ '/findings/store.html' | relative_url }})):
+
+| File | What it holds |
+|:-----|:--------------|
+| `vendor/store_catalog.json` | The offers, keyed by the tag the client asks for: 200 under `webstore`, the Elite pass under `season09b_pass`, and the empty `season09b_rank`, `loadout_slots` and `fountain_daily_free_bundle`. Each offer has the client's flat price fields (all 0), `items` (catalogue id and quantity) and `entitlements` (name and duration), and category tags that decide its store tab. The metagame only sells offers whose `platinumPrice` is 0. |
+| `vendor/store_item_kinds.json` | For each of the 211 items the store sells: `stacked` or `instanced`, the stackable flag of the client's item catalogue. An item without an entry is never granted. |
+| `test/data/store_art_skus.json` | The 994 SKU ids whose store tile image is 2:1. Only a test reads it: every offer in the storefront must be one of them, or its tile shows the fallback art or a stretched image. |
+
+Change the catalogue only together with the test (`npm test` in `UndauntedMetagame`) and an in-game
+check of the store tabs: an empty tab placed before a filled one shifts every later tab's contents.
+The repeatable bounty-token bundle (`bundle_currency_bounty_small`) is listed only with
+`STORE_REPEATABLE_TOKENS=1`.
+
+### Escalation seasons {#escalation-seasons}
+
+Only used with `ESCALATION_MODE=real` ([Escalation]({{ '/findings/escalation.html' | relative_url }})):
+`vendor/escalation/seasons.json` lists the five seasons of the 1.4.4 client (`ESC_SEASON_1` to
+`ESC_SEASON_5`; the fifth, Frost, is disabled), each with its 25 level costs, 18 talents (tier gate
+and rank costs) and 6 rewards (level and contents). It was exported read-only from the client's own
+tables, and its `source` block names the game files it was read from by their SHA-256. The metagame
+checks it at startup and uses it only to check saves; the game server does the arithmetic. Do not edit
+it: a wrong value refuses (or, in the soft rules, warns about) real saves.
 
 ---
 

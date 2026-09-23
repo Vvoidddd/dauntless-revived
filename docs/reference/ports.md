@@ -104,8 +104,8 @@ argument.
 
 | Port | Game server | Started |
 |:-----|:------------|:--------|
-| 8777 (`PORT_RANGE_END`) | Ramsgate | When the deploy server starts. The deploy server's watchdog (every 60 seconds) restarts it on the same port if it exits. |
-| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | On first use, or at startup with `ENABLE_DOJO=1`. Restarted on the same port by the watchdog. |
+| 8777 (`PORT_RANGE_END`) | Ramsgate | When the deploy server starts. If it exits, it is started again on the same port when a player travels there (`PERSISTENT_WORLD_LIVENESS`, on) or by the deploy server's watchdog (every 60 seconds), whichever comes first; both share one launch, so there is never a second process on the port. |
+| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | On first use, or at startup with `ENABLE_DOJO=1`. Restarted on the same port the same way. |
 | 8770-8775 (`PORT_RANGE_BEGIN` to `PORT_RANGE_END` - 2) | Hunts and the tutorial | One process per group of up to 4 players, from a pool of free ports, highest first (8775, then 8774, ...). |
 
 - **Listening address.** The server DLL opens the port with no host, so the game server listens on
@@ -115,8 +115,9 @@ argument.
 - **The port goes back to the pool** when the watchdog notices that the hunt process has exited, so up
   to a minute later. A hunt server exits after 50 seconds in total with nobody connected.
 - **When the pool is empty**, the deploy server answers the metagame with an HTTP 500
-  (`No free ports left!` in its log), and the metagame marks that group's search as failed: its status
-  poll answers `FAILED`. Six hunts can run at once with the default range.
+  `{"error": "no_game_server"}` (`Matchmaking for ... failed: No free ports left!` in its log), and the
+  metagame marks that group's search as failed: its status poll answers `FAILED`. Six hunts can run at
+  once with the default range.
 - **Keep `PORT_RANGE_END=8777`.** The server DLL turns its 50-second idle exit off for any port of
   8776 or above. That is how Ramsgate and the Dojo stay up. With a higher end, hunts on 8776 and up
   would never exit; with a lower end, Ramsgate and the Dojo would exit when idle and be restarted over

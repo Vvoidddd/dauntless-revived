@@ -77,12 +77,12 @@ niiden npm-pakettien nimet ovat muotoa `dauntless-revived-*` (esimerkiksi `daunt
 
 | Kansio | Mitä siinä on | Käännöstulos (gitin ohittama) |
 |:-------|:--------------|:------------------------------|
-| `UndauntedMetagame/` | Taustapalvelu, jonka kanssa peli keskustelee (TypeScript, Express): tilit, tallennukset, eteneminen, matchmaking, ryhmät, kaverit, killat, `/undaunted/api`-ylläpitorajapinta ja pelin tekstichat (`src/realtime/`, XMPP-kuuntelija samassa prosessissa, päällä kun `CHAT=1`). `src/db/schema.ts` määrittelee tietokannan, `src/drizzle/` sisältää sen migraatiot ja `src/vendor/` pelin `progression_config.json`-tiedoston ja generoidun `hunt_titles.json`-tiedoston. Kansiossa `scripts/` ovat `write-build-info.js` ja `make-hunt-titles.js`. | `dist/` (jossa `dist/build-info.json`), `build/` (testit), `node_modules/` |
+| `UndauntedMetagame/` | Taustapalvelu, jonka kanssa peli keskustelee (TypeScript, Express): tilit, tallennukset, eteneminen, matchmaking, ryhmät, kaverit, killat, `/undaunted/api`-ylläpitorajapinta ja pelin tekstichat (`src/realtime/`, XMPP-kuuntelija samassa prosessissa, päällä kun `CHAT=1`). `src/db/schema.ts` määrittelee tietokannan, `src/drizzle/` sisältää sen migraatiot ja `src/vendor/` pelin `progression_config.json`-tiedoston, generoidun `hunt_titles.json`-tiedoston sekä Harmonicin 1.4.4-forkin datan: `escalation/seasons.json` (Escalationin kausiluettelo), `store_catalog.json` (ilmaisen kaupan tarjoukset) ja `store_item_kinds.json` (miten kukin kaupan tavara annetaan). `test/data/store_art_skus.json` luettelee testiä varten kaupan tarjoustunnukset, joiden ruutukuva on 2:1. Käännös kopioi kansion `src/vendor/` kansioon `dist/vendor/`. Kansiossa `scripts/` ovat `write-build-info.js` ja `make-hunt-titles.js`. | `dist/` (jossa `dist/build-info.json`), `build/` (testit), `node_modules/` |
 | `UndauntedDeployServer/` | Käynnistää ja valvoo pelipalvelinprosesseja (Ramsgate, Training Dojo, metsästykset). `src/vendor/` sisältää metsästystaulukot. | `dist/`, `build/` |
 | `UndauntedGateway/` | Vain julkinen tila: TLS-yhdyskäytävä (`dist/server.js`) ja sallittujen listan apuri (`dist/allowlist/server.js`). `tools/make-cert.js` tekee yhdyskäytävän varmenteen. | `dist/`, `build/` |
 | `UndauntedContent/` | Sisältöpalvelin: pelitiedostot, uutiset ja kuvapaketti rekisteröityneille käynnistimille. `data/dauntless-1.4.4.json` on pelin tiedostoluettelo (manifest, 410 tiedostoa), joka käännetään myös käynnistimen sisään. | `dist/`, `build/` |
 | `UndauntedLauncher/` | Tämän forkin käynnistin kavereille (Electron). `assets/` sisältää kuvakkeet (kopiot kansiosta `brand/launcher/`) ja kaksi kiinnitettyä valmiiksi käännettyä DLL-tiedostoa, `dxgi.dll` ja `UndauntedInternalServer.dll`, jotka jokainen asennustapa asentaa (palvelinkone, palvelinpaketti, kaveripaketti ja käynnistin). Kansiossa `src/renderer/brand/` ovat kopiot ikkunassa näkyvistä logo- ja tunnuskuvista. Kansiossa `scripts/` ovat testien ajaja, brändikuvien kopioija (`make-icon.mjs`) ja `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` ja `npm run make`), `.test-build/` (testit), `release/` (julkaisutiedostot, jotka `scripts/collect-release.ps1` kokoaa komennon `npm run make` jälkeen: asennusohjelma, Squirrelin päivitystiedostot, zip ja `SHA256SUMS.txt`). |
-| `UndauntedInternalServer/` | Palvelin-DLL:n C++-lähdekoodi: Visual Studio -ratkaisu, `dllmain.cpp` (jossa on osoitetaulukko, josta `Game.ini` generoidaan), pelimoottorin otsaketiedostot kansiossa `SDK/` sekä `MinHook/`. Mikään tämän repositorion skripti tai työnkulku ei käännä sitä; kaikki käyttävät valmiiksi käännettyjä DLL-tiedostoja kansiosta `UndauntedLauncher/assets/`. | Visual Studion tuotokset (`x64/`, `*.dll` ja vastaavat) |
+| `UndauntedInternalServer/` | Palvelin-DLL:n C++-lähdekoodi: Visual Studio -ratkaisu, `dllmain.cpp` (jossa on osoitetaulukko, josta `Game.ini` generoidaan), pelimoottorin otsaketiedostot kansiossa `SDK/` sekä `MinHook/`. Mikään tämän repositorion skripti tai työnkulku ei käännä sitä; kaikki käyttävät valmiiksi käännettyjä DLL-tiedostoja kansiosta `UndauntedLauncher/assets/`. MinHookin include-korjauksesta (syyskuu 2026) alkaen se kääntyy Visual Studio 2022 Build Toolsilla (Release, x64), mutta täällä käännettyä DLL:ää ei jaeta. | Visual Studion tuotokset (`x64/`, `*.dll` ja vastaavat) |
 | `deploy/windows-server/` | Windows-palvelinpaketti: skriptit, `lib/` (Node-apurit `dr-db.js`, `dr-keys.js` ja `verify-game.js`) ja `tests/`. | ei mitään |
 | `friend-kit/` | Kutsuttujen kavereiden asennus- ja pelaamisskriptit, vain Tailscalen kautta pelaamiseen. | `tools/make-friend-kit.ps1` rakentaa zip-tiedoston repositorion ulkopuolelle |
 | `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js` sekä kansiossa `ci/` CI:n käyttämät `check-repo.js` (repositorion tarkistus) ja `launcher-version.js` (käynnistimen versiosäännöt). | ei mitään |
@@ -312,6 +312,13 @@ pystytetyllä palvelinkoneella ota varmuuskopio itse ennen kuin haet uutta koodi
 | `0011_real_progression` | Luo taulut `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft` ja `loadoutslots` sekä taulun `progression_events` ja triggerit, jotka sallivat siihen vain lisäyksiä. |
 | `0012_friends_and_blocks` | Luo taulut `friendships` ja `blocks`. |
 | `0013_guilds` | Luo taulut `guilds`, `guildmembers` ja `guildinvites`. Lisää vain tauluja. |
+| `0014_escalation` | Luo taulut `escalationprogression`, `escalationtalents` ja `escalationunlocks`. Lisää vain tauluja. |
+| `0015_store_purchases` | Luo taulun `storepurchases` ja sen indeksin sarakkeelle `accountId`. Lisää vain tauluja. |
+| `0016_slayer_links` | Luo taulut `slayerlinkinvites` ja `slayerlinks` indekseineen. Lisää vain tauluja. |
+
+Migraatiot 0014–0016 tulivat Harmonicin forkin siirron mukana. Yksikään niistä ei muuta, kopioi tai
+muunna olemassa olevaa taulua; niitä edeltävä versio käynnistyy yhä muutetulla tietokannalla ja jättää
+uudet taulut huomiotta ([Päivitysohjeet]({{ upgrade_page.url | relative_url }}#harmonic-port)).
 
 Kun haluat lisätä migraation, muuta tiedostoa `src/db/schema.ts` ja aja `npm run db:generate`; katso
 [Kehittäjän opas]({{ dev_page.url | relative_url }}).
@@ -368,15 +375,26 @@ eikä yhtään etenemistapahtumaa), metagame kirjaa käynnistyessään lokiin va
 |:------|:-------------------------|
 | `progress_tracks` | Tiliä ja rataa kohden (Slayer-taso, hirviöiden ja aseiden mestaruus, Hunt Pass): kokonais-XP sekä jo vahvistetut ilmaisen ja maksullisen (Elite) radan tasot. Ansaitut tasot lasketaan `progression_config.json`-tiedostosta samalla tavalla kuin peli tekee. Puuttuva rivi tarkoittaa 0. |
 | `objectives` | Tiliä kohden: kunkin mestaruustavoitteen edistyminen ja suorituskerrat sellaisina kuin pelipalvelin ne viimeksi lähetti. |
-| `huntpassselection` | Tiliä kohden: valittu Hunt Pass. Puuttuva rivi tarkoittaa `season09b`. |
-| `entitlements` | Tiliä kohden: oikeudet (entitlements), kuten Elite Hunt Pass, sekä aktivointipäivä, kesto tunteina (0 = pysyvä), lähde (`default`, `gameserver` tai `admin:<id>`) ja peruutuspäivä. Oletusoikeudet (`ENTITLEMENTS_DEFAULT`) lisätään kerran tiliä kohden. Peruttu rivi säilytetään, joten perutua oletusoikeutta ei anneta uudelleen. |
+| `huntpassselection` | Tiliä kohden: valittu Hunt Pass. Puuttuva rivi tarkoittaa asetusta `ACTIVE_HUNT_PASS` (oletus `season09b`). |
+| `entitlements` | Tiliä kohden: oikeudet (entitlements), kuten Elite Hunt Pass, sekä aktivointipäivä, kesto tunteina (0 = pysyvä), lähde (`default`, `gameserver`, `admin:<id>`, kaupan ostolle `store:<tarjous>` tai asetuksella `PROGRESSION_CONFIRM_ENTITLEMENTS=1` `confirm:<rata>:<taso>`) ja peruutuspäivä. Oletusoikeudet (`ENTITLEMENTS_DEFAULT`) lisätään kerran tiliä kohden. Peruttu rivi säilytetään, joten perutua oletusoikeutta ei anneta uudelleen. |
 | `cooldowns` | Tiliä kohden: kunkin päivittäisen tai viikoittaisen rajoituksen alkamisaika sellaisena kuin pelipalvelin sen lähetti. Yli 24 tuntia vanhat keräilyn (harvest) odotusajat poistetaan, kun pelipalvelin seuraavan kerran aloittaa yksittäisen odotusajan kyseiselle tilille. |
 | `bounties`, `bountydraft` | Tiliä kohden: kunkin palkkiotehtävän JSON paikkoineen ja nykyinen palkkiotehtävävalikoima (draft). |
 | `loadoutslots` | Hahmoa kohden: avatut varustesettien paikat (enintään 6) ja aktiivinen paikka. Puuttuva rivi tarkoittaa yhtä paikkaa, paikkaa 0. |
-| `progression_events` | **Vain lisäyksiä** (append-only): kirjanpito jokaisesta kirjoituksesta, jonka pelipalvelin, pelaajan peli tai ylläpitäjä tekee yllä oleviin tauluihin, myös hylätyistä (oletusoikeudet lisätään ilman merkintää): aika, tili, kutsuja (`gameserver`, `client` tai `admin`), reitti, pyynnön raaka runko, tila, vastaus ja huomautus. Triggerit hylkäävät `UPDATE`- ja `DELETE`-komennot. Säilytetään ikuisesti. |
+| `progression_events` | **Vain lisäyksiä** (append-only): kirjanpito jokaisesta kirjoituksesta, jonka pelipalvelin, pelaajan peli tai ylläpitäjä tekee yllä oleviin tauluihin ja Escalation-tauluihin, myös hylätyistä (oletusoikeudet lisätään ilman merkintää): aika, tili, kutsuja (`gameserver`, `client` tai `admin`), reitti, pyynnön raaka runko, tila, vastaus ja huomautus (esimerkiksi `retry of event <id> within 10 s: its reply, nothing added` tai Escalation-tallennuksen `season <id>`). Triggerit hylkäävät `UPDATE`- ja `DELETE`-komennot. Säilytetään ikuisesti. |
 
 Ylläpitoreitit `Progression`, `SeedProgression`, `GrantEntitlement` ja `RevokeEntitlement` lukevat ja
 muuttavat näitä tauluja; katso [HTTP-rajapinta]({{ api_page.url | relative_url }}).
+
+### Escalation- ja kauppataulut {#escalation-and-store-tables}
+
+Lisätty migraatioilla `0014_escalation` ja `0015_store_purchases`. Päivämäärät ovat ISO-tekstiä.
+
+| Taulu | Mitä se tallentaa |
+|:------|:------------------|
+| `escalationprogression` | Vain asetuksella `ESCALATION_MODE=real`: tiliä ja kautta kohden Escalation-taso, XP seuraavaa tasoa kohti, viimeksi tallennettu `updateVersion`, tallennetun sisällön tiiviste (uusinnan tunnistamiseen) ja tallennusaika. Puuttuva rivi tarkoittaa tasoa 0 ja versiota 0. [Escalation]({{ '/fi/findings/escalation.html' | relative_url }}). |
+| `escalationtalents` | Tiliä, kautta ja kykyä kohden: aste. Jokainen tallennus korvaa ne kokonaan (kykyjen nollaus laskee asteita). |
+| `escalationunlocks` | Tiliä, kautta ja palkintoa kohden: milloin se kerättiin. Kerättyä palkintoa ei koskaan poisteta. |
+| `storepurchases` | Vain asetuksella `STORE=free`: yksi rivi ostotunnistetta kohden. Tunnisteen SHA-256-tiiviste (itse tunnistetta ei koskaan tallenneta), tili, hahmo jolle osto menee, tarjous, tiiviste tarjouksesta tunnisteen antohetkellä, luonti- ja vanhenemisaika (10 minuuttia) sekä lunastusaika. Lunastamattomat, vanhentuneet rivit poistetaan jokaisella käynnistyksellä ja aina, kun tunniste annetaan; lunastetut rivit säilytetään kuitteina. Oston antamat tavarat ja oikeudet ovat tauluissa `inventories` ja `entitlements`, kirjattuina tauluihin `inventorylog` (kutsuja `store`) ja `inventorytransactions`. [Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }}). |
 
 ### Kaverit {#friends}
 
@@ -395,6 +413,19 @@ muuttavat näitä tauluja; katso [HTTP-rajapinta]({{ api_page.url | relative_url
 
 Killan lakkauttaminen poistaa sen rivit kaikista kolmesta taulusta. Ylläpitoreitit `Guilds` ja
 `DisbandGuild` listaavat ja poistavat kiltoja; katso [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds).
+
+### Slayer Links {#slayer-links}
+
+Lisätty migraatiolla `0016_slayer_links`. Ajat ovat millisekunteja, kuten kavereiden tauluissa.
+
+| Taulu | Mitä se tallentaa |
+|:------|:------------------|
+| `slayerlinkinvites` | Yksi rivi kutsua kohden: `inviteId` (peliohjelman näkemä `link_id`), lähettäjä, kutsuttu, lähettäjän paikka, luonti- ja vanhenemisaika sekä `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` tai `EXPIRED`). Parilla voi olla enintään yksi odottava kutsu (osittainen yksilöllinen indeksi). Kaveruuden purku tai esto asettaa parin odottavat kutsut tilaan `CANCELED`. |
+| `slayerlinks` | Yksi rivi käynnissä olevaa linkkiä kohden (molemmat pelaajat jakavat sen): `linkId` (hyväksytyn kutsun tunnus), kaksi pelaajaa, kummankin paikka sekä alkamis- ja päättymisaika (168 tuntia myöhemmin). Poisto poistaa rivin kummaltakin. |
+
+Vastatut ja vanhentuneet kutsut sekä päättyneet linkit poistetaan 30 päivän kuluttua, kun seuraava
+kutsu tehdään. [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}#slayer-links)
+kertoo säännöt.
 
 ### Vain muistissa {#kept-only-in-memory}
 
@@ -450,7 +481,7 @@ käyttäjänimiä ja julkisessa tilassa pelaajien IP-osoitteita, joten lue loki 
 | `data\allowlist\audit.log` | Sallittujen listan apurin tarkastusloki, yksi JSON-objekti riviä kohden (`t`, `event` ja kentät): sisään päästetyt ja vanhentuneet osoitteet, hylkäykset, palomuurisääntöjen muutokset, koeajotilassa tarkka skripti, joka ajettaisiin, sekä epäonnistuneet salaisuustarkistukset. Ei koskaan itse salaisuutta. | Ei kierrätetä koskaan. |
 | `data\logs\supervisor.log` | Palvelinkokonaisuuden valvojan PowerShell-transkripti: käynnistykset, kaatumiset, uudelleenkäynnistykset ja luovutukset. | Siirretään nimelle `supervisor.log.1`, kun valvoja käynnistyy ja tiedosto on yli 5 Mt. |
 | `data\allowlist\supervisor.log` | Sama sallittujen listan apurin valvojalle (SYSTEM). | Kuten yllä. |
-| `data\logs\bodies.log` | Vain asetuksella `LOG_BODIES=1`: yksi JSON-objekti riviä kohden (`t`, `method`, `url`, `gs`, `body`) kiinteälle joukolle reittejä (eteneminen, Hunt Pass, palkkiotehtävät, odotusajat, eskalaatiot, oikeudet, varustesettipaikkojen avaukset, kauppa, tuotetunnukset (SKU) ja saldo, tavarat, matchmaking-ehdokkaat, ryhmät, kaverit ja tilihaut). Rungot katkaistaan 8 kt:n kohdalta (tavaroilla 64 kt), ja tunnisteet poistetaan. Paketti pakottaa julkisessa tilassa `LOG_BODIES=0`. Yksityistä tietoa: se kirjaa, mitä pelaajien pelit lähettävät. | Ei kierrätetä koskaan. |
+| `data\logs\bodies.log` | Vain asetuksella `LOG_BODIES=1`: yksi JSON-objekti riviä kohden, `t` (saapuminen), `method`, `url`, `gs`, `body`, `status` ja `ms` (sekä `"aborted": true`, jos yhteys katkesi ensin), kirjoitettuna kun vastaus on valmis, kiinteälle joukolle reittejä (eteneminen, Hunt Pass, palkkiotehtävät, odotusajat, Escalation, oikeudet, varustesettipaikkojen avaukset, kauppa (`/product`, `/token`, `/notification`), saldo ja `/reconcile`, Slayer Links, tavarat, matchmaking-ehdokkaat, ryhmät, kaverit ja tilihaut). Rungot katkaistaan 8 kt:n kohdalta (tavaroilla 64 kt), tunnisteet ja tiliavaimet poistetaan, ja kun `BODY_LOG_PER_PATH` on asetettu, polkua kohden kirjoitetaan enintään niin monta riviä. Paketti pakottaa julkisessa tilassa `LOG_BODIES=0`. Yksityistä tietoa: se kirjaa, mitä pelaajien pelit lähettävät. | Ei kierrätetä koskaan. |
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | Viimeisimmän varmuuskopion tietokantakopioinnin tuloste (`db ok, <n> users`). | Jokainen varmuuskopio kirjoittaa ne yli. |
 | `data\logs\install\<vaihe>.out.log`, `.err.log` | Jokaisen asennus- ja päivitysvaiheen tuloste: lähdekoodin kopiointi, `npm ci` ja `npm run build` osa kerrallaan, Node.js:n, ajonaikaisten kirjastojen ja Tailscalen asennukset, pelin purku ja tarkistus, varmenne, avaimet ja ylläpitäjätili. | Kirjoitetaan yli, kun vaihe ajetaan uudelleen. |
 | `backups\backup.log` | Yksi rivi varmuuskopiota kohden: aika, kansio, koko, tietokannan tarkistus ja säilytettyjen varmuuskopioiden määrä. | Siirretään nimelle `backup.log.1`, kun se on yli 5 Mt. |

@@ -3,7 +3,7 @@ title: Pelin asetukset
 parent: Tekninen viite
 grand_parent: Dauntless Revived suomeksi
 nav_order: 5
-description: "Mitä Dauntless Revived muuttaa 1.4.4-peliohjelmassa ja pelipalvelimissa: ini-tiedostot ja kuka ne kirjoittaa, komentorivit, kaksi DLL-tiedostoa ja kiinnitetty versio."
+description: "Mitä Dauntless Revived muuttaa 1.4.4-peliohjelmassa ja pelipalvelimissa: ini-tiedostot ja kuka ne kirjoittaa, komentorivit, kaksi DLL-tiedostoa, kiinnitetty versio ja metagamen tarjoama pelidata."
 lang: fi
 ref: reference/game-settings
 locale: fi_FI
@@ -514,8 +514,9 @@ kuin ne päätyvät komentoriville; katso [HTTP API]({{ api_page.url | relative_
 - DLL avaa konsoli-ikkunan jokaiselle palvelimelle. Ramsgate ja Dojo käynnistetään ikkuna näkyvissä
   (”Running as a server!”). Metsästyspalvelimet käynnistetään ikkuna piilotettuna, jotta jokaisesta
   metsästyksestä ei välähdä uutta ikkunaa. **Näkyvän konsoli-ikkunan sulkeminen lopettaa sen
-  palvelimen** kaikilta, jotka ovat siinä. Deploy-palvelimen vahtikoira (watchdog), joka ajetaan
-  kerran minuutissa, käynnistää Ramsgaten ja Dojon uudelleen.
+  palvelimen** kaikilta, jotka ovat siinä. Deploy-palvelin käynnistää Ramsgaten ja Dojon uudelleen,
+  kun pelaaja matkustaa sinne, tai sen vahtikoira (watchdog) tekee sen minuutin sisällä, kumpi ehtii
+  ensin.
 - Paketilla asennetulla palvelimella kokonaisuus pyörii `dauntless`-tilinä ilman työpöytää
   (Windowsin ”istunto 0”), ellei asennusohjelmaa ajettu valinnalla `-InteractiveSession`.
   Konsoli-ikkunoiden pitäisi toimia sielläkin, mutta sitä ei ole vielä testattu; katso
@@ -660,6 +661,77 @@ vain samalla kertaa niiden tiedostojen kanssa, joita ne kuvaavat.
 | Zipin SHA-256 | `deploy/windows-server/DauntlessServer.Common.ps1` (tavumäärän kanssa), `friend-kit/setup.ps1`, `tools/make-game-manifest.js` |
 | Versiomerkkijono | `UndauntedLauncher/src/main/manifest.ts`, `UndauntedContent/src/manifest.ts`, `deploy/windows-server/DauntlessServer.Common.ps1`, `tools/make-game-manifest.js`, sisältöluettelon JSON-tiedosto |
 | Muutoslista | `deploy/windows-server/DauntlessServer.Common.ps1`, joka kirjoittaa metagamen `TARGET_CHANGELIST`-arvon |
+
+---
+
+## Metagamen tarjoama pelidata {#server-data}
+
+Osa siitä, mitä peli näyttää, tulee metagamen omista datatiedostoista eikä pelin pak-tiedostoista:
+etenemisradat (Hunt Pass -kaudet ja mestaruus), kaupan tarjoukset ja Escalation-kaudet. Ne ovat
+kansiossa `UndauntedMetagame/src/vendor/`, ja käännös kopioi ne kansioon `dist/vendor/`. Niissä on
+1.4.4-peliohjelmasta luettuja tunnisteita ja viritysarvoja eikä lainkaan pelin sisältöä (grafiikkaa
+tai muuta).
+
+### Hunt Pass -kaudet ja mestaruusradat {#hunt-pass-seasons}
+
+`vendor/progression_config.json` (alkuperäisestä projektista) sisältää 10 rataa: Hunt Passin
+`season09b`, `MasteryTrack_PlayerLevel` (Slayer-taso), `MasteryTrack_Behemoth` ja seitsemän
+`MasteryTrack_Weapon_*`-rataa. Metagame tarjoaa sen osoitteessa `GET /progression/config`, ja sama
+data ohjaa sen tasolaskentaa, joten peli ja palvelin ovat aina samaa mieltä.
+
+**`PROGRESSION_CONFIG_DIR`** (oletuksena asettamaton) osoittaa kansioon, jossa on omia
+`.json`-tiedostojasi, jotka korvaavat ratoja tai lisäävät niitä ilman, että mukana tulevaa tiedostoa
+muokataan:
+
+- Jokaisessa tiedostossa on yksi rata-olio (samanmuotoinen kuin mukana tulevan tiedoston
+  `payload.paths`-merkintä), niiden luettelo tai kokonainen asetustiedosto `{"payload": {"paths": [...]}}`.
+  Tiedostot luetaan nimijärjestyksessä.
+- Rata, jonka `progression_id` on jo mukana tulevassa tiedostossa, korvaa sen samalla paikalla
+  (peliohjelma näkee saman järjestyksen); uusi tunnus lisätään loppuun.
+- Jokainen rata tarvitsee kentän `progression_id` ja ei-tyhjän `requirements`-luettelon
+  `{"rank_id", "xp_required"}`-kokonaislukupareja nousevassa `rank_id`-järjestyksessä. `free_rewards`
+  ja `premium_rewards` ovat luetteloita, jos ne ovat mukana; `premium_gating_entitlement` on merkkijono
+  (Elite-passin oikeus); `prestige`, jos se on mukana, sisältää kokonaisluvun `xp_per_level`, joka on
+  yli 0. Jokaisella palkintoluettelossa käytetyllä `rank_id`-arvolla on oltava vaatimuksensa, tai
+  peliohjelma valittaa ([Taustapalvelun rajapinta]({{ '/fi/findings/backend-contract.html' | relative_url }}#progression-progression-prod)).
+- Sama tunnus kahdesti kansiossa, virheellinen JSON, puuttuva kansio tai kansio ilman `.json`-tiedostoja
+  pysäyttää metagamen käynnistyksessä rivillä, joka nimeää tiedoston (`The progression config could not
+  be loaded: ...`). Käynnistysrivi on silloin esimerkiksi `Progression config: 10 tracks, from
+  C:/dr/seasons: season09b replaced; active Hunt Pass season09b`.
+- Kansio luetaan kerran; käynnistä metagame uudelleen muutoksen jälkeen.
+
+**`ACTIVE_HUNT_PASS`** (oletus `season09b`) on Hunt Pass, joka tilillä on, kunnes sille on tallennettu
+jokin muu. Sen on oltava ladattu rata, tai metagame pysähtyy käynnistyksessä.
+
+**Älä koskaan muuta kauden tasoja paikallaan, kun pelaajilla on siinä etenemistä.** Pelaajien
+tallennettu XP muutetaan tasoiksi uusien vaatimusten mukaan seuraavalla lukukerralla, joten tasot
+voisivat hypätä tai pudota. Itse tasopalkinnot maksaa pelipalvelin peliohjelman omista
+palkintotaulukoista ([miksi]({{ '/fi/findings/backend-contract.html' | relative_url }}#progression-on-our-server)).
+
+### Kaupan valikoima {#store-catalogue}
+
+Käytössä vain asetuksella `STORE=free` ([Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }})):
+
+| Tiedosto | Mitä siinä on |
+|:---------|:--------------|
+| `vendor/store_catalog.json` | Tarjoukset sen tunnisteen alla, jota peliohjelma pyytää: 200 tunnisteen `webstore` alla, Elite-passi tunnisteen `season09b_pass` alla sekä tyhjät `season09b_rank`, `loadout_slots` ja `fountain_daily_free_bundle`. Jokaisella tarjouksella on peliohjelman litteät hintakentät (kaikki 0), `items` (tavaran tunnus ja määrä) ja `entitlements` (nimi ja kesto) sekä luokkatunnisteet, jotka ratkaisevat sen välilehden. Metagame myy vain tarjouksia, joiden `platinumPrice` on 0. |
+| `vendor/store_item_kinds.json` | Jokaiselle kaupan 211 tavarasta: `stacked` tai `instanced`, peliohjelman tavaraluettelon pinottavuusmerkintä. Tavaraa, jolla ei ole merkintää, ei koskaan anneta. |
+| `test/data/store_art_skus.json` | Ne 994 tarjoustunnusta, joiden kaupparuudun kuva on 2:1. Vain testi lukee sitä: jokaisen kaupan tarjouksen on oltava yksi niistä, tai sen ruutu näyttää varakuvan tai venytetyn kuvan. |
+
+Muuta valikoimaa vain yhdessä testin (`npm test` kansiossa `UndauntedMetagame`) ja kaupan
+välilehtien pelissä tehdyn tarkistuksen kanssa: tyhjä välilehti täytetyn edellä siirtää kaikkien
+myöhempien välilehtien sisällön. Toistettavasti ostettava palkkiotehtävien tunnisteiden paketti
+(`bundle_currency_bounty_small`) näkyy vain asetuksella `STORE_REPEATABLE_TOKENS=1`.
+
+### Escalation-kaudet {#escalation-seasons}
+
+Käytössä vain asetuksella `ESCALATION_MODE=real` ([Escalation]({{ '/fi/findings/escalation.html' | relative_url }})):
+`vendor/escalation/seasons.json` luettelee 1.4.4-peliohjelman viisi kautta (`ESC_SEASON_1`–`ESC_SEASON_5`;
+viides, Frost, on pois käytöstä), kullakin 25 tason hinnat, 18 kykyä (portaan raja ja asteiden hinnat)
+ja 6 palkintoa (taso ja sisältö). Se vietiin vain lukien peliohjelman omista taulukoista, ja sen
+`source`-osa nimeää pelitiedostot, joista se luettiin, niiden SHA-256-tiivisteillä. Metagame tarkistaa
+sen käynnistyksessä ja käyttää sitä vain tallennusten tarkistamiseen; pelipalvelin tekee laskut. Älä
+muokkaa sitä: väärä arvo torjuu oikeita tallennuksia (tai pehmeissä säännöissä varoittaa niistä).
 
 ---
 

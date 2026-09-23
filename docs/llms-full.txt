@@ -3687,6 +3687,10 @@ development are off.
 | `CHAT_NICK_CHECK` | metagame | `enforce`: a chat room join whose nickname fails the name rules is refused | `log` (admit and warn; another account's id is still refused) | A rollback switch only, in case a real client is refused. Needs `CHAT=1` to matter. |
 | `PROGRESSION_CONFIRM` | metagame | on | `off` | Diagnostic only. |
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
+| `SLAYER_LINKS` | metagame | on | `0` | Slayer Links. `0` puts back the 404 every `/slayerlink` route got before; the stored invites and links stay. |
+| `BALANCE_FROM_INVENTORY` | metagame | on | `0` | `/balance` and `/reconcile` report the currencies the character holds. `0` puts back the fixed sheet (Notes from the database, the rest 0). |
+| `PROGRESSION_REPLAY_WINDOW_S` | metagame | `10` (seconds) | `0` | A game server's grant repeated byte for byte within 10 seconds is answered, not added again. |
+| `PERSISTENT_WORLD_LIVENESS` | deploy server | on | `0` (only the watchdog restarts Ramsgate and the Dojo, as before) | A dead Ramsgate or Dojo is started again when a player travels there. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
 | `ENABLE_DOJO` | deploy server | Dojo starts on first use | `1` starts it at boot, as upstream did | Saves one game process while nobody trains. |
 
@@ -3695,6 +3699,13 @@ development are off.
 | Switch | Component | To turn it on | Why it is off |
 |:-------|:----------|:--------------|:--------------|
 | `CHAT` | metagame | `1` | In-game text chat. Built and tested without the game, not yet tried by two players; it goes on by default after that live test. |
+| `CHAT_PRESENCE` | metagame | `1` (with `CHAT=1`) | Friends' online status. It waits for a two-player test that the party's automatic kick stays asleep, and for chat itself. |
+| `ESCALATION_MODE` | metagame | `real` | Real Escalation saves. Switching it on drops every player from the fake maximum (level 25) to level 0: the owner's decision after the in-game test. |
+| `ESCALATION_STRICT` | metagame | `1` | Makes the Escalation rules that depend on our modelling refuse a save instead of warning. After the logs stay clean. |
+| `STORE` | metagame | `free` | The free in-game store. Waits for the decision free or priced (roadmap 3.7) and an in-game store test. |
+| `STORE_REPEATABLE_TOKENS` | metagame | `1` | Sells the bounty-token bundle any number of times: unlimited free premium bounty drafts. The owner's decision. |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | metagame | `1` | A rank confirm also grants the rank's permanent entitlements. Only if the in-game test shows the game server never grants them itself. |
+| `VERIFY_STUB_ACCOUNT` | metagame | `1` | A rollback only: the old placeholder account in `oauth/verify`. |
 | `MATCHMAKING_CANCEL` | metagame | `1` | Experimental. The client sends a cancel right after every queued join, and hunts start only because that cancel gets a 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | A rollback only: upstream's account info reply, which hides other players (party invites never show). |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Weaker check on guild creates, only if the live test shows the client never validates the final name. |
@@ -3733,6 +3744,22 @@ also warns while there are players with no stored progression yet; see the
 [upgrade notes](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#real-progression-default). With
 `GATEWAY_SECRET` set it runs the public-mode checks listed under that variable.
 
+After that come two lines for the settings added with the port of Harmonic's fork:
+
+```text
+features: bodyLogPerPath=no-cap escalation=stub escalationStrict=off store=off storeRepeatableTokens=off replayWindow=10s confirmEntitlements=off balanceFromInventory=on slayerLinks=on chatPresence=off verifyStubAccount=off
+Progression config: bundled, 10 tracks; active Hunt Pass season09b
+```
+
+Those switches (`BODY_LOG_PER_PATH`, `ESCALATION_MODE`, `ESCALATION_STRICT`, `STORE`,
+`STORE_REPEATABLE_TOKENS`, `PROGRESSION_REPLAY_WINDOW_S`, `PROGRESSION_CONFIRM_ENTITLEMENTS`,
+`BALANCE_FROM_INVENTORY`, `SLAYER_LINKS`, `CHAT_PRESENCE` and `VERIFY_STUB_ACCOUNT`) share one parser:
+on and off take `1`, `true`, `on` or `yes` and `0`, `false`, `off` or `no`, in any case; counts are
+whole numbers; unset or empty is the default. A value that does not parse logs one warning,
+`<NAME>="<value>" is not a valid value; using the default (<default>)`, and the default is used. A bad
+`PROGRESSION_CONFIG_DIR` or `ACTIVE_HUNT_PASS` stops the metagame instead (`The progression config
+could not be loaded: <reason>`, exit code 1), before the database is opened.
+
 ### Listening, logins and the database
 
 | Name | Default | Values | What it does | Set by |
@@ -3769,7 +3796,8 @@ also warns while there are players with no stored progression yet; see the
 |:-----|:--------|:-------|:-------------|:-------|
 | `LOG_LEVEL` | `info` (also when empty) | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` | Log threshold. | Nobody by default |
 | `LOG_REQUESTS` | on | `0` or anything else | **Fork only.** One line per request: `METHOD /path gs=0` (`gs=1` when the request carried the game-server key). Behind the gateway the line ends with ` via=gateway ip=<player address>`; other forwarded requests get ` via=proxy peer=<address>`. Only the path is logged, never the query string or headers, and token-shaped parts of the path are replaced. `0` turns it off. | Nobody by default |
-| `LOG_BODIES` | off | `1` or anything else | **Fork only.** `1` appends the request bodies of unfinished routes (progression, Hunt Pass, bounties, cooldowns, escalation, entitlements, loadout unlocks, store, SKUs and balance, matchmaking, party, friends, inventory and account lookups) to `BODY_LOG_FILE`: one JSON object per line with the time, method, URL (query string included), whether the game-server key was present, and the body cut at 8 KB (64 KB for inventory). Token-shaped strings are removed from the URL and the body. A development aid: the file records what players send, so keep it private and never turn it on for a public server. | Nobody by default; kit: forced to `0` in public mode, kept in private mode |
+| `LOG_BODIES` | off | `1` or anything else | **Fork only.** `1` appends the request bodies of unfinished routes (progression, Hunt Pass, bounties, cooldowns, Escalation, entitlements, loadout unlocks, the store (`/product`, `/token`, `/notification`), balance and `/reconcile`, Slayer Links, matchmaking, party, friends, inventory and account lookups) to `BODY_LOG_FILE`: one JSON object per line, `{t, method, url, gs, body, status, ms}` with the arrival time, method, URL (query string included), whether the game-server key was present, the body cut at 8 KB (64 KB for inventory), the reply's status and the time to answer in milliseconds (`"aborted": true` when the connection closed first). The line is written when the answer is done. Tokens, account keys (`UUK_...`) and other long token-shaped strings are removed from the URL and the body. A development aid: the file records what players send, so keep it private and never turn it on for a public server. | Nobody by default; kit: forced to `0` in public mode, kept in private mode |
+| `BODY_LOG_PER_PATH` | `0`: no cap | whole number | **Fork only.** With `LOG_BODIES=1`: at most this many lines per method and exact path (ids included) in one run of the metagame; the path's last line is followed by `body log: <METHOD path> reached BODY_LOG_PER_PATH=N; no more lines for it in this run`. For a client stuck in a loop. | Nobody by default |
 | `BODY_LOG_FILE` | `bodies.log` in the working directory | file path | Where `LOG_BODIES` writes. The file is never rotated. `UndauntedMetagame/bodies.log` is not git-ignored: point this outside the repository (for example `C:/dr/data/bodies.log`) and never commit the file. | Kit: always (`<root>/data/logs/bodies.log`) |
 
 ### Server identity
@@ -3796,6 +3824,31 @@ players from `GET /undaunted/api/ServerStatus` (see [HTTP API](https://mixutin.g
 | `PROGRESSION_CONFIRM` | on | `off` or anything else | `off` makes the rank-confirm route answer 404 again for real-mode accounts, as upstream did. A diagnostic switch; leave it unset. | Nobody by default |
 | `PROGRESSION_ALLOW_DELETE` | off | `1` or anything else | `1` lets game servers reset a progression track (the game sends that only from a debug command). Without it only an admin key can. With it on, any game-server call can wipe a player's track. | Nobody by default |
 | `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` when unset | comma-separated entitlement names; empty means none | Entitlements every real-mode account owns. `season09b_premium` is the Elite Hunt Pass. Each default is added to an account once, the first time its entitlements are read; removing a name later does not take it back, and a default an admin revoked stays revoked. | Nobody by default |
+| `PROGRESSION_REPLAY_WINDOW_S` | `10` | whole seconds; `0` turns it off | **Fork only.** The retry guard of `POST /progression/<account>`: a grant whose body is byte for byte the account's last grant, within this many seconds and with no other track write in between, gets the first grant's stored reply and adds nothing (the log says `repeats the grant of N s ago`; an audit row notes it). The game server retries a failed request up to 5 times. If the line shows up in normal play, not right after a network error, set `0`. | Nobody by default |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | off | on/off | **Fork only.** On: a Hunt Pass or mastery confirm that raises a rank also grants that rank's **permanent** entitlements from the progression config (for season09b: premium ranks 6, 9, 29 and 50 and free rank 50), with the source `confirm:<track>:<rank>`. Never items, currencies or timed entitlements (those are only noted). Off, because whether the game server grants them itself is not known yet (the in-game test: reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`). The confirm reply is the same either way. | Nobody by default |
+| `PROGRESSION_CONFIG_DIR` | unset: the bundled `vendor/progression_config.json` | a folder path | **Fork only.** A folder of `.json` files, each a progression path (a Hunt Pass season or a mastery track), a list of paths, or a whole config. A path replaces the bundled one with the same `progression_id`, a new id is added. Checked at startup; a missing folder, a folder without `.json` files, invalid JSON, a path without `progression_id` or `requirements`, ranks out of order, or an id twice stop the metagame. Read once; a change needs a restart. The formats are on [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#hunt-pass-seasons). Never edit a season in place while players have progress in it. | Nobody by default |
+| `ACTIVE_HUNT_PASS` | `season09b` | a loaded track id | **Fork only.** The Hunt Pass an account gets when none is stored (`GET /huntpass/<account>`, and the rank math's default). An id that is not a loaded track stops the metagame at startup. | Nobody by default |
+| `BALANCE_FROM_INVENTORY` | on | on/off | **Fork only.** On: `GET /balance` and `POST /reconcile` report, for each `CURRENCY_*` key (and its `id_currency_*` twin), the quantity of that stack held by the account's active character (the one saved last), and keep the old values for currencies it does not hold. Off: the old fixed sheet (Notes from the `users` table, weapon tokens 25, the rest 0). | Nobody by default |
+
+### Escalation
+
+All **fork only**, and read on every request. How Escalation is saved, and what players see, is on
+[Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html).
+
+| Name | Default | Values | What it does | Set by |
+|:-----|:--------|:-------|:-------------|:-------|
+| `ESCALATION_MODE` | `stub` | `stub` or `real`, any case; anything else is a warning and `stub` | `stub`: every account reads upstream's fake maximum (`escalation_level` 99999, which the game shows as the last level) and the save route answers 404, as before. `real`: accounts in real progression mode read and save their own seasons, under the save rules; stub-mode accounts keep the stub. **Switching to `real` drops every player from the fake maximum to level 0.** Restart the game servers with the metagame when you switch. | Nobody by default |
+| `ESCALATION_STRICT` | off | on/off | Only with `real`. Off: a save that breaks a soft rule (the XP below the next level's cost, the points spent within the level, the talent tier gates, rewards collected at their level) is stored, with a warning line and a note in the audit row. On: such a save is refused with 409. The hard rules always apply. | Nobody by default |
+
+### Store
+
+All **fork only**, and read on every request. How the store works is on
+[The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html).
+
+| Name | Default | Values | What it does | Set by |
+|:-----|:--------|:-------|:-------------|:-------|
+| `STORE` | `off` | `off` or `free`, any case; anything else is a warning and `off` | `off`: the store screen gets the old 400 and the purchase routes 404, as before. `free`: the catalogue of free offers in `vendor/store_catalog.json`, the purchase token and the confirm; items go to the account's active character. Before turning it on for real players, count the characters per account (the purchase goes to the character saved last). | Nobody by default |
+| `STORE_REPEATABLE_TOKENS` | off | on/off | Only with `free`. On: the bundle of 20 premium bounty tokens (`bundle_currency_bounty_small`) is listed and can be bought any number of times, which means unlimited free premium bounty drafts. Off: it is not listed and answers 404, and a token issued while it was on is refused (409). | Nobody by default |
 
 ### Saves and inventory
 
@@ -3824,6 +3877,8 @@ each reply does in the game.
 | `GUILD_RESERVED_NAMES` | on | `0` or anything else | Staff and project words (such as `admin`, `moderator`, `official`, and the nameplates `GM`, `DEV`, `MOD`) answer "already in use", so no guild can pose as the server's staff. `0` allows them, for example to create an official guild; the short offensive tags stay refused. The lists are on [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#guilds). | Nobody by default |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | off | `1` or anything else | A guild create from the game server is accepted only when the leader validated that exact name and nameplate with their own token in the last 15 minutes. `1` also accepts a leader who validated another name or was heard from in the last minute, with a warning in the log. Only for the case where the live test shows the client never validates the final name (the refusal is logged as "no validate of this name"); with it on, a modified client could name another online player as a guild's leader. | Nobody by default |
 | `PARTY_SOLO_STUB` | on | `0` or anything else | A player alone in their party gets upstream's placeholder candidate (`QUEUED_FOR_START`), which is proven harmless for queueing hunts. The client refuses to send a party invite while it thinks its party is matchmaking; if Invite to Party does nothing for a player on their own (no `party: invite` line in the log), `0` answers a party of one with no candidate instead. | Nobody by default |
+| `SLAYER_LINKS` | on | on/off | Slayer Links: the eight `/slayerlink` routes ([what they do](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links)). Off: every one answers 404, as before; the stored invites and links stay and come back with the switch. | Nobody by default |
+| `VERIFY_STUB_ACCOUNT` | off | on/off | `GET /account/api/oauth/verify` (the client's regular session check) names the account of the token it came with, and answers the old placeholder with 200 for a missing or bad token. On: the old placeholder `account_id` for everyone, a rollback in case the new reply causes logouts or reconnect loops. | Nobody by default |
 
 ### Chat
 
@@ -3841,6 +3896,7 @@ one `chat: not started ...` error line, and the metagame runs on without chat.
 | `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` or `::1`; with `GATEWAY_SECRET` set (public mode) only `127.0.0.1` | The listener's address. Anything else, `0.0.0.0` included, keeps chat off. Private mode (Tailscale) is not supported yet. | Kit: always `127.0.0.1` in public mode |
 | `CHAT_NICK_CHECK` | `enforce` | `enforce` or `log`; anything else counts as `enforce` with a warning | `enforce` refuses a room join whose nickname is not `<the account's username>:<its account id>:<its resource>` ([why](https://mixutin.github.io/dauntless-revived/findings/chat.html#nickname-check)). `log` admits a nickname that fails the resource, format or name rule, with one warning line per connection and room: a rollback switch in case the live test shows a real client being refused. A nickname with another account's id is refused in both modes (a real client never builds one). | Nobody by default |
 | `CHAT_TRACE` | off | `1` or anything else | `1` logs every chat frame in and out, cut at 2 KB, with the login, passwords, message text (`[N chars]`) and tokens replaced. For the first live runs only. | Nobody by default |
+| `CHAT_PRESENCE` | off | on/off (`1`, `true`, `on`, `yes` / `0`, `false`, `off`, `no`) | Friends' online status ([how](https://mixutin.github.io/dauntless-revived/findings/chat.html#presence)): each player's own presence is relayed to their online, accepted, unblocked friends, never back to the player's own account, and an HTTP friend accept is pushed over chat. Needs `CHAT=1`; without it the metagame logs `chat: CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online` and nothing else happens. Read when the chat server starts. Off: not one presence stanza outside rooms. It stays off until the two-player test that the party's automatic kick stays asleep. | Nobody by default; the kit's `Set-Chat.ps1` does not set it |
 
 **Limits** (fixed in the code):
 
@@ -3902,6 +3958,7 @@ game-server key included.
 | `METAGAME_API_KEY` | none. Unset: game servers cannot talk to the metagame. | the game-server key (48 hex characters as generated) | **Secret: never share, never commit.** Passed to every game server as its first command-line argument; the server DLL sends it with every request to the metagame, which stores only its SHA-256. It must match `gameserver.key` and be registered in the metagame's database. Local users can see it in the game servers' command lines. | You ([Host a server](https://mixutin.github.io/dauntless-revived/setup/host.html#metagame)); kit: always (kept from the backup, the key file or the old file, otherwise new) |
 | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` | none. Unset: effectively no gap. | seconds; decimals work | Minimum gap between two game-server launches. All launches wait in one queue, so the third hunt requested at the same moment starts about two gaps later. | You (10); kit: 10 when missing or empty, a hand-set value is kept |
 | `ENABLE_DOJO` | on demand | `1` or anything else | **Fork only.** `1` starts the Training Dojo at boot, as upstream did. Anything else: it starts the first time someone is matchmade into it, and the watchdog restarts it from then on. | You (0); kit: 0 when missing, kept otherwise |
+| `PERSISTENT_WORLD_LIVENESS` | on | `0`, or anything else for on | **Fork only.** On: before Ramsgate or the Dojo is handed to a player, the deploy server checks that its process is alive and starts a dead one first, through the one launch the boot and the watchdog also use (never two processes on 8777). The startup line says `Ramsgate and Dojo liveness check before handing them out: on`. `0`: they are handed out unchecked and only the watchdog restarts them, within a minute, as before. | Nobody by default; kit: kept |
 | `LOG_LEVEL` | `info` (also when empty) | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` | Log threshold. At `info` the matchmaking line lists the expected players' account ids; the key is never logged. | Nobody by default; kit: kept |
 | `NODE_ENV` | unset: coloured readable logs | `production` or anything else | `production`: JSON log lines, and no stack traces in error pages. | You; kit: always `production` |
 
@@ -4058,6 +4115,12 @@ Other rules:
 - Chat: `-Chat On` or `-Chat Off`, else the existing install's `server.json` (`"Chat"`), else Off. The
   choice is saved in `server.json`. `Set-Chat.ps1 -On` or `-Off` changes it later, in both
   `metagame.env` and `server.json`. Private mode has no chat yet.
+- The installer writes none of the switches added with the port of Harmonic's fork (`ESCALATION_*`,
+  `STORE*`, `SLAYER_LINKS`, `CHAT_PRESENCE`, `VERIFY_STUB_ACCOUNT`, `BALANCE_FROM_INVENTORY`,
+  `PROGRESSION_REPLAY_WINDOW_S`, `PROGRESSION_CONFIRM_ENTITLEMENTS`, `PROGRESSION_CONFIG_DIR`,
+  `ACTIVE_HUNT_PASS`, `BODY_LOG_PER_PATH`, and `PERSISTENT_WORLD_LIVENESS` in `deployserver.env`), so
+  their defaults apply. Add one by hand to change it; it is kept across re-runs and updates
+  ([Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html#switching-features-on)).
 
 | File | Written | Always set by the installer | Set only when missing | Removed | Kept (yours) |
 |:-----|:--------|:----------------------------|:----------------------|:--------|:-------------|
@@ -4156,6 +4219,12 @@ Only the automated tests read these. How to run the tests is in the
 - `EXPERIMENTAL_CHAT` switched on the first chat prototype. Nothing reads it now: the switch is
   [`CHAT`](https://mixutin.github.io/dauntless-revived/reference/configuration.html#metagame-chat), and the metagame warns at startup when it finds the old name without the
   new one.
+- Harmonic's 1.4.4 fork has settings we did not take ([why](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html)):
+  `WIRE_CAPTURE`, `WIRE_CAPTURE_MAX_BODY` and `WIRE_CAPTURE_MAX_PER_PATH` (our `LOG_BODIES` and
+  `BODY_LOG_PER_PATH` do that job), `HUNT_PASS_SEASONS_DIR` (ours is `PROGRESSION_CONFIG_DIR`),
+  `HUNT_PASS_PREMIUM_MODE`, `XMPP_PORT`, and in the deploy server `ENABLE_WATCHDOG`, `HOST`,
+  `GAMESERVER_LOG_DIR`, `GAMESERVER_LOG_CMDS` and `METAGAME_ADDRESS`; in his DLL, `UNDAUNTED_DIAG_LOG`.
+  Nothing here reads them.
 
 ================================================================================
 URL: https://mixutin.github.io/dauntless-revived/reference/ports.html
@@ -4239,8 +4308,8 @@ argument.
 
 | Port | Game server | Started |
 |:-----|:------------|:--------|
-| 8777 (`PORT_RANGE_END`) | Ramsgate | When the deploy server starts. The deploy server's watchdog (every 60 seconds) restarts it on the same port if it exits. |
-| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | On first use, or at startup with `ENABLE_DOJO=1`. Restarted on the same port by the watchdog. |
+| 8777 (`PORT_RANGE_END`) | Ramsgate | When the deploy server starts. If it exits, it is started again on the same port when a player travels there (`PERSISTENT_WORLD_LIVENESS`, on) or by the deploy server's watchdog (every 60 seconds), whichever comes first; both share one launch, so there is never a second process on the port. |
+| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | On first use, or at startup with `ENABLE_DOJO=1`. Restarted on the same port the same way. |
 | 8770-8775 (`PORT_RANGE_BEGIN` to `PORT_RANGE_END` - 2) | Hunts and the tutorial | One process per group of up to 4 players, from a pool of free ports, highest first (8775, then 8774, ...). |
 
 - **Listening address.** The server DLL opens the port with no host, so the game server listens on
@@ -4250,8 +4319,9 @@ argument.
 - **The port goes back to the pool** when the watchdog notices that the hunt process has exited, so up
   to a minute later. A hunt server exits after 50 seconds in total with nobody connected.
 - **When the pool is empty**, the deploy server answers the metagame with an HTTP 500
-  (`No free ports left!` in its log), and the metagame marks that group's search as failed: its status
-  poll answers `FAILED`. Six hunts can run at once with the default range.
+  `{"error": "no_game_server"}` (`Matchmaking for ... failed: No free ports left!` in its log), and the
+  metagame marks that group's search as failed: its status poll answers `FAILED`. Six hunts can run at
+  once with the default range.
 - **Keep `PORT_RANGE_END=8777`.** The server DLL turns its 50-second idle exit off for any port of
   8776 or above. That is how Ramsgate and the Dojo stay up. With a higher end, hunts on 8776 and up
   would never exit; with a lower end, Ramsgate and the Dojo would exit when idle and be restarted over
@@ -4735,6 +4805,11 @@ What follows from this:
   address listed in `GAMESERVER_ALLOW_FROM`. It is never accepted with a proxy header. Anyone else
   gets 403 before the key is checked; a wrong key gets 401.
 - The gateway answers 403 to any request that carries the header at all, whatever its value.
+- When a game server's write names one account in the URL but forwards the token of another, the
+  metagame keeps the write for the URL's account and logs it (`Game server <what> for <account> carries
+  the token of <other account>: accepted for <account>, the account the request names`, at most once a
+  minute per pair). It never refuses such a write: a refusal could lose a save in a hunt with several
+  players.
 - A game-server request whose forwarded player token has expired or is malformed gets 500, not 401:
   on this path the token is checked without error handling. This is why game-server saves fail once
   a player's token is older than 24 hours (see
@@ -4796,9 +4871,14 @@ it, and everyone else gets upstream's fixed max ranks
   include a stack trace unless `NODE_ENV=production`.
 - Each request is logged as `<METHOD> <path> gs=0|1` (`gs=1` when it carries the game-server key),
   with tokens in the path replaced; `LOG_REQUESTS=0` turns this off. `LOG_BODIES=1` also writes the
-  bodies of some game routes (among them the party, friends, guild, `/account/mapping` and
-  `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That
-  file still holds player data: keep it private.
+  bodies of some game routes (among them the party, friends, guild, store, Escalation, Slayer Link,
+  `/account/mapping` and `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`), one
+  line per request once it is answered, with the reply's status and duration, and with tokens and
+  account keys removed. `BODY_LOG_PER_PATH` caps the lines per path. That file still holds player data:
+  keep it private.
+- A request under `/progression` that no route answers is logged as a warning
+  (`Unhandled progression request <METHOD> <path> from a game server` or `from a player`) before the
+  usual 404.
 - Many game routes answer `{"code": null, "message": "OK", "payload": ...}`, as the original backend
   did. [Backend contract](https://mixutin.github.io/dauntless-revived/findings/backend-contract.html) has the shapes the client expects.
 - These settings change which routes answer. Each needs a restart;
@@ -4816,6 +4896,14 @@ it, and everyone else gets upstream's fixed max ranks
 | `ACCOUNT_MAPPING` | unset: on | `0` makes `POST /account/mapping` map nothing (`accountMappings: {}`), the old effective behaviour. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | unset: off | `1` puts back upstream's `POST /accountinfo/public` reply: the caller's own id, and 200 with an empty name for an unknown id. |
 | `GUILDS` | unset: on | `0` puts back the old guild stubs (`GET /guild` 204, `GET /guild/invite/player` an empty list); every other guild route, and the three guild routes of the management API, answer 404. |
+| `ESCALATION_MODE` | unset: `stub` | `real` stores Escalation for real-progression accounts: `GET /escalation/...` reads the stored season and `POST /escalation/...` exists (404 otherwise). |
+| `STORE` | unset: `off` | `free` turns on the four store routes; with `off` the storefront answers the old 400 and the three purchase routes 404. |
+| `STORE_REPEATABLE_TOKENS` | unset: off | `1` lists and sells the bounty-token bundle (only with `STORE=free`). |
+| `SLAYER_LINKS` | unset: on | `0` makes every `/slayerlink` route answer 404, as before. |
+| `VERIFY_STUB_ACCOUNT` | unset: off | `1` puts back the fixed placeholder `account_id` in `GET /account/api/oauth/verify`. |
+| `BALANCE_FROM_INVENTORY` | unset: on | `0` puts back the fixed currency sheet in `GET /balance` and `POST /reconcile`. |
+| `PROGRESSION_REPLAY_WINDOW_S` | unset: `10` | The retry guard of `POST /progression/:userId`; `0` turns it off. |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | unset: off | `1` makes a rank confirm also grant that rank's permanent config entitlements. |
 
 ## Metagame: game routes
 
@@ -4829,7 +4917,7 @@ work on the host.
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
 | POST | `/account/api/oauth/token` | none (the key is in the body) | The login: `exchange_code` = account key, answered with a 24-hour `access_token` (see [Login](https://mixutin.github.io/dauntless-revived/reference/api.html#login)). 400 for an unknown key. |
-| GET | `/account/api/oauth/verify` | none | A fixed `{"active": true, ...}` with a fixed `account_id`. It checks no token. |
+| GET | `/account/api/oauth/verify` | optional token | The client's regular session check. With a valid player token: `{"active": true, ...}` whose `account_id` is that player's own account. Without a token, or with a malformed, expired or foreign one: the old fixed reply with a placeholder `account_id`, still 200 (never 401; a bad or expired token is logged at most once a minute). `expires_at` stays far in the future. `VERIFY_STUB_ACCOUNT=1` answers the placeholder to everyone. |
 | DELETE | `/account/api/oauth/sessions/kill` | none | Answers `{}`. Revokes nothing. |
 | DELETE | `/account/api/oauth/sessions/kill/:token` | none | The same. The token in the path is replaced by `<token>` in the metagame's and the gateway's logs. |
 | GET | `/account/api/public/account` | token | Without a query: the caller's own Epic-style account record, `displayName` = username. With `?accountId=A&accountId=B` (at most 100): an array of `{id, displayName, externalAuths}` for the accounts that exist. |
@@ -4850,7 +4938,7 @@ work on the host.
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
 | GET | `/dauntless-status` | none | The status banner the client shows (`show-status` and a welcome to the server by its name, `Welcome to <SERVER_NAME>!`, translated into eight languages), plus `name`, `version`, `commit` and `sourceUrl` (the AGPL source link) unless `STATUS_EXTRA=0`. No player data. Host scripts use it as a health check. |
-| POST | `/heartbeat` | token | Body `{map, state?}`, every 20 seconds. Marks the player online for 90 seconds and keeps them in their party. Answers the text `20000`. A game server's heartbeat without a player token records nothing. Through the gateway, a 2xx answer to a request with a bearer token opens the game ports for the player's address. |
+| POST | `/heartbeat` | token | Body `{map, state?}`, every 20 seconds. Marks the player online for 90 seconds and keeps them in their party. Answers the text `20000`. A game server's heartbeat without a player token records nothing. Through the gateway, a 2xx answer to a request with a bearer token opens the game ports for the player's address, so a missing or bogus token must get 401 (a test guards this). |
 | POST | `/event` | none | Telemetry sink. Answers `{}`. |
 | POST | `/account/migrate` | token | Answers `{migration_failed: false, migration_finished: true}`. |
 | POST | `/profile/update` | token | Empty 200 (leaderboard profile). |
@@ -4858,7 +4946,6 @@ work on the host.
 | POST | `/motd/` | token | 204: no message of the day. |
 | GET | `/motd/trigger` | none | 204: no after-hunt news. 404 with `MISC_ROUTES=0`. |
 | GET | `/playertreatments/:userId` | token | A fixed cohort list. |
-| GET | `/escalation/:season/:userId` | token | A fixed escalation level. Nothing is stored. |
 | GET | `/eventstats/` | token | Answers `{stats: []}`. |
 | GET | `/all/` | token | An empty mailbox. |
 | GET | `/game_tuning/seasonal_event_schedule` | none | No scheduled events. |
@@ -4875,10 +4962,27 @@ work on the host.
 | POST | `/inventory` | token | One inventory transaction: `{characterId, transactionId, addInstancedItems, addStackedItems, removeInstancedItems, removeStackedItems, saveInstancedItems, source}`, plus `accountId` from a game server (ignored for a player). A repeated `transactionId` gets the stored answer and changes nothing. `INVENTORY_REFUSE_OVERSPEND` and `INVENTORY_REPORT_REMOVALS` tune it. |
 | POST | `/inventory/instanceditem` | token | Updates one item: `{characterId, instanceId, catalogId, itemData, updateVersion}`, plus `accountId` from a game server. |
 | POST | `/inventory/:characterId/:changeList` | token | Inventory migration stub. Answers `{code: null, message: ""}`. |
-| POST | `/reconcile` | token | The caller's notes balance. |
-| GET | `/balance` | token | Every currency: notes from the database, 25 weapon tokens, the rest 0. |
+| POST | `/reconcile` | token | `{balances: {id_currency_notes, CURRENCY_NOTES}, refreshInventory: true}`. With `BALANCE_FROM_INVENTORY` (on by default) each key is the quantity of that currency's stack (`CURRENCY_NOTES`, the Rams) in the inventory of the account's active character, the one saved last; a currency the character does not hold keeps the old value (the notes column of `users`). `0`: the old values only. |
+| GET | `/balance` | token | The currency sheet: the same 52 keys as before (both spellings, `CURRENCY_X` and `id_currency_x`). With `BALANCE_FROM_INVENTORY` (on) every key whose `CURRENCY_*` stack the active character holds reports that quantity; the others keep the old values (notes from the database, 25 weapon tokens, the rest 0). No key is added, removed or reordered. `CURRENCY_PLATINUM_UNIV` is not mapped. `0`: the old fixed sheet. |
 | GET | `/creator` | token | A fixed support-a-creator reply. |
-| GET | `/product/skus/public` | token | 400: there is no store. |
+
+### Store
+
+The in-game store ([The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html)). **Only with
+`STORE=free`**; with `STORE=off` (the default) the storefront answers the old 400
+(`{"code": "400", "message": "The store is not available on Dauntless Revived yet."}`) and the other
+three routes the empty 404. Every route acts for the player of the bearer token: no token 401, the
+game-server key alone 403. Refusals are `{"code": "<status>", "message": ...}`.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/product/skus/public?requiredTags=<tag>` | player | The offers of one tag, as a bare array, each with `remaining` (0 when every item it grants is held by the active character and every entitlement it grants is active). The store screen asks for `webstore` (200 offers; the Elite pass is under `season09b_pass`). An unknown tag is `[]` and a warning; no tag is 400. |
+| GET | `/product/sku/:skuId` | player | One offer, from any tag; 404 for an unknown one (or the bounty-token bundle while `STORE_REPEATABLE_TOKENS` is off). |
+| GET | `/token/:currency/:skuId` | player | `{purchaseToken}`: 64 hex characters, valid 10 minutes, bound to the account's active character and to the offer as it is now (a row in `storepurchases`, which stores only the token's SHA-256). `currency` must be `platinum` (400); only free offers of allowed items are sold (409); 404 for an unknown offer; 409 when the account has no character. |
+| POST | `/notification/:currency?token=<token>` | player | Redeems the token and answers 204 with no body. In one transaction: the items through the inventory core (caller `store`, source `store:<sku>`, transaction id `store:<token hash>`; items the character already holds are skipped), the entitlements through the entitlement grant (source `store:<sku>`), then the token is marked redeemed. 403 for another account's or an unknown token, or one whose character is no longer the account's; 410 when it expired; 409 when the offer changed or is no longer sold; 400 for a malformed token or another currency. A token redeemed before answers 204 again and grants nothing. |
+
+The purchase token is removed from every log line (the request log never logs the query string, the
+gateway blanks `token=`, and the body log blanks it too).
 
 ### Progression, Hunt Pass, entitlements, cooldowns and bounties
 
@@ -4888,17 +4992,19 @@ routes answer 404. The marks are explained under [Access labels](https://mixutin
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
-| GET | `/progression/config` | token | The progression configuration (tracks and ranks), from the metagame's own copy of the game's config. |
+| GET | `/progression/config` | token | The progression configuration (tracks and ranks), from the metagame's own copy of the game's config, or with `PROGRESSION_CONFIG_DIR` from that folder's season files (checked at startup; see [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#hunt-pass-seasons)). Unchanged bytes without the folder. |
 | GET | `/progression/:userId` | token, own | Every track, stored or at 0. Stub: fixed max ranks for the caller. |
-| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
+| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. **Retry guard:** a body byte for byte equal to the account's last grant, within `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets that grant's stored reply and adds nothing (an audit row notes it). An objective lower than the stored one is logged and stored as sent. A relayed player token of another account is logged, never refused. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
 | GET | `/progression/:userId/:progressionId` | real only, token, own | One track; 404 if none is stored. |
 | POST | `/progression/:userId/:progressionId/:amount` | real only, token, game server | Adds `amount` to one track, up to `PROGRESSION_GRANT_CAP`. |
-| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | real only, token, game server | Confirms a free or premium rank. 404 with `PROGRESSION_CONFIRM=off`. |
+| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | real only, token, game server | Confirms a free (`public`) or premium rank. It grants nothing: the game server pays rank rewards through `/inventory` itself. With `PROGRESSION_CONFIRM_ENTITLEMENTS=1`, a confirm that raises the rank also grants the newly confirmed ranks' permanent config entitlements (never items, currencies or timed ones); the reply is the same. 404 with `PROGRESSION_CONFIRM=off`. |
 | DELETE | `/progression/:userId/:progressionId` | real only; admin key, or the game-server key with `PROGRESSION_ALLOW_DELETE=1` | Resets one track. If `x-undaunted-user-api-key` is present, the admin-key check applies. Otherwise it needs the game-server key and `PROGRESSION_ALLOW_DELETE=1` (403 without). The game only sends it from a debug command. |
 | GET | `/progression/objectives/:userId` | token, own | The stored objectives. Stub: mastery tracks at max and no objectives. |
 | GET | `/progression/objectives/:userId/:objectiveId` | token, own | One objective, zeros if none is stored. Stub: fixed values. |
-| GET | `/huntpass/:userId` | token, own | The selected Hunt Pass, `season09b` unless another one is stored. |
+| GET | `/huntpass/:userId` | token, own | The selected Hunt Pass: the stored one, else `ACTIVE_HUNT_PASS` (default `season09b`). |
 | POST | `/huntpass/:userId` | real only, token, game server | Stores the Hunt Pass selection. |
+| GET | `/escalation/:season/:userId` | token; own with `ESCALATION_MODE=real` | `ESCALATION_MODE=stub` (default), and accounts in stub progression mode: the fixed reply `{code: null, message: "OK", payload: {escalation_level: 99999, next_level_xp: 99999, talents_progress: [], unlock_progress: [], update_version: 1}}` to anyone, nothing stored. `real`: the stored season in the same envelope, or level 0 with version 0 when nothing is stored (a read creates no row); 404 `{code: "404", ...}` for a season not in the registry ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html)). |
+| POST | `/escalation/:season/:userId` | only with `ESCALATION_MODE=real`; real only, token, game server | Saves the whole season `{escalation_level, next_level_xp, talents_progress: [{rank, talent_id}], unlock_progress: [{collected, reward_id}], update_version}` and answers the stored state. 400 for a malformed save, 404 for an unknown account or season, 409 for a disabled season (Frost), an older version, the same version with other content, lower progress, an un-collected reward or a first save carrying the old stub values; the same version with the same content is answered with the stored state (a retry). `ESCALATION_STRICT=1` also refuses (409) what breaks a soft rule. Every save, answered or refused, is a `progression_events` row. With `stub` the route falls through to the empty 404. |
 | GET | `/entitlementsv2` | token | The entitlements of the token's account (a game server must forward the player's token). Real: a flat `{entitlements: [...]}` without expired ones. Stub: an empty list. |
 | POST | `/entitlementv2/:userId` | token, game server | Grants `{entitlement, duration}` (hours; 0 or none = permanent) and answers the account's full list. 404 for an unknown account. Stub: an empty reply. |
 | DELETE | `/entitlement/:userId/:entitlement` | real only, token, game server | Revokes an entitlement. |
@@ -4960,7 +5066,7 @@ a party of one with no candidate instead (see [Configuration](https://mixutin.gi
 | POST | `/party` | player | The party poll, about every 10 seconds: the caller's party, or a party of one. |
 | GET | `/party/invites` | optional token | The caller's pending invites. Without a valid token: `{invitations: []}`. |
 | PUT | `/party/invite` | player | Invites `{recipientPlayerId}` to the caller's party. Leader only. |
-| PUT | `/party/invite/accept/:inviteId` | player | Accepts one of the caller's own invites. |
+| PUT | `/party/invite/accept/:inviteId` | player | Accepts one of the caller's own invites (the id the client sends is the party's). With no live invite, a repeated accept is answered 200 with the caller's party when the caller is already in a party of two or more and the id is that party's or another member's; otherwise 404. |
 | DELETE | `/party/invite` | player | Declines an invite, or withdraws one the caller sent. |
 | DELETE | `/party/member` | player | The caller leaves their party. |
 | DELETE | `/party/member/:memberId` | player | Removes a member. Leader only. |
@@ -4971,8 +5077,10 @@ a party of one with no candidate instead (see [Configuration](https://mixutin.gi
 ### Friends
 
 The Epic-style friends service. Friendships and blocks are stored in the database (at most 200 of
-each per account). Everyone shows as offline: online status needs presence over the chat connection,
-which the [chat server](https://mixutin.github.io/dauntless-revived/reference/api.html#chat) does not send yet.
+each per account). Everyone shows as offline unless friends' online status is on in the
+[chat server](https://mixutin.github.io/dauntless-revived/reference/api.html#chat) (`CHAT=1` and `CHAT_PRESENCE=1`, off by default): online status comes only from
+presence over the chat connection. An unfriend or a block also cancels the waiting
+[Slayer Link](https://mixutin.github.io/dauntless-revived/reference/api.html#slayer-links) invites between the two.
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
@@ -5112,6 +5220,35 @@ hand the guild over (they become an Officer). The invite list leaves out, and ac
 `UninvitedAdorableQuillshot` for, any invite between blocked players or whose inviter is no longer a
 Leader or Officer of that guild.
 
+### Slayer Links
+
+Two friends link up for a week (the My Links tab; how the client reads each reply is on
+[Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links)). Stored in the
+database (tables `slayerlinkinvites` and `slayerlinks`). On by default; with `SLAYER_LINKS=0` every
+route below falls through to the empty 404 and the stored rows stay. Every route acts as the player of
+the bearer token (no token 401, the game-server key alone 403); ids in a body or path only name the
+other player. Replies use the envelope `{code: null, message: "OK", payload}`; refusals are
+`{code: "<status>", message, payload: null}`.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/slayerlink/status_good` | player | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: the two lists below together, the client's poll for news. |
+| GET | `/slayerlink/invites` | player | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: the caller's pending, unexpired invites; `account_id` is the other player, `direction` `Sent` or `Received`, `status` `Pending`, `slot` the sender's slot. |
+| GET | `/slayerlink/links` | player | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: running links, by the caller's slot; both id keys name the other player. |
+| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (0-2). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
+| POST | `/slayerlink/invite` | player | `{account_id, action, slot, action_source}` with `action` `accept` or `reject` (the invited player; `account_id` is the sender) or `cancel` (the sender; `account_id` is the invited player). A `link_id` or `invite_id` in the body is tried first. An accept takes the body's `slot` when it is free, else the first free one. Answers `{link_id}`; repeating the same answer is 200 again. |
+| DELETE | `/slayerlink/invites/:accountId` | player | With the caller's own id: withdraws every invite the caller sent and declines every one received. With another player's id: only the invites between the two. Answers `{}`. |
+| DELETE | `/slayerlink/links` | player | `{account_id, slot, delete_pair}` (or the same as a query): ends the caller's link in that slot or with that player, for both players. Answers `{}`, also when there was nothing to remove. |
+| POST | `/slayerlink/availability` | player | `{account_ids: [...]}` (at most 50) → `{availability: [{account_id, available}]}`: which of them the caller could invite now. |
+
+Rules: both players must be accepted friends and neither may have blocked the other (403); 3 slots
+per player and one waiting invite per slot; an invite lasts 24 hours and a link 168 hours; unfriending
+or a block cancels the waiting invites between the two (a running link stays until it ends). Other
+refusals: 400 (no account id, a slot outside 0-2, an unknown action), 404 (no such account or
+invite), 409 (yourself, the slot is taken or has a waiting invite, already linked, the other player
+already invited you, no free slot, the invite ran out or was answered). **Not answered** (404): the
+reward routes `PUT /slayerlink/links/rewards` and `GET /slayerlink/links/rewards/:accountId/:slot`.
+
 ## Metagame: the management API
 
 All of these live under `/undaunted/api/` on the metagame; the paths below are relative to it.
@@ -5250,13 +5387,20 @@ its login.
 | `<presence type="unavailable" to="Room@...">` (leave) | The others get the leaver's unavailable presence; the leaver gets its own with status 110. |
 | `<message type="groupchat" to="Room@muc.<domain>">` | Delivered to every occupant, the sender included, from `Room@muc.<domain>/<sender's nickname>`, with the same `id`. Not to occupants who blocked the sender. |
 | `<message type="chat" to="<account>@<domain>[/<resource>]">` (whisper) | Delivered from the sender's full JID to that session, or to every session of the account. Not delivered, with no error, when the player is offline or either player blocked the other. |
-| A broadcast `<presence>` (no `to`) | Recorded and dropped: never echoed or relayed. Online status is not built yet. |
+| A broadcast `<presence>` (no `to`) | With `CHAT_PRESENCE` off (the default): recorded and dropped, never echoed or relayed. With `CHAT_PRESENCE=1`: relayed from the sender's full JID, `<show>` and `<status>` unchanged, to the sessions of each accepted, unblocked friend that have sent a presence of their own; at a session's first presence it also gets theirs. Never to a session of the sender's own account. |
+| `<presence type="unavailable">` (no `to`), or the connection ends | With `CHAT_PRESENCE=1`: `type="unavailable"` from the full JID to the same friends, then the presence of the account's other session if it has one. |
 | `<iq>` ping, session or anything else | An empty `result` with the same `id`. |
 | `<close/>` | `<close/>`, then the connection closes. |
 
 After 50 s of silence the server pings the client, and ends the connection when another 100 s pass
 without an answer (the client answers from its game-thread tick, which a map load holds up). A client
 that stops reading is sent nothing more once 256 KiB wait unsent, and its connection ends.
+
+**Pushed by the server, only with `CHAT_PRESENCE=1`:** when a friend request is accepted over HTTP,
+every session of both players gets `<message from="xmpp-admin@<domain>">` whose body is the client's
+friends-list update `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId",
+"status": "ACCEPTED", "direction", "created"}, "timestamp"}`, and the two exchange presences; an
+unfriend or a block sends each the other's unavailable. Details: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#presence).
 
 **Rooms.** `City-<id>`, `Hunt-<id>` and `General<id>` are open to every signed-in player,
 `Party-<partyId>` only to that party's members and `Guild-<guildId>` only to that guild's. All live on
@@ -5288,7 +5432,7 @@ its port.**
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
-| POST | `/api/matchmaker/handle-matchmaking-for-player` | none; loopback only | Body `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (at most 16 account ids). Starts or picks a game server and answers `{host, port}`, where `host` is `MY_IP`. `CITY`: Ramsgate. `SHARED` with the hunt id `ShatteredIsles_TrainingDojo`: the Dojo, started on first use (or at boot with `ENABLE_DOJO=1`). `ISLAND` with game args: the map in the args (the tutorial). `ISLAND` with a hunt id and expected players: a new hunt server. Anything else: Ramsgate. 400 `{error: "bad_request", message}` for input that fails the checks. |
+| POST | `/api/matchmaker/handle-matchmaking-for-player` | none; loopback only | Body `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (at most 16 account ids). Starts or picks a game server and answers `{host, port}`, where `host` is `MY_IP`. `CITY`: Ramsgate. `SHARED` with the hunt id `ShatteredIsles_TrainingDojo`: the Dojo, started on first use (or at boot with `ENABLE_DOJO=1`). `ISLAND` with game args: the map in the args (the tutorial). `ISLAND` with a hunt id and expected players: a new hunt server. Anything else: Ramsgate. Before handing out Ramsgate or the Dojo it checks that the process is alive and starts a dead one first (`PERSISTENT_WORLD_LIVENESS`, on), through the same single launch the boot and the watchdog use. 400 `{error: "bad_request", message}` for input that fails the checks; 500 `{error: "no_game_server"}` when no game server could be started (no free hunt port, a spawn that failed). |
 | GET | `/gameservers` | none; loopback only | The running game servers: `{servers: [{id, port, kind, map, gameMode, behemoth, huntId, matchmakerHuntId, expectedPlayers, maxPlayers, startedAt}]}`, with `kind` = `city`, `hunt`, `dojo` or `tutorial`. It lists account ids, so it is for the metagame only. |
 
 - The metagame calls it over plain HTTP, without credentials, at `DEPLOYSERVER_URL` (`host:port`, no
@@ -5298,8 +5442,11 @@ its port.**
   game server's command line.
 - It answers as soon as the process is spawned, not when the server is ready. Launches are queued
   `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` apart.
-- When no hunt port is free, the request fails with 500 (the deploy server logs `No free ports
-  left!`), and the metagame answers the players' status polls with `FAILED`.
+- When no hunt port is free, or the game server could not be spawned, the request fails with 500
+  `{error: "no_game_server"}` (the deploy server logs `Matchmaking for <mode> <hunt> failed: No free
+  ports left!` or the spawn error), and the metagame answers the players' status polls with `FAILED`.
+  So does any other failure of this call: another status, a reply without a host, a quoted port, a
+  body that is not JSON or a dropped connection.
 - There is no catch-all: an unknown path gets Express's default HTML 404. JSON bodies are limited to
   Express's default of 100 kB. Errors include stack traces unless `NODE_ENV=production`.
 
@@ -5522,12 +5669,12 @@ them are named `dauntless-revived-*` (for example `dauntless-revived-metagame`).
 
 | Folder | What it holds | Build output (git-ignored) |
 |:-------|:--------------|:---------------------------|
-| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends, guilds, the `/undaunted/api` admin API and the game's text chat (`src/realtime/`, an XMPP listener in the same process, on when `CHAT=1`). `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json` and the generated `hunt_titles.json`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
+| `UndauntedMetagame/` | The backend the game talks to (TypeScript, Express): accounts, saves, progression, matchmaking, parties, friends, guilds, the `/undaunted/api` admin API and the game's text chat (`src/realtime/`, an XMPP listener in the same process, on when `CHAT=1`). `src/db/schema.ts` defines the database, `src/drizzle/` holds its migrations, `src/vendor/` the game's `progression_config.json`, the generated `hunt_titles.json`, and the data from Harmonic's 1.4.4 fork: `escalation/seasons.json` (the Escalation season registry), `store_catalog.json` (the free store's offers) and `store_item_kinds.json` (how each store item is granted). `test/data/store_art_skus.json` lists the store SKU ids with a 2:1 tile image, for a test. The build copies `src/vendor/` to `dist/vendor/`. `scripts/` has `write-build-info.js` and `make-hunt-titles.js`. | `dist/` (with `dist/build-info.json`), `build/` (tests), `node_modules/` |
 | `UndauntedDeployServer/` | Starts and supervises the game-server processes (Ramsgate, the Training Dojo, hunts). `src/vendor/` holds the hunt tables. | `dist/`, `build/` |
 | `UndauntedGateway/` | Public mode only: the TLS gateway (`dist/server.js`) and the allowlist helper (`dist/allowlist/server.js`). `tools/make-cert.js` makes the gateway certificate. | `dist/`, `build/` |
 | `UndauntedContent/` | The content server: game files, news and the art pack for registered launchers. `data/dauntless-1.4.4.json` is the game manifest (410 files) that the launcher also compiles in. | `dist/`, `build/` |
 | `UndauntedLauncher/` | This fork's friend launcher (Electron). `assets/` holds the two pinned prebuilt DLLs, `dxgi.dll` and `UndauntedInternalServer.dll`, which every setup installs (host, server kit, friend kit and launcher), and the icons (copies from `brand/launcher/`). `src/renderer/brand/` holds copies of the logo and emblem images the window shows. `scripts/` holds the test runner, the brand image copier (`make-icon.mjs`) and `collect-release.ps1`. | `.vite/` (`npm start`), `out/` (`npm run package` and `npm run make`), `.test-build/` (tests), `release/` (the release files that `scripts/collect-release.ps1` collects after `npm run make`: the installer, the Squirrel update files, the zip and `SHA256SUMS.txt`). |
-| `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. | Visual Studio output (`x64/`, `*.dll` and the like) |
+| `UndauntedInternalServer/` | The C++ source of the server DLL: a Visual Studio solution, `dllmain.cpp` (with the endpoint table that `Game.ini` is generated from), the `SDK/` engine headers and `MinHook/`. No script or workflow in this repository builds it; everyone runs the prebuilt DLLs from `UndauntedLauncher/assets/`. Since the MinHook include fix (September 2026) it compiles with the Visual Studio 2022 Build Tools (Release, x64), but no DLL built here is shipped. | Visual Studio output (`x64/`, `*.dll` and the like) |
 | `deploy/windows-server/` | The Windows server kit: the scripts, `lib/` (Node helpers `dr-db.js`, `dr-keys.js`, `verify-game.js`) and `tests/`. | none |
 | `friend-kit/` | The Tailscale-only setup and play scripts for invited friends. | `tools/make-friend-kit.ps1` builds the zip outside the repository |
 | `tools/` | `build-llms.js`, `sync-roadmap.js`, `make-friend-kit.ps1`, `make-game-manifest.js`, and in `ci/` what CI uses: `check-repo.js` (the repository check) and `launcher-version.js` (the launcher version rules). | none |
@@ -5745,6 +5892,13 @@ update; on a hand-built host, back up before you pull new code.
 | `0011_real_progression` | Creates `progress_tracks`, `objectives`, `huntpassselection`, `entitlements`, `cooldowns`, `bounties`, `bountydraft`, `loadoutslots`, and `progression_events` with its append-only triggers. |
 | `0012_friends_and_blocks` | Creates `friendships` and `blocks`. |
 | `0013_guilds` | Creates `guilds`, `guildmembers` and `guildinvites`. Adds tables only. |
+| `0014_escalation` | Creates `escalationprogression`, `escalationtalents` and `escalationunlocks`. Adds tables only. |
+| `0015_store_purchases` | Creates `storepurchases` and its index on `accountId`. Adds tables only. |
+| `0016_slayer_links` | Creates `slayerlinkinvites` and `slayerlinks` with their indexes. Adds tables only. |
+
+Migrations 0014 to 0016 came with the port of Harmonic's fork. None of them changes, copies or converts
+an existing table; the build before them still starts on a migrated database and ignores the new
+tables ([Upgrading](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port)).
 
 To add a migration, change `src/db/schema.ts` and run `npm run db:generate`; see
 [Developer guide](https://mixutin.github.io/dauntless-revived/reference/development.html).
@@ -5799,15 +5953,26 @@ number at startup. The [Upgrade notes](https://mixutin.github.io/dauntless-reviv
 |:------|:---------------|
 | `progress_tracks` | Per account and track (Slayer level, behemoth and weapon mastery, the Hunt Pass): the total XP and the free and premium (Elite) ranks already confirmed. The earned ranks are worked out from `progression_config.json`, as the game does. No row means 0. |
 | `objectives` | Per account: each mastery objective's progress and completed count, as the game server last sent them. |
-| `huntpassselection` | Per account: the selected Hunt Pass. No row means `season09b`. |
-| `entitlements` | Per account: entitlements such as the Elite Hunt Pass, with activation date, duration in hours (0 = permanent), source (`default`, `gameserver` or `admin:<id>`) and revoked date. The defaults (`ENTITLEMENTS_DEFAULT`) are added once per account; a revoked row is kept, so a revoked default is not handed out again. |
+| `huntpassselection` | Per account: the selected Hunt Pass. No row means `ACTIVE_HUNT_PASS` (default `season09b`). |
+| `entitlements` | Per account: entitlements such as the Elite Hunt Pass, with activation date, duration in hours (0 = permanent), source (`default`, `gameserver`, `admin:<id>`, `store:<sku>` for a store purchase or `confirm:<track>:<rank>` with `PROGRESSION_CONFIRM_ENTITLEMENTS=1`) and revoked date. The defaults (`ENTITLEMENTS_DEFAULT`) are added once per account; a revoked row is kept, so a revoked default is not handed out again. |
 | `cooldowns` | Per account: the start time of each daily or weekly limit, as the game server sent it. Harvest cooldowns older than 24 hours are removed the next time the game server starts a single cooldown for that account. |
 | `bounties`, `bountydraft` | Per account: each bounty's JSON with its slot, and the current bounty draft. |
 | `loadoutslots` | Per character: unlocked loadout slots (at most 6) and the active one. No row means one slot, slot 0. |
-| `progression_events` | **Append-only** audit of every write the game server, a player's game or an admin makes to the tables above, refused ones included (the default entitlements are added without an entry): time, account, caller (`gameserver`, `client` or `admin`), route, the raw request body, status, reply and a note. Triggers refuse `UPDATE` and `DELETE`. Kept forever. |
+| `progression_events` | **Append-only** audit of every write the game server, a player's game or an admin makes to the tables above and to the Escalation tables, refused ones included (the default entitlements are added without an entry): time, account, caller (`gameserver`, `client` or `admin`), route, the raw request body, status, reply and a note (for example `retry of event <id> within 10 s: its reply, nothing added`, or an Escalation save's `season <id>`). Triggers refuse `UPDATE` and `DELETE`. Kept forever. |
 
 The admin routes `Progression`, `SeedProgression`, `GrantEntitlement` and `RevokeEntitlement` read
 and change these tables; see [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html).
+
+### Escalation and store tables
+
+Added with migrations `0014_escalation` and `0015_store_purchases`. Dates are ISO text.
+
+| Table | What it stores |
+|:------|:---------------|
+| `escalationprogression` | Only with `ESCALATION_MODE=real`: per account and season, the Escalation level, the XP towards the next level, the last saved `updateVersion`, a hash of the saved content (to recognise a retry) and when it was saved. No row means level 0, version 0. [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html). |
+| `escalationtalents` | Per account, season and talent: the rank. Replaced as a whole by each save (a talent reset lowers ranks). |
+| `escalationunlocks` | Per account, season and reward: when it was collected. A collected reward is never removed. |
+| `storepurchases` | Only with `STORE=free`: one row per purchase token. The SHA-256 of the token (the token itself is never stored), the account, the character the purchase goes to, the SKU, a hash of the offer when the token was issued, the created and expiry dates (10 minutes) and the redeemed date. Unredeemed rows past their expiry are deleted at every start and whenever a token is issued; redeemed rows are kept as receipts. The items and entitlements a purchase grants are in `inventories` and `entitlements`, logged in `inventorylog` (caller `store`) and `inventorytransactions`. [The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html). |
 
 ### Friends
 
@@ -5826,6 +5991,19 @@ and change these tables; see [HTTP API](https://mixutin.github.io/dauntless-revi
 
 A disband deletes the guild's rows in all three tables. The admin routes `Guilds` and `DisbandGuild`
 list and remove guilds; see [HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html#guilds).
+
+### Slayer Links
+
+Added with migration `0016_slayer_links`. Times are in milliseconds, as in the friends tables.
+
+| Table | What it stores |
+|:------|:---------------|
+| `slayerlinkinvites` | One row per invite: `inviteId` (the `link_id` the client sees), sender, invited player, the sender's slot, created and expiry times, and `status` (`PENDING`, `ACCEPTED`, `DECLINED`, `CANCELED` or `EXPIRED`). At most one pending invite per pair (a partial unique index). An unfriend or a block sets the pending ones between the two to `CANCELED`. |
+| `slayerlinks` | One row per running link (both players share it): `linkId` (the accepted invite's id), the two players, each one's slot, and when it began and ends (168 hours later). A removal deletes the row for both. |
+
+Answered and expired invites and ended links are deleted 30 days later, when the next invite is made.
+[Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links) explains
+the rules.
 
 ### Kept only in memory
 
@@ -5878,7 +6056,7 @@ usernames and, in public mode, players' IP addresses, so read a log before you s
 | `data\allowlist\audit.log` | The allowlist helper's audit, one JSON object per line (`t`, `event` and fields): addresses let in and expired, refusals, firewall rule changes, the exact script in dry-run mode, failed secrets. Never the secret itself. | Never rotated. |
 | `data\logs\supervisor.log` | A PowerShell transcript of the stack supervisor: starts, crashes, restarts, give-ups. | Moved to `supervisor.log.1` when a supervisor starts and the file is over 5 MB. |
 | `data\allowlist\supervisor.log` | The same for the allowlist helper's supervisor (SYSTEM). | As above. |
-| `data\logs\bodies.log` | Only with `LOG_BODIES=1`: one JSON object per line (`t`, `method`, `url`, `gs`, `body`) for a fixed list of routes (progression, Hunt Pass, bounties, cooldowns, escalations, entitlements, loadout unlocks, store, SKUs and balance, inventory, matchmaking candidates, parties, friends and account lookups), bodies cut at 8 KB (64 KB for inventory), tokens removed. The kit forces `LOG_BODIES=0` in public mode. Private: it records what players' games send. | Never rotated. |
+| `data\logs\bodies.log` | Only with `LOG_BODIES=1`: one JSON object per line, `t` (arrival), `method`, `url`, `gs`, `body`, `status` and `ms` (plus `"aborted": true` when the connection closed first), written once the answer is done, for a fixed list of routes (progression, Hunt Pass, bounties, cooldowns, Escalation, entitlements, loadout unlocks, the store (`/product`, `/token`, `/notification`), balance and `/reconcile`, Slayer Links, inventory, matchmaking candidates, parties, friends and account lookups), bodies cut at 8 KB (64 KB for inventory), tokens and account keys removed, at most `BODY_LOG_PER_PATH` lines per path when that is set. The kit forces `LOG_BODIES=0` in public mode. Private: it records what players' games send. | Never rotated. |
 | `data\logs\backup-db.out.log`, `backup-db.err.log` | The database copy of the latest backup (`db ok, <n> users`). | Overwritten by each backup. |
 | `data\logs\install\<step>.out.log`, `.err.log` | The output of each installer and updater step: source copy, `npm ci` and `npm run build` per package, the Node.js, runtime and Tailscale installs, game extraction and check, certificate, keys, owner account. | Overwritten when the step runs again. |
 | `backups\backup.log` | One line per backup: time, folder, size, the database check and how many backups are kept. | Moved to `backup.log.1` when over 5 MB. |
@@ -6461,8 +6639,8 @@ command line; see [HTTP API](https://mixutin.github.io/dauntless-revived/referen
 - The DLL opens a console window for every server. Ramsgate and the Dojo are started with their
   window visible ("Running as a server!"). Hunt servers are started with their window hidden, so a
   new window does not flash up for every hunt. **Closing a visible console window ends that server**
-  for everyone on it. The deploy server's watchdog, which runs once a minute, restarts Ramsgate and
-  the Dojo.
+  for everyone on it. The deploy server starts Ramsgate and the Dojo again when a player travels
+  there, or its watchdog does within a minute, whichever comes first.
 - On a server installed with the kit, the stack runs as `dauntless` without a desktop (Windows
   "session 0") unless the installer ran with `-InteractiveSession`. The console windows should work
   there too, but that has not been tested yet; see
@@ -6599,6 +6777,75 @@ together, and only together with the files they describe.
 | Zip SHA-256 | `deploy/windows-server/DauntlessServer.Common.ps1` (with the byte count), `friend-kit/setup.ps1`, `tools/make-game-manifest.js` |
 | Build string | `UndauntedLauncher/src/main/manifest.ts`, `UndauntedContent/src/manifest.ts`, `deploy/windows-server/DauntlessServer.Common.ps1`, `tools/make-game-manifest.js`, the manifest JSON |
 | Changelist | `deploy/windows-server/DauntlessServer.Common.ps1`, which writes the metagame's `TARGET_CHANGELIST` |
+
+---
+
+## Game data the metagame serves
+
+Some of what the game shows comes from the metagame's own data files, not from the game's paks: the
+progression tracks (Hunt Pass seasons and mastery), the store's offers and the Escalation seasons. They
+live in `UndauntedMetagame/src/vendor/` and are copied to `dist/vendor/` by the build. They hold
+identifiers and tuning values read from the 1.4.4 client, and no game assets.
+
+### Hunt Pass seasons and mastery tracks
+
+`vendor/progression_config.json` (from upstream) holds 10 tracks: the Hunt Pass `season09b`,
+`MasteryTrack_PlayerLevel` (Slayer level), `MasteryTrack_Behemoth` and seven
+`MasteryTrack_Weapon_*` tracks. The metagame
+serves it at `GET /progression/config`, and the same data drives its rank math, so the game and the
+server always agree.
+
+**`PROGRESSION_CONFIG_DIR`** (unset by default) points at a folder of your own `.json` files that
+replace or add tracks, without editing the bundled file:
+
+- Each file holds one path object (the shape of an entry in `payload.paths` of the bundled file), a
+  list of them, or a whole config `{"payload": {"paths": [...]}}`. Files are read in name order.
+- A path whose `progression_id` exists in the bundled file replaces it in place (the client sees the
+  same order); a new id is added at the end.
+- Each path needs a `progression_id` and a non-empty `requirements` list of
+  `{"rank_id", "xp_required"}` pairs of whole numbers, in rising `rank_id` order. `free_rewards` and
+  `premium_rewards`, when present, are lists; `premium_gating_entitlement` is a string (the Elite
+  pass's entitlement); `prestige`, when present, has a whole `xp_per_level` above 0. Every `rank_id`
+  used in a reward list needs its requirement, or the client complains
+  ([Backend contract](https://mixutin.github.io/dauntless-revived/findings/backend-contract.html#progression-progression-prod)).
+- The same id twice in the folder, invalid JSON, a missing folder or a folder without `.json` files
+  stops the metagame at startup with a line naming the file (`The progression config could not be
+  loaded: ...`). The boot line then reads, for example, `Progression config: 10 tracks, from
+  C:/dr/seasons: season09b replaced; active Hunt Pass season09b`.
+- The folder is read once; restart the metagame after a change.
+
+**`ACTIVE_HUNT_PASS`** (default `season09b`) is the Hunt Pass an account has until one is stored for
+it. It must be a loaded track, or the metagame stops at startup.
+
+**Never change a season's ranks in place while players have progress in it.** Players' stored XP is
+turned into ranks with the new requirements at the next read, so they could jump or fall. The rank
+rewards themselves are paid by the game server, from the client's own reward tables
+([why](https://mixutin.github.io/dauntless-revived/findings/backend-contract.html#progression-on-our-server)).
+
+### The store catalogue
+
+Only used with `STORE=free` ([The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html)):
+
+| File | What it holds |
+|:-----|:--------------|
+| `vendor/store_catalog.json` | The offers, keyed by the tag the client asks for: 200 under `webstore`, the Elite pass under `season09b_pass`, and the empty `season09b_rank`, `loadout_slots` and `fountain_daily_free_bundle`. Each offer has the client's flat price fields (all 0), `items` (catalogue id and quantity) and `entitlements` (name and duration), and category tags that decide its store tab. The metagame only sells offers whose `platinumPrice` is 0. |
+| `vendor/store_item_kinds.json` | For each of the 211 items the store sells: `stacked` or `instanced`, the stackable flag of the client's item catalogue. An item without an entry is never granted. |
+| `test/data/store_art_skus.json` | The 994 SKU ids whose store tile image is 2:1. Only a test reads it: every offer in the storefront must be one of them, or its tile shows the fallback art or a stretched image. |
+
+Change the catalogue only together with the test (`npm test` in `UndauntedMetagame`) and an in-game
+check of the store tabs: an empty tab placed before a filled one shifts every later tab's contents.
+The repeatable bounty-token bundle (`bundle_currency_bounty_small`) is listed only with
+`STORE_REPEATABLE_TOKENS=1`.
+
+### Escalation seasons
+
+Only used with `ESCALATION_MODE=real` ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html)):
+`vendor/escalation/seasons.json` lists the five seasons of the 1.4.4 client (`ESC_SEASON_1` to
+`ESC_SEASON_5`; the fifth, Frost, is disabled), each with its 25 level costs, 18 talents (tier gate
+and rank costs) and 6 rewards (level and contents). It was exported read-only from the client's own
+tables, and its `source` block names the game files it was read from by their SHA-256. The metagame
+checks it at startup and uses it only to check saves; the game server does the arithmetic. Do not edit
+it: a wrong value refuses (or, in the soft rules, warns about) real saves.
 
 ---
 
@@ -7754,8 +8001,8 @@ files whose name contains `relay`.
 
 | Package | What the tests cover | Good to know |
 |---|---|---|
-| Metagame | Accounts and usernames, what each kind of key may do, characters and save history, the database, inventory transactions, loadouts and slots, progression (the default, real mode and stub mode, rank math, the upgrade notice), entitlements, cooldowns and bounties, parties, friends, matchmaking, server status | Each file gets its own empty database in `%TEMP%\undaunted-test-*`, a throwaway signing key pair, `AUTH_MODE=APIKEY` and `NODE_ENV=production`. Logs are silent; set `TEST_LOG_LEVEL` (for example `debug`) to see them. |
-| Deploy server | Game-server kinds and the list the metagame reads, the checks on a matchmaking request, loopback-only access | `TEST_LOG_LEVEL` works here too. |
+| Metagame | Accounts and usernames, what each kind of key may do, characters and save history, the database and its migrations (a database at migration 0013 full of rows keeps every row through the new ones), inventory transactions, loadouts and slots, progression (the default, real mode and stub mode, rank math, the upgrade notice, the retry guard, the config folder), Escalation, the free store, entitlements, cooldowns and bounties, parties, friends, Slayer Links, guilds, chat and friends' presence, matchmaking and its failures, the body log, server status. The cases ported from Harmonic's fork (`*ported.test.ts`, `escalation`, `freestore`, `matchmakingfailure`, `slayerlinks`) name his file and line in a comment. | Each file gets its own empty database in `%TEMP%\undaunted-test-*`, a throwaway signing key pair, `AUTH_MODE=APIKEY` and `NODE_ENV=production`. Logs are silent; set `TEST_LOG_LEVEL` (for example `debug`) to see them. |
+| Deploy server | Game-server kinds and the list the metagame reads, the checks on a matchmaking request, loopback-only access, Ramsgate and the Dojo started again on demand with one launch, a missing game binary and a failed startup (with a stand-in spawn) | `TEST_LOG_LEVEL` works here too. |
 | Gateway | TLS and the pinned fingerprint, routing and refusals, forwarding headers, size and rate limits, WebSocket proxying, the allowlist feed and helper, both entry points as real processes | The helper always runs in dry-run mode: the tests never change the firewall. |
 | Content server | Settings, paths, ranges, the key cache, limits, the manifest, art pack and news, the request handler | `npm run test:integration` needs a real install ([below](https://mixutin.github.io/dauntless-revived/reference/development.html#content-integration-test)). |
 | Launcher | Invites, the relay, downloads (resume, verify, repair) over HTTP and pinned TLS, `Engine.ini`, launch arguments, the key store, the whole public-mode flow through the controller | Makes throwaway self-signed certificates in a temp folder. |
@@ -8187,20 +8434,24 @@ Paths in each table are relative to the folder named above it.
 
 | Subsystem | Code | Notes |
 |---|---|---|
-| Startup, routing, request log | `server.ts`, `app.ts`, `logger.ts` | `app.ts` mounts every router; unknown routes are logged and answered 404. |
+| Startup, routing, request log | `server.ts`, `app.ts`, `logger.ts`, `middleware/BodyLog.ts` (`LOG_BODIES`: the routes, redaction, status and duration, the per-path cap) | `app.ts` mounts every router; unknown routes are logged and answered 404. |
+| Feature switches | `features.ts` | The switches added with the port of Harmonic's fork, parsed in one place (on/off, counts, choices), with the `features:` boot line. Older switches keep their own parsing. |
+| Game-server writes | `middleware/GameServerOnly.ts` | `RefuseUnlessGameserver` (the shared guard of the game-server-only writes) and `NoteRelayedAccountMismatch` (logs a relayed token of another account, never refuses). |
 | Database | `db.ts`, `db/schema.ts`, `drizzle/` | Migrations run at every start, in journal order; the applied ones are recorded in the `__drizzle_migrations` table. `DB_WAL` is applied in `db.ts`. |
 | Where a request came from | `middleware/RequestOrigin.ts` | Public mode: the gateway secret, the player's address, `AUTH_MODE=NONE` refusals. |
 | Keys and login | `controllers/auth.ts`, `controllers/apikeys.ts`, `routes/eos.ts`, `routes/login.ts`, `middleware/Has*.ts` | `eos.ts` holds the token login. |
 | Accounts, invites, usernames | `controllers/accounts.ts`, `controllers/login.ts`, `routes/undauntedapi.ts`, `controllers/undauntedapi.ts` | The `/undaunted/api` routes ([HTTP API](https://mixutin.github.io/dauntless-revived/reference/api.html)). |
 | Characters and save history | `controllers/character.ts`, `controllers/savehistory.ts`, `routes/character.ts` | Rollbacks are admin routes in `routes/undauntedapi.ts`. |
-| Progression | `controllers/progressionmode.ts` (real or stub, `PROGRESSION_MODE`), `controllers/realprogression.ts` (tracks, objectives, grants, rank confirmations, the admin seed, the upgrade notice), `controllers/progressionrank.ts` (rank math from `vendor/progression_config.json`), `controllers/progressionevents.ts` (audit rows), `controllers/progression.ts` (encountered content and breadcrumbs), `routes/progression.ts`, `middleware/RealProgressionOnly.ts` | `routes/progression.ts` answers both the real and the stub shapes. Tables in migration `0011_real_progression.sql`. |
+| Progression | `controllers/progressionmode.ts` (real or stub, `PROGRESSION_MODE`), `controllers/realprogression.ts` (tracks, objectives, grants and their retry guard, rank confirmations and the optional confirm entitlements, the admin seed, the upgrade notice), `controllers/progressionconfig.ts` (the one loader of the progression config: the bundled `vendor/progression_config.json`, `PROGRESSION_CONFIG_DIR`, `ACTIVE_HUNT_PASS`), `controllers/progressionrank.ts` (rank math), `controllers/progressionevents.ts` (audit rows), `controllers/progression.ts` (encountered content and breadcrumbs), `routes/progression.ts`, `middleware/RealProgressionOnly.ts` | `routes/progression.ts` answers both the real and the stub shapes, and logs requests under `/progression` that no route answers. Tables in migration `0011_real_progression.sql`. |
 | Hunt Pass, entitlements, bounties, cooldowns | `routes/system.ts`, `controllers/entitlements.ts`, `controllers/bounties.ts`, `controllers/cooldowns.ts` | Part of real progression. |
+| Escalation | `controllers/escalationConfig.ts` (the season registry `vendor/escalation/seasons.json`, checked at load), `controllers/escalation.ts` (reads, the save rules, the audit rows), `routes/escalation.ts` (the stub and the real routes, `ESCALATION_MODE`) | Ported from Harmonic's fork. Tables in migration `0014_escalation.sql`. [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html); tests `test/escalation.test.ts`. |
 | Loadouts and loadout slots | `controllers/loadout.ts`, `routes/loadout.ts` | Slots exist for real-progression accounts only. |
-| Inventory and store | `controllers/inventory.ts` (transactions, overspends, retries), `routes/inventory.ts`, `controllers/store.ts`, `routes/store.ts` | |
+| Inventory, currency and store | `controllers/inventory.ts` (transactions, overspends, retries; `ApplyInventoryTransactionInTx` runs inside a caller's transaction, `RunInventoryTransaction` wraps it for `POST /inventory`), `routes/inventory.ts`, `controllers/store.ts` (the currency sheet and the held currencies), `controllers/activecharacter.ts` (the account's character saved last), `controllers/freestore.ts` (the free store: catalogue, tokens, redeem), `routes/store.ts` | The store is ported from Harmonic's fork, off unless `STORE=free`; data in `vendor/store_catalog.json` and `vendor/store_item_kinds.json`, table in migration `0015_store_purchases.sql`. Tests `test/freestore.test.ts`, `test/inventorytx.test.ts`. |
 | Parties | `controllers/party.ts` (in memory), `routes/party.ts`, `middleware/PlayerAuth.ts` | A party's hunt goes through `controllers/matchmaking.ts`; `PartyInvite` is in `routes/undauntedapi.ts`. |
-| Friends and blocks | `controllers/friends.ts` (stored in SQLite, migration `0012_friends_and_blocks.sql`), `routes/friends.ts` (the Epic-style friends service the client calls) | `Friends` is in `routes/undauntedapi.ts`. |
+| Friends and blocks | `controllers/friends.ts` (stored in SQLite, migration `0012_friends_and_blocks.sql`; `AddFriendshipListener` tells the chat server about accepted and ended friendships), `routes/friends.ts` (the Epic-style friends service the client calls) | `Friends` is in `routes/undauntedapi.ts`. |
+| Slayer Links | `controllers/slayerlinks.ts` (the rules, the reply shapes, with the executable's addresses), `routes/slayerlinks.ts` (the eight routes, `SLAYER_LINKS`) | Contract from Harmonic's fork, corrected. Tables in migration `0016_slayer_links.sql`. Tests `test/slayerlinks.test.ts`. |
 | Guilds | `controllers/guild.ts` (stored in SQLite, migration `0013_guilds.sql`; the rules and reply shapes), `routes/guild.ts` (the eleven v2 routes, in registration order), `middleware/GameServerKeyAuth.ts` (the game-server-only create) | `GuildInvite`, `Guilds` and `DisbandGuild` are in `routes/undauntedapi.ts`. `test/socialclient.ts` models how the client parses the social replies; `test/guildhttp.test.ts` and `test/socialflow.test.ts` use it. |
-| Chat (XMPP) | `realtime/chat.ts` (the WebSocket listener, SASL login with the player token, sessions and their limits, pings, whispers; `ReadChatConfig` and `StartChat`, which `server.ts` calls only with `CHAT=1`), `realtime/muc.ts` (rooms: joins, leaves, the fan-out of room lines, party and guild membership checks, the 60 s sweep), `realtime/chatnick.ts` (the client's URL encoding and the room nickname rules), `realtime/xmpp.ts` (parsing, escaping, JIDs, token buckets, the trace redaction) | Membership and blocks come from `GetPartyOf` in `controllers/party.ts`, `IsGuildMember` in `controllers/guild.ts` and `BlockersAmong` in `controllers/friends.ts`. [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html) explains why each answer has its shape. Tests: `test/chat.test.ts` (end to end over WebSocket), `test/chatmodel.test.ts` and `test/chatclient.ts` (a model of how the 1.4.4 client reads chat), `test/chathttp.test.ts` with `test/chatenv.ts` (names through the real account routes), `test/chatwire.ts` (a raw client shaped like the game's). |
+| Chat (XMPP) | `realtime/chat.ts` (the WebSocket listener, SASL login with the player token, sessions and their limits, pings, whispers; `ReadChatConfig` and `StartChat`, which `server.ts` calls only with `CHAT=1`), `realtime/muc.ts` (rooms: joins, leaves, the fan-out of room lines, party and guild membership checks, the 60 s sweep), `realtime/chatnick.ts` (the client's URL encoding and the room nickname rules), `realtime/xmpp.ts` (parsing, escaping, JIDs, token buckets, the trace redaction), `realtime/presence.ts` (friends' online status with `CHAT_PRESENCE=1`: who hears whom, the relays, the friends-list push, and the rule that no stanza outside a room reaches a player from their own account) | Membership and blocks come from `GetPartyOf` in `controllers/party.ts`, `IsGuildMember` in `controllers/guild.ts` and `BlockersAmong` in `controllers/friends.ts`. [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html) explains why each answer has its shape. Tests: `test/chat.test.ts` (end to end over WebSocket), `test/chatmodel.test.ts` and `test/chatclient.ts` (a model of how the 1.4.4 client reads chat), `test/chathttp.test.ts` with `test/chatenv.ts` (names through the real account routes), `test/chatwire.ts` (a raw client shaped like the game's), `test/presence.test.ts`, and `test/chatinvariant.ts` (checks every stanza of those files against the own-account rule). |
 | Matchmaking | `controllers/matchmaking.ts` (queues, candidate status, parties, the call to the deploy server), `routes/matchmaking.ts` | |
 | Server status | `controllers/serverstatus.ts`, `middleware/SoftAccountAuth.ts`, `/dauntless-status` in `routes/system.ts` | |
 
@@ -8208,7 +8459,7 @@ Paths in each table are relative to the folder named above it.
 
 | Subsystem | Code | Notes |
 |---|---|---|
-| Game servers | `controllers/gameservers.ts` (ports, Ramsgate and the Dojo, starting processes), `controllers/watchdog.ts`, `routes/gameservers.ts` | Loopback callers only. |
+| Game servers | `controllers/gameservers.ts` (ports, Ramsgate and the Dojo with one shared launch per world and the liveness check, starting processes and their `error` and `exit` listeners, the test hooks), `controllers/watchdog.ts`, `routes/gameservers.ts` | Loopback callers only. Tests `test/persistentworlds.test.ts` with `test/deployenv.ts` (a stand-in spawn). |
 | Matchmaking | `controllers/matchmaker.ts`, `controllers/matchmakinginput.ts` (a second check of everything that ends up on a game server's command line), `routes/matchmaker.ts`, `vendor/*_table.json` | |
 
 **`UndauntedGateway/`**

@@ -172,6 +172,11 @@ What follows from this:
   address listed in `GAMESERVER_ALLOW_FROM`. It is never accepted with a proxy header. Anyone else
   gets 403 before the key is checked; a wrong key gets 401.
 - The gateway answers 403 to any request that carries the header at all, whatever its value.
+- When a game server's write names one account in the URL but forwards the token of another, the
+  metagame keeps the write for the URL's account and logs it (`Game server <what> for <account> carries
+  the token of <other account>: accepted for <account>, the account the request names`, at most once a
+  minute per pair). It never refuses such a write: a refusal could lose a save in a hunt with several
+  players.
 - A game-server request whose forwarded player token has expired or is malformed gets 500, not 401:
   on this path the token is checked without error handling. This is why game-server saves fail once
   a player's token is older than 24 hours (see
@@ -233,9 +238,14 @@ it, and everyone else gets upstream's fixed max ranks
   include a stack trace unless `NODE_ENV=production`.
 - Each request is logged as `<METHOD> <path> gs=0|1` (`gs=1` when it carries the game-server key),
   with tokens in the path replaced; `LOG_REQUESTS=0` turns this off. `LOG_BODIES=1` also writes the
-  bodies of some game routes (among them the party, friends, guild, `/account/mapping` and
-  `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`) with tokens removed. That
-  file still holds player data: keep it private.
+  bodies of some game routes (among them the party, friends, guild, store, Escalation, Slayer Link,
+  `/account/mapping` and `/accountinfo/public` routes) to `BODY_LOG_FILE` (default `bodies.log`), one
+  line per request once it is answered, with the reply's status and duration, and with tokens and
+  account keys removed. `BODY_LOG_PER_PATH` caps the lines per path. That file still holds player data:
+  keep it private.
+- A request under `/progression` that no route answers is logged as a warning
+  (`Unhandled progression request <METHOD> <path> from a game server` or `from a player`) before the
+  usual 404.
 - Many game routes answer `{"code": null, "message": "OK", "payload": ...}`, as the original backend
   did. [Backend contract]({{ contract_page.url | relative_url }}) has the shapes the client expects.
 - These settings change which routes answer. Each needs a restart;
@@ -253,6 +263,14 @@ it, and everyone else gets upstream's fixed max ranks
 | `ACCOUNT_MAPPING` | unset: on | `0` makes `POST /account/mapping` map nothing (`accountMappings: {}`), the old effective behaviour. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | unset: off | `1` puts back upstream's `POST /accountinfo/public` reply: the caller's own id, and 200 with an empty name for an unknown id. |
 | `GUILDS` | unset: on | `0` puts back the old guild stubs (`GET /guild` 204, `GET /guild/invite/player` an empty list); every other guild route, and the three guild routes of the management API, answer 404. |
+| `ESCALATION_MODE` | unset: `stub` | `real` stores Escalation for real-progression accounts: `GET /escalation/...` reads the stored season and `POST /escalation/...` exists (404 otherwise). |
+| `STORE` | unset: `off` | `free` turns on the four store routes; with `off` the storefront answers the old 400 and the three purchase routes 404. |
+| `STORE_REPEATABLE_TOKENS` | unset: off | `1` lists and sells the bounty-token bundle (only with `STORE=free`). |
+| `SLAYER_LINKS` | unset: on | `0` makes every `/slayerlink` route answer 404, as before. |
+| `VERIFY_STUB_ACCOUNT` | unset: off | `1` puts back the fixed placeholder `account_id` in `GET /account/api/oauth/verify`. |
+| `BALANCE_FROM_INVENTORY` | unset: on | `0` puts back the fixed currency sheet in `GET /balance` and `POST /reconcile`. |
+| `PROGRESSION_REPLAY_WINDOW_S` | unset: `10` | The retry guard of `POST /progression/:userId`; `0` turns it off. |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | unset: off | `1` makes a rank confirm also grant that rank's permanent config entitlements. |
 
 ## Metagame: game routes {#game-routes}
 
@@ -266,7 +284,7 @@ work on the host.
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
 | POST | `/account/api/oauth/token` | none (the key is in the body) | The login: `exchange_code` = account key, answered with a 24-hour `access_token` (see [Login](#login)). 400 for an unknown key. |
-| GET | `/account/api/oauth/verify` | none | A fixed `{"active": true, ...}` with a fixed `account_id`. It checks no token. |
+| GET | `/account/api/oauth/verify` | optional token | The client's regular session check. With a valid player token: `{"active": true, ...}` whose `account_id` is that player's own account. Without a token, or with a malformed, expired or foreign one: the old fixed reply with a placeholder `account_id`, still 200 (never 401; a bad or expired token is logged at most once a minute). `expires_at` stays far in the future. `VERIFY_STUB_ACCOUNT=1` answers the placeholder to everyone. |
 | DELETE | `/account/api/oauth/sessions/kill` | none | Answers `{}`. Revokes nothing. |
 | DELETE | `/account/api/oauth/sessions/kill/:token` | none | The same. The token in the path is replaced by `<token>` in the metagame's and the gateway's logs. |
 | GET | `/account/api/public/account` | token | Without a query: the caller's own Epic-style account record, `displayName` = username. With `?accountId=A&accountId=B` (at most 100): an array of `{id, displayName, externalAuths}` for the accounts that exist. |
@@ -287,7 +305,7 @@ work on the host.
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
 | GET | `/dauntless-status` | none | The status banner the client shows (`show-status` and a welcome to the server by its name, `Welcome to <SERVER_NAME>!`, translated into eight languages), plus `name`, `version`, `commit` and `sourceUrl` (the AGPL source link) unless `STATUS_EXTRA=0`. No player data. Host scripts use it as a health check. |
-| POST | `/heartbeat` | token | Body `{map, state?}`, every 20 seconds. Marks the player online for 90 seconds and keeps them in their party. Answers the text `20000`. A game server's heartbeat without a player token records nothing. Through the gateway, a 2xx answer to a request with a bearer token opens the game ports for the player's address. |
+| POST | `/heartbeat` | token | Body `{map, state?}`, every 20 seconds. Marks the player online for 90 seconds and keeps them in their party. Answers the text `20000`. A game server's heartbeat without a player token records nothing. Through the gateway, a 2xx answer to a request with a bearer token opens the game ports for the player's address, so a missing or bogus token must get 401 (a test guards this). |
 | POST | `/event` | none | Telemetry sink. Answers `{}`. |
 | POST | `/account/migrate` | token | Answers `{migration_failed: false, migration_finished: true}`. |
 | POST | `/profile/update` | token | Empty 200 (leaderboard profile). |
@@ -295,7 +313,6 @@ work on the host.
 | POST | `/motd/` | token | 204: no message of the day. |
 | GET | `/motd/trigger` | none | 204: no after-hunt news. 404 with `MISC_ROUTES=0`. |
 | GET | `/playertreatments/:userId` | token | A fixed cohort list. |
-| GET | `/escalation/:season/:userId` | token | A fixed escalation level. Nothing is stored. |
 | GET | `/eventstats/` | token | Answers `{stats: []}`. |
 | GET | `/all/` | token | An empty mailbox. |
 | GET | `/game_tuning/seasonal_event_schedule` | none | No scheduled events. |
@@ -312,10 +329,27 @@ work on the host.
 | POST | `/inventory` | token | One inventory transaction: `{characterId, transactionId, addInstancedItems, addStackedItems, removeInstancedItems, removeStackedItems, saveInstancedItems, source}`, plus `accountId` from a game server (ignored for a player). A repeated `transactionId` gets the stored answer and changes nothing. `INVENTORY_REFUSE_OVERSPEND` and `INVENTORY_REPORT_REMOVALS` tune it. |
 | POST | `/inventory/instanceditem` | token | Updates one item: `{characterId, instanceId, catalogId, itemData, updateVersion}`, plus `accountId` from a game server. |
 | POST | `/inventory/:characterId/:changeList` | token | Inventory migration stub. Answers `{code: null, message: ""}`. |
-| POST | `/reconcile` | token | The caller's notes balance. |
-| GET | `/balance` | token | Every currency: notes from the database, 25 weapon tokens, the rest 0. |
+| POST | `/reconcile` | token | `{balances: {id_currency_notes, CURRENCY_NOTES}, refreshInventory: true}`. With `BALANCE_FROM_INVENTORY` (on by default) each key is the quantity of that currency's stack (`CURRENCY_NOTES`, the Rams) in the inventory of the account's active character, the one saved last; a currency the character does not hold keeps the old value (the notes column of `users`). `0`: the old values only. |
+| GET | `/balance` | token | The currency sheet: the same 52 keys as before (both spellings, `CURRENCY_X` and `id_currency_x`). With `BALANCE_FROM_INVENTORY` (on) every key whose `CURRENCY_*` stack the active character holds reports that quantity; the others keep the old values (notes from the database, 25 weapon tokens, the rest 0). No key is added, removed or reordered. `CURRENCY_PLATINUM_UNIV` is not mapped. `0`: the old fixed sheet. |
 | GET | `/creator` | token | A fixed support-a-creator reply. |
-| GET | `/product/skus/public` | token | 400: there is no store. |
+
+### Store {#store}
+
+The in-game store ([The in-game store]({{ '/findings/store.html' | relative_url }})). **Only with
+`STORE=free`**; with `STORE=off` (the default) the storefront answers the old 400
+(`{"code": "400", "message": "The store is not available on Dauntless Revived yet."}`) and the other
+three routes the empty 404. Every route acts for the player of the bearer token: no token 401, the
+game-server key alone 403. Refusals are `{"code": "<status>", "message": ...}`.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/product/skus/public?requiredTags=<tag>` | player | The offers of one tag, as a bare array, each with `remaining` (0 when every item it grants is held by the active character and every entitlement it grants is active). The store screen asks for `webstore` (200 offers; the Elite pass is under `season09b_pass`). An unknown tag is `[]` and a warning; no tag is 400. |
+| GET | `/product/sku/:skuId` | player | One offer, from any tag; 404 for an unknown one (or the bounty-token bundle while `STORE_REPEATABLE_TOKENS` is off). |
+| GET | `/token/:currency/:skuId` | player | `{purchaseToken}`: 64 hex characters, valid 10 minutes, bound to the account's active character and to the offer as it is now (a row in `storepurchases`, which stores only the token's SHA-256). `currency` must be `platinum` (400); only free offers of allowed items are sold (409); 404 for an unknown offer; 409 when the account has no character. |
+| POST | `/notification/:currency?token=<token>` | player | Redeems the token and answers 204 with no body. In one transaction: the items through the inventory core (caller `store`, source `store:<sku>`, transaction id `store:<token hash>`; items the character already holds are skipped), the entitlements through the entitlement grant (source `store:<sku>`), then the token is marked redeemed. 403 for another account's or an unknown token, or one whose character is no longer the account's; 410 when it expired; 409 when the offer changed or is no longer sold; 400 for a malformed token or another currency. A token redeemed before answers 204 again and grants nothing. |
+
+The purchase token is removed from every log line (the request log never logs the query string, the
+gateway blanks `token=`, and the body log blanks it too).
 
 ### Progression, Hunt Pass, entitlements, cooldowns and bounties
 
@@ -325,17 +359,19 @@ routes answer 404. The marks are explained under [Access labels](#access-labels)
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
-| GET | `/progression/config` | token | The progression configuration (tracks and ranks), from the metagame's own copy of the game's config. |
+| GET | `/progression/config` | token | The progression configuration (tracks and ranks), from the metagame's own copy of the game's config, or with `PROGRESSION_CONFIG_DIR` from that folder's season files (checked at startup; see [Game settings]({{ game_page.url | relative_url }}#hunt-pass-seasons)). Unchanged bytes without the folder. |
 | GET | `/progression/:userId` | token, own | Every track, stored or at 0. Stub: fixed max ranks for the caller. |
-| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
+| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. **Retry guard:** a body byte for byte equal to the account's last grant, within `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets that grant's stored reply and adds nothing (an audit row notes it). An objective lower than the stored one is logged and stored as sent. A relayed player token of another account is logged, never refused. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
 | GET | `/progression/:userId/:progressionId` | real only, token, own | One track; 404 if none is stored. |
 | POST | `/progression/:userId/:progressionId/:amount` | real only, token, game server | Adds `amount` to one track, up to `PROGRESSION_GRANT_CAP`. |
-| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | real only, token, game server | Confirms a free or premium rank. 404 with `PROGRESSION_CONFIRM=off`. |
+| POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | real only, token, game server | Confirms a free (`public`) or premium rank. It grants nothing: the game server pays rank rewards through `/inventory` itself. With `PROGRESSION_CONFIRM_ENTITLEMENTS=1`, a confirm that raises the rank also grants the newly confirmed ranks' permanent config entitlements (never items, currencies or timed ones); the reply is the same. 404 with `PROGRESSION_CONFIRM=off`. |
 | DELETE | `/progression/:userId/:progressionId` | real only; admin key, or the game-server key with `PROGRESSION_ALLOW_DELETE=1` | Resets one track. If `x-undaunted-user-api-key` is present, the admin-key check applies. Otherwise it needs the game-server key and `PROGRESSION_ALLOW_DELETE=1` (403 without). The game only sends it from a debug command. |
 | GET | `/progression/objectives/:userId` | token, own | The stored objectives. Stub: mastery tracks at max and no objectives. |
 | GET | `/progression/objectives/:userId/:objectiveId` | token, own | One objective, zeros if none is stored. Stub: fixed values. |
-| GET | `/huntpass/:userId` | token, own | The selected Hunt Pass, `season09b` unless another one is stored. |
+| GET | `/huntpass/:userId` | token, own | The selected Hunt Pass: the stored one, else `ACTIVE_HUNT_PASS` (default `season09b`). |
 | POST | `/huntpass/:userId` | real only, token, game server | Stores the Hunt Pass selection. |
+| GET | `/escalation/:season/:userId` | token; own with `ESCALATION_MODE=real` | `ESCALATION_MODE=stub` (default), and accounts in stub progression mode: the fixed reply `{code: null, message: "OK", payload: {escalation_level: 99999, next_level_xp: 99999, talents_progress: [], unlock_progress: [], update_version: 1}}` to anyone, nothing stored. `real`: the stored season in the same envelope, or level 0 with version 0 when nothing is stored (a read creates no row); 404 `{code: "404", ...}` for a season not in the registry ([Escalation]({{ '/findings/escalation.html' | relative_url }})). |
+| POST | `/escalation/:season/:userId` | only with `ESCALATION_MODE=real`; real only, token, game server | Saves the whole season `{escalation_level, next_level_xp, talents_progress: [{rank, talent_id}], unlock_progress: [{collected, reward_id}], update_version}` and answers the stored state. 400 for a malformed save, 404 for an unknown account or season, 409 for a disabled season (Frost), an older version, the same version with other content, lower progress, an un-collected reward or a first save carrying the old stub values; the same version with the same content is answered with the stored state (a retry). `ESCALATION_STRICT=1` also refuses (409) what breaks a soft rule. Every save, answered or refused, is a `progression_events` row. With `stub` the route falls through to the empty 404. |
 | GET | `/entitlementsv2` | token | The entitlements of the token's account (a game server must forward the player's token). Real: a flat `{entitlements: [...]}` without expired ones. Stub: an empty list. |
 | POST | `/entitlementv2/:userId` | token, game server | Grants `{entitlement, duration}` (hours; 0 or none = permanent) and answers the account's full list. 404 for an unknown account. Stub: an empty reply. |
 | DELETE | `/entitlement/:userId/:entitlement` | real only, token, game server | Revokes an entitlement. |
@@ -397,7 +433,7 @@ a party of one with no candidate instead (see [Configuration]({{ config_page.url
 | POST | `/party` | player | The party poll, about every 10 seconds: the caller's party, or a party of one. |
 | GET | `/party/invites` | optional token | The caller's pending invites. Without a valid token: `{invitations: []}`. |
 | PUT | `/party/invite` | player | Invites `{recipientPlayerId}` to the caller's party. Leader only. |
-| PUT | `/party/invite/accept/:inviteId` | player | Accepts one of the caller's own invites. |
+| PUT | `/party/invite/accept/:inviteId` | player | Accepts one of the caller's own invites (the id the client sends is the party's). With no live invite, a repeated accept is answered 200 with the caller's party when the caller is already in a party of two or more and the id is that party's or another member's; otherwise 404. |
 | DELETE | `/party/invite` | player | Declines an invite, or withdraws one the caller sent. |
 | DELETE | `/party/member` | player | The caller leaves their party. |
 | DELETE | `/party/member/:memberId` | player | Removes a member. Leader only. |
@@ -408,8 +444,10 @@ a party of one with no candidate instead (see [Configuration]({{ config_page.url
 ### Friends
 
 The Epic-style friends service. Friendships and blocks are stored in the database (at most 200 of
-each per account). Everyone shows as offline: online status needs presence over the chat connection,
-which the [chat server](#chat) does not send yet.
+each per account). Everyone shows as offline unless friends' online status is on in the
+[chat server](#chat) (`CHAT=1` and `CHAT_PRESENCE=1`, off by default): online status comes only from
+presence over the chat connection. An unfriend or a block also cancels the waiting
+[Slayer Link](#slayer-links) invites between the two.
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
@@ -549,6 +587,35 @@ hand the guild over (they become an Officer). The invite list leaves out, and ac
 `UninvitedAdorableQuillshot` for, any invite between blocked players or whose inviter is no longer a
 Leader or Officer of that guild.
 
+### Slayer Links {#slayer-links}
+
+Two friends link up for a week (the My Links tab; how the client reads each reply is on
+[Friends, parties and guilds]({{ social_page.url | relative_url }}#slayer-links)). Stored in the
+database (tables `slayerlinkinvites` and `slayerlinks`). On by default; with `SLAYER_LINKS=0` every
+route below falls through to the empty 404 and the stored rows stay. Every route acts as the player of
+the bearer token (no token 401, the game-server key alone 403); ids in a body or path only name the
+other player. Replies use the envelope `{code: null, message: "OK", payload}`; refusals are
+`{code: "<status>", message, payload: null}`.
+
+| Method | Path | Access | What it does |
+|:-------|:-----|:-------|:-------------|
+| GET | `/slayerlink/status_good` | player | `{invites, links, config: {link_duration_hours: 168, invite_expiry_hours: 24}}`: the two lists below together, the client's poll for news. |
+| GET | `/slayerlink/invites` | player | `{invites: [{account_id, slot, direction, status, expires, link_id}]}`: the caller's pending, unexpired invites; `account_id` is the other player, `direction` `Sent` or `Received`, `status` `Pending`, `slot` the sender's slot. |
+| GET | `/slayerlink/links` | player | `{links: [{account_id, linked_account_id, slot, ends, link_id, prize_pool: []}]}`: running links, by the caller's slot; both id keys name the other player. |
+| PUT | `/slayerlink/invite` | player | `{account_id, slot, action_source}`: invites a friend into one of the caller's slots (0-2). Answers `{link_id}`, the invite's id; inviting the same player again answers the same id. |
+| POST | `/slayerlink/invite` | player | `{account_id, action, slot, action_source}` with `action` `accept` or `reject` (the invited player; `account_id` is the sender) or `cancel` (the sender; `account_id` is the invited player). A `link_id` or `invite_id` in the body is tried first. An accept takes the body's `slot` when it is free, else the first free one. Answers `{link_id}`; repeating the same answer is 200 again. |
+| DELETE | `/slayerlink/invites/:accountId` | player | With the caller's own id: withdraws every invite the caller sent and declines every one received. With another player's id: only the invites between the two. Answers `{}`. |
+| DELETE | `/slayerlink/links` | player | `{account_id, slot, delete_pair}` (or the same as a query): ends the caller's link in that slot or with that player, for both players. Answers `{}`, also when there was nothing to remove. |
+| POST | `/slayerlink/availability` | player | `{account_ids: [...]}` (at most 50) → `{availability: [{account_id, available}]}`: which of them the caller could invite now. |
+
+Rules: both players must be accepted friends and neither may have blocked the other (403); 3 slots
+per player and one waiting invite per slot; an invite lasts 24 hours and a link 168 hours; unfriending
+or a block cancels the waiting invites between the two (a running link stays until it ends). Other
+refusals: 400 (no account id, a slot outside 0-2, an unknown action), 404 (no such account or
+invite), 409 (yourself, the slot is taken or has a waiting invite, already linked, the other player
+already invited you, no free slot, the invite ran out or was answered). **Not answered** (404): the
+reward routes `PUT /slayerlink/links/rewards` and `GET /slayerlink/links/rewards/:accountId/:slot`.
+
 ## Metagame: the management API {#undaunted-api}
 
 All of these live under `/undaunted/api/` on the metagame; the paths below are relative to it.
@@ -687,13 +754,20 @@ its login.
 | `<presence type="unavailable" to="Room@...">` (leave) | The others get the leaver's unavailable presence; the leaver gets its own with status 110. |
 | `<message type="groupchat" to="Room@muc.<domain>">` | Delivered to every occupant, the sender included, from `Room@muc.<domain>/<sender's nickname>`, with the same `id`. Not to occupants who blocked the sender. |
 | `<message type="chat" to="<account>@<domain>[/<resource>]">` (whisper) | Delivered from the sender's full JID to that session, or to every session of the account. Not delivered, with no error, when the player is offline or either player blocked the other. |
-| A broadcast `<presence>` (no `to`) | Recorded and dropped: never echoed or relayed. Online status is not built yet. |
+| A broadcast `<presence>` (no `to`) | With `CHAT_PRESENCE` off (the default): recorded and dropped, never echoed or relayed. With `CHAT_PRESENCE=1`: relayed from the sender's full JID, `<show>` and `<status>` unchanged, to the sessions of each accepted, unblocked friend that have sent a presence of their own; at a session's first presence it also gets theirs. Never to a session of the sender's own account. |
+| `<presence type="unavailable">` (no `to`), or the connection ends | With `CHAT_PRESENCE=1`: `type="unavailable"` from the full JID to the same friends, then the presence of the account's other session if it has one. |
 | `<iq>` ping, session or anything else | An empty `result` with the same `id`. |
 | `<close/>` | `<close/>`, then the connection closes. |
 
 After 50 s of silence the server pings the client, and ends the connection when another 100 s pass
 without an answer (the client answers from its game-thread tick, which a map load holds up). A client
 that stops reading is sent nothing more once 256 KiB wait unsent, and its connection ends.
+
+**Pushed by the server, only with `CHAT_PRESENCE=1`:** when a friend request is accepted over HTTP,
+every session of both players gets `<message from="xmpp-admin@<domain>">` whose body is the client's
+friends-list update `{"type": "com.epicgames.friends.core.apiobjects.Friend", "payload": {"accountId",
+"status": "ACCEPTED", "direction", "created"}, "timestamp"}`, and the two exchange presences; an
+unfriend or a block sends each the other's unavailable. Details: [Text chat]({{ chat_page.url | relative_url }}#presence).
 
 **Rooms.** `City-<id>`, `Hunt-<id>` and `General<id>` are open to every signed-in player,
 `Party-<partyId>` only to that party's members and `Guild-<guildId>` only to that guild's. All live on
@@ -725,7 +799,7 @@ its port.**
 
 | Method | Path | Access | What it does |
 |:-------|:-----|:-------|:-------------|
-| POST | `/api/matchmaker/handle-matchmaking-for-player` | none; loopback only | Body `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (at most 16 account ids). Starts or picks a game server and answers `{host, port}`, where `host` is `MY_IP`. `CITY`: Ramsgate. `SHARED` with the hunt id `ShatteredIsles_TrainingDojo`: the Dojo, started on first use (or at boot with `ENABLE_DOJO=1`). `ISLAND` with game args: the map in the args (the tutorial). `ISLAND` with a hunt id and expected players: a new hunt server. Anything else: Ramsgate. 400 `{error: "bad_request", message}` for input that fails the checks. |
+| POST | `/api/matchmaker/handle-matchmaking-for-player` | none; loopback only | Body `{GameMode, GameArgs, HuntId, ExpectedPlayers}` (at most 16 account ids). Starts or picks a game server and answers `{host, port}`, where `host` is `MY_IP`. `CITY`: Ramsgate. `SHARED` with the hunt id `ShatteredIsles_TrainingDojo`: the Dojo, started on first use (or at boot with `ENABLE_DOJO=1`). `ISLAND` with game args: the map in the args (the tutorial). `ISLAND` with a hunt id and expected players: a new hunt server. Anything else: Ramsgate. Before handing out Ramsgate or the Dojo it checks that the process is alive and starts a dead one first (`PERSISTENT_WORLD_LIVENESS`, on), through the same single launch the boot and the watchdog use. 400 `{error: "bad_request", message}` for input that fails the checks; 500 `{error: "no_game_server"}` when no game server could be started (no free hunt port, a spawn that failed). |
 | GET | `/gameservers` | none; loopback only | The running game servers: `{servers: [{id, port, kind, map, gameMode, behemoth, huntId, matchmakerHuntId, expectedPlayers, maxPlayers, startedAt}]}`, with `kind` = `city`, `hunt`, `dojo` or `tutorial`. It lists account ids, so it is for the metagame only. |
 
 - The metagame calls it over plain HTTP, without credentials, at `DEPLOYSERVER_URL` (`host:port`, no
@@ -735,8 +809,11 @@ its port.**
   game server's command line.
 - It answers as soon as the process is spawned, not when the server is ready. Launches are queued
   `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` apart.
-- When no hunt port is free, the request fails with 500 (the deploy server logs `No free ports
-  left!`), and the metagame answers the players' status polls with `FAILED`.
+- When no hunt port is free, or the game server could not be spawned, the request fails with 500
+  `{error: "no_game_server"}` (the deploy server logs `Matchmaking for <mode> <hunt> failed: No free
+  ports left!` or the spawn error), and the metagame answers the players' status polls with `FAILED`.
+  So does any other failure of this call: another status, a reply without a host, a quoted port, a
+  body that is not JSON or a dropped connection.
 - There is no catch-all: an unknown path gets Express's default HTML 404. JSON bodies are limited to
   Express's default of 100 kB. Errors include stack traces unless `NODE_ENV=production`.
 

@@ -129,6 +129,10 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | `CHAT_NICK_CHECK` | metagame | `enforce`: chat-huoneeseen liittyminen hylätään, jos nimimerkki rikkoo nimisääntöjä | `log` (päästä sisään ja varoita; toisen tilin tunnus hylätään silti) | Vain paluukytkin siltä varalta, että oikea peliohjelma hylätään. Merkitsee jotain vain, kun `CHAT=1`. |
 | `PROGRESSION_CONFIRM` | metagame | päällä | `off` | Vain vianetsintään. |
 | `LOG_REQUESTS` | metagame | päällä | `0` | Pyyntöloki on tärkein vianetsintävälineemme; pidä se päällä. |
+| `SLAYER_LINKS` | metagame | päällä | `0` | Slayer Links. `0` palauttaa 404-vastauksen, jonka jokainen `/slayerlink`-reitti sai ennen; tallennetut kutsut ja linkit säilyvät. |
+| `BALANCE_FROM_INVENTORY` | metagame | päällä | `0` | `/balance` ja `/reconcile` kertovat valuutat, jotka hahmolla on. `0` palauttaa kiinteän taulukon (Notes tietokannasta, muut 0). |
+| `PROGRESSION_REPLAY_WINDOW_S` | metagame | `10` (sekuntia) | `0` | Pelipalvelimen myöntöön, joka toistuu tavu tavulta 10 sekunnin sisällä, vastataan, mutta sitä ei lisätä uudelleen. |
+| `PERSISTENT_WORLD_LIVENESS` | deploy-palvelin | päällä | `0` (vain vahtikoira käynnistää Ramsgaten ja Dojon uudelleen, kuten ennen) | Kaatunut Ramsgate tai Dojo käynnistetään uudelleen, kun pelaaja matkustaa sinne. |
 | `GATEWAY_ALLOWLIST` | yhdyskäytävä | päällä | `0` | Hätäkatkaisin: kun se on pois päältä, kenenkään peliportit eivät aukea. |
 | `ENABLE_DOJO` | deploy-palvelin | Dojo käynnistyy ensimmäisellä käyttökerralla | `1` käynnistää sen heti alussa, kuten alkuperäinen projekti | Säästää yhden peliprosessin silloin, kun kukaan ei harjoittele. |
 
@@ -137,6 +141,13 @@ vielä todistamattomia, riskialttiita tai vain kehitystä varten, ovat pois pä�
 | Kytkin | Osa | Näin päälle | Miksi se on pois päältä |
 |:-------|:----|:------------|:------------------------|
 | `CHAT` | metagame | `1` | Pelin tekstichat. Rakennettu ja testattu ilman peliä, kaksi pelaajaa ei ole vielä kokeillut; se tulee oletuksena päälle tämän testin jälkeen. |
+| `CHAT_PRESENCE` | metagame | `1` (yhdessä `CHAT=1` kanssa) | Kavereiden paikalla olo. Odottaa kahden pelaajan testiä, joka näyttää, että ryhmän automaattinen potku pysyy unessa, sekä itse chattia. |
+| `ESCALATION_MODE` | metagame | `real` | Oikeat Escalation-tallennukset. Käyttöönotto pudottaa jokaisen pelaajan tekaistusta maksimista (taso 25) tasolle 0: ylläpitäjän päätös pelitestin jälkeen. |
+| `ESCALATION_STRICT` | metagame | `1` | Saa mallinnuksestamme riippuvat Escalation-säännöt torjumaan tallennuksen varoittamisen sijaan. Kun lokit pysyvät puhtaina. |
+| `STORE` | metagame | `free` | Ilmainen pelin kauppa. Odottaa päätöstä ilmaisesta tai hinnoitellusta (tiekartan kohta 3.7) ja kaupan testiä pelissä. |
+| `STORE_REPEATABLE_TOKENS` | metagame | `1` | Myy palkkiotehtävien tunnisteiden pakettia rajattomasti: rajattomasti ilmaisia premium-palkkiotehtäviä. Ylläpitäjän päätös. |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | metagame | `1` | Tason vahvistus antaa myös tason pysyvät oikeudet. Vain jos pelitesti näyttää, ettei pelipalvelin koskaan anna niitä itse. |
+| `VERIFY_STUB_ACCOUNT` | metagame | `1` | Vain paluuta varten: vanha paikkamerkkitili vastauksessa `oauth/verify`. |
 | `MATCHMAKING_CANCEL` | metagame | `1` | Kokeellinen. Peliohjelma lähettää perumisen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että perumiseen vastataan 404. |
 | `ACCOUNTINFO_PUBLIC_LEGACY` | metagame | `1` | Vain paluuta varten: alkuperäisen projektin tilitietovastaus, joka piilottaa muut pelaajat (ryhmäkutsut eivät koskaan näy). |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | metagame | `1` | Heikompi tarkistus killan perustamiselle, vain jos oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä. |
@@ -178,6 +189,23 @@ etenemistä; katso [päivitysohjeet]({{ upgrade_page.url | relative_url }}#real-
 Kun `GATEWAY_SECRET` on asetettu, se tekee julkisen tilan tarkistukset, jotka on lueteltu kyseisen
 muuttujan kohdalla.
 
+Sen jälkeen tulee kaksi riviä Harmonicin forkin siirron mukana tulleista asetuksista:
+
+```text
+features: bodyLogPerPath=no-cap escalation=stub escalationStrict=off store=off storeRepeatableTokens=off replayWindow=10s confirmEntitlements=off balanceFromInventory=on slayerLinks=on chatPresence=off verifyStubAccount=off
+Progression config: bundled, 10 tracks; active Hunt Pass season09b
+```
+
+Nuo kytkimet (`BODY_LOG_PER_PATH`, `ESCALATION_MODE`, `ESCALATION_STRICT`, `STORE`,
+`STORE_REPEATABLE_TOKENS`, `PROGRESSION_REPLAY_WINDOW_S`, `PROGRESSION_CONFIRM_ENTITLEMENTS`,
+`BALANCE_FROM_INVENTORY`, `SLAYER_LINKS`, `CHAT_PRESENCE` ja `VERIFY_STUB_ACCOUNT`) käyttävät yhtä
+jäsennintä: päälle käy `1`, `true`, `on` tai `yes` ja pois `0`, `false`, `off` tai `no`,
+kirjainkoolla ei ole väliä; lukumäärät ovat kokonaislukuja; puuttuva tai tyhjä on oletus. Arvo, jota
+ei voi jäsentää, kirjaa yhden varoituksen `<NIMI>="<arvo>" is not a valid value; using the default
+(<oletus>)`, ja käytetään oletusta. Virheellinen `PROGRESSION_CONFIG_DIR` tai `ACTIVE_HUNT_PASS`
+sen sijaan pysäyttää metagamen (`The progression config could not be loaded: <syy>`, paluukoodi 1)
+ennen kuin tietokanta avataan.
+
 ### Kuuntelu, kirjautumiset ja tietokanta {#metagame-core}
 
 | Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
@@ -214,7 +242,8 @@ muuttujan kohdalla.
 |:-----|:-------|:------|:--------------|:-------------|
 | `LOG_LEVEL` | `info` (myös tyhjänä) | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` | Lokitaso. | Oletuksena ei kukaan |
 | `LOG_REQUESTS` | päällä | `0` tai mikä tahansa muu | **Vain forkissa.** Yksi rivi pyyntöä kohden: `METHOD /path gs=0` (`gs=1`, kun pyynnössä oli pelipalvelinavain). Yhdyskäytävän takana rivin loppuun tulee ` via=gateway ip=<pelaajan osoite>`; muut välitetyt pyynnöt saavat lopun ` via=proxy peer=<osoite>`. Lokiin kirjataan vain polku, ei koskaan kyselymerkkijonoa (query string) tai otsakkeita, ja polun tunnisteen näköiset osat korvataan. `0` ottaa sen pois päältä. | Oletuksena ei kukaan |
-| `LOG_BODIES` | pois | `1` tai mikä tahansa muu | **Vain forkissa.** `1` kirjoittaa keskeneräisten reittien (eteneminen, Hunt Pass, palkkiotehtävät, odotusajat, escalation, oikeudet, varustesarjojen paikkojen avaukset, kauppa, tuotteet (SKU) ja saldot, matchmaking, ryhmä, kaverit, tavarat ja tilihaut) pyyntöjen sisällöt tiedoston `BODY_LOG_FILE` loppuun: yksi JSON-olio riviä kohden, ja siinä aika, metodi, URL (kyselymerkkijono mukaan lukien), tieto pelipalvelinavaimen mukanaolosta sekä sisältö katkaistuna 8 kt:hen (tavaroilla 64 kt). Tunnisteen näköiset merkkijonot poistetaan sekä URL:sta että sisällöstä. Kehitysapu: tiedosto tallentaa, mitä pelaajat lähettävät, joten pidä se yksityisenä äläkä koskaan ota asetusta käyttöön julkisella palvelimella. | Oletuksena ei kukaan; paketti: pakotetaan arvoon `0` julkisessa tilassa, säilytetään yksityisessä tilassa |
+| `LOG_BODIES` | pois | `1` tai mikä tahansa muu | **Vain forkissa.** `1` kirjoittaa keskeneräisten reittien (eteneminen, Hunt Pass, palkkiotehtävät, odotusajat, Escalation, oikeudet, varustesarjojen paikkojen avaukset, kauppa (`/product`, `/token`, `/notification`), saldot ja `/reconcile`, Slayer Links, matchmaking, ryhmä, kaverit, tavarat ja tilihaut) pyyntöjen sisällöt tiedoston `BODY_LOG_FILE` loppuun: yksi JSON-olio riviä kohden, `{t, method, url, gs, body, status, ms}`, eli saapumisaika, metodi, URL (kyselymerkkijono mukaan lukien), tieto pelipalvelinavaimen mukanaolosta, sisältö katkaistuna 8 kt:hen (tavaroilla 64 kt), vastauksen tila ja vastaamiseen kulunut aika millisekunteina (`"aborted": true`, jos yhteys katkesi ensin). Rivi kirjoitetaan, kun vastaus on valmis. Tunnisteet, tiliavaimet (`UUK_...`) ja muut pitkät tunnisteen näköiset merkkijonot poistetaan sekä URL:sta että sisällöstä. Kehitysapu: tiedosto tallentaa, mitä pelaajat lähettävät, joten pidä se yksityisenä äläkä koskaan ota asetusta käyttöön julkisella palvelimella. | Oletuksena ei kukaan; paketti: pakotetaan arvoon `0` julkisessa tilassa, säilytetään yksityisessä tilassa |
+| `BODY_LOG_PER_PATH` | `0`: ei rajaa | kokonaisluku | **Vain forkissa.** Asetuksella `LOG_BODIES=1`: enintään näin monta riviä metodia ja tarkkaa polkua kohden (tunnukset mukaan lukien) yhden metagamen ajon aikana; polun viimeisen rivin jälkeen tulee `body log: <METHOD polku> reached BODY_LOG_PER_PATH=N; no more lines for it in this run`. Silmukkaan jääneen peliohjelman varalle. | Oletuksena ei kukaan |
 | `BODY_LOG_FILE` | `bodies.log` työhakemistossa | tiedostopolku | Mihin `LOG_BODIES` kirjoittaa. Tiedostoa ei koskaan kierrätetä (rotate). `UndauntedMetagame/bodies.log` ei ole gitin ohittama: osoita tämä repositorion ulkopuolelle (esimerkiksi `C:/dr/data/bodies.log`) äläkä koskaan tallenna tiedostoa versionhallintaan. | Paketti: aina (`<root>/data/logs/bodies.log`) |
 
 ### Palvelimen tiedot {#metagame-identity}
@@ -242,6 +271,31 @@ rekisteröityneet pelaajat osoitteesta `GET /undaunted/api/ServerStatus` (katso
 | `PROGRESSION_CONFIRM` | päällä | `off` tai mikä tahansa muu | `off` saa tasonvahvistusreitin vastaamaan taas 404 oikean etenemisen tileille, kuten alkuperäisessä projektissa. Vianetsintäkytkin; jätä se asettamatta. | Oletuksena ei kukaan |
 | `PROGRESSION_ALLOW_DELETE` | pois | `1` tai mikä tahansa muu | `1` antaa pelipalvelinten nollata etenemisradan (peli lähettää sen vain vianetsintäkomennosta). Ilman sitä nollaus onnistuu vain ylläpitäjän avaimella. Kun asetus on päällä, mikä tahansa pelipalvelinkutsu voi pyyhkiä pelaajan radan. | Oletuksena ei kukaan |
 | `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any`, kun muuttuja puuttuu | pilkuilla erotetut oikeuksien nimet; tyhjä tarkoittaa, ettei yhtään | Oikeudet (entitlements), jotka jokaisella oikean etenemisen tilillä on. `season09b_premium` on Elite Hunt Pass. Jokainen oletus lisätään tilille kerran, ensimmäisellä kerralla kun tilin oikeudet luetaan; nimen poistaminen myöhemmin ei ota oikeutta takaisin, ja ylläpitäjän perumana oletusoikeus pysyy perutuksi. | Oletuksena ei kukaan |
+| `PROGRESSION_REPLAY_WINDOW_S` | `10` | sekunteja kokonaislukuna; `0` ottaa pois käytöstä | **Vain forkissa.** Reitin `POST /progression/<tili>` uusintavahti: myöntö, jonka runko on tavu tavulta sama kuin tilin edellinen myöntö, näin monen sekunnin sisällä eikä välissä ole muuta radan kirjoitusta, saa ensimmäisen myönnön tallennetun vastauksen eikä lisää mitään (loki kertoo `repeats the grant of N s ago`; tapahtumariviin tulee merkintä). Pelipalvelin yrittää epäonnistunutta pyyntöä uudelleen jopa 5 kertaa. Jos rivi näkyy tavallisessa pelaamisessa eikä vain verkkovirheen jälkeen, aseta `0`. | Oletuksena ei kukaan |
+| `PROGRESSION_CONFIRM_ENTITLEMENTS` | pois | päällä/pois | **Vain forkissa.** Päällä: Hunt Passin tai mestaruuden vahvistus, joka nostaa tasoa, antaa myös tason **pysyvät** oikeudet etenemisen asetuksista (season09b:ssä premium-tasot 6, 9, 29 ja 50 sekä ilmainen taso 50), lähteenä `confirm:<rata>:<taso>`. Ei koskaan tavaroita, valuuttoja eikä määräaikaisia oikeuksia (ne vain merkitään). Pois päältä, koska ei vielä tiedetä, antaako pelipalvelin ne itse (pelitesti: saavuta Elite-taso 6 metsästysten XP:llä ja katso, tuleeko `POST /entitlementv2`). Vahvistuksen vastaus on sama kummin päin tahansa. | Oletuksena ei kukaan |
+| `PROGRESSION_CONFIG_DIR` | puuttuu: mukana tuleva `vendor/progression_config.json` | kansion polku | **Vain forkissa.** Kansio `.json`-tiedostoja, joista kukin on etenemisrata (Hunt Pass -kausi tai mestaruusrata), ratojen luettelo tai kokonainen asetustiedosto. Rata korvaa mukana tulevan radan, jolla on sama `progression_id`, ja uusi tunnus lisätään. Tarkistetaan käynnistyksessä; puuttuva kansio, kansio ilman `.json`-tiedostoja, virheellinen JSON, rata ilman kenttää `progression_id` tai `requirements`, väärässä järjestyksessä olevat tasot tai sama tunnus kahdesti pysäyttävät metagamen. Luetaan kerran; muutos vaatii uudelleenkäynnistyksen. Muodot ovat sivulla [Pelin asetukset]({{ gamesettings_page.url | relative_url }}#hunt-pass-seasons). Älä koskaan muokkaa kautta paikallaan, kun pelaajilla on siinä etenemistä. | Oletuksena ei kukaan |
+| `ACTIVE_HUNT_PASS` | `season09b` | ladatun radan tunnus | **Vain forkissa.** Hunt Pass, jonka tili saa, kun mitään ei ole tallennettu (`GET /huntpass/<tili>` ja tasolaskennan oletus). Tunnus, joka ei ole ladattu rata, pysäyttää metagamen käynnistyksessä. | Oletuksena ei kukaan |
+| `BALANCE_FROM_INVENTORY` | päällä | päällä/pois | **Vain forkissa.** Päällä: `GET /balance` ja `POST /reconcile` kertovat jokaiselle `CURRENCY_*`-avaimelle (ja sen `id_currency_*`-parille) sen pinon määrän, joka tilin aktiivisella hahmolla on (viimeksi tallennettu hahmo), ja pitävät vanhat arvot valuutoille, joita hahmolla ei ole. Pois: vanha kiinteä taulukko (Notes `users`-taulusta, asepoletit 25, muut 0). | Oletuksena ei kukaan |
+
+### Escalation {#metagame-escalation}
+
+Kaikki ovat **vain forkissa**, ja ne luetaan jokaisella pyynnöllä. Miten Escalation tallennetaan ja
+mitä pelaajat näkevät, kerrotaan sivulla [Escalation]({{ '/fi/findings/escalation.html' | relative_url }}).
+
+| Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
+|:-----|:-------|:------|:--------------|:-------------|
+| `ESCALATION_MODE` | `stub` | `stub` tai `real`, kirjainkoolla ei väliä; muu arvo on varoitus ja `stub` | `stub`: jokainen tili lukee alkuperäisen projektin tekaistun maksimin (`escalation_level` 99999, jonka peli näyttää viimeisenä tasona), ja tallennusreitti vastaa 404, kuten ennen. `real`: oikean etenemisen tilit lukevat ja tallentavat omat kautensa tallennussääntöjen mukaan; tynkätilan tilit saavat edelleen tyngän. **Arvoon `real` vaihtaminen pudottaa jokaisen pelaajan tekaistusta maksimista tasolle 0.** Käynnistä pelipalvelimet uudelleen metagamen kanssa, kun vaihdat. | Oletuksena ei kukaan |
+| `ESCALATION_STRICT` | pois | päällä/pois | Vain arvolla `real`. Pois: tallennus, joka rikkoo pehmeän säännön (XP alle seuraavan tason hinnan, käytetyt pisteet tason rajoissa, kykyportaiden rajat, palkinnot kerätty tasollaan), tallennetaan varoitusrivin ja tapahtumarivin merkinnän kanssa. Päällä: tällainen tallennus torjutaan vastauksella 409. Kovat säännöt ovat aina voimassa. | Oletuksena ei kukaan |
+
+### Kauppa {#metagame-store}
+
+Kaikki ovat **vain forkissa**, ja ne luetaan jokaisella pyynnöllä. Miten kauppa toimii, kerrotaan
+sivulla [Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }}).
+
+| Nimi | Oletus | Arvot | Mitä se tekee | Kuka asettaa |
+|:-----|:-------|:------|:--------------|:-------------|
+| `STORE` | `off` | `off` tai `free`, kirjainkoolla ei väliä; muu arvo on varoitus ja `off` | `off`: kauppanäkymä saa vanhan 400:n ja ostoreitit 404, kuten ennen. `free`: ilmaisten tarjousten valikoima tiedostosta `vendor/store_catalog.json`, ostotunniste ja vahvistus; tavarat menevät tilin aktiiviselle hahmolle. Ennen kuin otat sen käyttöön oikeille pelaajille, laske hahmot tiliä kohden (osto menee viimeksi tallennetulle hahmolle). | Oletuksena ei kukaan |
+| `STORE_REPEATABLE_TOKENS` | pois | päällä/pois | Vain arvolla `free`. Päällä: 20 premium-palkkiotehtävätunnisteen paketti (`bundle_currency_bounty_small`) näkyy listalla ja sen voi ostaa kuinka monta kertaa tahansa, eli rajattomasti ilmaisia premium-palkkiotehtäviä. Pois: sitä ei näytetä, se vastaa 404, ja tunniste, joka annettiin asetuksen ollessa päällä, torjutaan (409). | Oletuksena ei kukaan |
 
 ### Tallennukset ja tavarat {#metagame-saves}
 
@@ -270,6 +324,8 @@ kertoo, mitä kukin vastaus tekee pelissä.
 | `GUILD_RESERVED_NAMES` | päällä | `0` tai mikä tahansa muu | Henkilökunnan ja projektin sanat (kuten `admin`, `moderator`, `official` sekä nimikyltit `GM`, `DEV` ja `MOD`) vastaavat "already in use", joten mikään kilta ei voi esiintyä palvelimen henkilökuntana. `0` sallii ne, esimerkiksi virallisen killan perustamista varten; lyhyet loukkaavat tunnukset torjutaan silti. Listat ovat sivulla [HTTP-rajapinta]({{ api_page.url | relative_url }}#guilds). | Oletuksena ei kukaan |
 | `GUILD_CREATE_ACTIVITY_FALLBACK` | pois | `1` tai mikä tahansa muu | Pelipalvelimen lähettämä killan perustaminen hyväksytään vain, jos johtaja on tarkistanut juuri tämän nimen ja nimikyltin omalla tunnisteellaan viimeisten 15 minuutin aikana. `1` hyväksyy myös johtajan, joka tarkisti jonkin toisen nimen tai näkyi palvelimelle viimeisen minuutin aikana, ja kirjaa lokiin varoituksen. Vain siltä varalta, että oikea testi näyttää, ettei peliohjelma koskaan tarkista lopullista nimeä (torjunta kirjataan tekstillä "no validate of this name"); päällä ollessaan muokattu peliohjelma voisi nimetä toisen paikalla olevan pelaajan killan johtajaksi. | Oletuksena ei kukaan |
 | `PARTY_SOLO_STUB` | päällä | `0` tai mikä tahansa muu | Yksin ryhmässään oleva pelaaja saa alkuperäisen projektin paikkamerkkiehdokkaan (`QUEUED_FOR_START`), jonka on todettu olevan harmiton metsästyksiin jonottamiselle. Peliohjelma ei lähetä ryhmäkutsua, kun se luulee ryhmänsä olevan jonossa; jos Invite to Party ei tee mitään yksin olevalle pelaajalle (lokiin ei tule riviä `party: invite`), `0` vastaa yhden hengen ryhmälle ilman ehdokasta. | Oletuksena ei kukaan |
+| `SLAYER_LINKS` | päällä | päällä/pois | Slayer Links: kahdeksan `/slayerlink`-reittiä ([mitä ne tekevät]({{ '/fi/findings/social.html' | relative_url }}#slayer-links)). Pois: jokainen vastaa 404, kuten ennen; tallennetut kutsut ja linkit säilyvät ja palaavat kytkimen mukana. | Oletuksena ei kukaan |
+| `VERIFY_STUB_ACCOUNT` | pois | päällä/pois | `GET /account/api/oauth/verify` (peliohjelman säännöllinen istunnon tarkistus) nimeää sen tunnisteen tilin, jonka kanssa pyyntö tuli, ja vastaa puuttuvalle tai huonolle tunnisteelle vanhalla paikkamerkillä ja tilalla 200. Päällä: vanha paikkamerkki-`account_id` kaikille; paluutie siltä varalta, että uusi vastaus aiheuttaa uloskirjautumisia tai yhteyssilmukoita. | Oletuksena ei kukaan |
 
 ### Chat {#metagame-chat}
 
@@ -288,6 +344,7 @@ metagame jatkaa ilman chattia.
 | `CHAT_BIND_HOST` | `127.0.0.1` | `127.0.0.1` tai `::1`; kun `GATEWAY_SECRET` on asetettu (julkinen tila), vain `127.0.0.1` | Kuuntelijan osoite. Mikä tahansa muu, myös `0.0.0.0`, pitää chatin pois päältä. Yksityistä tilaa (Tailscale) ei vielä tueta. | Paketti: aina `127.0.0.1` julkisessa tilassa |
 | `CHAT_NICK_CHECK` | `enforce` | `enforce` tai `log`; muu arvo lasketaan arvoksi `enforce` ja kirjoittaa varoituksen | `enforce` hylkää huoneeseen liittymisen, jos nimimerkki ei ole `<tilin käyttäjänimi>:<sen tilitunnus>:<sen resurssi>` ([miksi]({{ '/fi/findings/chat.html' | relative_url }}#nickname-check)). `log` päästää sisään nimimerkin, joka rikkoo resurssi-, muoto- tai nimisääntöä, ja kirjoittaa yhden varoitusrivin yhteyttä ja huonetta kohden: paluukytkin siltä varalta, että oikea peliohjelma hylätään. Nimimerkki, jossa on toisen tilin tunnus, hylätään molemmissa tiloissa (oikea peliohjelma ei koskaan rakenna sellaista). | Oletuksena ei kukaan |
 | `CHAT_TRACE` | pois | `1` tai mikä tahansa muu | `1` kirjaa jokaisen chat-kehyksen molempiin suuntiin 2 kt:n mittaan leikattuna niin, että kirjautuminen, salasanat, viestien teksti (`[N chars]`) ja tunnisteet on korvattu. Vain ensimmäisiin oikeisiin ajoihin. | Oletuksena ei kukaan |
+| `CHAT_PRESENCE` | pois | päällä/pois (`1`, `true`, `on`, `yes` / `0`, `false`, `off`, `no`) | Kavereiden paikalla olo ([miten]({{ '/fi/findings/chat.html' | relative_url }}#presence)): jokaisen pelaajan oma läsnäolotieto välitetään hänen paikalla oleville, hyväksytyille, estämättömille kavereilleen, ei koskaan takaisin pelaajan omalle tilille, ja HTTP:n kautta hyväksytty kaveripyyntö lähetetään chatin kautta. Tarvitsee asetuksen `CHAT=1`; ilman sitä metagame kirjaa rivin `chat: CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online`, eikä muuta tapahdu. Luetaan chat-palvelimen käynnistyessä. Pois: huoneiden ulkopuolella ei yhtäkään läsnäoloviestiä. Pysyy pois, kunnes kahden pelaajan testi näyttää, että ryhmän automaattinen potku pysyy unessa. | Oletuksena ei kukaan; paketin `Set-Chat.ps1` ei aseta sitä |
 
 **Rajat** (kiinteät koodissa):
 
@@ -351,6 +408,7 @@ ympäristön, pelipalvelinavain mukaan lukien.
 | `METAGAME_API_KEY` | ei oletusta. Puuttuu: pelipalvelimet eivät voi puhua metagamelle. | pelipalvelinavain (luotuna 48 heksamerkkiä) | **Salainen: älä koskaan jaa, älä koskaan tallenna versionhallintaan.** Annetaan jokaiselle pelipalvelimelle sen ensimmäisenä komentoriviparametrina; palvelin-DLL lähettää sen jokaisen metagamelle menevän pyynnön mukana, ja metagame tallentaa siitä vain SHA-256-tiivisteen. Sen on vastattava `gameserver.key`-tiedostoa ja oltava rekisteröity metagamen tietokantaan. Koneen paikalliset käyttäjät näkevät sen pelipalvelinten komentoriveiltä. | Sinä ([Pystytä palvelin]({{ host_page.url | relative_url }}#metagame)); paketti: aina (otetaan varmuuskopiosta, avaintiedostosta tai vanhasta tiedostosta, muuten luodaan uusi) |
 | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` | ei oletusta. Puuttuu: käytännössä ei taukoa. | sekunteja; desimaalit toimivat | Pienin tauko kahden pelipalvelimen käynnistyksen välillä. Kaikki käynnistykset odottavat samassa jonossa, joten kolmas samalla hetkellä pyydetty metsästys käynnistyy noin kaksi taukoa myöhemmin. | Sinä (10); paketti: 10, kun arvo puuttuu tai on tyhjä, käsin asetettu arvo säilytetään |
 | `ENABLE_DOJO` | tarvittaessa | `1` tai mikä tahansa muu | **Vain forkissa.** `1` käynnistää Training Dojon heti alussa, kuten alkuperäinen projekti. Mikä tahansa muu: Dojo käynnistyy ensimmäisellä kerralla, kun joku ohjataan sinne matchmakingissa, ja siitä eteenpäin vahtikoira (watchdog) käynnistää sen uudelleen. | Sinä (0); paketti: 0, kun arvo puuttuu, muuten säilytetään |
+| `PERSISTENT_WORLD_LIVENESS` | päällä | `0`, tai mikä tahansa muu päälle | **Vain forkissa.** Päällä: ennen kuin Ramsgate tai Dojo annetaan pelaajalle, deploy-palvelin tarkistaa, että sen prosessi on elossa, ja käynnistää kaatuneen ensin saman yhden käynnistyksen kautta, jota palvelimen käynnistys ja vahtikoira käyttävät (portissa 8777 ei koskaan kahta prosessia). Käynnistysrivi kertoo `Ramsgate and Dojo liveness check before handing them out: on`. `0`: ne annetaan tarkistamatta, ja vain vahtikoira käynnistää ne uudelleen minuutin sisällä, kuten ennen. | Oletuksena ei kukaan; paketti: säilyttää |
 | `LOG_LEVEL` | `info` (myös tyhjänä) | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` | Lokitaso. `info`-tasolla matchmaking-rivi luettelee odotettujen pelaajien tilitunnukset; avainta ei koskaan kirjata. | Oletuksena ei kukaan; paketti: säilyttää |
 | `NODE_ENV` | puuttuu: värilliset, luettavat lokit | `production` tai mikä tahansa muu | `production`: JSON-lokirivit, eikä virhesivuilla ole pinojälkiä. | Sinä; paketti: aina `production` |
 
@@ -512,6 +570,13 @@ Muut säännöt:
   pois. Valinta tallennetaan tiedostoon `server.json`. `Set-Chat.ps1 -On` tai `-Off` muuttaa sitä
   myöhemmin sekä tiedostossa `metagame.env` että `server.json`. Yksityisessä tilassa chattia ei vielä
   ole.
+- Asennusohjelma ei kirjoita yhtään Harmonicin forkin siirron mukana tullutta kytkintä
+  (`ESCALATION_*`, `STORE*`, `SLAYER_LINKS`, `CHAT_PRESENCE`, `VERIFY_STUB_ACCOUNT`,
+  `BALANCE_FROM_INVENTORY`, `PROGRESSION_REPLAY_WINDOW_S`, `PROGRESSION_CONFIRM_ENTITLEMENTS`,
+  `PROGRESSION_CONFIG_DIR`, `ACTIVE_HUNT_PASS`, `BODY_LOG_PER_PATH` sekä `PERSISTENT_WORLD_LIVENESS`
+  tiedostossa `deployserver.env`), joten niiden oletukset ovat voimassa. Muuttaaksesi jotakin lisää se
+  käsin; se säilyy uudelleenajoissa ja päivityksissä
+  ([Palvelin ryhmälle]({{ admin_page.url | relative_url }}#switching-features-on)).
 
 | Tiedosto | Kirjoitetaan | Asennus asettaa aina | Asetetaan vain, jos puuttuu | Poistetaan | Säilytetään (sinun) |
 |:---------|:-------------|:---------------------|:----------------------------|:-----------|:--------------------|
@@ -614,3 +679,10 @@ Vain automaattiset testit lukevat näitä. Testien ajamisesta kerrotaan sivulla
 - `EXPERIMENTAL_CHAT` kytki päälle ensimmäisen chat-kokeiluversion. Mikään ei lue sitä enää: kytkin on
   [`CHAT`](#metagame-chat), ja metagame varoittaa käynnistyessään, jos se löytää vanhan nimen ilman
   uutta.
+- Harmonicin 1.4.4-haarassa on asetuksia, joita emme ottaneet
+  ([miksi]({{ '/fi/findings/harmonic-fork.html' | relative_url }})): `WIRE_CAPTURE`,
+  `WIRE_CAPTURE_MAX_BODY` ja `WIRE_CAPTURE_MAX_PER_PATH` (meidän `LOG_BODIES` ja `BODY_LOG_PER_PATH`
+  hoitavat saman), `HUNT_PASS_SEASONS_DIR` (meillä `PROGRESSION_CONFIG_DIR`),
+  `HUNT_PASS_PREMIUM_MODE`, `XMPP_PORT` sekä deploy-palvelimessa `ENABLE_WATCHDOG`, `HOST`,
+  `GAMESERVER_LOG_DIR`, `GAMESERVER_LOG_CMDS` ja `METAGAME_ADDRESS`; hänen DLL:ssään
+  `UNDAUNTED_DIAG_LOG`. Mikään täällä ei lue niitä.

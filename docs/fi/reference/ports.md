@@ -109,8 +109,8 @@ toisena komentoriviparametrina.
 
 | Portti | Pelipalvelin | Milloin käynnistyy |
 |:-------|:-------------|:-------------------|
-| 8777 (`PORT_RANGE_END`) | Ramsgate | Kun deploy-palvelin käynnistyy. Deploy-palvelimen vahtikoira (watchdog, 60 sekunnin välein) käynnistää sen uudelleen samaan porttiin, jos se sulkeutuu. |
-| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | Ensimmäisellä käyttökerralla, tai heti käynnistyksessä, kun `ENABLE_DOJO=1`. Vahtikoira käynnistää sen uudelleen samaan porttiin. |
+| 8777 (`PORT_RANGE_END`) | Ramsgate | Kun deploy-palvelin käynnistyy. Jos se sulkeutuu, se käynnistetään uudelleen samaan porttiin, kun pelaaja matkustaa sinne (`PERSISTENT_WORLD_LIVENESS`, päällä), tai deploy-palvelimen vahtikoira (watchdog, 60 sekunnin välein) tekee sen, kumpi ehtii ensin; molemmat jakavat saman käynnistyksen, joten porttiin ei koskaan tule toista prosessia. |
+| 8776 (`PORT_RANGE_END` - 1) | Training Dojo | Ensimmäisellä käyttökerralla, tai heti käynnistyksessä, kun `ENABLE_DOJO=1`. Käynnistetään uudelleen samaan porttiin samalla tavalla. |
 | 8770-8775 (arvosta `PORT_RANGE_BEGIN` arvoon `PORT_RANGE_END` - 2) | Metsästykset ja opetusjakso | Yksi prosessi enintään 4 pelaajan ryhmää kohden, vapaiden porttien joukosta suurimmasta alkaen (8775, sitten 8774, ...). |
 
 - **Kuunteluosoite.** Palvelin-DLL avaa portin antamatta osoitetta, joten pelipalvelin kuuntelee
@@ -121,9 +121,9 @@ toisena komentoriviparametrina.
 - **Portti palaa vapaiden joukkoon**, kun vahtikoira huomaa metsästysprosessin sulkeutuneen, eli
   enintään noin minuutin viiveellä. Metsästyspalvelin sulkeutuu, kun siihen ei ole ollut kukaan
   yhteydessä yhteensä 50 sekuntiin.
-- **Kun vapaat portit loppuvat**, deploy-palvelin vastaa metagamelle HTTP 500 -virheellä (lokissa
-  `No free ports left!`), ja metagame merkitsee ryhmän haun epäonnistuneeksi: sen tilakysely vastaa
-  `FAILED`. Oletusalueella kuusi metsästystä voi olla käynnissä yhtä aikaa.
+- **Kun vapaat portit loppuvat**, deploy-palvelin vastaa metagamelle HTTP 500 -virheellä
+  `{"error": "no_game_server"}` (lokissa `Matchmaking for ... failed: No free ports left!`), ja
+  metagame merkitsee ryhmän haun epäonnistuneeksi: sen tilakysely vastaa `FAILED`. Oletusalueella kuusi metsästystä voi olla käynnissä yhtä aikaa.
 - **Pidä `PORT_RANGE_END=8777`.** Palvelin-DLL kytkee 50 sekunnin tyhjäkäyntisulkeutumisensa pois
   kaikissa porteissa 8776 tai yli. Siksi Ramsgate ja Dojo pysyvät päällä. Suuremmalla loppuarvolla
   porteissa 8776 ja sen yli pyörivät metsästykset eivät koskaan sulkeutuisi; pienemmällä Ramsgate ja
