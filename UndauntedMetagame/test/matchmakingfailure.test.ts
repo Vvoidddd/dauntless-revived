@@ -152,6 +152,7 @@ async function JoinAll(ThePath: Path){
 }
 
 describe("matchmaking when the deploy server starts no game server", () => {
+    // from Harmonicrain/Undaunted test/matchmaking.test.js:37
     it("a successful start sends every player to the returned address (IN_PROGRESS)", async () => {
         for(const ThePath of PATHS){
             Calls.length = 0;
@@ -169,6 +170,8 @@ describe("matchmaking when the deploy server starts no game server", () => {
         }
     });
 
+    // from Harmonicrain/Undaunted test/matchmaking.test.js:54 (its looped modes), :66 (a queue whose start
+    // fails, 503) and :77 (a dropped connection), each run on all three paths
     for(const Failure of FAILURES){
         it(`${Failure.Name} is FAILED for every player, never Ready, on every path`, async () => {
             const { DecideCandidateStatus } = await import("../src/controllers/matchmaking");
