@@ -13808,8 +13808,9 @@ for the token, and a confirm is refused (403) when the token's character no long
 account.
 
 Harmonic's version refused accounts with more than one character. Before `STORE=free` goes on for
-real players, the owner counts the characters per account on the live database; on our server almost
-every account has exactly one.
+real players, the owner counts the characters per account on the live database (the read-only query
+is on [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html#switching-features-on)); how many
+accounts have more than one has not been counted yet.
 
 ## The purchase, step by step
 

@@ -14,6 +14,7 @@ ref: findings/store
 {% assign contract_page = site.pages | where: "path", "findings/backend-contract.md" | first %}
 {% assign harmonic_page = site.pages | where: "path", "findings/harmonic-fork.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "roadmap.md" | first %}
+{% assign admin_page = site.pages | where: "path", "setup/admin.md" | first %}
 
 # The in-game store in 1.4.4
 {: .no_toc }
@@ -146,8 +147,9 @@ for the token, and a confirm is refused (403) when the token's character no long
 account.
 
 Harmonic's version refused accounts with more than one character. Before `STORE=free` goes on for
-real players, the owner counts the characters per account on the live database; on our server almost
-every account has exactly one.
+real players, the owner counts the characters per account on the live database (the read-only query
+is on [Run it for a group]({{ admin_page.url | relative_url }}#switching-features-on)); how many
+accounts have more than one has not been counted yet.
 
 ## The purchase, step by step {#redeem}
 

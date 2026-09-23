@@ -16,6 +16,7 @@ description: "Miten Dauntless 1.4.4 -peliohjelman kauppa ostaa tavaran, luettuna
 {% assign contract_page = site.pages | where: "path", "fi/findings/backend-contract.md" | first %}
 {% assign harmonic_page = site.pages | where: "path", "fi/findings/harmonic-fork.md" | first %}
 {% assign roadmap_page = site.pages | where: "path", "fi/roadmap.md" | first %}
+{% assign admin_page = site.pages | where: "path", "fi/setup/admin.md" | first %}
 
 # Pelin kauppa versiossa 1.4.4
 {: .no_toc }
@@ -154,8 +155,9 @@ hahmoa, saa tunnisteesta vastauksen 409, ja vahvistus hylätään (403), jos tun
 kuulu tilille.
 
 Harmonicin versio hylkäsi tilit, joilla on useampi hahmo. Ennen kuin `STORE=free` otetaan käyttöön
-oikeille pelaajille, ylläpitäjä laskee hahmojen määrän tiliä kohden elävästä tietokannasta;
-palvelimellamme melkein jokaisella tilillä on tasan yksi.
+oikeille pelaajille, ylläpitäjä laskee hahmojen määrän tiliä kohden elävästä tietokannasta (vain lukeva
+kysely on sivulla [Palvelin ryhmälle]({{ admin_page.url | relative_url }}#switching-features-on));
+sitä, monellako tilillä on useampi hahmo, ei ole vielä laskettu.
 
 ## Osto vaihe vaiheelta {#redeem}
 
