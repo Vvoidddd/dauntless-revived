@@ -1,5 +1,4 @@
 import express from "express";
-import fs from "node:fs";
 import { loginRouter } from "./routes/login.js";
 import { logger } from "./logger.js";
 import { eosRouter } from "./routes/eos.js";
@@ -16,6 +15,7 @@ import { progressionRouter } from "./routes/progression.js";
 import { loadoutRouter } from "./routes/loadout.js";
 import { undauntedApiRouter } from "./routes/undauntedapi.js";
 import { DescribeOrigin, RefuseProxiedInDevAuthMode } from "./middleware/RequestOrigin.js";
+import { BodyLog, Redact } from "./middleware/BodyLog.js";
 
 export const app = express();
 
@@ -31,48 +31,23 @@ app.use(express.urlencoded({ extended: true }));
 // see how far a client got before it stalled. `gs=1` marks calls made by a
 // game-server process (they carry the gameserver API key) rather than a player.
 // Never write credentials to the log: some routes carry a JWT in the path
-// (e.g. DELETE /account/api/oauth/sessions/kill/<token>).
+// (e.g. DELETE /account/api/oauth/sessions/kill/<token>); see Redact.
 // Behind the public-mode gateway the line ends with " via=gateway ip=<player address>";
 // a direct request keeps the old format.
-const redact = (path: string) =>
-    path.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, "<token>").replace(/[\w-]{64,}/g, "<redacted>");
-
 if (process.env.LOG_REQUESTS !== "0") {
     app.use((req, _res, next) => {
-        logger.info(`${req.method} ${redact(req.path)} gs=${req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0}${DescribeOrigin(req)}`);
+        logger.info(`${req.method} ${Redact(req.path)} gs=${req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0}${DescribeOrigin(req)}`);
         next();
     });
 }
 
-// Body capture for the save routes that are still stubbed or missing. Their
-// request formats are only inferred from the client binary, and a wrong
-// response shape can crash the client, so we record what the game actually
-// sends before building on it (also the party, friends, guild and account lookups of roadmap
-// 1.9 and 3.11, with the query string, which is in originalUrl). Off unless LOG_BODIES=1; one JSON object per
-// line in BODY_LOG_FILE (default ./bodies.log), bodies capped at 8 KB (64 KB for
-// /inventory, whose hunt-end batches decide INVENTORY_REFUSE_OVERSPEND), with any
-// token-shaped string removed from both the URL and the body. The guild, account mapping and
-// account info bodies hold account ids and guild names only.
-const BODY_ROUTES = /^\/(progression|huntpass|bounty|cooldown|escalation|entitlement|loadout\/[^/]+\/[^/]+\/unlock|product\/skus|candidate|party|friends|guild|balance|store|inventory|account\/api\/public\/account|account\/mapping|accountinfo\/public)/;
+// Body capture for the save routes that are still stubbed or missing, so we record what the game
+// actually sends before building on it. Off unless LOG_BODIES=1; one JSON object per line in
+// BODY_LOG_FILE (default ./bodies.log) with the answer's status and duration, credentials removed.
+// See middleware/BodyLog.ts. The guild, account mapping and account info bodies hold account ids and
+// guild names only.
 if (process.env.LOG_BODIES === "1") {
-    const bodyLog = process.env.BODY_LOG_FILE || "bodies.log";
-    app.use((req, _res, next) => {
-        if (BODY_ROUTES.test(req.path)) {
-            let body = "";
-            try { body = redact(JSON.stringify(req.body ?? null)); } catch { body = "<unserialisable>"; }
-            const cap = req.path.startsWith("/inventory") ? 65536 : 8192;
-            if (body.length > cap) body = body.slice(0, cap) + "…<truncated>";
-            const line = JSON.stringify({
-                t: new Date().toISOString(),
-                method: req.method,
-                url: redact(req.originalUrl),
-                gs: req.headers["x-undaunted-gameserver-apikey"] ? 1 : 0,
-                body,
-            });
-            fs.appendFile(bodyLog, line + "\n", (err) => { if (err) logger.warn(`body log write failed: ${err.message}`); });
-        }
-        next();
-    });
+    app.use(BodyLog(process.env.BODY_LOG_FILE || "bodies.log"));
 }
 
 app.use("/", loginRouter);

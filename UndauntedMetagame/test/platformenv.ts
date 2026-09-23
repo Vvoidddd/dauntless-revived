@@ -1,0 +1,23 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+// Import after ./setup and ./authenv, before the app: LOG_BODIES is read when the app loads. The body
+// log goes to a fresh temporary folder; the app listens on a port the system picks.
+const Dir = fs.mkdtempSync(path.join(os.tmpdir(), "dr-platform-test-"));
+
+export const BODY_LOG = path.join(Dir, "bodies.log");
+
+process.env.LOG_BODIES = "1";
+process.env.BODY_LOG_FILE = BODY_LOG;
+process.env.LOG_REQUESTS = "0";
+process.env.MATCHMAKING_MODE = "DISABLED";
+delete process.env.BODY_LOG_PER_PATH;
+delete process.env.MISC_ROUTES;
+delete process.env.GATEWAY_SECRET;
+delete process.env.PROGRESSION_MODE;
+delete process.env.PROGRESSION_REAL_ACCOUNTS;
+
+export function RemovePlatformTestDir(){
+    fs.rmSync(Dir, { recursive: true, force: true });
+}

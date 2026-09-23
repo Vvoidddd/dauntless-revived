@@ -7,6 +7,7 @@ import { DescribeProgressionMode } from "./controllers/progressionmode";
 import { ProgressionUpgradeNotice } from "./controllers/realprogression";
 import { CheckGatewayConfig } from "./middleware/RequestOrigin";
 import { StartChat } from "./realtime/chat";
+import { DescribeFeatures } from "./features";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -61,6 +62,7 @@ DrainAndRegisterAPIKeys().then(async () => {
     }
     logger.info(`Dauntless Revived metagame on ${BIND_HOST}:${PORT}`);
     logger.info(`Progression mode: ${DescribeProgressionMode()}`);
+    logger.info(DescribeFeatures());
     try {
       const UpgradeNotice = ProgressionUpgradeNotice();
       if (UpgradeNotice !== undefined) {
