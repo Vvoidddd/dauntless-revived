@@ -76,18 +76,23 @@ higher figure at Cinematic settings).
   built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
   tests, which replay the game's own requests, and it has been running on our rented server since 22 September 2026, but nobody has tried it in the game yet. Players must
   restart their game once after the update. You don't have to be friends to invite someone to a
-  party. Everyone still shows as offline, because that needs presence over the chat connection, which
-  is not built yet; showing players as online is the owner's next wish once parties work (roadmap
-  3.10). The details are on [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}).
+  party. Everyone still shows as offline: showing friends as online (presence over the chat
+  connection) is built since 23 September 2026 but off until chat itself is live and two players have
+  tried it (roadmap 3.10). **Slayer Links** (the My Links tab) are built and on, not yet tried in the
+  game. The details are on [Friends, parties and guilds]({{ '/findings/social.html' | relative_url }}).
 - **Text chat.** Built and tested without the game: Ramsgate, hunt, party and guild chat and whispers,
   with usernames, in the metagame itself. It is off by default until two players have tried it on the
   rented server. Use Discord meanwhile. The details are on
   [Text chat]({{ '/findings/chat.html' | relative_url }}).
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
-  not been tried yet. Escalation is still stubbed, so its progress does not carry over between
-  sessions.
-- **Multiple loadouts, the welcome message and mailbox, seasonal events, and the store.** With real
+  not been tried yet. Real Escalation saves are built (from Harmonic's 1.4.4 fork) but off by default,
+  because switching them on drops every player from the fake maximum to level 0; until then Escalation
+  progress does not carry over between sessions ([Escalation]({{ '/findings/escalation.html' | relative_url }})).
+- **The store.** A free store (every offer costs nothing, from Harmonic's fork) is built but off until
+  the owner decides whether it stays free and it has been tried in the game
+  ([The in-game store]({{ '/findings/store.html' | relative_url }})).
+- **Multiple loadouts, the welcome message and mailbox, and seasonal events.** With real
   progression, loadout slot unlocks are stored, but the extra slots have not been tried in the game
   yet.
 

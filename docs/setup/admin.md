@@ -45,7 +45,7 @@ but not built yet is marked as such. The other side of this setup is
 |:----------|:-----------|:--------------------|
 | Metagame (`UndauntedMetagame`: Node, Express, SQLite) | TCP 61000 | Every player's client, every game server, and you as admin |
 | Deploy server (`UndauntedDeployServer`) | TCP 61001, loopback only | Only the metagame on the same PC. **It has no authentication.** |
-| Ramsgate server | UDP 8777 (`PORT_RANGE_END`) | Players. Always running, and restarted by the deploy server's watchdog if it dies. |
+| Ramsgate server | UDP 8777 (`PORT_RANGE_END`) | Players. Always running. If it dies, the deploy server starts it again when a player travels there, or its watchdog does within a minute. |
 | Training Dojo | UDP 8776 | Players. Our fork starts it on first use; `ENABLE_DOJO=1` restores upstream's always-on behaviour. |
 | Hunt servers | UDP 8770-8775 | Players. One per group of up to 4. Each exits after 50 seconds in total with nobody connected. |
 
@@ -189,7 +189,8 @@ Planned in the fork:
 Both services read `.env` only at start (`npm run start`, which runs
 `node --env-file=.env dist/server.js`).
 
-1. Stop the deploy server first. Otherwise its watchdog starts a new Ramsgate.
+1. Stop the deploy server first. Otherwise its watchdog, or a player's trip to Ramsgate, starts a new
+   Ramsgate.
 2. Check for leftover game servers. Normally they end together with the deploy server: it starts them
    with Node's default (not detached) `spawn`, and on Windows Node places such children in a job
    object that is closed when the parent exits. We confirmed this with a test process, both for a
@@ -401,6 +402,46 @@ Renaming does exist (`RenameUser`, see [Usernames](#usernames)).
   pending rows, then inserts each one into `userapikeys`, where `userId` is the primary key. For an
   existing user that insert fails, the metagame never starts listening, and the pending key is
   already gone.
+
+## Switching features on {#switching-features-on}
+
+Several features are built but off by default, and a few that are on have a switch to turn them off.
+Each is one line in the metagame's settings: `.env` in the `UndauntedMetagame` folder on a hand-built
+host, `C:\DauntlessRevived\data\config\metagame.env` on a kit server (edit it from an elevated editor).
+The kit keeps a line you add across re-runs and updates. Then restart the metagame **when nobody is
+playing** (a restart drops parties and matchmaking queues): by hand as in
+[Restarting after a change](#restarting-after-a-change), or on a kit server
+`C:\DauntlessRevived\bin\Stack.ps1 restart -Only metagame`. The metagame's start line `features: ...`
+shows the value it uses. Every setting is on [Configuration]({{ config_page.url | relative_url }}).
+
+**Off by default, and what to do before switching each on:**
+
+| Feature | Line | Before you switch it on | How to check it |
+|:--------|:-----|:------------------------|:----------------|
+| Real Escalation saves | `ESCALATION_MODE=real` | Tell your players: everyone drops from the fake maximum (level 25) to level 0. Restart the **whole stack** (on a kit server `Stack.ps1 restart`), so no game server still holds the old values. | Play an Escalation run, log in again, spend a talent point: the level stays, and the log has no `Refusing escalation save` and no `breaks a soft rule` line ([Escalation]({{ '/findings/escalation.html' | relative_url }}#switching-it-on)). |
+| Strict Escalation rules | `ESCALATION_STRICT=1` | Only after real Escalation has run with no `breaks a soft rule` line. | Same as above. |
+| The free store | `STORE=free` | Decide whether the store stays free (roadmap 3.7). Count the accounts with more than one character (below): a purchase goes to the character saved last. | Open every store tab, buy one item of each kind, log in again, finish a hunt ([The in-game store]({{ '/findings/store.html' | relative_url }}#open)). |
+| Unlimited premium bounty tokens | `STORE_REPEATABLE_TOKENS=1` (with `STORE=free`) | Your decision: it means unlimited free premium bounty drafts. | The bundle shows in the store. |
+| Friends' online status | `CHAT_PRESENCE=1` (with `CHAT=1`) | Chat itself must work first. The kit's `Set-Chat.ps1` has no switch for it: add the line by hand. | The presence test on [Text chat]({{ '/findings/chat.html' | relative_url }}#how-to-verify-presence): no player is kicked from a party. |
+| Hunt Pass rank entitlements on confirm | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Only if an in-game test shows the Elite ranks' cosmetics (ranks 6, 9, 29 and 50) never arrive by themselves (no `POST /entitlementv2` in the log). | The cosmetic shows after Claim. |
+| Your own Hunt Pass season files | `PROGRESSION_CONFIG_DIR=<folder>` and, for another season, `ACTIVE_HUNT_PASS=<id>` | Read [Game settings]({{ '/reference/game-settings.html' | relative_url }}#hunt-pass-seasons); never change a season players already have progress in. | The start line `Progression config: ...` names what was loaded; a bad file stops the metagame with the reason. |
+
+**On by default, and the line that turns each off:** `SLAYER_LINKS=0` (Slayer Links),
+`VERIFY_STUB_ACCOUNT=1` (the old session-check reply), `BALANCE_FROM_INVENTORY=0` (the old currency
+sheet), `PROGRESSION_REPLAY_WINDOW_S=0` (no retry guard; set it if `repeats the grant of` shows up in
+normal play). In the deploy server's settings, `PERSISTENT_WORLD_LIVENESS=0` leaves restarting a dead
+Ramsgate to the watchdog; restart the deploy server after changing it.
+
+**Counting characters per account** before `STORE=free` (it prints counts only, no names or ids). On a
+kit server, in an elevated PowerShell:
+
+```powershell
+Set-Location C:\DauntlessRevived\app\UndauntedMetagame
+node -e "const db = new (require('better-sqlite3'))(process.argv[1], { readonly: true }); console.log(db.prepare('SELECT COUNT(*) AS accountsWithSeveralCharacters FROM (SELECT userId FROM characters GROUP BY userId HAVING COUNT(*) > 1)').get())" C:/DauntlessRevived/data/undaunted.db
+```
+
+On a hand-built host, run it from your `UndauntedMetagame` folder with your `DB_FILENAME`. A result of
+0 means every purchase goes to the player's only character.
 
 ## Usernames
 

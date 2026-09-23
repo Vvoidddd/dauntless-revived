@@ -3,7 +3,7 @@ title: Päivitysohjeet
 parent: Asennus
 grand_parent: Dauntless Revived suomeksi
 nav_order: 6
-description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: tekstichat on rakennettu (pois päältä, kunnes kytket sen), kaverit, ryhmät ja killat toimivat nyt, ja oikea eteneminen on oletuksena päällä. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
+description: "Mitä pelaajille muuttuu, kun päivität jo käytössä olevan Dauntless Revived -palvelimen: Harmonicin forkin siirto (Slayer Links päällä; Escalation, kauppa ja paikalla olo rakennettu mutta pois päältä), tekstichat, kaverit, ryhmät ja killat sekä oletuksena päällä oleva oikea eteneminen. Näin pidät vanhat maksimitasot, aloitat alusta tai jatkat tyngällä."
 lang: fi
 ref: setup/upgrading
 locale: fi_FI
@@ -17,6 +17,10 @@ locale: fi_FI
 {% assign social_page = site.pages | where: "path", "fi/findings/social.md" | first %}
 {% assign config_page = site.pages | where: "path", "fi/reference/configuration.md" | first %}
 {% assign chat_page = site.pages | where: "path", "fi/findings/chat.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "fi/findings/harmonic-fork.md" | first %}
+{% assign escalation_page = site.pages | where: "path", "fi/findings/escalation.md" | first %}
+{% assign store_page = site.pages | where: "path", "fi/findings/store.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "fi/setup/troubleshooting.md" | first %}
 
 # Päivitysohjeet
 {: .no_toc }
@@ -30,6 +34,84 @@ mitä pelaajasi näkevät ja mitä voit asialle tehdä. Uusin muutos on ensimmä
 1. TOC
 {:toc}
 </details>
+
+## Escalation, kauppa, Slayer Links ja pienemmät korjaukset {#harmonic-port}
+
+**Syyskuu 2026.** Koskee jokaista palvelinta, joka päivitetään versioon, jossa on Harmonicin
+1.4.4-forkin siirto ([Harmonicin työn siirto]({{ harmonic_page.url | relative_url }})). Tunnistat
+sen metagamen käynnistysrivistä, joka alkaa `features:`.
+
+### Mikä muuttuu {#harmonic-port-what-changes}
+
+- **Kolme uutta tietokannan siirtoa (migraatiota) ajetaan itsestään ensimmäisellä käynnistyksellä:**
+  `0014_escalation`, `0015_store_purchases` ja `0016_slayer_links`. Ne vain lisäävät kuusi taulua
+  (`escalationprogression`, `escalationtalents`, `escalationunlocks`, `storepurchases`,
+  `slayerlinkinvites`, `slayerlinks`); yhtään olemassa olevaa taulua tai riviä ei muuteta, kopioida
+  tai muunneta. Ota tietokannasta varmuuskopio ensin kuten minkä tahansa päivityksen yhteydessä
+  ([Tietokannan varmuuskopiointi]({{ admin_page.url | relative_url }}#back-up-the-database);
+  palvelinpaketti tekee sen itse). Edellinen versio käynnistyy yhä muutetulla tietokannalla: se ei aja
+  siirtoja, joita se ei tunne, ja jättää uudet taulut huomiotta, joten palaaminen ei vaadi
+  palautusta. Tämä tarkistettiin kopiolla tietokannasta, joka oli siirron `0013` tasolla ja täynnä
+  rivejä: jokainen rivi pysyi ennallaan molempien versioiden läpi.
+- **Oletuksena päällä**, koska kukin vastaa vain siellä, missä palvelin antoi ennen virheen tai
+  tyngän:
+
+  | Muutos | Kytkin, jolla sen saa pois |
+  |:-------|:---------------------------|
+  | [Slayer Links](#harmonic-port-what-players-see) (My Links -välilehti): kahdeksan uutta reittiä | `SLAYER_LINKS=0` |
+  | Pelin säännöllinen istunnon tarkistus (`oauth/verify`) nimeää pelaajan oman tilin paikkamerkin sijaan. Jokaisen pelaajan peli kutsuu sitä. | `VERIFY_STUB_ACCOUNT=1` |
+  | `/balance` ja `/reconcile` kertovat valuutat, jotka hahmolla on (Ramsit, platina), nollan sijaan | `BALANCE_FROM_INVENTORY=0` |
+  | Pelipalvelimen XP-myöntöön, joka toistuu tavu tavulta 10 sekunnin sisällä, vastataan, mutta sitä ei lisätä uudelleen | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | Kahdesti saapuvaan ryhmäkutsun hyväksyntään vastataan ryhmällä 404:n sijaan | ei kytkintä |
+  | Deploy-palvelin käynnistää kaatuneen Ramsgaten tai Dojon uudelleen, kun pelaaja matkustaa sinne, eikä odota vahtikoiraa (jopa minuutti) | `PERSISTENT_WORLD_LIVENESS=0` (deploy-palvelimen asetuksissa) |
+
+- **Rakennettu, mutta oletuksena pois päältä**, kukin päätöksen tai pelitestin jälkeen:
+
+  | Ominaisuus | Kytkin | Miksi se odottaa |
+  |:-----------|:-------|:-----------------|
+  | Oikeat Escalation-tallennukset | `ESCALATION_MODE=real` | Jokainen pelaaja putoaa tekaistusta maksimista (taso 25) tasolle 0. [Escalation]({{ escalation_page.url | relative_url }}#switching-it-on) |
+  | Ilmainen pelin kauppa | `STORE=free` | Ilmaisesta tai hinnoitellusta ei ole vielä päätetty (tiekartan kohta 3.7), eikä kauppaa ole kokeiltu pelissä. [Pelin kauppa]({{ store_page.url | relative_url }}#open) |
+  | Rajattomat premium-palkkiotehtävätunnisteet kaupassa | `STORE_REPEATABLE_TOKENS=1` | Sinun päätöksesi. |
+  | Kavereiden paikalla olo chatissa | `CHAT_PRESENCE=1` (yhdessä `CHAT=1` kanssa) | Kahden pelaajan testi, joka näyttää, että ryhmän automaattinen potku pysyy unessa. [Tekstichat]({{ chat_page.url | relative_url }}#how-to-verify-presence) |
+  | Tason vahvistus antaa myös tason pysyvät oikeudet | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Vain jos käy ilmi, ettei pelipalvelin anna niitä itse. |
+  | Tiukat Escalation-säännöt | `ESCALATION_STRICT=1` | Kun Escalation on toiminut jonkin aikaa puhtain lokein. |
+
+- **Deploy-palvelin kirjaa enemmän:** rivin aina, kun pelipalvelin sulkeutuu (`... exited with code 0`
+  jokaisen metsästyksen jälkeen), fatal-rivin, kun sen käynnistys epäonnistuu, ja epäonnistunut
+  pelipalvelimen käynnistys saa metagamelta selvän 500-vastauksen (pelaajat näkevät haun epäonnistuvan
+  kuten ennenkin).
+- **Muuta ei tarvitse tehdä:** ei palomuurisääntöä, ei uutta porttia eikä uutta käynnistintä
+  (käynnistimen 0.1.6:ssa on vain päivitetyt tekijätiedot). Palvelin-DLL on ennallaan. Palvelinpaketti
+  ei kirjoita yhtään uusista kytkimistä, joten yllä olevat oletukset ovat voimassa, kunnes lisäät rivin
+  tiedostoon `metagame.env` (tai `deployserver.env`).
+
+### Mitä pelaajasi näkevät {#harmonic-port-what-players-see}
+
+- **Slayer Links** saattaa toimia Social-paneelin My Links -välilehdellä: kutsu kaveri johonkin
+  kolmesta paikasta, ja linkki kestää viikon. Peliohjelma saattaa pitää välilehden piilossa; kukaan ei
+  ole vielä kokeillut sitä pelissä.
+- Siellä, missä peli lukee `/balance`-vastauksen, Ramsit näyttävät sen, mitä hahmolla oikeasti on (ennen
+  0).
+- Jos Ramsgate on kaatunut, seuraava sinne matkustava pelaaja odottaa hieman pidempään (palvelinpaketilla
+  noin 10 sekuntia), kun se käynnistyy uudelleen, eikä päädy kaatuneelle palvelimelle.
+- Muuta ei muutu, ennen kuin kytket jotain päälle: Escalation näyttää yhä tekaistun maksimin,
+  kauppanäkymä saa yhä vanhan virheensä, ja kaikki näkyvät yhä poissa olevina.
+
+### Mitä voit tehdä {#harmonic-port-what-you-can-do}
+
+- Etsi päivityksen jälkeen metagamen lokista `features:`-rivi: se luettelee jokaisen uuden kytkimen
+  arvoineen ([Asetukset]({{ config_page.url | relative_url }}#metagame)).
+- Ominaisuuden kytkeminen päälle on yksi rivi metagamen asetuksissa ja uudelleenkäynnistys;
+  [Palvelin ryhmälle]({{ admin_page.url | relative_url }}#switching-features-on) kertoo vaiheet ja
+  kunkin testit.
+- Jos jokin toimii väärin, ensimmäisen taulukon kytkimet ottavat kunkin muutoksen pois. Etsittävät
+  lokirivit ovat sivulla [Vianetsintä]({{ trouble_page.url | relative_url }}#log-lines-of-the-port).
+- **Paluu** päivitystä edeltäneeseen versioon (`Update-DauntlessServer.ps1 -Rollback`) ei vaadi muuta:
+  vanhempi koodi jättää uudet kytkimet ja taulut huomiotta. Escalation palaa tyngäksi (tallennetut
+  kaudet jäävät käyttämättä tauluihinsa), `/slayerlink` vastaa taas 404, ja jo tehdyt kauppaostot
+  pysyvät pelaajien tavaraluetteloissa ja oikeuksissa. Ne löytyvät (`inventorylog.caller = 'store'`,
+  `entitlements.source LIKE 'store:%'`), ja ne voi ottaa pois ylläpitoreiteillä.
+- Älä koskaan muokkaa tietokannan siirtoa sen jälkeen, kun se on ajettu palvelimellasi.
 
 ## Tekstichat {#chat}
 
@@ -59,8 +141,8 @@ mitä pelaajasi näkevät ja mitä voit asialle tehdä. Uusin muutos on ensimmä
 Kun chat on päällä: Ramsgaten ja metsästysten chat, ryhmächat, kiltachat ja kuiskaukset, kaikki
 käyttäjänimin. Ramsgaten chat on toistaiseksi istuntokohtainen, joten kaksi pelaajaa jakaa sen vain,
 kun he matkustivat Ramsgateen yhdessä ryhmänä. Peli, joka oli jo käynnissä chatin kytkeytyessä
-päälle, yhdistää noin 45 sekunnissa. Paikalla olon näyttäminen (kaverit näkyvät paikalla) on vielä
-tulossa.
+päälle, yhdistää noin 45 sekunnissa. Paikalla olon näyttäminen (kaverit näkyvät paikalla) tuli
+myöhemmällä päivityksellä, oletuksena pois päältä ([yllä](#harmonic-port)).
 
 ### Mitä voit tehdä {#chat-what-you-can-do}
 
@@ -105,7 +187,8 @@ ensimmäiset tilitiedot ja ensimmäisen yhdistämisen kustakin pelaajasta koko i
 vanhat, väärät vastaukset jäävät voimaan, kunnes peli käynnistetään uudelleen. Sen jälkeen ryhmäkutsut
 näkyvät kohdassa PARTY INVITES, kaverin lisääminen toimii (toinen pelaaja näkee pyynnön seuraavalla
 kirjautumisellaan), ja Guilds-välilehdellä voi perustaa kiltoja ja liittyä niihin. Paikalla olo ja EPIC
-FRIENDS eivät vieläkään toimi. Chat tuli myöhemmällä päivityksellä ([Tekstichat](#chat)).
+FRIENDS eivät oletuksena vieläkään toimi. Chat tuli myöhemmällä päivityksellä ([Tekstichat](#chat)) ja
+paikalla olo sen jälkeen, oletuksena pois päältä ([yllä](#harmonic-port)).
 [Liity kaverina]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) kertoo tämän
 pelaajille.
 
@@ -177,7 +260,8 @@ palkkiotehtävien valinta ja lunastus pelin valikoissa, odotusajat vuorokauden v
 pelaaja yhtä aikaa, ja tynkäaikana pelanneen tilin siirtäminen valetasolta 50 tasolle 1 (tarkistuslistan
 kohta 2.13). Useamman pelaajan kanssa kannattaa huomata, että pelaajan oma peliohjelma saa nyt
 vastauksen 403, jos se kysyy toisen tilin etenemistä; tynkä vastasi siihen kysyjän omilla tiedoilla.
-Escalation on yhä alkuperäinen tynkä kummassakin tilassa.
+Escalation pysyy alkuperäisenä tynkänä kummassakin tilassa, ellet aseta `ESCALATION_MODE=real`
+([yllä](#harmonic-port)).
 
 ### Mitä pelaajasi näkevät {#what-your-players-will-see}
 

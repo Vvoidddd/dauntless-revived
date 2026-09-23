@@ -403,6 +403,22 @@ sekunnin välein vaarattomasti, kuten ennen chattia. Jos vika on itse chat-koodi
 `Update-DauntlessServer.ps1 -Rollback` palaa päivitystä edeltäneeseen versioon; vanhempi koodi ei lue
 asetusta `CHAT`. Yksityisessä tilassa chattia ei vielä ole.
 
+**Kavereiden paikalla olo** on toinen kytkin, `CHAT_PRESENCE=1`, jota `Set-Chat.ps1` ei aseta: lisää
+se käsin tiedostoon `metagame.env`, kun chat toimii, ja käynnistä metagame uudelleen, kun kukaan ei
+pelaa (`Stack.ps1 restart -Only metagame`). Metagamen lokissa lukee silloin `chat: friends' online
+status on`. Testaa se sivun [Tekstichat]({{ chat_page.url | relative_url }}#how-to-verify-presence)
+ohjeen mukaan ennen kuin jätät sen päälle; rivin poistaminen kytkee sen taas pois.
+
+### Muut ominaisuudet, jotka kytketään tiedostossa `metagame.env` {#other-switches}
+
+Paketti ei kirjoita yhtään Harmonicin forkin siirron mukana tulleista kytkimistä, joten paketin
+palvelimella ne ovat oletusarvoissaan: Slayer Links päällä; Escalation (`ESCALATION_MODE`), kauppa
+(`STORE`) ja kavereiden paikalla olo pois. Muuttaaksesi jotakin lisää rivi tiedostoon
+`C:\DauntlessRevived\data\config\metagame.env` (deploy-palvelimelle `deployserver.env`)
+järjestelmänvalvojana avatulla editorilla ja käynnistä kyseinen osa uudelleen, kun kukaan ei pelaa.
+Paketti säilyttää rivin uudelleenajoissa ja päivityksissä. Mitä kukin tekee ja mitä tarkistaa ensin,
+kerrotaan sivulla [Palvelin ryhmälle]({{ admin_page.url | relative_url }}#switching-features-on).
+
 ### Päivitykset
 
 `Deploy-Remote.ps1 -Server <osoite> -Update` lähettää nykyisen commitisi ja ajaa palvelimella

@@ -402,7 +402,10 @@ Tämä on pieni yksityinen elvytyshanke, ja työ on kesken. Tätä kirjoitettaes
 - Tekstichat on rakennettu, mutta sitä ei ole vielä kytketty päälle (katso alta). Käytä Discordia.
 - Palkkiotehtävät (bounties) ja odotusajat (cooldowns) tallentuvat, mutta palkkiotehtävän valitsemista
   ja lunastamista sekä vuorokauden vaihdetta ei ole vielä kokeiltu pelissä. Escalation-sarjat ovat
-  vain tynkiä, jotka eivät oikeasti tallenna mitään, eivätkä ne säily pelikerrasta toiseen.
+  vain tynkiä, jotka eivät oikeasti tallenna mitään, eivätkä ne säily pelikerrasta toiseen, ellei
+  isäntäsi ole kytkenyt oikeaa Escalationia päälle (silloin kaikki aloittavat uudelleen tasolta 0).
+- Pelin kauppa on rakennettu, mutta se on pois päältä, ellei isäntäsi kytke sitä päälle. Kun se on
+  päällä, kaikki siinä on ilmaista.
 - Äänichat toimi Vivoxilla, joka on maksullinen ulkopuolinen palvelu, eikä se voi palata. Käytä
   Discordia.
 - Jonkun omalla koneella pyörivä palvelin on poissa päältä, kun se kone on sammutettu. Vuokratulla
@@ -455,6 +458,15 @@ Jos pelin oma kutsu ei toimi, isäntä voi lähettää kutsun nimellä palvelime
 ([hallintarajapinnan]({{ '/fi/reference/api.html' | relative_url }}#undaunted-api) `PartyInvite`-reitti);
 hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
 
+### Slayer Links {#slayer-links}
+
+**Uusi, ei vielä kokeiltu pelissä.** **My Links** -välilehdellä kaksi kaveria voi liittoutua viikoksi:
+kutsu kaveri johonkin kolmesta linkkipaikastasi, ja hän hyväksyy kutsun johonkin omaan paikkaansa.
+Teidän on oltava kavereita, eikä kumpikaan saa olla estänyt toista. Kutsu odottaa vastausta 24 tuntia.
+Voit poistaa linkin milloin tahansa; se päättyy teiltä molemmilta. Kaverin poistaminen tai estäminen
+peruu välillänne vielä odottavat kutsut. Peli saattaa pitää välilehden piilossa; silloin mikään ei
+muutu.
+
 ### Killat {#guilds}
 
 - **Perusta kilta** **Guilds**-välilehdellä ollessasi Ramsgatessa: **CREATE GUILD**, sitten nimi,
@@ -479,15 +491,16 @@ hyväksyt sen silti pelissä. Sama koskee kiltakutsuja (`GuildInvite`).
 
 ### Mikä ei vielä toimi {#what-does-not-work-yet}
 
-- **Paikalla olo.** Kaikki näkyvät tilassa Offline, ja EPIC FRIENDS pysyy tyhjänä. Pelaajien
-  näyttäminen paikalla vaatii chat-yhteyden läsnäolotiedot, joita ei ole vielä rakennettu.
+- **Paikalla olo.** Kaikki näkyvät tilassa Offline, ja EPIC FRIENDS pysyy tyhjänä. Kavereiden
+  näyttäminen paikalla on rakennettu chat-palvelimeen, mutta isäntä kytkee sen päälle vasta, kun chat
+  itse toimii ja kaksi pelaajaa on kokeillut sitä.
 - **Chat**: kuiskaukset sekä ryhmä-, kilta- ja Ramsgate-chat käyttäjänimin on rakennettu, mutta isäntä
   kytkee sen päälle vasta, kun kaksi pelaajaa on kokeillut sitä; siihen asti käytä Discordia. Aluksi
   Ramsgaten chat tavoittaa vain ne pelaajat, jotka matkustivat sinne kanssasi ryhmänä.
 - **Muutokset näkyvät viiveellä.** Kaveripyynnöt, hyväksytyt pyynnöt ja kiltojen muutokset näkyvät
   toiselle pelaajalle hänen seuraavalla kirjautumisellaan (killoissa myös matkustamisen jälkeen), eivät
   heti.
-- Äänichat, kaveripalvelun viimeaikaiset pelaajat ja My Links (Linked Slayers).
+- Äänichat ja kaveripalvelun viimeaikaiset pelaajat.
 
 Jos jokin ei näy, kerro isännälle, mitä teit ja suunnilleen milloin; palvelin kirjaa jokaisen vaiheen
 lokiin.

@@ -933,7 +933,7 @@ Emme ole mitanneet 1.4.4:ää ilman niitä. Katso
 Järjestyksellä on väliä:
 
 1. Deploy-palvelimen vahtikoira (watchdog) käynnistää kuolleen Ramsgaten uudelleen noin minuutissa,
-   joten pysäytä deploy-palvelin ennen pelipalvelimia.
+   ja niin tekee myös pelaajan matka Ramsgateen, joten pysäytä deploy-palvelin ennen pelipalvelimia.
 2. Sen käynnistämät pelipalvelimet päättyvät yleensä sen mukana. Se käyttää Noden oletusarvoista
    (ei irrotettua eli not detached) `spawn`-kutsua, ja Windowsissa Node laittaa tällaiset
    lapsiprosessit työobjektiin (job object), joka suljetaan, kun Node sulkeutuu. Varmistimme tämän

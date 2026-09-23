@@ -386,6 +386,21 @@ harmlessly, as before chat existed. If the chat code itself is at fault,
 `Update-DauntlessServer.ps1 -Rollback` goes back to the build before the update; older code ignores
 `CHAT`. Private mode has no chat yet.
 
+**Friends' online status** is a second switch, `CHAT_PRESENCE=1`, which `Set-Chat.ps1` does not set:
+add it to `metagame.env` by hand once chat works, and restart the metagame when nobody is playing
+(`Stack.ps1 restart -Only metagame`). The metagame log then says `chat: friends' online status on`.
+Test it as described on [Text chat]({{ chat_page.url | relative_url }}#how-to-verify-presence) before
+you leave it on; taking the line out again turns it off.
+
+### Other features you switch in `metagame.env` {#other-switches}
+
+The kit writes none of the switches that came with the port of Harmonic's fork, so a kit server runs
+them at their defaults: Slayer Links on; Escalation (`ESCALATION_MODE`), the store (`STORE`) and
+friends' online status off. To change one, add the line to `C:\DauntlessRevived\data\config\metagame.env`
+(deploy server: `deployserver.env`) from an elevated editor and restart that component when nobody is
+playing. The kit keeps the line across re-runs and updates. What each does and what to check first is
+on [Run it for a group]({{ admin_page.url | relative_url }}#switching-features-on).
+
 ### Updates
 
 `Deploy-Remote.ps1 -Server <address> -Update` uploads your current commit and runs

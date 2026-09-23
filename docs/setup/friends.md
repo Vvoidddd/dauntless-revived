@@ -379,7 +379,10 @@ This is a small private revival and a work in progress. As of this writing:
   joined, or once 20 seconds pass with nobody new joining.
 - Text chat is built but not switched on yet (see below). Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
-  been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
+  been tried in the game yet. Escalations are stubbed and do not carry over between sessions, unless
+  your host has switched real Escalation on (then everyone starts again from level 0).
+- The in-game store is built but off unless your host switches it on. When it is on, everything in it
+  is free.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
 - A server hosted on someone's PC is off when that PC is off. A server on a rented machine does not
   depend on anyone's PC.
@@ -430,6 +433,14 @@ If the in-game invite does not work, the host can send one by name from the serv
 `PartyInvite` route of the [management API]({{ '/reference/api.html' | relative_url }}#undaunted-api));
 you still accept it in the game. The same goes for guild invites (`GuildInvite`).
 
+### Slayer Links {#slayer-links}
+
+**New, not yet tried in the game.** In the **My Links** tab two friends can link up for a week: invite
+a friend into one of your three link slots, and they accept into one of theirs. You must be friends,
+and neither of you may have blocked the other. An invite waits 24 hours for an answer. You can remove a
+link at any time; it ends for both of you. Removing a friend or blocking them cancels the invites
+between you that are still waiting. The game may keep the tab hidden; if it does, nothing changes.
+
 ### Guilds
 
 - **Create one** in the **Guilds** tab while you are in Ramsgate: **CREATE GUILD**, then a name of
@@ -454,14 +465,15 @@ you still accept it in the game. The same goes for guild invites (`GuildInvite`)
 
 ### What does not work yet
 
-- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing players as
-  online needs presence over the chat connection, which is not built yet.
+- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing friends as
+  online is built into the chat server, but the host switches it on only after chat itself works and
+  two players have tried it.
 - **Chat**: whispers, party, guild and Ramsgate chat, with usernames, is built, but the host turns it
   on only after two players have tried it; until then, use Discord. At first Ramsgate chat reaches
   only the players who travelled there with you as a party.
 - **Changes show late.** Friend requests, accepted requests and guild changes reach the other player
   at their next login (for guilds, also after travelling), not at once.
-- Voice chat, the friends service's recent players and My Links (Linked Slayers).
+- Voice chat, and the friends service's recent players.
 
 If something does not show, tell the host what you did and roughly when; the server logs every step.
 

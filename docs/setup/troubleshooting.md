@@ -390,8 +390,9 @@ intact. We have not tested unquoted values on 1.4.4.
 
 Every game server opens a console, because the server DLL's console logging is on by default. The
 deploy server shows the windows of Ramsgate and the Dojo and starts hunt servers with their window
-hidden. **Closing a console window ends that server** for everyone on it. The deploy server's
-watchdog restarts Ramsgate (and the Dojo) within about a minute. A hunt server is not restarted.
+hidden. **Closing a console window ends that server** for everyone on it. The deploy server starts
+Ramsgate (and the Dojo) again as soon as a player travels there, or its watchdog does within about a
+minute. A hunt server is not restarted.
 Leave the windows open (minimise them). Writing server output to log files instead is on the
 [roadmap]({{ roadmap_page.url | relative_url }}).
 
@@ -410,11 +411,87 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 | `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | 40+ | Upstream has no handler for unlocking a loadout slot. The game server (`gs=1`) sends it in bursts of retries, several within a few seconds, then again minutes later. Harmless. Handled since real progression became the default (roadmap 2.4); a low-level account sends none, so you only see this line with `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14x | The client and the game server both save the character, with version numbers, and reject each other's writes. Each time, the side whose write was rejected (sometimes the client, sometimes the game server) re-read the character and wrote again within about a second, so the last write reached the database. Not yet proven lossless when both change the same value at once; on the roadmap. |
 | `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | There was no friends list then; the game showed "0 ONLINE FRIENDS". The fork now answers both routes (everyone still shows as offline). `MISC_ROUTES=0` puts the 404 back. |
-| `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |
+| `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`: the metagame's address is pasted straight after `/account` (Harmonic's fork found the same and answers it with account data). The request carries no credentials. The metagame answers 404; nothing visible breaks. The real fix belongs in the server DLL (roadmap 4.6). |
+| `Game server on port 877x (pid ...) exited with code 0` (deploy log) | after every hunt | A game server ended normally. Any other code, or `on <signal>`, is a warning worth a look. |
+| `Unhandled progression request <METHOD> <path> from a game server` | rare | The game sent a progression request no route answers (it still gets 404). Note the path: it may be a route we have not built yet. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping. The fork now answers `POST /candidate/player/alive` (`MISC_ROUTES=0` puts the 404 back). `DELETE /candidate` still gets a 404 on purpose: the client sends it right after every queued join, and hunts start only because it fails. `MATCHMAKING_CANCEL=1` turns a handler on, as an experiment. |
 | `Unauthenticated POST to /heartbeat which needs metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
 | `Running Gameserver Watchdog!` (deploy log) | every 60 s | Normal. |
 | `Cleaning up Gameserver on port 8775` (deploy log) | when a hunt ends | The hunt server exited and its port went back to the pool. |
+
+---
+
+## Log lines of Escalation, the store, Slayer Links and the deploy server {#log-lines-of-the-port}
+
+These came with the port of Harmonic's fork ([The Harmonic port]({{ '/findings/harmonic-fork.html' | relative_url }})).
+Metagame lines unless marked.
+
+**At every start**
+
+| Line | Meaning |
+|:-----|:--------|
+| `features: bodyLogPerPath=no-cap escalation=stub ...` | The value of every new switch. Check it after changing a setting. |
+| `Progression config: bundled, 10 tracks; active Hunt Pass season09b` | The progression tracks in use; with `PROGRESSION_CONFIG_DIR`, which were replaced or added. |
+| `The progression config could not be loaded: <reason>` (fatal) | A season file or `ACTIVE_HUNT_PASS` is wrong; the metagame stops before it opens the database. Fix the file named in the reason, or remove the setting. |
+| `<NAME>="<value>" is not a valid value; using the default (<default>)` | A switch has a value it does not understand; the default is used. |
+| `Removed N expired store purchase token(s) that were never redeemed` | Housekeeping of the store's tokens. |
+| `Ramsgate and Dojo liveness check before handing them out: on` (deploy log) | `PERSISTENT_WORLD_LIVENESS` is on. |
+| `Starting the game servers failed: <message>` (deploy log, fatal) | Ramsgate could not be started at boot (often a wrong `GAMESERVER_BINARY_PATH`). The deploy server keeps running and tries again at the next trip to Ramsgate; its exit code is 1 when it ends. |
+
+**The deploy server** (deploy log)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Ramsgate is not running any more: starting it again before sending anyone there` | A player travelled to a dead Ramsgate; it is started first (the same for the Dojo). The player waits a few seconds longer. If it keeps happening, find out why Ramsgate dies (a closed console window, memory). |
+| `RAMSGATE HAS FALLEN! Restarting!` | The watchdog found Ramsgate dead and started it (only when no restart is already running). |
+| `Game server on port N failed: <error> (GAMESERVER_BINARY_PATH is <path>)` | The game could not be started, usually a wrong path in `GAMESERVER_BINARY_PATH`. |
+| `Matchmaking for <mode> <hunt> failed: <message>` | No game server could be started (for example `No free ports left!`); the players' search fails. |
+| `Could not restart the game server on port N: <message>` | The watchdog could not restart Ramsgate or the Dojo; the next trip there tries again. |
+
+**Progression**
+
+| Line | Meaning |
+|:-----|:--------|
+| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again within `PROGRESSION_REPLAY_WINDOW_S` (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
+| `progression: objective went backwards: ...; stored as sent` | An objective arrived lower than stored. Stored anyway; worth a note if it repeats. |
+| `Game server <what> for <account> carries the token of <other account>: accepted for <account>, ...` | A game server wrote for one player with another player's token. The write is kept for the account in the URL. Expected now and then in hunts with several players; report it if it repeats for the same pair. |
+| `Balances of <account> from the inventory of character <id>: ...` | `/balance` or `/reconcile` reported held currencies. |
+
+**Escalation** (only with `ESCALATION_MODE=real`)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Escalation <season> for <account>: vN level L xp X, ...` | A save was stored. |
+| `Escalation <season> vN for <account> replayed` | The same save arrived again; nothing changed. |
+| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
+| `Escalation save of <season> for <account> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Stored, but our model of the rules may be wrong. Keep `ESCALATION_STRICT` off and report the line. |
+
+**The store** (only with `STORE=free`)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Store purchase token for <sku> issued to <account> (character <id>)` | Buy was pressed. |
+| `Store purchase <sku> for <account> (character <id>): N item(s), M entitlement(s)` | The purchase went through. |
+| `Store purchase <sku> of <account> was already redeemed; nothing granted again` | A retried confirm. Harmless. |
+| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character). |
+| `Store SKUs requested for unknown tag <tag>: an empty list` | The game asked for a store page we have no offers for. |
+
+**Slayer Links**
+
+| Line | Meaning |
+|:-----|:--------|
+| `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<id>` | An invite was sent. |
+| `slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots X and Y)` | A link began (`reject` and `cancel` log the same way). |
+| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). |
+| `slayerlink: delete link by=<A> ... -> removed <id> (with <B>)` | A link was ended for both players. |
+| `friends: ... (N Slayer Link invite(s) between them cancelled)` | An unfriend or a block also cancelled waiting invites. |
+
+**Parties and the session check**
+
+| Line | Meaning |
+|:-----|:--------|
+| `party: accept by <A> id=<id>: already in P=<party> size=<n>; answering that party (a repeated accept)` | The game sent the same accept twice; it got the party again. |
+| `GET /account/api/oauth/verify with a bad or expired token: answering the static reply` | A game's regular session check with an expired token, at most once a minute. Expected for sessions older than 24 hours. If players get logged out or loop on reconnect, set `VERIFY_STUB_ACCOUNT=1`. |
 
 ---
 
@@ -548,6 +625,24 @@ Expected for now. Each player gets a Ramsgate session of their own, and the Norm
 session, so two players share it only when they travelled to Ramsgate together as a party. Use party
 chat meanwhile. A shared Ramsgate channel is on the roadmap (3.10).
 
+### Friends' online status (`chat: presence`) {#chat-presence}
+
+Only with `CHAT=1` and `CHAT_PRESENCE=1` ([how it works]({{ chat_page.url | relative_url }}#presence)).
+
+| Line | Meaning |
+|:-----|:--------|
+| `chat: friends' online status off: no presence is sent outside rooms` | The default: nobody shows as online. |
+| `chat: friends' online status on (CHAT_PRESENCE=1): ...` | On. |
+| `chat: CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online` | Set `CHAT=1` too, or remove `CHAT_PRESENCE`. |
+| `chat: presence c=<id> uid=<account> online: told N friend session(s), heard of M` | A player's game sent its first presence; N friends were told, and the player heard of M. |
+| `chat: presence c=<id> uid=<account> offline (<reason>): told N friend session(s)` | The player went offline (`close`, `socket`, `ping-timeout`, `replaced`, `unavailable`, ...). `; c=<id> is still online` means another session of the same account is still there. |
+| `chat: presence: <A> and <B> are friends now: told N and M session(s)` | An accepted friend request was pushed over chat. |
+| `chat: presence: could not read the friends of <account>; nothing relayed` | A database read failed; that player's presence was not relayed this time. |
+| `chat: presence: refused to send c=<id> a stanza from its own account` (error) | **Must never appear.** The server stopped a stanza that could wake the party's automatic kick. Turn `CHAT_PRESENCE` off, restart the metagame, and report the line with the time. |
+
+If a player is kicked from a party while presence is on (a `DELETE /party/member/...` right after the
+player went offline for the others), turn `CHAT_PRESENCE` off and report it.
+
 ### The chat listener does not start {#chat-not-started}
 
 The metagame logs one error line and keeps running without chat:
@@ -592,8 +687,8 @@ went wrong for us.
   after 24 hours those saves fail with a server error. Until this is fixed, quit the game at least
   once a day. Whether the client ever refreshes its token is still untested.
 - **Running out of hunt ports.** With the default range, six hunts can run at once. A seventh
-  request fails inside the deploy server (`No free ports left!`, an HTTP 500 to the metagame). The
-  metagame logs `DeployServer returned status 500` and marks that group's search as failed: the
-  game's status poll answers `FAILED`. (Upstream's metagame handed the group an empty host and port 0
+  request fails inside the deploy server (`Matchmaking for ... failed: No free ports left!`, an HTTP
+  500 `{"error": "no_game_server"}` to the metagame). The metagame logs `DeployServer returned status
+  500` and marks that group's search as failed: the game's status poll answers `FAILED`. (Upstream's metagame handed the group an empty host and port 0
   instead.) Keeping the group waiting until a port is free is on the roadmap together with the memory
   guard.

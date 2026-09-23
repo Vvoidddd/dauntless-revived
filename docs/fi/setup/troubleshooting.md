@@ -418,8 +418,9 @@ pelikerran jälkeen, ja jokainen arvo on ehjä. Emme ole testanneet lainausmerki
 Jokainen pelipalvelin avaa konsolin (mustan tekstiruudun), koska palvelin-DLL:n konsolilokitus on
 oletuksena päällä. Deploy-palvelin näyttää Ramsgaten ja Dojon ikkunat ja käynnistää
 metsästyspalvelimet ikkuna piilotettuna. **Konsoli-ikkunan sulkeminen lopettaa sen palvelimen**
-kaikilta, jotka ovat siinä. Deploy-palvelimen vahtikoira (watchdog) käynnistää Ramsgaten (ja
-Dojon) uudelleen noin minuutissa. Metsästyspalvelinta ei käynnistetä uudelleen. Jätä ikkunat auki
+kaikilta, jotka ovat siinä. Deploy-palvelin käynnistää Ramsgaten (ja Dojon) uudelleen heti, kun
+pelaaja matkustaa sinne, tai sen vahtikoira (watchdog) tekee sen noin minuutissa. Metsästyspalvelinta
+ei käynnistetä uudelleen. Jätä ikkunat auki
 (pienennä ne). Palvelimen tulosteen kirjoittaminen lokitiedostoihin on
 [tiekartalla]({{ roadmap_page.url | relative_url }}).
 
@@ -439,11 +440,88 @@ Omasta metagamen lokistamme (1.4.4, yksi pelaaja, yksi ilta opetusjaksoa, Ramsga
 | `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | yli 40 kertaa | Alkuperäisessä projektissa ei ole käsittelijää varustepaikan avaamiselle. Pelipalvelin (`gs=1`) lähettää sen uusintayritysten ryöppyinä, useita muutaman sekunnin sisällä ja sitten taas minuuttien päästä. Vaaraton. Käsitellään siitä lähtien, kun oikeasta etenemisestä tuli oletus (tiekartan kohta 2.4); matalan tason tili ei lähetä sitä lainkaan, joten näet rivin vain asetuksella `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14 kertaa | Peliohjelma ja pelipalvelin tallentavat kumpikin hahmon versionumeroiden kanssa ja hylkäävät toistensa kirjoitukset. Joka kerta se osapuoli, jonka kirjoitus hylättiin (joskus peliohjelma, joskus pelipalvelin), luki hahmon uudelleen ja kirjoitti uudestaan noin sekunnin sisällä, joten viimeinen kirjoitus päätyi tietokantaan. Ei vielä todistettu häviöttömäksi tilanteessa, jossa molemmat muuttavat samaa arvoa samanaikaisesti; tiekartalla. |
 | `Unstubbed route GET /friends/api/public/friends/<account>` ja `.../blocklist/<account>` | 2 kertaa kumpikin | Kaverilistaa ei silloin ollut; peli näytti ”0 ONLINE FRIENDS”. Fork vastaa nyt molempiin reitteihin (kaikki näkyvät yhä offline-tilassa). `MISC_ROUTES=0` palauttaa 404:n. |
-| `Unstubbed route GET /account127.0.0.1:61000` | 2 kertaa | Yhdestä osoitteesta, jonka peliohjelma kokoaa DLL:n osoiteohituksesta, puuttuu `/`. Metagame vastaa 404; mitään näkyvää ei hajoa. |
+| `Unstubbed route GET /account127.0.0.1:61000` | 2 kertaa | Yhdestä osoitteesta, jonka peliohjelma kokoaa DLL:n osoiteohituksesta, puuttuu `/`: metagamen osoite liimataan suoraan `/account`-osan perään (Harmonicin haara huomasi saman ja vastaa siihen tilitiedoilla). Pyynnössä ei ole tunnistetietoja. Metagame vastaa 404; mitään näkyvää ei hajoa. Oikea korjaus kuuluu palvelin-DLL:ään (tiekartan kohta 4.6). |
+| `Game server on port 877x (pid ...) exited with code 0` (deploy-loki) | jokaisen metsästyksen jälkeen | Pelipalvelin päättyi normaalisti. Mikä tahansa muu koodi tai `on <signaali>` on varoitus, joka kannattaa katsoa. |
+| `Unhandled progression request <METHOD> <polku> from a game server` | harvoin | Peli lähetti etenemispyynnön, johon mikään reitti ei vastaa (se saa silti 404). Kirjaa polku ylös: se voi olla reitti, jota emme ole vielä rakentaneet. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | muutaman kerran | Matchmaking-jonon ylläpitokutsuja. Fork vastaa nyt kutsuun `POST /candidate/player/alive` (`MISC_ROUTES=0` palauttaa 404:n). `DELETE /candidate` saa yhä tarkoituksella 404:n: peliohjelma lähettää sen heti jokaisen jonoon liittymisen jälkeen, ja metsästykset alkavat vain siksi, että se epäonnistuu. `MATCHMAKING_CANCEL=1` ottaa käsittelijän käyttöön kokeiluna. |
 | `Unauthenticated POST to /heartbeat which needs metagame auth!` | kerran | Varhainen telemetrian elonmerkki (heartbeat), joka lähetetään kirjautumisen aikana ennen kuin istunto on valmis. Myöhemmät elonmerkit on tunnistettu. |
 | `Running Gameserver Watchdog!` (deploy-loki) | 60 sekunnin välein | Normaalia. |
 | `Cleaning up Gameserver on port 8775` (deploy-loki) | kun metsästys päättyy | Metsästyspalvelin sulkeutui, ja sen portti palasi vapaiden porttien joukkoon. |
+
+---
+
+## Escalationin, kaupan, Slayer Linksin ja deploy-palvelimen lokirivit {#log-lines-of-the-port}
+
+Nämä tulivat Harmonicin forkin siirron mukana
+([Harmonicin työn siirto]({{ '/fi/findings/harmonic-fork.html' | relative_url }})). Rivit ovat
+metagamen lokista, ellei toisin mainita.
+
+**Jokaisella käynnistyksellä**
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `features: bodyLogPerPath=no-cap escalation=stub ...` | Jokaisen uuden kytkimen arvo. Tarkista se asetuksen muuttamisen jälkeen. |
+| `Progression config: bundled, 10 tracks; active Hunt Pass season09b` | Käytössä olevat etenemisradat; asetuksella `PROGRESSION_CONFIG_DIR` myös, mitkä korvattiin tai lisättiin. |
+| `The progression config could not be loaded: <syy>` (fatal) | Kausitiedosto tai `ACTIVE_HUNT_PASS` on väärin; metagame pysähtyy ennen kuin se avaa tietokannan. Korjaa syyssä nimetty tiedosto tai poista asetus. |
+| `<NIMI>="<arvo>" is not a valid value; using the default (<oletus>)` | Kytkimellä on arvo, jota se ei ymmärrä; käytetään oletusta. |
+| `Removed N expired store purchase token(s) that were never redeemed` | Kaupan tunnisteiden siivousta. |
+| `Ramsgate and Dojo liveness check before handing them out: on` (deploy-loki) | `PERSISTENT_WORLD_LIVENESS` on päällä. |
+| `Starting the game servers failed: <viesti>` (deploy-loki, fatal) | Ramsgatea ei saatu käyntiin palvelimen käynnistyessä (usein väärä `GAMESERVER_BINARY_PATH`). Deploy-palvelin jatkaa toimintaansa ja yrittää uudelleen seuraavalla Ramsgaten-matkalla; sen paluukoodi on 1, kun se päättyy. |
+
+**Deploy-palvelin** (deploy-loki)
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `Ramsgate is not running any more: starting it again before sending anyone there` | Pelaaja matkusti kaatuneeseen Ramsgateen; se käynnistetään ensin (Dojolle samoin). Pelaaja odottaa muutaman sekunnin pidempään. Jos tätä tapahtuu usein, selvitä, miksi Ramsgate kaatuu (suljettu konsoli-ikkuna, muisti). |
+| `RAMSGATE HAS FALLEN! Restarting!` | Vahtikoira löysi Ramsgaten kaatuneena ja käynnisti sen (vain jos uudelleenkäynnistys ei ole jo käynnissä). |
+| `Game server on port N failed: <virhe> (GAMESERVER_BINARY_PATH is <polku>)` | Peliä ei saatu käyntiin, yleensä väärän polun takia asetuksessa `GAMESERVER_BINARY_PATH`. |
+| `Matchmaking for <tila> <metsästys> failed: <viesti>` | Pelipalvelinta ei saatu käyntiin (esimerkiksi `No free ports left!`); pelaajien haku epäonnistuu. |
+| `Could not restart the game server on port N: <viesti>` | Vahtikoira ei saanut Ramsgatea tai Dojoa uudelleen käyntiin; seuraava matka sinne yrittää uudelleen. |
+
+**Eteneminen**
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `Progression grant for <tili> repeats the grant of N s ago: answered its stored reply, nothing added` | Pelipalvelin lähetti saman myönnön uudelleen `PROGRESSION_REPLAY_WINDOW_S` sekunnin sisällä (uusinta). Tavallista heti verkkohäiriön jälkeen. Jos rivi näkyy usein tavallisessa pelaamisessa, aseta `PROGRESSION_REPLAY_WINDOW_S=0` ja ilmoita siitä. |
+| `progression: objective went backwards: ...; stored as sent` | Tavoite saapui tallennettua pienempänä. Tallennettiin silti; kannattaa kirjata ylös, jos se toistuu. |
+| `Game server <what> for <tili> carries the token of <toinen tili>: accepted for <tili>, ...` | Pelipalvelin kirjoitti yhden pelaajan puolesta toisen pelaajan tunnisteella. Kirjoitus pidetään osoitteen tilille. Odotettavissa silloin tällöin usean pelaajan metsästyksissä; ilmoita, jos se toistuu saman parin kohdalla. |
+| `Balances of <tili> from the inventory of character <tunnus>: ...` | `/balance` tai `/reconcile` kertoi hahmon valuutat. |
+
+**Escalation** (vain asetuksella `ESCALATION_MODE=real`)
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `Escalation <kausi> for <tili>: vN level L xp X, ...` | Tallennus tallennettiin. |
+| `Escalation <kausi> vN for <tili> replayed` | Sama tallennus saapui uudelleen; mikään ei muuttunut. |
+| `Refusing escalation save of <kausi> for <tili> (<tila>): <syy>` | Tallennus rikkoi kovaa sääntöä. `first save carries the old stub values` tarkoittaa, että pelipalvelimella oli yhä vanha tekaistu maksimi: käynnistä pelipalvelimet uudelleen. Satunnainen `stale snapshot` on harmiton. |
+| `Escalation save of <kausi> for <tili> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Tallennettiin, mutta sääntömallimme voi olla väärä. Pidä `ESCALATION_STRICT` pois päältä ja ilmoita rivistä. |
+
+**Kauppa** (vain asetuksella `STORE=free`)
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `Store purchase token for <tarjous> issued to <tili> (character <tunnus>)` | Osta-painiketta painettiin. |
+| `Store purchase <tarjous> for <tili> (character <tunnus>): N item(s), M entitlement(s)` | Osto meni läpi. |
+| `Store purchase <tarjous> of <tili> was already redeemed; nothing granted again` | Toistettu vahvistus. Harmiton. |
+| `Store <what> refused (<tila>): <viesti>` | Torjuttu pyyntö syineen (vanhentunut tunniste, muuttunut tarjous, tili ilman hahmoa). |
+| `Store SKUs requested for unknown tag <tunniste>: an empty list` | Peli pyysi kaupan sivua, jolle meillä ei ole tarjouksia. |
+
+**Slayer Links**
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<tunnus>` | Kutsu lähetettiin. |
+| `slayerlink: accept by=<B> other=<A> id=<tunnus> -> accepted (slots X and Y)` | Linkki alkoi (`reject` ja `cancel` kirjataan samoin). |
+| `slayerlink: ... refused <tila>: <syy>` | Torjuttu toiminto syineen (ei kavereita, paikka on varattu, kutsu on vanhentunut). |
+| `slayerlink: delete link by=<A> ... -> removed <tunnus> (with <B>)` | Linkki päätettiin kummaltakin pelaajalta. |
+| `friends: ... (N Slayer Link invite(s) between them cancelled)` | Kaveruuden purku tai esto perui myös odottavat kutsut. |
+
+**Ryhmät ja istunnon tarkistus**
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `party: accept by <A> id=<tunnus>: already in P=<ryhmä> size=<n>; answering that party (a repeated accept)` | Peli lähetti saman hyväksynnän kahdesti; se sai ryhmän uudelleen. |
+| `GET /account/api/oauth/verify with a bad or expired token: answering the static reply` | Pelin säännöllinen istunnon tarkistus vanhentuneella tunnisteella, enintään kerran minuutissa. Odotettavissa yli 24 tunnin istunnoissa. Jos pelaajat kirjautuvat ulos tai jäävät yhteyssilmukkaan, aseta `VERIFY_STUB_ACCOUNT=1`. |
 
 ---
 
@@ -583,6 +661,24 @@ Toistaiseksi odotettua. Jokainen pelaaja saa oman Ramsgate-istunnon, ja Normal-k
 istuntokohtainen, joten kaksi pelaajaa jakaa sen vain, kun he matkustivat Ramsgateen yhdessä ryhmänä.
 Käytä sillä välin ryhmächattia. Yhteinen Ramsgate-kanava on tiekartalla (3.10).
 
+### Kavereiden paikalla olo (`chat: presence`) {#chat-presence}
+
+Vain asetuksilla `CHAT=1` ja `CHAT_PRESENCE=1` ([miten se toimii]({{ chat_page.url | relative_url }}#presence)).
+
+| Rivi | Merkitys |
+|:-----|:---------|
+| `chat: friends' online status off: no presence is sent outside rooms` | Oletus: kukaan ei näy paikalla. |
+| `chat: friends' online status on (CHAT_PRESENCE=1): ...` | Päällä. |
+| `chat: CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online` | Aseta myös `CHAT=1` tai poista `CHAT_PRESENCE`. |
+| `chat: presence c=<tunnus> uid=<tili> online: told N friend session(s), heard of M` | Pelaajan peli lähetti ensimmäisen läsnäolotietonsa; N kaverille kerrottiin, ja pelaaja kuuli M:stä. |
+| `chat: presence c=<tunnus> uid=<tili> offline (<syy>): told N friend session(s)` | Pelaaja poistui (`close`, `socket`, `ping-timeout`, `replaced`, `unavailable`, ...). `; c=<tunnus> is still online` tarkoittaa, että saman tilin toinen istunto on yhä paikalla. |
+| `chat: presence: <A> and <B> are friends now: told N and M session(s)` | Hyväksytty kaveripyyntö lähetettiin chatin kautta. |
+| `chat: presence: could not read the friends of <tili>; nothing relayed` | Tietokannan luku epäonnistui; pelaajan läsnäolotietoa ei välitetty tällä kertaa. |
+| `chat: presence: refused to send c=<tunnus> a stanza from its own account` (virhe) | **Ei saa koskaan näkyä.** Palvelin pysäytti viestin, joka voisi herättää ryhmän automaattisen potkun. Kytke `CHAT_PRESENCE` pois, käynnistä metagame uudelleen ja ilmoita rivistä kellonaikoineen. |
+
+Jos pelaaja potkitaan ryhmästä paikalla olon ollessa päällä (rivi `DELETE /party/member/...` heti sen
+jälkeen, kun pelaaja näkyi muille poissa olevana), kytke `CHAT_PRESENCE` pois ja ilmoita siitä.
+
 ### Chat-kuuntelija ei käynnisty {#chat-not-started}
 
 Metagame kirjoittaa yhden virherivin ja jatkaa ilman chattia:
@@ -632,8 +728,8 @@ jostakin, mikä olisi mennyt meillä pieleen.
   epäonnistuvat palvelinvirheeseen. Kunnes tämä korjataan, sulje peli vähintään kerran päivässä.
   Uusiiko peliohjelma koskaan tunnistettaan itse, on vielä testaamatta.
 - **Metsästysportit loppuvat.** Oletusalueella kuusi metsästystä voi olla käynnissä kerralla.
-  Seitsemäs pyyntö epäonnistuu deploy-palvelimen sisällä (`No free ports left!`, HTTP 500
-  metagamelle). Metagame kirjaa `DeployServer returned status 500` ja merkitsee sen ryhmän haun
+  Seitsemäs pyyntö epäonnistuu deploy-palvelimen sisällä (`Matchmaking for ... failed: No free ports
+  left!`, HTTP 500 `{"error": "no_game_server"}` metagamelle). Metagame kirjaa `DeployServer returned status 500` ja merkitsee sen ryhmän haun
   epäonnistuneeksi: pelin tilakysely vastaa `FAILED`. (Alkuperäinen metagame antoi ryhmälle sen sijaan
   tyhjän osoitteen ja portin 0.) Tiekartalla on yhdessä muistisuojan kanssa muutos, jossa ryhmä odottaa,
   kunnes portti vapautuu.

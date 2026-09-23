@@ -50,7 +50,7 @@ toinen puoli on sivu [Liity kaverina]({{ friends_page.url | relative_url }}).
 |:----------|:-----------|:--------------------|
 | Metagame (`UndauntedMetagame`: Node, Express, SQLite) | TCP 61000 | Jokaisen pelaajan peliohjelman, jokaisen pelipalvelimen ja sinun ylläpitäjänä |
 | Deploy-palvelin (`UndauntedDeployServer`) | TCP 61001, vain loopback | Vain samalla koneella olevan metagamen. **Siinä ei ole tunnistautumista.** |
-| Ramsgate-palvelin | UDP 8777 (`PORT_RANGE_END`) | Pelaajien. Aina käynnissä, ja deploy-palvelimen vahtikoira (watchdog) käynnistää sen uudelleen, jos se kuolee. |
+| Ramsgate-palvelin | UDP 8777 (`PORT_RANGE_END`) | Pelaajien. Aina käynnissä. Jos se kuolee, deploy-palvelin käynnistää sen uudelleen, kun pelaaja matkustaa sinne, tai sen vahtikoira (watchdog) tekee sen minuutin sisällä. |
 | Training Dojo | UDP 8776 | Pelaajien. Forkimme käynnistää sen ensimmäisellä käyttökerralla; `ENABLE_DOJO=1` palauttaa alkuperäisen aina päällä -toiminnan. |
 | Metsästyspalvelimet | UDP 8770–8775 | Pelaajien. Yksi jokaista enintään neljän hengen ryhmää kohden. Kukin sulkeutuu, kun siihen ei ole ollut kukaan yhteydessä yhteensä 50 sekuntiin. |
 
@@ -201,7 +201,8 @@ Forkiin suunniteltu:
 Molemmat palvelut lukevat `.env`-tiedoston vain käynnistyessään (`npm run start`, joka ajaa
 `node --env-file=.env dist/server.js`).
 
-1. Pysäytä deploy-palvelin ensin. Muuten sen vahtikoira käynnistää uuden Ramsgaten.
+1. Pysäytä deploy-palvelin ensin. Muuten sen vahtikoira tai pelaajan matka Ramsgateen käynnistää uuden
+   Ramsgaten.
 2. Tarkista, onko pelipalvelimia jäänyt käyntiin. Normaalisti ne päättyvät deploy-palvelimen mukana:
    se käynnistää ne Noden oletusarvoisella (ei irrotetulla eli not detached) `spawn`-kutsulla, ja
    Windowsissa Node laittaa tällaiset lapsiprosessit työobjektiin (job object), joka suljetaan, kun
@@ -425,6 +426,48 @@ ylläpitäjäksi ylentämiseen. Nimen vaihto on olemassa (`RenameUser`, katso
   poistaa odottavat rivit ja sitten lisää jokaisen tauluun `userapikeys`, jossa `userId` on pääavain.
   Olemassa olevan käyttäjän kohdalla lisäys epäonnistuu, metagame ei koskaan ala kuunnella, ja odottava
   avain on jo poissa.
+
+## Ominaisuuksien kytkeminen päälle {#switching-features-on}
+
+Useat ominaisuudet on rakennettu, mutta ne ovat oletuksena pois päältä, ja muutamalla päällä olevalla
+on kytkin, jolla sen saa pois. Kukin on yksi rivi metagamen asetuksissa: itse pystytetyllä koneella
+`.env` kansiossa `UndauntedMetagame`, palvelinpaketin palvelimella
+`C:\DauntlessRevived\data\config\metagame.env` (muokkaa järjestelmänvalvojana avatulla editorilla).
+Paketti säilyttää lisäämäsi rivin uudelleenajoissa ja päivityksissä. Käynnistä sitten metagame
+uudelleen **silloin, kun kukaan ei pelaa** (uudelleenkäynnistys pudottaa ryhmät ja jonot): käsin kuten
+kohdassa [Uudelleenkäynnistys muutoksen jälkeen](#restarting-after-a-change) tai paketin palvelimella
+`C:\DauntlessRevived\bin\Stack.ps1 restart -Only metagame`. Metagamen käynnistysrivi `features: ...`
+näyttää käytössä olevan arvon. Jokainen asetus on sivulla [Asetukset]({{ config_page.url | relative_url }}).
+
+**Oletuksena pois, ja mitä tehdä ennen kunkin kytkemistä päälle:**
+
+| Ominaisuus | Rivi | Ennen kuin kytket sen päälle | Miten sen tarkistaa |
+|:-----------|:-----|:-----------------------------|:--------------------|
+| Oikeat Escalation-tallennukset | `ESCALATION_MODE=real` | Kerro pelaajille: jokainen putoaa tekaistusta maksimista (taso 25) tasolle 0. Käynnistä **koko kokonaisuus** uudelleen (paketin palvelimella `Stack.ps1 restart`), jottei mikään pelipalvelin pidä enää vanhoja arvoja. | Pelaa Escalation-kierros, kirjaudu uudelleen ja käytä kykypiste: taso säilyy, eikä lokissa ole riviä `Refusing escalation save` tai `breaks a soft rule` ([Escalation]({{ '/fi/findings/escalation.html' | relative_url }}#switching-it-on)). |
+| Tiukat Escalation-säännöt | `ESCALATION_STRICT=1` | Vasta kun oikea Escalation on toiminut ilman riviä `breaks a soft rule`. | Kuten yllä. |
+| Ilmainen kauppa | `STORE=free` | Päätä, pysyykö kauppa ilmaisena (tiekartan kohta 3.7). Laske tilit, joilla on useampi hahmo (alla): osto menee viimeksi tallennetulle hahmolle. | Avaa jokainen kaupan välilehti, osta yksi tavara kutakin lajia, kirjaudu uudelleen ja pelaa metsästys loppuun ([Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }}#open)). |
+| Rajattomat premium-palkkiotehtävätunnisteet | `STORE_REPEATABLE_TOKENS=1` (yhdessä `STORE=free` kanssa) | Sinun päätöksesi: se tarkoittaa rajattomasti ilmaisia premium-palkkiotehtäviä. | Paketti näkyy kaupassa. |
+| Kavereiden paikalla olo | `CHAT_PRESENCE=1` (yhdessä `CHAT=1` kanssa) | Chatin itsensä on toimittava ensin. Paketin `Set-Chat.ps1`:ssä ei ole sille kytkintä: lisää rivi käsin. | Läsnäolotesti sivulla [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}#how-to-verify-presence): ketään ei potkita ryhmästä. |
+| Hunt Passin tasojen oikeudet vahvistuksessa | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Vain jos pelitesti näyttää, etteivät Elite-tasojen kosmeettiset tavarat (tasot 6, 9, 29 ja 50) koskaan tule itsestään (lokissa ei ole riviä `POST /entitlementv2`). | Kosmeettinen tavara näkyy Claimin jälkeen. |
+| Omat Hunt Pass -kausitiedostot | `PROGRESSION_CONFIG_DIR=<kansio>` ja toiselle kaudelle `ACTIVE_HUNT_PASS=<tunnus>` | Lue [Pelin asetukset]({{ '/fi/reference/game-settings.html' | relative_url }}#hunt-pass-seasons); älä koskaan muuta kautta, jossa pelaajilla on jo etenemistä. | Käynnistysrivi `Progression config: ...` nimeää sen, mitä ladattiin; huono tiedosto pysäyttää metagamen ja kertoo syyn. |
+
+**Oletuksena päällä, ja rivi, joka ottaa kunkin pois:** `SLAYER_LINKS=0` (Slayer Links),
+`VERIFY_STUB_ACCOUNT=1` (istunnon tarkistuksen vanha vastaus), `BALANCE_FROM_INVENTORY=0` (vanha
+valuuttataulukko), `PROGRESSION_REPLAY_WINDOW_S=0` (ei uusintavahtia; aseta se, jos rivi `repeats the
+grant of` näkyy tavallisessa pelaamisessa). Deploy-palvelimen asetuksissa `PERSISTENT_WORLD_LIVENESS=0`
+jättää kaatuneen Ramsgaten uudelleenkäynnistyksen vahtikoiralle; käynnistä deploy-palvelin uudelleen
+muutoksen jälkeen.
+
+**Hahmojen laskeminen tiliä kohden** ennen asetusta `STORE=free` (tulostaa vain lukumäärän, ei nimiä
+eikä tunnuksia). Paketin palvelimella, järjestelmänvalvojana avatussa PowerShellissä:
+
+```powershell
+Set-Location C:\DauntlessRevived\app\UndauntedMetagame
+node -e "const db = new (require('better-sqlite3'))(process.argv[1], { readonly: true }); console.log(db.prepare('SELECT COUNT(*) AS accountsWithSeveralCharacters FROM (SELECT userId FROM characters GROUP BY userId HAVING COUNT(*) > 1)').get())" C:/DauntlessRevived/data/undaunted.db
+```
+
+Itse pystytetyllä koneella aja se omasta `UndauntedMetagame`-kansiostasi omalla `DB_FILENAME`-polullasi.
+Tulos 0 tarkoittaa, että jokainen osto menee pelaajan ainoalle hahmolle.
 
 ## Käyttäjänimet {#usernames}
 

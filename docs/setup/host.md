@@ -870,8 +870,8 @@ where an uncapped client reached 9 GB. We have not measured 1.4.4 without them. 
 
 The order matters:
 
-1. The deploy server's watchdog restarts a dead Ramsgate within about a minute, so stop the deploy
-   server before the game servers.
+1. The deploy server's watchdog restarts a dead Ramsgate within about a minute, and so does a player's
+   trip to Ramsgate, so stop the deploy server before the game servers.
 2. The game servers it started normally end together with it. It uses Node's default (not detached)
    `spawn`, and on Windows Node puts such children in a job object that is closed when Node exits. We
    confirmed this with a test process, for both a normal exit and a forced kill. A server you started

@@ -89,9 +89,11 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
   rakennettu (perustaminen, kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina
   SQLiteen). Kaikki läpäisee testimme, jotka toistavat pelin omat pyynnöt, ja kaikki on käytössä vuokratulla palvelimellamme 22.9.2026 alkaen, mutta kukaan ei ole vielä
   kokeillut niitä pelissä. Pelaajien on käynnistettävä peli kerran uudelleen päivityksen jälkeen.
-  Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät yhä poissa olevina (offline), koska
-  paikalla olo vaatii chat-yhteyden läsnäolotiedot, joita ei ole vielä rakennettu; pelaajien näkyminen paikalla on
-  omistajan seuraava toive, kun ryhmät toimivat (tiekartan kohta 3.10). Yksityiskohdat ovat sivulla
+  Ryhmään voi kutsua, vaikka ette olisi kavereita. Kaikki näkyvät yhä poissa olevina (offline):
+  kavereiden näyttäminen paikalla (chat-yhteyden läsnäolotiedot) on rakennettu 23.9.2026, mutta se on
+  pois päältä, kunnes chat itse on käytössä ja kaksi pelaajaa on kokeillut sitä (tiekartan kohta
+  3.10). **Slayer Links** (My Links -välilehti) on rakennettu ja päällä, mutta sitä ei ole vielä
+  kokeiltu pelissä. Yksityiskohdat ovat sivulla
   [Kaverit, ryhmät ja killat]({{ '/fi/findings/social.html' | relative_url }}).
 - **Tekstichat.** Rakennettu ja testattu ilman peliä: Ramsgaten, metsästysten, ryhmän ja killan chat
   sekä kuiskaukset käyttäjänimin, metagamen itsensä sisällä. Se on oletuksena pois päältä, kunnes kaksi
@@ -99,10 +101,15 @@ oma peliohjelma 1,5–2,3 Gt (suurempi luku Cinematic-grafiikka-asetuksilla).
   sivulla [Tekstichat]({{ '/fi/findings/chat.html' | relative_url }}).
 - **Palkkiotehtävät (bounties), odotusajat (cooldowns) ja Escalation.** Oikean etenemisen kanssa
   palkkiotehtävät ja odotusajat tallentuvat tilikohtaisesti, mutta palkkiotehtävän valitsemista ja
-  lunastamista pelissä sekä odotusaikoja vuorokauden vaihteen yli ei ole vielä kokeiltu. Escalationille
-  on yhä vain tynkä (paikanpitäjä, joka ei oikeasti tallenna mitään), joten sen eteneminen ei siirry
-  pelikerrasta toiseen.
-- **Useat varustesarjat, tervetuloviesti ja postilaatikko, kausitapahtumat sekä kauppa.** Oikean
+  lunastamista pelissä sekä odotusaikoja vuorokauden vaihteen yli ei ole vielä kokeiltu. Oikeat
+  Escalation-tallennukset on rakennettu (Harmonicin 1.4.4-forkista), mutta ne ovat oletuksena pois
+  päältä, koska käyttöönotto pudottaa jokaisen pelaajan tekaistusta maksimista tasolle 0; siihen asti
+  Escalationille on vain tynkä (paikanpitäjä, joka ei oikeasti tallenna mitään), eikä sen eteneminen
+  siirry pelikerrasta toiseen ([Escalation]({{ '/fi/findings/escalation.html' | relative_url }})).
+- **Kauppa.** Ilmainen kauppa (jokainen tarjous maksaa nolla, Harmonicin forkista) on rakennettu, mutta
+  se on pois päältä, kunnes omistaja päättää, pysyykö se ilmaisena, ja sitä on kokeiltu pelissä
+  ([Pelin kauppa]({{ '/fi/findings/store.html' | relative_url }})).
+- **Useat varustesarjat, tervetuloviesti ja postilaatikko sekä kausitapahtumat.** Oikean
   etenemisen kanssa varustesarjojen paikkojen avaukset tallentuvat, mutta lisäpaikkoja ei ole vielä
   kokeiltu pelissä.
 

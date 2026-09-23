@@ -71,18 +71,23 @@ higher figure at Cinematic settings).
   built too (create, invite, ranks, kick, leave, disband, stored in SQLite). Everything passes our
   tests, which replay the game's own requests, and it has been running on our rented server since 22 September 2026, but nobody has tried it in the game yet. Players must
   restart their game once after the update. You don't have to be friends to invite someone to a
-  party. Everyone still shows as offline, because that needs presence over the chat connection, which
-  is not built yet; showing players as online is the owner's next wish once parties work (roadmap
-  3.10). The details are on [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html).
+  party. Everyone still shows as offline: showing friends as online (presence over the chat
+  connection) is built since 23 September 2026 but off until chat itself is live and two players have
+  tried it (roadmap 3.10). **Slayer Links** (the My Links tab) are built and on, not yet tried in the
+  game. The details are on [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html).
 - **Text chat.** Built and tested without the game: Ramsgate, hunt, party and guild chat and whispers,
   with usernames, in the metagame itself. It is off by default until two players have tried it on the
   rented server. Use Discord meanwhile. The details are on
   [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html).
 - **Bounties, cooldowns and escalation.** With real progression, bounties and cooldowns are stored
   per account, but drafting and claiming a bounty in the game and cooldowns across a daily reset have
-  not been tried yet. Escalation is still stubbed, so its progress does not carry over between
-  sessions.
-- **Multiple loadouts, the welcome message and mailbox, seasonal events, and the store.** With real
+  not been tried yet. Real Escalation saves are built (from Harmonic's 1.4.4 fork) but off by default,
+  because switching them on drops every player from the fake maximum to level 0; until then Escalation
+  progress does not carry over between sessions ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html)).
+- **The store.** A free store (every offer costs nothing, from Harmonic's fork) is built but off until
+  the owner decides whether it stays free and it has been tried in the game
+  ([The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html)).
+- **Multiple loadouts, the welcome message and mailbox, and seasonal events.** With real
   progression, loadout slot unlocks are stored, but the extra slots have not been tried in the game
   yet.
 
@@ -1059,8 +1064,8 @@ where an uncapped client reached 9 GB. We have not measured 1.4.4 without them. 
 
 The order matters:
 
-1. The deploy server's watchdog restarts a dead Ramsgate within about a minute, so stop the deploy
-   server before the game servers.
+1. The deploy server's watchdog restarts a dead Ramsgate within about a minute, and so does a player's
+   trip to Ramsgate, so stop the deploy server before the game servers.
 2. The game servers it started normally end together with it. It uses Node's default (not detached)
    `spawn`, and on Windows Node puts such children in a job object that is closed when Node exits. We
    confirmed this with a test process, for both a normal exit and a forced kill. A server you started
@@ -1465,7 +1470,10 @@ This is a small private revival and a work in progress. As of this writing:
   joined, or once 20 seconds pass with nobody new joining.
 - Text chat is built but not switched on yet (see below). Use Discord.
 - Bounties and cooldowns are stored, but drafting and claiming a bounty and the daily reset have not
-  been tried in the game yet. Escalations are stubbed and do not carry over between sessions.
+  been tried in the game yet. Escalations are stubbed and do not carry over between sessions, unless
+  your host has switched real Escalation on (then everyone starts again from level 0).
+- The in-game store is built but off unless your host switches it on. When it is on, everything in it
+  is free.
 - Voice chat ran on Vivox, a paid third-party service, and cannot come back. Use Discord.
 - A server hosted on someone's PC is off when that PC is off. A server on a rented machine does not
   depend on anyone's PC.
@@ -1516,6 +1524,14 @@ If the in-game invite does not work, the host can send one by name from the serv
 `PartyInvite` route of the [management API](https://mixutin.github.io/dauntless-revived/reference/api.html#undaunted-api));
 you still accept it in the game. The same goes for guild invites (`GuildInvite`).
 
+### Slayer Links
+
+**New, not yet tried in the game.** In the **My Links** tab two friends can link up for a week: invite
+a friend into one of your three link slots, and they accept into one of theirs. You must be friends,
+and neither of you may have blocked the other. An invite waits 24 hours for an answer. You can remove a
+link at any time; it ends for both of you. Removing a friend or blocking them cancels the invites
+between you that are still waiting. The game may keep the tab hidden; if it does, nothing changes.
+
 ### Guilds
 
 - **Create one** in the **Guilds** tab while you are in Ramsgate: **CREATE GUILD**, then a name of
@@ -1540,14 +1556,15 @@ you still accept it in the game. The same goes for guild invites (`GuildInvite`)
 
 ### What does not work yet
 
-- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing players as
-  online needs presence over the chat connection, which is not built yet.
+- **Online status.** Everyone shows as Offline, and EPIC FRIENDS stays empty. Showing friends as
+  online is built into the chat server, but the host switches it on only after chat itself works and
+  two players have tried it.
 - **Chat**: whispers, party, guild and Ramsgate chat, with usernames, is built, but the host turns it
   on only after two players have tried it; until then, use Discord. At first Ramsgate chat reaches
   only the players who travelled there with you as a party.
 - **Changes show late.** Friend requests, accepted requests and guild changes reach the other player
   at their next login (for guilds, also after travelling), not at once.
-- Voice chat, the friends service's recent players and My Links (Linked Slayers).
+- Voice chat, and the friends service's recent players.
 
 If something does not show, tell the host what you did and roughly when; the server logs every step.
 
@@ -1605,7 +1622,7 @@ but not built yet is marked as such. The other side of this setup is
 |:----------|:-----------|:--------------------|
 | Metagame (`UndauntedMetagame`: Node, Express, SQLite) | TCP 61000 | Every player's client, every game server, and you as admin |
 | Deploy server (`UndauntedDeployServer`) | TCP 61001, loopback only | Only the metagame on the same PC. **It has no authentication.** |
-| Ramsgate server | UDP 8777 (`PORT_RANGE_END`) | Players. Always running, and restarted by the deploy server's watchdog if it dies. |
+| Ramsgate server | UDP 8777 (`PORT_RANGE_END`) | Players. Always running. If it dies, the deploy server starts it again when a player travels there, or its watchdog does within a minute. |
 | Training Dojo | UDP 8776 | Players. Our fork starts it on first use; `ENABLE_DOJO=1` restores upstream's always-on behaviour. |
 | Hunt servers | UDP 8770-8775 | Players. One per group of up to 4. Each exits after 50 seconds in total with nobody connected. |
 
@@ -1749,7 +1766,8 @@ Planned in the fork:
 Both services read `.env` only at start (`npm run start`, which runs
 `node --env-file=.env dist/server.js`).
 
-1. Stop the deploy server first. Otherwise its watchdog starts a new Ramsgate.
+1. Stop the deploy server first. Otherwise its watchdog, or a player's trip to Ramsgate, starts a new
+   Ramsgate.
 2. Check for leftover game servers. Normally they end together with the deploy server: it starts them
    with Node's default (not detached) `spawn`, and on Windows Node places such children in a job
    object that is closed when the parent exits. We confirmed this with a test process, both for a
@@ -1961,6 +1979,46 @@ Renaming does exist (`RenameUser`, see [Usernames](https://mixutin.github.io/dau
   pending rows, then inserts each one into `userapikeys`, where `userId` is the primary key. For an
   existing user that insert fails, the metagame never starts listening, and the pending key is
   already gone.
+
+## Switching features on
+
+Several features are built but off by default, and a few that are on have a switch to turn them off.
+Each is one line in the metagame's settings: `.env` in the `UndauntedMetagame` folder on a hand-built
+host, `C:\DauntlessRevived\data\config\metagame.env` on a kit server (edit it from an elevated editor).
+The kit keeps a line you add across re-runs and updates. Then restart the metagame **when nobody is
+playing** (a restart drops parties and matchmaking queues): by hand as in
+[Restarting after a change](https://mixutin.github.io/dauntless-revived/setup/admin.html#restarting-after-a-change), or on a kit server
+`C:\DauntlessRevived\bin\Stack.ps1 restart -Only metagame`. The metagame's start line `features: ...`
+shows the value it uses. Every setting is on [Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html).
+
+**Off by default, and what to do before switching each on:**
+
+| Feature | Line | Before you switch it on | How to check it |
+|:--------|:-----|:------------------------|:----------------|
+| Real Escalation saves | `ESCALATION_MODE=real` | Tell your players: everyone drops from the fake maximum (level 25) to level 0. Restart the **whole stack** (on a kit server `Stack.ps1 restart`), so no game server still holds the old values. | Play an Escalation run, log in again, spend a talent point: the level stays, and the log has no `Refusing escalation save` and no `breaks a soft rule` line ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html#switching-it-on)). |
+| Strict Escalation rules | `ESCALATION_STRICT=1` | Only after real Escalation has run with no `breaks a soft rule` line. | Same as above. |
+| The free store | `STORE=free` | Decide whether the store stays free (roadmap 3.7). Count the accounts with more than one character (below): a purchase goes to the character saved last. | Open every store tab, buy one item of each kind, log in again, finish a hunt ([The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html#open)). |
+| Unlimited premium bounty tokens | `STORE_REPEATABLE_TOKENS=1` (with `STORE=free`) | Your decision: it means unlimited free premium bounty drafts. | The bundle shows in the store. |
+| Friends' online status | `CHAT_PRESENCE=1` (with `CHAT=1`) | Chat itself must work first. The kit's `Set-Chat.ps1` has no switch for it: add the line by hand. | The presence test on [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify-presence): no player is kicked from a party. |
+| Hunt Pass rank entitlements on confirm | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Only if an in-game test shows the Elite ranks' cosmetics (ranks 6, 9, 29 and 50) never arrive by themselves (no `POST /entitlementv2` in the log). | The cosmetic shows after Claim. |
+| Your own Hunt Pass season files | `PROGRESSION_CONFIG_DIR=<folder>` and, for another season, `ACTIVE_HUNT_PASS=<id>` | Read [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#hunt-pass-seasons); never change a season players already have progress in. | The start line `Progression config: ...` names what was loaded; a bad file stops the metagame with the reason. |
+
+**On by default, and the line that turns each off:** `SLAYER_LINKS=0` (Slayer Links),
+`VERIFY_STUB_ACCOUNT=1` (the old session-check reply), `BALANCE_FROM_INVENTORY=0` (the old currency
+sheet), `PROGRESSION_REPLAY_WINDOW_S=0` (no retry guard; set it if `repeats the grant of` shows up in
+normal play). In the deploy server's settings, `PERSISTENT_WORLD_LIVENESS=0` leaves restarting a dead
+Ramsgate to the watchdog; restart the deploy server after changing it.
+
+**Counting characters per account** before `STORE=free` (it prints counts only, no names or ids). On a
+kit server, in an elevated PowerShell:
+
+```powershell
+Set-Location C:\DauntlessRevived\app\UndauntedMetagame
+node -e "const db = new (require('better-sqlite3'))(process.argv[1], { readonly: true }); console.log(db.prepare('SELECT COUNT(*) AS accountsWithSeveralCharacters FROM (SELECT userId FROM characters GROUP BY userId HAVING COUNT(*) > 1)').get())" C:/DauntlessRevived/data/undaunted.db
+```
+
+On a hand-built host, run it from your `UndauntedMetagame` folder with your `DB_FILENAME`. A result of
+0 means every purchase goes to the player's only character.
 
 ## Usernames
 
@@ -2546,8 +2604,9 @@ intact. We have not tested unquoted values on 1.4.4.
 
 Every game server opens a console, because the server DLL's console logging is on by default. The
 deploy server shows the windows of Ramsgate and the Dojo and starts hunt servers with their window
-hidden. **Closing a console window ends that server** for everyone on it. The deploy server's
-watchdog restarts Ramsgate (and the Dojo) within about a minute. A hunt server is not restarted.
+hidden. **Closing a console window ends that server** for everyone on it. The deploy server starts
+Ramsgate (and the Dojo) again as soon as a player travels there, or its watchdog does within about a
+minute. A hunt server is not restarted.
 Leave the windows open (minimise them). Writing server output to log files instead is on the
 [roadmap](https://mixutin.github.io/dauntless-revived/roadmap.html).
 
@@ -2566,11 +2625,87 @@ From our own metagame log (1.4.4, one player, one evening of tutorial, Ramsgate 
 | `Unstubbed route POST /loadout/<account>/<character>/unlock/3` | 40+ | Upstream has no handler for unlocking a loadout slot. The game server (`gs=1`) sends it in bursts of retries, several within a few seconds, then again minutes later. Harmless. Handled since real progression became the default (roadmap 2.4); a low-level account sends none, so you only see this line with `PROGRESSION_MODE=stub`. |
 | `Failed to update characterId ... due to conflict` | 14x | The client and the game server both save the character, with version numbers, and reject each other's writes. Each time, the side whose write was rejected (sometimes the client, sometimes the game server) re-read the character and wrote again within about a second, so the last write reached the database. Not yet proven lossless when both change the same value at once; on the roadmap. |
 | `Unstubbed route GET /friends/api/public/friends/<account>` and `.../blocklist/<account>` | 2x each | There was no friends list then; the game showed "0 ONLINE FRIENDS". The fork now answers both routes (everyone still shows as offline). `MISC_ROUTES=0` puts the 404 back. |
-| `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`. The metagame answers 404; nothing visible breaks. |
+| `Unstubbed route GET /account127.0.0.1:61000` | 2x | One URL that the client assembles from the DLL's address override is missing a `/`: the metagame's address is pasted straight after `/account` (Harmonic's fork found the same and answers it with account data). The request carries no credentials. The metagame answers 404; nothing visible breaks. The real fix belongs in the server DLL (roadmap 4.6). |
+| `Game server on port 877x (pid ...) exited with code 0` (deploy log) | after every hunt | A game server ended normally. Any other code, or `on <signal>`, is a warning worth a look. |
+| `Unhandled progression request <METHOD> <path> from a game server` | rare | The game sent a progression request no route answers (it still gets 404). Note the path: it may be a route we have not built yet. |
 | `Unstubbed route POST /candidate/player/alive`, `DELETE /candidate` | a few | Matchmaking-queue housekeeping. The fork now answers `POST /candidate/player/alive` (`MISC_ROUTES=0` puts the 404 back). `DELETE /candidate` still gets a 404 on purpose: the client sends it right after every queued join, and hunts start only because it fails. `MATCHMAKING_CANCEL=1` turns a handler on, as an experiment. |
 | `Unauthenticated POST to /heartbeat which needs metagame auth!` | once | An early telemetry heartbeat sent during login, before the session is set up. Later heartbeats are authenticated. |
 | `Running Gameserver Watchdog!` (deploy log) | every 60 s | Normal. |
 | `Cleaning up Gameserver on port 8775` (deploy log) | when a hunt ends | The hunt server exited and its port went back to the pool. |
+
+---
+
+## Log lines of Escalation, the store, Slayer Links and the deploy server
+
+These came with the port of Harmonic's fork ([The Harmonic port](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html)).
+Metagame lines unless marked.
+
+**At every start**
+
+| Line | Meaning |
+|:-----|:--------|
+| `features: bodyLogPerPath=no-cap escalation=stub ...` | The value of every new switch. Check it after changing a setting. |
+| `Progression config: bundled, 10 tracks; active Hunt Pass season09b` | The progression tracks in use; with `PROGRESSION_CONFIG_DIR`, which were replaced or added. |
+| `The progression config could not be loaded: <reason>` (fatal) | A season file or `ACTIVE_HUNT_PASS` is wrong; the metagame stops before it opens the database. Fix the file named in the reason, or remove the setting. |
+| `<NAME>="<value>" is not a valid value; using the default (<default>)` | A switch has a value it does not understand; the default is used. |
+| `Removed N expired store purchase token(s) that were never redeemed` | Housekeeping of the store's tokens. |
+| `Ramsgate and Dojo liveness check before handing them out: on` (deploy log) | `PERSISTENT_WORLD_LIVENESS` is on. |
+| `Starting the game servers failed: <message>` (deploy log, fatal) | Ramsgate could not be started at boot (often a wrong `GAMESERVER_BINARY_PATH`). The deploy server keeps running and tries again at the next trip to Ramsgate; its exit code is 1 when it ends. |
+
+**The deploy server** (deploy log)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Ramsgate is not running any more: starting it again before sending anyone there` | A player travelled to a dead Ramsgate; it is started first (the same for the Dojo). The player waits a few seconds longer. If it keeps happening, find out why Ramsgate dies (a closed console window, memory). |
+| `RAMSGATE HAS FALLEN! Restarting!` | The watchdog found Ramsgate dead and started it (only when no restart is already running). |
+| `Game server on port N failed: <error> (GAMESERVER_BINARY_PATH is <path>)` | The game could not be started, usually a wrong path in `GAMESERVER_BINARY_PATH`. |
+| `Matchmaking for <mode> <hunt> failed: <message>` | No game server could be started (for example `No free ports left!`); the players' search fails. |
+| `Could not restart the game server on port N: <message>` | The watchdog could not restart Ramsgate or the Dojo; the next trip there tries again. |
+
+**Progression**
+
+| Line | Meaning |
+|:-----|:--------|
+| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again within `PROGRESSION_REPLAY_WINDOW_S` (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
+| `progression: objective went backwards: ...; stored as sent` | An objective arrived lower than stored. Stored anyway; worth a note if it repeats. |
+| `Game server <what> for <account> carries the token of <other account>: accepted for <account>, ...` | A game server wrote for one player with another player's token. The write is kept for the account in the URL. Expected now and then in hunts with several players; report it if it repeats for the same pair. |
+| `Balances of <account> from the inventory of character <id>: ...` | `/balance` or `/reconcile` reported held currencies. |
+
+**Escalation** (only with `ESCALATION_MODE=real`)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Escalation <season> for <account>: vN level L xp X, ...` | A save was stored. |
+| `Escalation <season> vN for <account> replayed` | The same save arrived again; nothing changed. |
+| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
+| `Escalation save of <season> for <account> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Stored, but our model of the rules may be wrong. Keep `ESCALATION_STRICT` off and report the line. |
+
+**The store** (only with `STORE=free`)
+
+| Line | Meaning |
+|:-----|:--------|
+| `Store purchase token for <sku> issued to <account> (character <id>)` | Buy was pressed. |
+| `Store purchase <sku> for <account> (character <id>): N item(s), M entitlement(s)` | The purchase went through. |
+| `Store purchase <sku> of <account> was already redeemed; nothing granted again` | A retried confirm. Harmless. |
+| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character). |
+| `Store SKUs requested for unknown tag <tag>: an empty list` | The game asked for a store page we have no offers for. |
+
+**Slayer Links**
+
+| Line | Meaning |
+|:-----|:--------|
+| `slayerlink: invite by=<A> to=<B> slot=<n> -> sent id=<id>` | An invite was sent. |
+| `slayerlink: accept by=<B> other=<A> id=<id> -> accepted (slots X and Y)` | A link began (`reject` and `cancel` log the same way). |
+| `slayerlink: ... refused <status>: <reason>` | A refused action with the reason (not friends, the slot is taken, the invite ran out). |
+| `slayerlink: delete link by=<A> ... -> removed <id> (with <B>)` | A link was ended for both players. |
+| `friends: ... (N Slayer Link invite(s) between them cancelled)` | An unfriend or a block also cancelled waiting invites. |
+
+**Parties and the session check**
+
+| Line | Meaning |
+|:-----|:--------|
+| `party: accept by <A> id=<id>: already in P=<party> size=<n>; answering that party (a repeated accept)` | The game sent the same accept twice; it got the party again. |
+| `GET /account/api/oauth/verify with a bad or expired token: answering the static reply` | A game's regular session check with an expired token, at most once a minute. Expected for sessions older than 24 hours. If players get logged out or loop on reconnect, set `VERIFY_STUB_ACCOUNT=1`. |
 
 ---
 
@@ -2704,6 +2839,24 @@ Expected for now. Each player gets a Ramsgate session of their own, and the Norm
 session, so two players share it only when they travelled to Ramsgate together as a party. Use party
 chat meanwhile. A shared Ramsgate channel is on the roadmap (3.10).
 
+### Friends' online status (`chat: presence`)
+
+Only with `CHAT=1` and `CHAT_PRESENCE=1` ([how it works](https://mixutin.github.io/dauntless-revived/findings/chat.html#presence)).
+
+| Line | Meaning |
+|:-----|:--------|
+| `chat: friends' online status off: no presence is sent outside rooms` | The default: nobody shows as online. |
+| `chat: friends' online status on (CHAT_PRESENCE=1): ...` | On. |
+| `chat: CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online` | Set `CHAT=1` too, or remove `CHAT_PRESENCE`. |
+| `chat: presence c=<id> uid=<account> online: told N friend session(s), heard of M` | A player's game sent its first presence; N friends were told, and the player heard of M. |
+| `chat: presence c=<id> uid=<account> offline (<reason>): told N friend session(s)` | The player went offline (`close`, `socket`, `ping-timeout`, `replaced`, `unavailable`, ...). `; c=<id> is still online` means another session of the same account is still there. |
+| `chat: presence: <A> and <B> are friends now: told N and M session(s)` | An accepted friend request was pushed over chat. |
+| `chat: presence: could not read the friends of <account>; nothing relayed` | A database read failed; that player's presence was not relayed this time. |
+| `chat: presence: refused to send c=<id> a stanza from its own account` (error) | **Must never appear.** The server stopped a stanza that could wake the party's automatic kick. Turn `CHAT_PRESENCE` off, restart the metagame, and report the line with the time. |
+
+If a player is kicked from a party while presence is on (a `DELETE /party/member/...` right after the
+player went offline for the others), turn `CHAT_PRESENCE` off and report it.
+
 ### The chat listener does not start
 
 The metagame logs one error line and keeps running without chat:
@@ -2748,9 +2901,9 @@ went wrong for us.
   after 24 hours those saves fail with a server error. Until this is fixed, quit the game at least
   once a day. Whether the client ever refreshes its token is still untested.
 - **Running out of hunt ports.** With the default range, six hunts can run at once. A seventh
-  request fails inside the deploy server (`No free ports left!`, an HTTP 500 to the metagame). The
-  metagame logs `DeployServer returned status 500` and marks that group's search as failed: the
-  game's status poll answers `FAILED`. (Upstream's metagame handed the group an empty host and port 0
+  request fails inside the deploy server (`Matchmaking for ... failed: No free ports left!`, an HTTP
+  500 `{"error": "no_game_server"}` to the metagame). The metagame logs `DeployServer returned status
+  500` and marks that group's search as failed: the game's status poll answers `FAILED`. (Upstream's metagame handed the group an empty host and port 0
   instead.) Keeping the group waiting until a port is free is on the roadmap together with the memory
   guard.
 
@@ -3116,6 +3269,21 @@ harmlessly, as before chat existed. If the chat code itself is at fault,
 `Update-DauntlessServer.ps1 -Rollback` goes back to the build before the update; older code ignores
 `CHAT`. Private mode has no chat yet.
 
+**Friends' online status** is a second switch, `CHAT_PRESENCE=1`, which `Set-Chat.ps1` does not set:
+add it to `metagame.env` by hand once chat works, and restart the metagame when nobody is playing
+(`Stack.ps1 restart -Only metagame`). The metagame log then says `chat: friends' online status on`.
+Test it as described on [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify-presence) before
+you leave it on; taking the line out again turns it off.
+
+### Other features you switch in `metagame.env`
+
+The kit writes none of the switches that came with the port of Harmonic's fork, so a kit server runs
+them at their defaults: Slayer Links on; Escalation (`ESCALATION_MODE`), the store (`STORE`) and
+friends' online status off. To change one, add the line to `C:\DauntlessRevived\data\config\metagame.env`
+(deploy server: `deployserver.env`) from an elevated editor and restart that component when nobody is
+playing. The kit keeps the line across re-runs and updates. What each does and what to check first is
+on [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html#switching-features-on).
+
 ### Updates
 
 `Deploy-Remote.ps1 -Server <address> -Update` uploads your current commit and runs
@@ -3256,6 +3424,77 @@ URL: https://mixutin.github.io/dauntless-revived/setup/upgrading.html
 Read this before you update a server that already has players. Each note says what changes, what
 your players will see, and what you can do about it. The newest change is first.
 
+## Escalation, the store, Slayer Links and smaller fixes
+
+**September 2026.** Applies to every server updated to the version with the port of Harmonic's 1.4.4
+fork ([The Harmonic port](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html)). You can tell it by the metagame's
+start line that begins `features:`.
+
+### What changes
+
+- **Three new migrations run by themselves at the first start:** `0014_escalation`,
+  `0015_store_purchases` and `0016_slayer_links`. They only add six tables (`escalationprogression`,
+  `escalationtalents`, `escalationunlocks`, `storepurchases`, `slayerlinkinvites`, `slayerlinks`); no
+  existing table or row is changed, copied or converted. Back the database up first as for any update
+  ([Back up the database](https://mixutin.github.io/dauntless-revived/setup/admin.html#back-up-the-database); the kit does it by
+  itself). The previous version still starts on a migrated database: it applies nothing it does not
+  know and ignores the new tables, so going back needs no restore. That was checked on a copy of a
+  database at `0013` full of rows: every row stayed as it was, through both builds.
+- **On by default**, because each only answers where the server gave an error or a stub before:
+
+  | Change | Switch to turn it off |
+  |:-------|:----------------------|
+  | [Slayer Links](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port-what-players-see) (the My Links tab): eight new routes | `SLAYER_LINKS=0` |
+  | The game's regular session check (`oauth/verify`) names the player's own account instead of a placeholder. Every player's game calls it. | `VERIFY_STUB_ACCOUNT=1` |
+  | `/balance` and `/reconcile` report the currencies the character holds (Rams, platinum) instead of 0 | `BALANCE_FROM_INVENTORY=0` |
+  | A game server's XP grant repeated byte for byte within 10 seconds is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | A party accept that arrives twice is answered with the party instead of 404 | none |
+  | The deploy server starts a dead Ramsgate or Dojo again when a player travels there, instead of waiting for the watchdog (up to a minute) | `PERSISTENT_WORLD_LIVENESS=0` (in the deploy server's settings) |
+
+- **Built but off by default**, each until a decision or an in-game test:
+
+  | Feature | Switch | Why it waits |
+  |:--------|:-------|:-------------|
+  | Real Escalation saves | `ESCALATION_MODE=real` | Every player drops from the fake maximum (level 25) to level 0. [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html#switching-it-on) |
+  | The free in-game store | `STORE=free` | Free or priced is still to decide (roadmap 3.7), and the store has not been tried in game. [The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html#open) |
+  | Unlimited premium bounty tokens in the store | `STORE_REPEATABLE_TOKENS=1` | Your decision. |
+  | Friends' online status in chat | `CHAT_PRESENCE=1` (with `CHAT=1`) | The two-player test that the party's automatic kick stays asleep. [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify-presence) |
+  | A rank confirm also grants the rank's permanent entitlements | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Only if the game server turns out not to grant them itself. |
+  | Strict Escalation rules | `ESCALATION_STRICT=1` | After Escalation has run a while with clean logs. |
+
+- **The deploy server logs more:** one line each time a game server exits (`... exited with code 0`
+  after every hunt), a fatal line when its start fails, and a failed game-server start answers the
+  metagame with a clear 500 (the players see their search fail, as before).
+- **Nothing else to do:** no firewall rule, no new port, and no new launcher (launcher 0.1.6 only has
+  updated credits). The server DLL is unchanged. The server kit writes none of the new switches, so the
+  defaults above apply until you add a line to `metagame.env` (or `deployserver.env`).
+
+### What your players will see
+
+- **Slayer Links** may work in the Social panel's My Links tab: invite a friend into one of three slots,
+  and the link runs for a week. The client may keep that tab hidden; nobody has tried it in game yet.
+- Where the game reads `/balance`, the Rams show what the character really holds (it was 0).
+- If Ramsgate has crashed, the next player who travels there waits a little longer (about 10 seconds
+  with the kit) while it starts again, instead of landing on a dead server.
+- Nothing else until you switch something on: Escalation still shows the fake maximum, the store screen
+  still gets its old error, and everyone still shows as offline.
+
+### What you can do
+
+- After the update, look for the `features:` line in the metagame's log: it lists every new switch
+  with its value ([Configuration](https://mixutin.github.io/dauntless-revived/reference/configuration.html#metagame)).
+- Switching a feature on is one line in the metagame's settings and a restart;
+  [Run it for a group](https://mixutin.github.io/dauntless-revived/setup/admin.html#switching-features-on) lists the steps and
+  the tests for each.
+- If something misbehaves, the switches in the first table above turn each change off. The log lines to
+  look for are on [Troubleshooting](https://mixutin.github.io/dauntless-revived/setup/troubleshooting.html#log-lines-of-the-port).
+- **Going back** to the build before the update (`Update-DauntlessServer.ps1 -Rollback`) needs nothing
+  else: the older code ignores the new switches and tables. Escalation goes back to the stub (saved
+  seasons stay unused in their tables), `/slayerlink` answers 404 again, and store purchases already
+  made stay in the players' inventories and entitlements. They can be found (`inventorylog.caller =
+  'store'`, `entitlements.source LIKE 'store:%'`) and taken back with the admin routes.
+- Never edit a migration after it has run on your server.
+
 ## Text chat
 
 **September 2026.** Applies to every server updated to the version with text chat (the kit then has
@@ -3281,7 +3520,7 @@ your players will see, and what you can do about it. The newest change is first.
 With chat on: Ramsgate and hunt chat, party chat, guild chat and whispers, all with usernames. Ramsgate
 chat is per session for now, so two players share it only when they travelled to Ramsgate together as
 a party. A game that was already running when chat went on connects within about 45 s. Online status
-(friends showing as online) is still to come.
+(friends showing as online) came with a later update, off by default ([above](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port)).
 
 ### What you can do
 
@@ -3323,8 +3562,8 @@ shows `guild:` lines, and `GET /guild/invite/player` no longer logs "Guild invit
 info and the first mapping it got for each player for the whole session, so the old, wrong answers
 stay until the game restarts. After that: party invites appear under PARTY INVITES, Add Friends
 works (the other player sees the request at their next login), and the Guilds tab can create and
-join guilds. Online status and EPIC FRIENDS still do not work. Chat came with a later update
-([Text chat](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#chat)).
+join guilds. Online status and EPIC FRIENDS still do not work by default. Chat came with a later
+update ([Text chat](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#chat)), and online status after that, off by default ([above](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port)).
 [Join as a friend](https://mixutin.github.io/dauntless-revived/setup/friends.html#friends-parties-and-guilds) explains it to
 players.
 
@@ -3389,7 +3628,8 @@ UI, drafting and claiming bounties in the UI, cooldowns across a daily reset, se
 once, and moving an account that already played under the stub's fake level 50 down to level 1
 (roadmap item 2.13). With several players, note that a player's own client now gets 403 when it
 asks for another account's progression, where the stub answered with the asking player's own data.
-Escalation is still upstream's stub in both modes.
+Escalation stays upstream's stub in both modes unless you set `ESCALATION_MODE=real`
+([above](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port)).
 
 ### What your players will see
 

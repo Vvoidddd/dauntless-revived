@@ -2,7 +2,7 @@
 title: Upgrade notes
 parent: Setup
 nav_order: 6
-description: "What changes for players when you update an existing Dauntless Revived server: text chat is built (off until you switch it on), friends, parties and guilds now work, and real progression is on by default. How to keep old max ranks, start fresh, or stay on the stub."
+description: "What changes for players when you update an existing Dauntless Revived server: the port of Harmonic's fork (Slayer Links on; Escalation, the store and online status built but off), text chat, friends, parties and guilds, and real progression on by default. How to keep old max ranks, start fresh, or stay on the stub."
 lang: en
 ref: setup/upgrading
 ---
@@ -15,6 +15,10 @@ ref: setup/upgrading
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
 {% assign config_page = site.pages | where: "path", "reference/configuration.md" | first %}
 {% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "findings/harmonic-fork.md" | first %}
+{% assign escalation_page = site.pages | where: "path", "findings/escalation.md" | first %}
+{% assign store_page = site.pages | where: "path", "findings/store.md" | first %}
+{% assign trouble_page = site.pages | where: "path", "setup/troubleshooting.md" | first %}
 
 # Upgrade notes
 {: .no_toc }
@@ -28,6 +32,77 @@ your players will see, and what you can do about it. The newest change is first.
 1. TOC
 {:toc}
 </details>
+
+## Escalation, the store, Slayer Links and smaller fixes {#harmonic-port}
+
+**September 2026.** Applies to every server updated to the version with the port of Harmonic's 1.4.4
+fork ([The Harmonic port]({{ harmonic_page.url | relative_url }})). You can tell it by the metagame's
+start line that begins `features:`.
+
+### What changes {#harmonic-port-what-changes}
+
+- **Three new migrations run by themselves at the first start:** `0014_escalation`,
+  `0015_store_purchases` and `0016_slayer_links`. They only add six tables (`escalationprogression`,
+  `escalationtalents`, `escalationunlocks`, `storepurchases`, `slayerlinkinvites`, `slayerlinks`); no
+  existing table or row is changed, copied or converted. Back the database up first as for any update
+  ([Back up the database]({{ admin_page.url | relative_url }}#back-up-the-database); the kit does it by
+  itself). The previous version still starts on a migrated database: it applies nothing it does not
+  know and ignores the new tables, so going back needs no restore. That was checked on a copy of a
+  database at `0013` full of rows: every row stayed as it was, through both builds.
+- **On by default**, because each only answers where the server gave an error or a stub before:
+
+  | Change | Switch to turn it off |
+  |:-------|:----------------------|
+  | [Slayer Links](#harmonic-port-what-players-see) (the My Links tab): eight new routes | `SLAYER_LINKS=0` |
+  | The game's regular session check (`oauth/verify`) names the player's own account instead of a placeholder. Every player's game calls it. | `VERIFY_STUB_ACCOUNT=1` |
+  | `/balance` and `/reconcile` report the currencies the character holds (Rams, platinum) instead of 0 | `BALANCE_FROM_INVENTORY=0` |
+  | A game server's XP grant repeated byte for byte within 10 seconds is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | A party accept that arrives twice is answered with the party instead of 404 | none |
+  | The deploy server starts a dead Ramsgate or Dojo again when a player travels there, instead of waiting for the watchdog (up to a minute) | `PERSISTENT_WORLD_LIVENESS=0` (in the deploy server's settings) |
+
+- **Built but off by default**, each until a decision or an in-game test:
+
+  | Feature | Switch | Why it waits |
+  |:--------|:-------|:-------------|
+  | Real Escalation saves | `ESCALATION_MODE=real` | Every player drops from the fake maximum (level 25) to level 0. [Escalation]({{ escalation_page.url | relative_url }}#switching-it-on) |
+  | The free in-game store | `STORE=free` | Free or priced is still to decide (roadmap 3.7), and the store has not been tried in game. [The in-game store]({{ store_page.url | relative_url }}#open) |
+  | Unlimited premium bounty tokens in the store | `STORE_REPEATABLE_TOKENS=1` | Your decision. |
+  | Friends' online status in chat | `CHAT_PRESENCE=1` (with `CHAT=1`) | The two-player test that the party's automatic kick stays asleep. [Text chat]({{ chat_page.url | relative_url }}#how-to-verify-presence) |
+  | A rank confirm also grants the rank's permanent entitlements | `PROGRESSION_CONFIRM_ENTITLEMENTS=1` | Only if the game server turns out not to grant them itself. |
+  | Strict Escalation rules | `ESCALATION_STRICT=1` | After Escalation has run a while with clean logs. |
+
+- **The deploy server logs more:** one line each time a game server exits (`... exited with code 0`
+  after every hunt), a fatal line when its start fails, and a failed game-server start answers the
+  metagame with a clear 500 (the players see their search fail, as before).
+- **Nothing else to do:** no firewall rule, no new port, and no new launcher (launcher 0.1.6 only has
+  updated credits). The server DLL is unchanged. The server kit writes none of the new switches, so the
+  defaults above apply until you add a line to `metagame.env` (or `deployserver.env`).
+
+### What your players will see {#harmonic-port-what-players-see}
+
+- **Slayer Links** may work in the Social panel's My Links tab: invite a friend into one of three slots,
+  and the link runs for a week. The client may keep that tab hidden; nobody has tried it in game yet.
+- Where the game reads `/balance`, the Rams show what the character really holds (it was 0).
+- If Ramsgate has crashed, the next player who travels there waits a little longer (about 10 seconds
+  with the kit) while it starts again, instead of landing on a dead server.
+- Nothing else until you switch something on: Escalation still shows the fake maximum, the store screen
+  still gets its old error, and everyone still shows as offline.
+
+### What you can do {#harmonic-port-what-you-can-do}
+
+- After the update, look for the `features:` line in the metagame's log: it lists every new switch
+  with its value ([Configuration]({{ config_page.url | relative_url }}#metagame)).
+- Switching a feature on is one line in the metagame's settings and a restart;
+  [Run it for a group]({{ admin_page.url | relative_url }}#switching-features-on) lists the steps and
+  the tests for each.
+- If something misbehaves, the switches in the first table above turn each change off. The log lines to
+  look for are on [Troubleshooting]({{ trouble_page.url | relative_url }}#log-lines-of-the-port).
+- **Going back** to the build before the update (`Update-DauntlessServer.ps1 -Rollback`) needs nothing
+  else: the older code ignores the new switches and tables. Escalation goes back to the stub (saved
+  seasons stay unused in their tables), `/slayerlink` answers 404 again, and store purchases already
+  made stay in the players' inventories and entitlements. They can be found (`inventorylog.caller =
+  'store'`, `entitlements.source LIKE 'store:%'`) and taken back with the admin routes.
+- Never edit a migration after it has run on your server.
 
 ## Text chat {#chat}
 
@@ -54,7 +129,7 @@ your players will see, and what you can do about it. The newest change is first.
 With chat on: Ramsgate and hunt chat, party chat, guild chat and whispers, all with usernames. Ramsgate
 chat is per session for now, so two players share it only when they travelled to Ramsgate together as
 a party. A game that was already running when chat went on connects within about 45 s. Online status
-(friends showing as online) is still to come.
+(friends showing as online) came with a later update, off by default ([above](#harmonic-port)).
 
 ### What you can do {#chat-what-you-can-do}
 
@@ -96,8 +171,8 @@ shows `guild:` lines, and `GET /guild/invite/player` no longer logs "Guild invit
 info and the first mapping it got for each player for the whole session, so the old, wrong answers
 stay until the game restarts. After that: party invites appear under PARTY INVITES, Add Friends
 works (the other player sees the request at their next login), and the Guilds tab can create and
-join guilds. Online status and EPIC FRIENDS still do not work. Chat came with a later update
-([Text chat](#chat)).
+join guilds. Online status and EPIC FRIENDS still do not work by default. Chat came with a later
+update ([Text chat](#chat)), and online status after that, off by default ([above](#harmonic-port)).
 [Join as a friend]({{ friends_page.url | relative_url }}#friends-parties-and-guilds) explains it to
 players.
 
@@ -162,7 +237,8 @@ UI, drafting and claiming bounties in the UI, cooldowns across a daily reset, se
 once, and moving an account that already played under the stub's fake level 50 down to level 1
 (roadmap item 2.13). With several players, note that a player's own client now gets 403 when it
 asks for another account's progression, where the stub answered with the asking player's own data.
-Escalation is still upstream's stub in both modes.
+Escalation stays upstream's stub in both modes unless you set `ESCALATION_MODE=real`
+([above](#harmonic-port)).
 
 ### What your players will see
 
