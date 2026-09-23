@@ -18,6 +18,9 @@ ref: findings/index
 {% assign awakening_page = site.pages | where: "path", "findings/awakening-2-1-1.md" | first %}
 {% assign social_page = site.pages | where: "path", "findings/social.md" | first %}
 {% assign chat_page = site.pages | where: "path", "findings/chat.md" | first %}
+{% assign store_page = site.pages | where: "path", "findings/store.md" | first %}
+{% assign escalation_page = site.pages | where: "path", "findings/escalation.md" | first %}
+{% assign harmonic_page = site.pages | where: "path", "findings/harmonic-fork.md" | first %}
 {% assign tools_page = site.pages | where: "path", "tools.md" | first %}
 
 # Findings
@@ -48,6 +51,9 @@ addresses and short snippets, and only as much as each explanation needs.
 | [The 2.1.1 standalone attempt]({{ awakening_page.url | relative_url }}) | 2.1.1 | How far a solo boot into Ramsgate got, where it stopped (no controllable player), and where to continue. |
 | [Friends, parties and guilds]({{ social_page.url | relative_url }}) | 1.4.4 | How the client finds other players, the exact replies friends, parties and guilds need, why the first two-player test showed nothing, and what is still unconfirmed. |
 | [Text chat]({{ chat_page.url | relative_url }}) | 1.4.4 | How the client's text chat works on our server, why the first chat server showed UID-... instead of names, the nickname check, the rooms and who may join them. |
+| [The in-game store]({{ store_page.url | relative_url }}) | 1.4.4 | How the store screen lists and buys an offer, and the free store built from Harmonic's fork: the purchase token, the catalogue and its tabs, stacked and instanced grants, and which character gets the item. |
+| [Escalation]({{ escalation_page.url | relative_url }}) | 1.4.4 | How Escalation progress is saved, the season registry read from the client, the rules every save must pass, and what players see when real saves are switched on. |
+| [The Harmonic port]({{ harmonic_page.url | relative_url }}) | 1.4.4 | What we took from Harmonic's 1.4.4 fork and what we kept of our own, feature by feature, with the reason for every choice. |
 
 The scripts used for most of the static analysis are described on
 [Tools]({{ tools_page.url | relative_url }}).
