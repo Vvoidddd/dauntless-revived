@@ -31,9 +31,10 @@ testitapausta. Ylläpitäjä pyysi meitä tuomaan Dauntless Revivediin kaiken h�
 
 Molemmat haarat lähtevät samasta alkuperäisen projektin muutoksesta (`7f692aa`), ja molemmissa oli
 samoina viikkoina rakennettu osin samoja asioita. Siksi vertasimme niitä ominaisuus kerrallaan. **Kun
-hänen työnsä toi jotain, mitä meillä ei ollut, otimme sen. Kun hän oli kirjoittanut uudelleen jotain,
-minkä olimme jo rakentaneet ja kokeilleet pelissä, pidimme omamme**, ja jokainen tällainen kohta alla
-kertoo syyn ja todisteet. Tämä sivu on tuo kirjanpito, kirjoitettu lukijoille, jotka eivät tunne
+hänen työnsä toi jotain, mitä meillä ei ollut, otimme sen**, lukuun ottamatta muutamaa alla syineen
+lueteltua alustan kohtaa (DLL-puolen kohdat odottavat ylläpitäjän päätöstä itse käännetyn DLL:n
+jakamisesta). **Kun hän oli kirjoittanut uudelleen jotain, minkä olimme jo rakentaneet ja kokeilleet
+pelissä, pidimme omamme**, ja jokainen tällainen kohta alla kertoo syyn ja todisteet. Tämä sivu on tuo kirjanpito, kirjoitettu lukijoille, jotka eivät tunne
 kumpaakaan koodia, Harmonic heidän joukossaan.
 
 Kiitos, Harmonic: Escalation ja kauppa ovat palvelimellamme sinun työsi ansiosta.
@@ -225,7 +226,7 @@ kommentti, joka nimeää hänen tiedostonsa ja rivinsä.
 | social ja friends (4) | 2 (verify ei koskaan vastaa 401; Slayer Links peliohjelman täsmällisillä pyynnöillä) | | 2: ne väittävät estolistan avainta, jota peliohjelma ei lue, ja hyväksyntää tunnuksella, jota peliohjelma ei lähetä |
 | **Yhteensä (119)** | **103** | **7** | **9** |
 
-Metagamen testisarja kasvoi 362:sta 560 testiin ja deploy-palvelimen 12:sta 26:een, ja kaikki menevät
+Metagamen testisarja kasvoi 362:sta 567 testiin ja deploy-palvelimen 12:sta 26:een, ja kaikki menevät
 läpi.
 
 ## Tietokantamuutokset {#migrations}

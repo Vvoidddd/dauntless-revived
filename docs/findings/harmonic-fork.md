@@ -28,9 +28,11 @@ license (AGPL-3.0-only). In September 2026 he published a large commit (`895f7c7
 owner asked us to bring everything of his that works into Dauntless Revived.
 
 Both forks start from the same upstream commit (`7f692aa`), and both had built some of the same
-things in the same weeks. So we compared them feature by feature. **Where his work adds something we
-did not have, we took it. Where he rewrote something we had already built and tried in the game, we
-kept ours**, and each such case below says why, with the evidence. This page is that record, written
+things in the same weeks. So we compared them feature by feature. **Where Harmonic's work adds
+something we did not have, we took it**, apart from a few platform items listed below with their
+reasons (the DLL-side ones wait for the owner's decision on shipping a DLL we build). **Where he
+rewrote something we had already built and tried in the game, we kept ours**, and each such case
+below says why, with the evidence. This page is that record, written
 for readers who do not know either code base, Harmonic among them.
 
 Thank you, Harmonic: Escalation and the store exist on our server because of your work.
@@ -219,7 +221,7 @@ and line.
 | social and friends (4) | 2 (verify never answers 401; Slayer Links with the client's exact requests) | | 2: they assert the block-list key the client does not read, and an accept by an id the client does not send |
 | **Total (119)** | **103** | **7** | **9** |
 
-Our metagame suite went from 362 to 560 tests and the deploy server's from 12 to 26, all passing.
+Our metagame suite went from 362 to 567 tests and the deploy server's from 12 to 26, all passing.
 
 ## Migrations {#migrations}
 

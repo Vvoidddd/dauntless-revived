@@ -58,19 +58,25 @@ ennen mitään julkista julkaisua, ei kaveripalvelinta varten.
 
 **Harmonicin 1.4.4-forkin siirto (23.9.2026).** Harmonic ylläpitää toista Undaunted-haaraa
 versiolle 1.4.4 ([github.com/Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted),
-AGPL-3.0). Vertasimme sitä omaamme ominaisuus kerrallaan ja otimme kaiken, mikä toi jotain uutta;
-siellä, missä meillä oli jo pelissä kokeiltu ratkaisu, pidimme omamme, ja jokaisen valinnan syy on
+AGPL-3.0). Vertasimme sitä omaamme ominaisuus kerrallaan ja otimme sen, mikä toi jotain uutta, lukuun
+ottamatta muutamaa syineen pois jätettyä alustan kohtaa (DLL-puolen kohdat, palvelintilan koukku ja
+`METAGAME_ADDRESS` sekä HuntDiag, odottavat päätöstä itse käännetyn DLL:n jakamisesta; deploy-palvelimen
+porttiodotus ja pelipalvelimen lokitiedostot jätettiin pois); siellä, missä meillä oli jo pelissä
+kokeiltu ratkaisu, pidimme omamme, ja jokaisen valinnan syy on
 kirjattu sivulle [Harmonicin työn siirto]({{ '/fi/findings/harmonic-fork.html' | relative_url }}).
 
 - **Rakennettu, oletuksena pois päältä** (odottaa päätöstä tai pelitestiä): oikeat
   Escalation-tallennukset (kohta 2.16; käyttöönotto pudottaa kaikki tekaistusta maksimista tasolle 0),
   ilmainen pelin kauppa (kohta 3.7; odottaa päätöstä, pysyykö kauppa ilmaisena), kavereiden paikalla
   olo chat-palvelimessa (kohta 3.10) ja Elite-tasojen oikeudet tason vahvistuksessa.
-- **Rakennettu, oletuksena päällä** (kukin vastaa vain siellä, missä ennen tuli virhe tai tynkä, ja
-  jokaisella on kytkin, jolla sen saa pois): Slayer Links (kohta 3.15), kaatuneen Ramsgaten
-  uudelleenkäynnistys, kun pelaaja matkustaa sinne, `/balance` hahmon oikeista valuutoista (kohta
-  2.17), suoja toistettuja XP-myöntöjä vastaan, kahdesti saapuva ryhmäkutsun hyväksyntä ja istunnon
-  tarkistus, joka nimeää pelaajan oman tilin.
+- **Rakennettu, oletuksena päällä:** Slayer Links (kohta 3.15; pois asetuksella `SLAYER_LINKS=0`),
+  kaatuneen Ramsgaten uudelleenkäynnistys, kun pelaaja matkustaa sinne (`PERSISTENT_WORLD_LIVENESS=0`),
+  ja kahdesti saapuva ryhmäkutsun hyväksyntä (ei kytkintä); nämä vastaavat vain siellä, missä ennen tuli
+  virhe tai 404. Lisäksi kolme muutosta vastauksiin, jotka jo toimivat: `/balance` hahmon oikeista
+  valuutoista (kohta 2.17; `BALANCE_FROM_INVENTORY=0`), istunnon tarkistus, joka nimeää pelaajan oman
+  tilin (`VERIFY_STUB_ACCOUNT=1` palauttaa vanhan vastauksen), ja suoja toistettuja XP-myöntöjä
+  vastaan, joka muuttaa vain alle 5 sekunnin kuluttua tavu tavulta samana toistuvan myönnön
+  (`PROGRESSION_REPLAY_WINDOW_S=0`).
 - Kolme uutta tietokantamuutosta lisää vain tauluja, ja edellinen versio käynnistyy yhä muutetulla
   tietokannalla. Harmonicin 119 testitapauksesta 103 siirrettiin ja 7 käännettiin väittämään meidän
   toimintaamme. Palvelin-DLL kääntyy nyt asennetuilla Build Toolseilla (kohta 4.4), mutta täällä
