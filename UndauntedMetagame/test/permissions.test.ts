@@ -191,6 +191,12 @@ const EXPECTED_ROUTES = [
     "POST /reconcile [HasUndauntedMetagameAuth]",
     "GET /creator [HasUndauntedMetagameAuth]",
     "GET /balance [HasUndauntedMetagameAuth]",
+    // The free store (roadmap 3.7): only with STORE=free, the token's own account; with STORE=off the storefront
+    // falls through to the old 400 below and the other three to the 404
+    "GET /product/skus/public [StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "GET /product/sku/:skuId [StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "GET /token/:currency/:skuId [StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
+    "POST /notification/:currency [StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly]",
     "GET /product/skus/public [HasUndauntedMetagameAuth]",
     "GET /guild/invite/player [HasUndauntedMetagameAuth]",
     "GET /guild [HasUndauntedMetagameAuth]",

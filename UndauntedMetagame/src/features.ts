@@ -108,6 +108,28 @@ export const EscalationStrict = DefineSwitch({
     Show: ShowOnOff
 });
 
+// The in-game store (roadmap 3.7; controllers/freestore.ts). off, the default: the store screen gets the
+// old 400 and the purchase routes answer 404, as before. free: the catalogue in vendor/store_catalog.json,
+// every offer free, bought with the client's two-step purchase token. Free or priced is the owner's
+// decision (the economy question of 3.7), and the store waits for an in-game test.
+export const StoreMode = DefineSwitch({
+    Env: "STORE",
+    Label: "store",
+    Default: "off" as "off" | "free",
+    Parse: ParseChoice(["off", "free"] as const),
+    Show: (Value: string) => Value
+});
+
+// STORE=free only: list and sell the 20 premium bounty-token bundle any number of times (unlimited free
+// premium bounty drafts). Off by default: the offer is not listed and cannot be bought.
+export const StoreRepeatableTokens = DefineSwitch({
+    Env: "STORE_REPEATABLE_TOKENS",
+    Label: "storeRepeatableTokens",
+    Default: false,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;

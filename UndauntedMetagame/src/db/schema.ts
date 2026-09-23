@@ -297,6 +297,25 @@ export const escalationunlocks = sqliteTable("escalationunlocks", {
     primaryKey({columns: [table.accountId, table.seasonId, table.unlockId]})
 ]);
 
+// Free store purchases (roadmap 3.7; from Harmonic's fork, github.com/Harmonicrain/Undaunted 895f7c7).
+// One row per purchase token the client asked for (GET /token/:currency/:sku); only STORE=free issues
+// them. tokenHash is the SHA-256 of the token (the token itself is not stored). characterId is the
+// character that gets the items, fixed when the token is issued; offerHash is the offer as it was then,
+// so a changed offer needs a new token. redeemedDate is set by POST /notification; a redeemed token
+// answers again without granting anything. Expired tokens that were never redeemed are removed.
+export const storepurchases = sqliteTable("storepurchases", {
+    tokenHash: text("tokenHash").notNull().primaryKey(),
+    accountId: text("accountId").notNull(),
+    characterId: text("characterId").notNull(),
+    skuId: text("skuId").notNull(),
+    offerHash: text("offerHash").notNull(),
+    createdDate: text("createdDate").notNull(),
+    expiresDate: text("expiresDate").notNull(),
+    redeemedDate: text("redeemedDate")
+}, (table) => [
+    index("storepurchases_account").on(table.accountId)
+]);
+
 // Guilds (roadmap 3.11, the 1.4.4 client's v2 guild API; docs/findings/social.md). guildId is a
 // random UUID (it also names the chat room Guild-<guildId>). nameKey and nameplateKey are lowercase
 // copies for case-insensitive uniqueness; nameplateKey is NULL for a guild without a nameplate

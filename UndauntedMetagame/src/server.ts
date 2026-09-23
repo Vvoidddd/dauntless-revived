@@ -8,6 +8,7 @@ import { ProgressionUpgradeNotice } from "./controllers/realprogression";
 import { CheckGatewayConfig } from "./middleware/RequestOrigin";
 import { StartChat } from "./realtime/chat";
 import { DescribeFeatures } from "./features";
+import { PruneExpiredStorePurchases } from "./controllers/freestore";
 
 const PORT = Number(process.env.PORT);
 // Bind to loopback unless told otherwise. Upstream listened on every
@@ -33,6 +34,17 @@ if(Gateway.Errors.length > 0){
 }
 
 GetDb(); // This runs migrations TODO make this more explicit
+
+// Store purchase tokens that expired without being redeemed (they are also removed whenever a token is issued)
+try {
+  const Pruned = PruneExpiredStorePurchases();
+
+  if (Pruned > 0) {
+    logger.info(`Removed ${Pruned} expired store purchase token(s) that were never redeemed`);
+  }
+} catch (error) {
+  logger.warn(error, "Could not remove the expired store purchase tokens");
+}
 
 DrainAndRegisterAPIKeys().then(async () => {
   await DrainAndRegisterUserAPIKeys();

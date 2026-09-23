@@ -2,6 +2,9 @@ import { Router } from "express";
 import { logger } from "../logger";
 import { HasUndauntedMetagameAuth } from "../middleware/HasUndauntedMetagameAuth";
 import { GetNotesForUser } from "../controllers/store";
+import { PlayerTokenOnly } from "../middleware/PlayerAuth";
+import { CreateStorePurchase, GetStoreOffer, IsKnownStoreTag, ListStoreOffers, RedeemStorePurchase, StoreError } from "../controllers/freestore";
+import { StoreMode } from "../features";
 
 export const storeRouter = Router();
 
@@ -95,6 +98,92 @@ storeRouter.get("/balance", HasUndauntedMetagameAuth, async (req: any, res) => {
     });
 });
 
+// ---- The free store (roadmap 3.7, controllers/freestore.ts): only with STORE=free. ----
+// With STORE=off (the default) these routes step aside: the storefront gets the old 400 below and the
+// three purchase routes the catalogue-less 404 they always got. Every store route acts for the player
+// whose token it carries; a game server's key alone gets 403.
+
+function StoreOn(req: any, res: any, next: any){
+    next(StoreMode() === "free" ? undefined : "route");
+}
+
+function SendStoreError(res: any, error: unknown, What: string){
+    if(error instanceof StoreError){
+        logger.warn(`Store ${What} refused (${error.Status}): ${error.message}`);
+        res.status(error.Status);
+        res.json({ code: String(error.Status), message: error.message });
+        return;
+    }
+
+    logger.error(error, `Store ${What} failed`);
+    res.status(500);
+    res.json({ code: "500", message: "Store request failed" });
+}
+
+// StoreGetItemByTagEndpoint: a bare array of offers
+storeRouter.get("/product/skus/public", StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
+    const RequiredTags = req.query.requiredTags;
+
+    if(typeof RequiredTags !== "string" || RequiredTags.length === 0){
+        logger.warn("Store SKU request with no requiredTags");
+        res.status(400);
+        res.json({ code: "400", message: "missing requiredTags query parameter" });
+        return;
+    }
+
+    try{
+        const Offers = ListStoreOffers(req.AuthData.userId, RequiredTags);
+
+        if(IsKnownStoreTag(RequiredTags)){
+            logger.info(`Store SKUs for tag ${RequiredTags}: ${Offers.length} offer(s)`);
+        }
+        else{
+            logger.warn(`Store SKUs requested for unknown tag ${RequiredTags}: an empty list`);
+        }
+
+        res.status(200);
+        res.json(Offers);
+    }
+    catch(error){
+        SendStoreError(res, error, `list ${RequiredTags}`);
+    }
+});
+
+// StoreGetItemByIdEndpoint: one offer, for the purchase dialog
+storeRouter.get("/product/sku/:skuId", StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
+    try{
+        res.status(200);
+        res.json(GetStoreOffer(req.AuthData.userId, req.params.skuId));
+    }
+    catch(error){
+        SendStoreError(res, error, `offer ${req.params.skuId}`);
+    }
+});
+
+// StorePurchaseItemEndpoint: {purchaseToken}. Whatever else the request carries is ignored.
+storeRouter.get("/token/:currency/:skuId", StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
+    try{
+        res.status(200);
+        res.json(CreateStorePurchase(req.AuthData.userId, req.params.currency, req.params.skuId));
+    }
+    catch(error){
+        SendStoreError(res, error, `token for ${req.params.skuId}`);
+    }
+});
+
+// StorePurchaseItemConfirmEndpoint: redeems the token; 204, also for a token already redeemed
+storeRouter.post("/notification/:currency", StoreOn, HasUndauntedMetagameAuth, PlayerTokenOnly, (req: any, res) => {
+    try{
+        RedeemStorePurchase(req.AuthData.userId, req.params.currency, req.query.token);
+        res.status(204);
+        res.send();
+    }
+    catch(error){
+        SendStoreError(res, error, "purchase");
+    }
+});
+
+// STORE=off: the answer the store screen always got
 storeRouter.get("/product/skus/public", HasUndauntedMetagameAuth, async (req: any, res) => {
     logger.info("Store SKUs (stubbed)");
 
