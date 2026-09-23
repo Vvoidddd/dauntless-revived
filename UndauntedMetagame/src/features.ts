@@ -164,6 +164,16 @@ export const BalanceFromInventory = DefineSwitch({
     Show: ShowOnOff
 });
 
+// Slayer Links (controllers/slayerlinks.ts): two friends link up for a week. On by default: the routes
+// only answer what 404'd before. 0 puts the 404s back (the stored invites and links stay).
+export const SlayerLinks = DefineSwitch({
+    Env: "SLAYER_LINKS",
+    Label: "slayerLinks",
+    Default: true,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;

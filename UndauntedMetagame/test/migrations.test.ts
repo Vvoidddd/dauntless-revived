@@ -108,8 +108,8 @@ function Seed(Db: ReturnType<typeof Open>){
 describe("migrations after the last release (0013_guilds)", () => {
     it("the journal lists the new migrations after 0013, each later than the one before", () => {
         assert.ok(ReleasedIndex > 0, "0013_guilds is in the journal");
-        assert.ok(NewEntries.length >= 2, "0014_escalation and 0015_store_purchases");
-        assert.deepEqual(NewEntries.slice(0, 2).map((Entry) => Entry.tag), ["0014_escalation", "0015_store_purchases"]);
+        assert.ok(NewEntries.length >= 3, "0014_escalation, 0015_store_purchases and 0016_slayer_links");
+        assert.deepEqual(NewEntries.slice(0, 3).map((Entry) => Entry.tag), ["0014_escalation", "0015_store_purchases", "0016_slayer_links"]);
 
         // The migrator skips a migration older than the last applied one without a word
         for(let Index = 1; Index < Journal.entries.length; Index++){
@@ -151,8 +151,13 @@ describe("migrations after the last release (0013_guilds)", () => {
         migrate(Updated, { migrationsFolder: MIGRATIONS });
 
         const NewTables = Tables(Updated).filter((Name) => !OldTables.includes(Name) && !Name.startsWith("__drizzle"));
-        assert.ok(["escalationprogression", "escalationtalents", "escalationunlocks", "storepurchases"].every((Name) => NewTables.includes(Name)), NewTables.join(", "));
+        assert.ok(["escalationprogression", "escalationtalents", "escalationunlocks", "storepurchases", "slayerlinkinvites", "slayerlinks"].every((Name) => NewTables.includes(Name)), NewTables.join(", "));
         assert.deepEqual(Snapshot(Updated, OldTables), Before, "every row of every released table is kept");
+        // The social tables the Slayer Links read (0016) are among them; named here so a change to them stands out
+        for(const Name of ["friendships", "blocks", "guilds", "guildmembers", "guildinvites"]){
+            assert.ok(OldTables.includes(Name), Name);
+            assert.equal(Snapshot(Updated, [Name])[Name], Before[Name], `${Name} is byte for byte the same`);
+        }
         assert.deepEqual(SchemaOf(Updated, OldTables), OldSchema, "no released table, index or trigger changed");
         for(const Name of NewTables){
             assert.equal(Rows(Updated, Name).length, 0, `${Name} starts empty`);

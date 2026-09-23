@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -356,4 +357,38 @@ export const guildinvites = sqliteTable("guildinvites", {
 }, (table) => [
     uniqueIndex("guildinvites_pair").on(table.guildId, table.inviteeId),
     index("guildinvites_invitee").on(table.inviteeId)
+]);
+
+// Slayer Links (controllers/slayerlinks.ts; contract from Harmonic's fork, github.com/Harmonicrain/Undaunted
+// 895f7c7, corrected against the 1.4.4 exe). An invite from senderId to targetId for the sender's slot
+// (0-2). status: PENDING until the target accepts (ACCEPTED), declines (DECLINED), the sender withdraws it
+// or the two stop being friends (CANCELED), or it runs out (EXPIRED; set when next looked at). One pending
+// invite per sender and target. Times are epoch ms, as in the other social tables.
+export const slayerlinkinvites = sqliteTable("slayerlinkinvites", {
+    inviteId: text("inviteId").notNull().primaryKey(),
+    senderId: text("senderId").notNull(),
+    targetId: text("targetId").notNull(),
+    senderSlot: integer("senderSlot").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    expiresAt: integer("expiresAt").notNull(),
+    status: text("status").notNull()
+}, (table) => [
+    index("slayerlinkinvites_sender").on(table.senderId),
+    index("slayerlinkinvites_target").on(table.targetId),
+    uniqueIndex("slayerlinkinvites_pending_pair").on(table.senderId, table.targetId).where(sql`"status" = 'PENDING'`)
+]);
+
+// A link between two accounts, each in a slot of its own, until endsAt (a week after the accept). linkId
+// is the accepted invite's id. A removed link is deleted; one that ran out stays until it is swept.
+export const slayerlinks = sqliteTable("slayerlinks", {
+    linkId: text("linkId").notNull().primaryKey(),
+    senderId: text("senderId").notNull(),
+    targetId: text("targetId").notNull(),
+    senderSlot: integer("senderSlot").notNull(),
+    targetSlot: integer("targetSlot").notNull(),
+    createdAt: integer("createdAt").notNull(),
+    endsAt: integer("endsAt").notNull()
+}, (table) => [
+    index("slayerlinks_sender").on(table.senderId),
+    index("slayerlinks_target").on(table.targetId)
 ]);

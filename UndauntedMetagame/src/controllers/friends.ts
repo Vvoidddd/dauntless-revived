@@ -1,6 +1,6 @@
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { GetDb } from "../db";
-import { blocks, friendships, guildinvites, users } from "../db/schema";
+import { blocks, friendships, guildinvites, slayerlinkinvites, users } from "../db/schema";
 import { logger } from "../logger";
 import type { Tx } from "./savehistory";
 
@@ -10,7 +10,8 @@ import type { Tx } from "./savehistory";
 //
 // One friendships row per pair, ids sorted: status PENDING (requesterId asked) or ACCEPTED.
 // A block removes any friendship between the two and the guild and party invites either one sent the
-// other, and stops requests, party invites and guild invites in both directions.
+// other, and stops requests, party invites and guild invites in both directions. A block or an unfriend
+// also cancels the pending Slayer Link invites between the two (controllers/slayerlinks.ts).
 //
 // Limits on new requests (docs/findings/social.md): at most MAX_PENDING_OUTGOING unanswered
 // requests an account has sent, and at most MAX_REQUESTS_PER_WINDOW new requests per
@@ -96,6 +97,30 @@ export function IsBlockedEitherWayInTx(tx: Tx, A: string, B: string){
 
 export function IsBlockedEitherWay(A: string, B: string){
     return GetDb().transaction((tx) => IsBlockedEitherWayInTx(tx, A, B));
+}
+
+// Friends on both sides (the request was accepted)
+export function AreFriendsInTx(tx: Tx, A: string, B: string){
+    return tx.select({ status: friendships.status }).from(friendships).where(PairCondition(A, B)).get()?.status === "ACCEPTED";
+}
+
+// The Slayer Link invites between the two that still wait for an answer (slayerlinks.ts reads the table).
+// One update per direction: SQLite's planner fails on an UPDATE of the partial index's column with an OR
+// of the two directions and RETURNING ("internal query planner error").
+function CancelSlayerLinkInvitesInTx(tx: Tx, A: string, B: string){
+    let Cancelled = 0;
+
+    for(const [Sender, Target] of [[A, B], [B, A]]){
+        Cancelled += tx.update(slayerlinkinvites).set({ status: "CANCELED" })
+            .where(and(eq(slayerlinkinvites.status, "PENDING"), eq(slayerlinkinvites.senderId, Sender), eq(slayerlinkinvites.targetId, Target)))
+            .run().changes;
+    }
+
+    return Cancelled;
+}
+
+function SlayerLinkNote(Cancelled: number){
+    return Cancelled > 0 ? ` (${Cancelled} Slayer Link invite(s) between them cancelled)` : "";
 }
 
 // Chat (src/realtime/muc.ts): which of these recipients have blocked the sender, in one query per message
@@ -205,10 +230,13 @@ export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResul
 
 // DELETE /friends/api/public/friends/:me/:them: unfriend, withdraw a request or decline one
 export function RemoveFriend(Me: string, Them: string): FriendResult {
-    const Removed = GetDb().delete(friendships).where(PairCondition(Me, Them)).returning({ status: friendships.status }).all();
+    const { Removed, Cancelled } = GetDb().transaction((tx) => ({
+        Removed: tx.delete(friendships).where(PairCondition(Me, Them)).returning({ status: friendships.status }).all(),
+        Cancelled: CancelSlayerLinkInvitesInTx(tx, Me, Them)
+    }));
     const Result: FriendResult = { ok: true, Result: Removed.length > 0 ? "removed" : "not_friends" };
 
-    logger.info(`friends: remove by=${Me} other=${Them} -> ${Result.Result}`);
+    logger.info(`friends: remove by=${Me} other=${Them} -> ${Result.Result}${SlayerLinkNote(Cancelled)}`);
 
     return Result;
 }
@@ -219,6 +247,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
     }
 
     let GuildInvitesDropped = 0;
+    let SlayerLinkInvitesCancelled = 0;
     const Result = GetDb().transaction((tx): FriendResult => {
         if(!AccountExists(tx, Them)){
             return { ok: false, Status: 404, Error: "not_found" };
@@ -240,6 +269,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
             and(eq(guildinvites.inviterId, Me), eq(guildinvites.inviteeId, Them)),
             and(eq(guildinvites.inviterId, Them), eq(guildinvites.inviteeId, Me))
         )).returning({ inviteId: guildinvites.inviteId }).all().length;
+        SlayerLinkInvitesCancelled = CancelSlayerLinkInvitesInTx(tx, Me, Them);
 
         return { ok: true, Result: "blocked" };
     });
@@ -248,7 +278,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
         BlockHook(Me, Them);
     }
 
-    logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}${GuildInvitesDropped > 0 ? ` (${GuildInvitesDropped} guild invite(s) between them removed)` : ""}`);
+    logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}${GuildInvitesDropped > 0 ? ` (${GuildInvitesDropped} guild invite(s) between them removed)` : ""}${SlayerLinkNote(SlayerLinkInvitesCancelled)}`);
 
     return Result;
 }
