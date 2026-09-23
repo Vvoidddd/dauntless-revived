@@ -21,7 +21,7 @@ on englanniksi:
 [Avaa päivittyvä tarkistuslista (englanniksi)]({{ roadmap_en.url | relative_url }}){: .btn .btn-primary .mr-2 }
 [ROADMAP.md GitHubissa]({{ site.github.repository_url }}/blob/dauntless-revived/ROADMAP.md){: .btn }
 
-Yhteenveto kuvaa tilannetta 22.9.2026. Jos tämä sivu ja englanninkielinen lista eroavat toisistaan,
+Yhteenveto kuvaa tilannetta 23.9.2026. Jos tämä sivu ja englanninkielinen lista eroavat toisistaan,
 englanninkielinen lista on ajan tasalla.
 
 <details open markdown="block">
@@ -55,6 +55,28 @@ ennen mitään julkista julkaisua, ei kaveripalvelinta varten.
 ---
 
 ## Missä mennään nyt {#where-we-are}
+
+**Harmonicin 1.4.4-forkin siirto (23.9.2026).** Harmonic ylläpitää toista Undaunted-haaraa
+versiolle 1.4.4 ([github.com/Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted),
+AGPL-3.0). Vertasimme sitä omaamme ominaisuus kerrallaan ja otimme kaiken, mikä toi jotain uutta;
+siellä, missä meillä oli jo pelissä kokeiltu ratkaisu, pidimme omamme, ja jokaisen valinnan syy on
+kirjattu sivulle [Harmonicin työn siirto]({{ '/fi/findings/harmonic-fork.html' | relative_url }}).
+
+- **Rakennettu, oletuksena pois päältä** (odottaa päätöstä tai pelitestiä): oikeat
+  Escalation-tallennukset (kohta 2.16; käyttöönotto pudottaa kaikki tekaistusta maksimista tasolle 0),
+  ilmainen pelin kauppa (kohta 3.7; odottaa päätöstä, pysyykö kauppa ilmaisena), kavereiden paikalla
+  olo chat-palvelimessa (kohta 3.10) ja Elite-tasojen oikeudet tason vahvistuksessa.
+- **Rakennettu, oletuksena päällä** (kukin vastaa vain siellä, missä ennen tuli virhe tai tynkä, ja
+  jokaisella on kytkin, jolla sen saa pois): Slayer Links (kohta 3.15), kaatuneen Ramsgaten
+  uudelleenkäynnistys, kun pelaaja matkustaa sinne, `/balance` hahmon oikeista valuutoista (kohta
+  2.17), suoja toistettuja XP-myöntöjä vastaan, kahdesti saapuva ryhmäkutsun hyväksyntä ja istunnon
+  tarkistus, joka nimeää pelaajan oman tilin.
+- Kolme uutta tietokantamuutosta lisää vain tauluja, ja edellinen versio käynnistyy yhä muutetulla
+  tietokannalla. Harmonicin 119 testitapauksesta 103 siirrettiin ja 7 käännettiin väittämään meidän
+  toimintaamme. Palvelin-DLL kääntyy nyt asennetuilla Build Toolseilla (kohta 4.4), mutta täällä
+  käännettyä DLL:ää ei jaeta.
+- **Ei vielä viety palvelimelle eikä kokeiltu pelissä.** Harmonic mainitaan kiitoksissa ja
+  tiedostossa `NOTICE.md`.
 
 Itse peliä on toistaiseksi pelannut yksi pelaaja, omistaja: ensin omalla koneellaan ja 22.9.2026
 myös internetin yli vuokratulla palvelimella. Nämä toimivat:
@@ -116,7 +138,8 @@ kaverilista ja estolista sekä killat (kohta 3.11: perustaminen Ramsgaten pelipa
 kutsut, arvot, erottaminen, lähteminen ja lakkauttaminen, tallennettuina SQLiteen). Ne läpäisevät
 testit, jotka toistavat peliohjelman omat pyynnöt, mutta niitä ei ole vielä kokeiltu kahdella oikealla
 peliohjelmalla. Ryhmään voi kutsua, vaikka ette olisi kavereita. Kavereiden näkyminen paikalla vaatii
-chat-yhteyden läsnäolotiedot, joita ei ole vielä rakennettu. Tekstichat on rakennettu (katso alta).
+chat-yhteyden läsnäolotiedot; ne on rakennettu 23.9.2026, mutta ne ovat pois päältä (katso alta).
+Tekstichat on rakennettu (katso alta).
 
 **Kahden pelaajan testi 22.9.2026:** kaksi pelaajaa näki toisensa Ramsgatessa ja päätyi samaan
 metsästyksen aulaan, mutta metsästys ei lähtenyt liikkeelle. Metagame oli merkinnyt yhden pelaajan
@@ -164,6 +187,12 @@ käyttäjänimet.
   toisena. Ryhmä- ja kiltahuoneet ovat vain jäsenille, ja estot koskevat huonerivejä ja kuiskauksia.
 - Palvelin ei lähetä läsnäolotietoja huoneiden ulkopuolella, joten peliohjelman automaattinen
   ryhmäpotku pysyy lepotilassa.
+- **Kavereiden paikalla olo on rakennettu 23.9.2026, oletuksena pois päältä** (`CHAT_PRESENCE=1`
+  yhdessä asetuksen `CHAT=1` kanssa). Pelaajan oma läsnäolotieto välitetään hänen hyväksytyille,
+  estämättömille kavereilleen, ja poistuminen kerrotaan heille. Palvelin ei koskaan lähetä pelaajalle
+  huoneen ulkopuolista viestiä hänen omalta tililtään, ei edes hänen toisesta istunnostaan, joten
+  ryhmäpotku pysyy unessa. Se kytketään oletukseksi vasta, kun chat itse on käytössä ja kaksi pelaajaa
+  on ollut ryhmässä minuutin sen ollessa päällä ilman potkua.
 - Kun pelaajan yhteys katkeaa ja peli yhdistää uudelleen, uusi yhteys ottaa huoneet vanhalta, joten
   muut näkevät pelaajan nimen edelleen. Pingit sallivat pitkän kartan latauksen.
 - **Ei vielä viety palvelimelle eikä kokeiltu kahdella pelaajalla.** Seuraavaksi, kun kukaan ei pelaa:
@@ -189,7 +218,8 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Tallentuu, mutta ei vielä kokeiltu kokonaan pelissä:** palkkiotehtävät (bounties), päivittäiset
   ajastimet ja lisävarustesarjojen paikat.
 - **Ei vielä tallennu:** Escalation. Sille on toistaiseksi vain tynkä, joka heittää jokaisen
-  tallennuksen pois.
+  tallennuksen pois. Oikeat tallennukset on rakennettu (kohta 2.16), mutta ne ovat pois päältä, kunnes
+  ne on kokeiltu pelissä ja pelaajille on kerrottu, että kaikki aloittavat tasolta 0.
 
 ---
 
@@ -241,6 +271,9 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
   pelitiedostoja.
 - **Nimenvaihdon ensimmäinen osa:** käynnistimessä, pelin tervetulotekstissä ja palvelimen viesteissä
   lukee Dauntless Revived.
+- **Harmonicin 1.4.4-forkin siirto (23.9.2026):** Escalation, ilmainen kauppa, Slayer Links,
+  kavereiden paikalla olo, deploy-palvelimen korjaukset ja pienemmät korjaukset on rakennettu ja
+  testattu ilman peliä (katso yllä). Pelissä niitä ei ole vielä kokeiltu.
 
 ## Työn alla {#in-progress}
 
@@ -277,6 +310,14 @@ Osa pelissä ansaitusta tallentuu jo, osa ei:
 - **Yhden komennon käynnistys, pysäytys ja tilannekatsaus** (`stack.ps1`) toimii omistajan koneella,
   ja Windows-palvelinpaketin `Stack.ps1` tekee saman vuokratulla palvelimella: se käynnistää kaiken
   koneen käynnistyessä ja käynnistää kaatuneen osan uudelleen.
+- **Pelitestit Harmonicin siirrolle:** kaatuneen Ramsgaten uudelleenkäynnistys pelaajan matkalla,
+  Escalation (2.16), kauppa (3.7), Elite-tasojen oikeudet, Claim, Slayer Links kahdella kaverilla
+  (3.15), kavereiden paikalla olo kahdella pelaajalla (3.10) ja yli 30 minuutin istunto uudella
+  istunnon tarkistuksella.
+- **Omistajan päätökset:** pysyykö kauppa ilmaisena vai saako se hinnat pelin valuutassa,
+  myydäänkö rajattomasti premium-palkkiotehtävätunnisteita, milloin Escalation kytketään päälle,
+  päättyykö käynnissä oleva Slayer Link, kun kaveruus puretaan, ja jaetaanko itse käännetty DLL
+  (4.4).
 
 ---
 
@@ -456,6 +497,8 @@ M4:ään lisättiin 22.9.2026 kuusi uutta kohtaa:
   kirjautumisellaan. Kun perustat killan, odota hetki nimen kirjoittamisen jälkeen ennen kuin painat
   Create.
 - Tekstichattia ei vielä ole. Käytä Discordia.
+- Slayer Links (My Links -välilehti) on uusi palvelimella, eikä sitä ole vielä kokeiltu pelissä.
+  Escalation ja kauppa pysyvät ennallaan, kunnes isäntä kytkee ne päälle.
 
 ## Mitä ei voi palauttaa {#cant-come-back}
 

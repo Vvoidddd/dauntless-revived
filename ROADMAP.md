@@ -35,7 +35,14 @@ Our fork of [Undaunted](https://github.com/SyST3MDeV/Undaunted) (AGPL-3.0). It r
 - [x] CI on every push: builds and tests of every package, the server kit's tests, the docs build, and a check that no secrets, keys, databases or game files are committed.
 - [x] Rebrand, part 1: the launcher, the in-game welcome text and the server's messages say Dauntless Revived, and the credits name Undaunted. Folders, the server DLL's file name (`UndauntedInternalServer.dll`), API routes and headers keep the Undaunted names for now (part 2 is 4.15).
 
-## Where we are (updated 2026-09-22)
+## Where we are (updated 2026-09-23)
+
+> **Update, 2026-09-23 (the port of Harmonic's 1.4.4 fork):**
+> - **Harmonic's fork of Undaunted for 1.4.4** ([github.com/Harmonicrain/Undaunted](https://github.com/Harmonicrain/Undaunted), commit `895f7c7`, AGPL-3.0) was compared with ours feature by feature. Everything of his that adds something is in, rewritten on our code; where he rewrote something we had already built and tried in game, we kept ours, and each such choice is written down with its reason on [The Harmonic port](https://mixutin.github.io/dauntless-revived/findings/harmonic-fork.html).
+> - **New, off by default until a decision or an in-game test:** real Escalation saves (2.16; `ESCALATION_MODE=real` drops every player from the fake maximum to level 0), a free in-game store (3.7; `STORE=free`, waiting for the free-or-priced decision), friends' online status inside our chat server (3.10; `CHAT_PRESENCE=1`), and granting the Elite ranks' entitlements on confirm (`PROGRESSION_CONFIRM_ENTITLEMENTS=1`).
+> - **New, on by default** (each only answers where the server gave an error or a stub before, and each has an off switch): Slayer Links (3.15), a dead Ramsgate started again when a player travels there (4.1), `/balance` from the character's real currencies (2.17), protection against retried XP grants, a repeated party accept, and `oauth/verify` naming the player's own account.
+> - Migrations `0014`-`0016` add six tables and change nothing that exists; the previous build still starts on the migrated database. 103 of Harmonic's 119 test cases were ported and 7 turned around to assert our behaviour; the metagame now has 560 tests and the deploy server 26. The DLL project compiles with the installed Build Tools (4.4), but nothing built here ships.
+> - **Not deployed or tried in game yet.** The live tests and the owner's decisions are listed under 2.16, 3.7, 3.10, 3.15 and "Decisions only you can make". Credits: Harmonic is on the Credits pages and in `NOTICE.md`.
 
 > **Update, 2026-09-22 (text chat, 3.10):**
 > - **Why the first chat server showed every sender as `UID-...`, and the fix.** Vvoidddd's chat server ([PR #9](https://github.com/mixutin/dauntless-revived/pull/9)) got Ramsgate messages through with a real 1.4.4 client, but the sender showed as the account id. Read from the executable: the client already joins every room with a nickname that carries the username (`<name>:<account id>:<resource>`) and reads the name back from it; the server threw that nickname away and answered from `<room>/UID-...`. The chat server now keeps each nickname as sent, adds `<item jid>`, tells occupants about each other and sends every line back to its sender, so both players see usernames. The metagame's account routes needed no change.
@@ -120,10 +127,10 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 | Hunt Pass | No, faked | The rank is sent as 99,999,999 (the real cap is 50). A 100-XP Hunt Pass grant at 10:41 hit a missing route. *Checker: nobody has seen what the Hunt Pass screen actually shows. The Elite track is probably locked.* *Update: yes with real progression, now the default: starts at 0, free and Elite claims stored (2.15, tested in game).* |
 | Bounties | No | The board is empty every time a server loads you. *Checker: claiming a bounty fails even within one session, because the route `/bounty/delete` is missing.* *Update: stored with real progression, now the default, and the delete route exists (2.6); drafting and claiming in the UI are still to try.* |
 | Daily and weekly limits (cooldowns) | No | They reset each time a new server loads you, which means every hunt and every Ramsgate visit. *Update: stored with real progression, now the default (2.5); still to watch across a daily reset.* |
-| Escalation | No, faked at 99,999 | There is no save route. |
+| Escalation | No, faked at 99,999 | There is no save route. *Update 2026-09-23: real saves are built (2.16), off by default (`ESCALATION_MODE=real`); not tried in game.* |
 | Entitlements (Elite pass, packs) | No | One grant was thrown away today (09:50:31). *Update: yes with real progression, now the default; every account owns the Elite pass (2.14, tested in game).* |
-| Currency balance (`/balance`) | Wrong | Reports 0 Notes, 25 weapon tokens and 0 of everything else. Your real Rams are in the inventory. |
-| Store | Broken | The item list returns 400 (15 times today). |
+| Currency balance (`/balance`) | Wrong | Reports 0 Notes, 25 weapon tokens and 0 of everything else. Your real Rams are in the inventory. *Update 2026-09-23: `/balance` and `/reconcile` now report the currencies the character holds (2.17, on by default); not checked on screen yet.* |
+| Store | Broken | The item list returns 400 (15 times today). *Update 2026-09-23: a free store is built (3.7), off by default (`STORE=free`); not tried in game.* |
 | Mailbox | Always empty | |
 | Guild | No | *Update 2026-09-22: built (3.11): guilds, members and invites are stored in SQLite and survive a restart. Running on the rented server since 22 September; not tried in game yet.* |
 | Party, friends list | No, being built elsewhere | *Update 2026-09-22: built on the server side (1.9). Friendships and blocks are saved in SQLite; parties and invites live in memory, so a metagame restart leaves everyone in a party of one. Tested with simulated players only. The fixes for what blocked them in the two-player test are built and running on the rented server (22 September), not yet tried in game.* |
@@ -140,6 +147,7 @@ What the 2026-09-21 session sent to the server (`metagame.log`, 09:38–10:50 UT
 - The airship before a hunt is very dark for now. It's a short scene; a proper fix is 4.17. The launcher has an experimental opt-in (Settings > Graphics > Auto exposure > Basic adaptive); if Ramsgate or night hunts look wrong with it, switch back to Game default.
 - Parties, friends and guilds are built on the server but haven't been tried with two players yet; that is the next test. After the next update, restart the game once. You don't have to be friends to invite someone to a party. Everyone shows as offline for now, and friend requests and guild invites show up at the other player's next login. When creating a guild, wait a moment after typing the name before pressing Create.
 - There is no text chat yet. Use Discord.
+- Slayer Links (the My Links tab) are new on the server and not tried in the game yet. Escalation and the store stay as they were until the host switches them on.
 
 ---
 
@@ -449,16 +457,16 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 0.4, for the cooldown names and format.
   - **Done when:** a new server sees the cooldowns the last one saved, and `TOKEN_DAILY_PATROL_BONUS` (×6 today) doesn't refill between hunts.
 
-- [ ] **2.6 Bounties** (M) — *Built (storage + delete route; reward values still to design). *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* one bounty save stored. Drafting and claiming in the UI are still to try.*
+- [ ] **2.6 Bounties** (M) — *Built (storage + delete route). *Tester play test 2026-09-21 (real mode on a throwaway account, then a full restart and relog):* one bounty save stored. Drafting and claiming in the UI are still to try.* *Update 2026-09-23: `bounty_data` stays empty on purpose. Read from the 1.4.4 executable (while comparing Harmonic's fork): a bounty missing from the list is allowed (`0x1413f5a81`), and its reward then comes from the client's own table (`0x1413df5e1`), about Bronze 20, Silver 40 and Gold 100 XP; Harmonic's 226-entry list would cut Gold to 60. A new-season post with an empty board keeps the bounties players hold (`0x1413f8009`). His bounty and cooldown tests now run against ours.*
   - **What:**
     - Store the bounty state the game server POSTs (it always sends the whole board) and return it on GET.
     - Add `POST /bounty/delete/:uid`, which claiming and abandoning a bounty both use (`dllmain.cpp:92`).
-    - Fill `bounty_data` from the 226 bounty ids in the game files, with reward amounts we choose. The originals are lost.
+    - ~~Fill `bounty_data` from the 226 bounty ids in the game files.~~ Not needed: the client's own table has the rewards (above).
   - **You'll notice:** bounties stay on your board across hunts and logins, and you can turn them in. Today even turning one in during the same session fails.
   - **Needs:** 0.4 and 2.5.
     - The XP a bounty pays only saves once 2.9 is done.
     - Group bounties need 1.9.
-  - **Done when:** you draft a bounty, finish a hunt and log in again, and it is still there with its progress. Claiming it logs a 200 on `/bounty/delete`.
+  - **Done when:** you draft a bounty, finish a hunt and log in again, and it is still there with its progress. Claiming it logs a 200 on `/bounty/delete`. During the test, also watch the game server's output for "found bounty %s that is locked" (`0x1446ad4e0`): if it shows up, the bounty list needs a closer look (Harmonic's HuntDiag, 4.6, would help).
 
 > **Steps 2.7–2.13: Slayer level, weapon and behemoth mastery, and Hunt Pass XP.** Do these in order and switch them on together. Upstream warned about endless mastery pop-ups, and any one of these steps alone can bring them back. None of these steps may hand out reward items: the game server already grants rank rewards through `/inventory`, so granting them here as well would double them.
 
@@ -547,19 +555,20 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.10, 2.11, 2.14.
   - **Done when:** finishing a hunt moves the pass bar, Claim gives the rank reward exactly once, and both survive logging in again.
 
-- [ ] **2.16 Escalation** (M)
+- [ ] **2.16 Escalation** (M) — ***Built 2026-09-23, off by default** (`ESCALATION_MODE=real`), from Harmonic's 1.4.4 fork: the season registry he exported from the client (5 seasons, Frost disabled; 25 levels, 18 talents in 6 tiers, 6 rewards each), `POST /escalation/<season>/<account>` from game servers only, and his save rules with all 17 of his tests. Hard rules always apply (known ids and ranges, the version order, nothing lowered or un-collected, and no first save carrying the old stub's level 25 with 99,999 XP); the rules that depend on our modelling (the XP within a level, points spent, tier gates, reward levels) only warn until `ESCALATION_STRICT=1`. Every save is a row in `progression_events`. Tables in migration `0014_escalation`. Not tried in game. Details: [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html).*
   - **What:**
     - For each account and each of `ESC_SEASON_1`..`5`, store the level, the XP to the next level, talents, unlocks and a version number.
-    - GET reads from the database, starting at level 1 instead of 99,999.
-    - Add POST/PUT on the same path, with a version check.
+    - GET reads from the database, starting at level 0 instead of 99,999.
+    - Add POST on the same path, with a version check.
     - Both lists must always be present in the response.
-  - **You'll notice:** escalation levels and rewards build up and stay.
-  - **Needs:** 2.9, and a captured escalation save (extend 0.4). Escalation hunts are only playable today because of a force-unlock in the client DLL; removing that needs 4.4.
+  - **You'll notice:** escalation levels and rewards build up and stay. When it is switched on, every player drops from the fake maximum (level 25, 25 talent points) to level 0: announce it first.
+  - **Needs:** 2.9. Escalation hunts are only playable today because of a force-unlock in the client DLL; removing that needs 4.4.
+  - **The live test that switches it on:** set `ESCALATION_MODE=real` and restart the whole stack (so no game server still holds the stub's values), play an Escalation run, log in again, spend a talent point. The level rises and survives the relog, the right number of points shows, and the log has no `Refusing escalation save` and no `breaks a soft rule` line. Then an unset `ESCALATION_MODE` follows `PROGRESSION_MODE`, and once the logs stay clean, `ESCALATION_STRICT=1`. Also note which season ids the client asks for (2.1.1 asks up to `ESC_SEASON_6`, which the registry does not have).
   - **Done when:** an escalation run raises the level, and it is still there after logging in again.
 
-- [ ] **2.17 Currency shown correctly** (S) — *Settled in play: `CURRENCY_NOTES` is the Rams (the menu showed exactly the database value).*
+- [ ] **2.17 Currency shown correctly** (S) — *Settled in play: `CURRENCY_NOTES` is the Rams (the menu showed exactly the database value).* *Update 2026-09-23: **built, on by default** (`BALANCE_FROM_INVENTORY`; the idea came from Harmonic's fork, without his wallet table): every `CURRENCY_*` key of `/balance` and `/reconcile` that the account's active character holds as a stack reports that quantity; the other keys keep the old values. `CURRENCY_PLATINUM_UNIV` is not mapped (the executable names it only next to the Elite upsell screen). Still open: see it on screen, and remove `users.notes`, which the sheet still falls back to.*
   - **What:**
-    - `GET /balance` and `POST /reconcile` should work out balances from the inventory stacks (`CURRENCY_*`). Today they send fixed values: Notes from `users.notes` (0), and weapon tokens hard-coded to 25.
+    - `GET /balance` and `POST /reconcile` should work out balances from the inventory stacks (`CURRENCY_*`). Before 2026-09-23 they sent fixed values: Notes from `users.notes` (0), and weapon tokens hard-coded to 25.
     - The client calls `/balance` (4 times today). Find which screen shows it.
     - Remove `users.notes`.
   - **You'll notice:** the Rams on screen match what you own. The inventory holds `CURRENCY_NOTES` ×1,260.
@@ -616,12 +625,13 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **What:** one message you can edit, plus `GET /motd/trigger` answering 204. Until this is done, put welcome text in the mailbox.
   - **Done when:** friends see your message at login.
 
-- [ ] **3.7 Store** (L)
+- [ ] **3.7 Store** (L) — ***A free store is built 2026-09-23, off by default** (`STORE=free`), from Harmonic's 1.4.4 fork: his catalogue of 200 free offers (cosmetics, sheens and hair tints; tab layout and 2:1 tile art checked by a test), the client's two-step purchase (`GET /token/<currency>/<sku>`, then `POST /notification/<currency>?token=`), and the grant kind of each item from the client's catalogue. Items go through our inventory core (ledger and `inventorylog`, caller `store`) to the account's character saved last; entitlements through our grant code. The rank-skip offer is left out; the unlimited bounty-token bundle is listed only with `STORE_REPEATABLE_TOKENS=1`. Table in migration `0015_store_purchases`. Not tried in game. Details: [The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html).*
   - **What:**
-    - An item catalogue served at `GET /product/skus/public` (400 today, 15 calls) and `GET /product/sku/:id`.
-    - A purchase flow that takes the currency and grants the items in one inventory transaction.
-    - The same service also runs the Trials store, the event stores, the Hunt Pass prestige store, the Middleman cell-dust exchange and loadout-slot purchases.
-  - **Decision:** items free, or priced in in-game currency. If Platinum is used, hand it out through the mailbox.
+    - An item catalogue served at `GET /product/skus/public` (400 before, 15 calls) and `GET /product/sku/:id`. *Built.*
+    - A purchase flow that grants the items in one inventory transaction. *Built for free offers; prices are the decision below.*
+    - The same service also runs the Trials store, the event stores, the Hunt Pass prestige store, the Middleman cell-dust exchange and loadout-slot purchases. *Not built.*
+  - **Decision:** items free, or priced in in-game currency. If Platinum is used, hand it out through the mailbox. *Still open; it gates `STORE=free`.*
+  - **The live test that switches it on:** after the decision, count the accounts with more than one character, set `STORE=free`, open every tab (each shows its own kind of item: EMOTES shows emotes), buy one stacked armour piece, one instanced weapon skin, one lantern and one sheen (and the token bundle if allowed), log in again (everything visible and equippable), and finish a hunt with no inventory 409.
   - **Needs:** 2.2, 2.14, 2.17.
   - **Done when:** buying one item takes the right currency once and adds the item once.
 
@@ -647,7 +657,8 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Done when:** two friends can whisper each other in game.
   - **First chat server (2026-09-22, Vvoidddd, [PR #9](https://github.com/mixutin/dauntless-revived/pull/9)):** an opt-in XMPP-over-WebSocket listener in the metagame that logs in with the player's own token. With one real 1.4.4 client, Ramsgate messages went through, but the sender showed as `UID-...`; answering from the username instead left room joins pending ("Another operation already pending"), even with MUC status 210; sending messages from the username showed `[unknown]`; an XEP-0172 `<nick>` was ignored. His conclusion was to keep the UID in the room address. The cause, read later from the executable: the client joins with the nickname `<name>:<account id>:<resource>` and reads both the name and the account id from it, and its "is this me?" test looks for its account id in the nickname. So the account id does belong there, but together with the name, exactly as the client sent it. Each result is explained on [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#attempts).
   - **Built (2026-09-22), off by default:** each nickname kept byte for byte, `<item jid>` on every occupant presence, occupants told about each other both ways, every line sent back to its sender; a join refused unless its nickname carries the player's own account id and username; `City-`, `Hunt-` and `General` rooms for everyone, `Party-` and `Guild-` rooms for their members only (checked at every message and every 60 s); blocks for room lines and whispers; up to two sessions per account, and a reconnect takes each room over from the lingering old connection, so the others keep seeing the player's name (the client keeps one room member per account); pings that let a long map load pass; a crash guard, limits before login and on unread output, and a 60 s login hold-back so reconnect loops cannot hurt the metagame or a player's game traffic; no presence outside rooms, so the dormant party auto-kick stays asleep. `CHAT_NICK_CHECK=log` (it never admits another account's id), `Set-Chat.ps1 -Off` and, for the code, `Update-DauntlessServer.ps1 -Rollback` are the rollbacks. Tests: a model of how the client reads chat reproduces Vvoidddd's three observations and shows usernames for both players with our replies. The server kit has `-Chat On/Off`, and the gateway counts chat connections in a rate bucket of their own (`GATEWAY_RATE_WS`).
-  - **Next:** update the rented server, switch chat on (a second run), and the live two-player test ([How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify)), then chat on by default. After that: a shared Ramsgate channel for players who are not in a party (today each player's Ramsgate session has its own room), online status for friends (presence between friends and party members, never echoed back, with the party test repeated), and private mode (Tailscale).
+  - **Built (2026-09-23), off by default: friends' online status** (`CHAT_PRESENCE=1`, with `CHAT=1`), inside our chat server; the idea of a presence service came from Harmonic's fork, but his did not relay changes and marked players offline from an address the client ignores, so none of his code is used. A player's own presence goes, exactly as sent and from the full address, to the sessions of each accepted, unblocked friend; a new session hears of its friends; going offline sends unavailable (and the account's other session's presence, if any); an HTTP friend accept is pushed as the client's friends-list message from `xmpp-admin`. **Never** is a stanza outside a room sent to a player from their own account, not even from their second session, so the party's automatic kick (`0x1415f7562`) stays asleep; three checks enforce it, one of them over every stanza in every chat test. With it off, not one presence stanza goes outside rooms, as before. Details: [Text chat](https://mixutin.github.io/dauntless-revived/findings/chat.html#presence).
+  - **Next:** update the rented server, switch chat on (a second run), and the live two-player test ([How to verify](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify)), then chat on by default. Then the presence test ([steps](https://mixutin.github.io/dauntless-revived/findings/chat.html#how-to-verify-presence)): two players in a party with `CHAT_PRESENCE=1` for 60 s in Ramsgate plus one hunt trip, with no `DELETE /party/member/...` or `/party/leader/...`, the friend shown online, then "In Ramsgate", then offline after they quit; only then presence on by default (and only once chat is). After that: a shared Ramsgate channel for players who are not in a party (today each player's Ramsgate session has its own room), a presence switch in `Set-Chat.ps1`, and private mode (Tailscale).
 
 - [ ] **3.11 Guilds** (L) — *Update 2026-09-22: **built** and running on the rented server since 22 September 2026, not yet tried in game: the eleven v2 routes the 1.4.4 client uses (validate, create, invites, accept, decline, leave, kick, ranks with leader hand-over, disband), stored in SQLite (migration `0013_guilds`, three new tables), with the client's own error codes and name rules. The Create button is an RPC to the Ramsgate game server, which sends the create with its key; it costs nothing in 1.4.4. The game server sends no token of the player (only its own, if any), so the metagame accepts a create only when the leader validated that exact name and nameplate with their own token in the last 15 minutes (`GUILD_CREATE_ACTIVITY_FALLBACK=1` loosens it, only if the live test shows the client never validates the final name). Staff and project words are reserved (`GUILD_RESERVED_NAMES=0`). A block, a decline (24 hours for that guild) and a demoted, kicked or departed Officer each end the invites concerned. Other members see changes at their next login or world load (no push). `GUILDS=0` restores the old stubs. Passes HTTP tests with the client's bodies (`test/guildhttp.test.ts`); not yet tried in game. Guild chat is built with 3.10 (the room `Guild-<guildId>`, members only), off by default like the rest of chat.*
   - **What:** guild, member and invite tables, and about 11 v2 routes (create, invite, join, leave, kick, ranks).
@@ -660,10 +671,17 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Done when:** a friend whose game crashes mid-hunt gets back into the same fight.
 
 - [ ] **3.13 Smaller systems as they show up** (M in total)
-  - **What:** event stats, Linked Slayers, the player journey (`/pjm`), the leaderboard profile, and achievements. Achievements ride on objectives and become S once 2.9 is done.
+  - **What:** event stats, the player journey (`/pjm`), the leaderboard profile, and achievements. Achievements ride on objectives and become S once 2.9 is done. (Linked Slayers moved to 3.15.)
   - Add each one when the log shows the game calling it.
 
 - [ ] **3.14 Skyfishing** (M; only if 3.1 shows it is there)
+
+- [ ] **3.15 Slayer Links** (M) — *Added and **built 2026-09-23, on by default** (`SLAYER_LINKS`), not yet tried in game. The contract comes from Harmonic's fork, the first that worked; four points were corrected against the executable (the invite list's other player is `account_id`, a link is removed with `DELETE /slayerlink/links` and a body, `DELETE /slayerlink/invites/<id>` was missing, and the status reply nests invites, links and config). Eight routes; three slots per player; invites last 24 hours and links 168; both players must be friends and not blocked; an unfriend or a block cancels waiting invites, while a running link stays until it ends. Tables in migration `0016_slayer_links`. The two reward routes stay unanswered until traced. Details: [Friends, parties and guilds](https://mixutin.github.io/dauntless-revived/findings/social.html#slayer-links).*
+  - **What:** the My Links tab of the Social panel: invite a friend into a link slot, accept, reject, cancel, list, remove.
+  - **Needs:** 1.9 (friends).
+  - **The live test:** two players who are friends invite, accept, view the links, remove a link, and in a second round decline and cancel. The panel shows the other player's name and removal works. No Slayer Link call was seen in the 22 September census, so the client may keep the tab hidden: then nothing changes for players. If anything misbehaves: `SLAYER_LINKS=0`.
+  - **Decision:** whether an unfriend or a block should also end a running link (today only waiting invites are cancelled).
+  - **Done when:** two friends link up in game, see the link after a relog, and one of them removes it for both.
 
 **Not building:**
 - Guild Gauntlet: it isn't in 1.4.4.
@@ -671,7 +689,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 
 ### M4: Solid to run
 
-- [ ] **4.1 Auto-restart and start at logon** (S) — *Update 2026-09-22: the Windows server kit does this on the rented server. Its stack task starts everything at boot as the service account (session 0, checked there), and `Stack.ps1 supervise` restarts a crashed part after 5–60 seconds and gives up after 5 crashes in 10 minutes. The nightly Ramsgate restart is not built.*
+- [ ] **4.1 Auto-restart and start at logon** (S) — *Update 2026-09-22: the Windows server kit does this on the rented server. Its stack task starts everything at boot as the service account (session 0, checked there), and `Stack.ps1 supervise` restarts a crashed part after 5–60 seconds and gives up after 5 crashes in 10 minutes. The nightly Ramsgate restart is not built.* *Update 2026-09-23 (from Harmonic's fork): the deploy server now also starts a dead Ramsgate or Dojo again the moment a player travels there, instead of waiting up to a minute for its watchdog (`PERSISTENT_WORLD_LIVENESS`, on), with one shared launch so there is never a second process on 8777; a wrong game path no longer ends the deploy server. Live test: kill the Ramsgate process on the rented server, then travel to Ramsgate: one new Ramsgate starts and the player arrives.*
   - **What:** `stack.ps1 supervise` restarts a crashed node process, waiting 5–60 seconds between tries and giving up after 5 crashes in 10 minutes. It runs from a hidden Task Scheduler task at logon. Also restart Ramsgate each night when nobody is online.
   - **Needs:** 1.1.
   - **Done when:** killing the metagame brings it back without you, and a reboot brings the stack back after logon.
@@ -687,13 +705,14 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **What:**
     - Kill a hunt server over about 2.5 GB, or Ramsgate over about 3 GB, after two readings in a row.
     - Refuse to start a new server when free memory is under 3 GB or no port is free.
-    - The metagame must stop sending a group to host "" port 0 when the start fails (`controllers/matchmaking.ts:81-91`); keep them searching instead.
+    - ~~The metagame must stop sending a group to host "" port 0 when the start fails; keep them searching instead.~~ *Done: when a start fails, the metagame answers the group's status poll with `FAILED` (with `statusReason: null`), tested against every failure mode of the deploy server, Harmonic's cases included, and the deploy server answers a failed start with 500 `{"error": "no_game_server"}`. Still open: keep the group waiting until a port frees up, instead of failing.*
   - **You'll notice:** a runaway server can't freeze the whole PC, and a busy night doesn't strand a group on a loading screen.
   - **Done when:** starting a 7th hunt shows the group waiting instead of hanging.
 
-- [ ] **4.4 Build `UndauntedInternalServer.dll` from source** (M)
+- [ ] **4.4 Build `UndauntedInternalServer.dll` from source** (M) — *Update 2026-09-23: the VS 2022 Build Tools are installed on the owner's PC, and the MinHook include was fixed (`MinHook/hook.c` included a header from a folder that does not exist; Harmonic's fork found it too). Release|x64 now compiles with 0 errors (64 warnings, all in the generated SDK headers); the result is the same size as the pinned DLL with a different SHA-256, as expected. Nothing built here is shipped: switching the launcher and the kit to our own DLL is the owner's decision, best made with a DLL built by CI with recorded provenance, and it would bring in the DLL changes of Harmonic's fork (4.6).*
   - **What:** install VS 2022 Build Tools, then build Release|x64 with the static runtime (so friends don't need the VC++ runtime). Test on a separate binaries folder first: tutorial, Ramsgate, one hunt.
   - **Why:** every fix in 4.6 needs it, and the AGPL expects us to offer the source of what we hand out.
+  - **Decision:** ship a self-built DLL (a new hash pinned in the launcher, the kit and the friend kit), and from where (this PC or CI).
   - **Done when:** our own build passes that test and its hash is pinned.
 
 - [ ] **4.5 Our own `dxgi.dll`** (S)
@@ -705,8 +724,11 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - Logs go to files instead of console windows, so closing a window can no longer kill a server.
   - A configurable idle timeout: 180 seconds before the first player joins, 60 seconds after the last one leaves. Today a hunt quits after 50 seconds with nobody connected.
   - An explicit "persistent server" flag instead of treating any port ≥ 8776 as persistent. Until then, only add hunt ports below 8770.
-  - The endpoint hook in server mode too, so servers stop reading the owner's `Game.ini`.
-  - One endpoint URL is built without a slash (`GET /account127.0.0.1:61000`, 2 times today, from the client). Where it comes from hasn't been traced yet.
+  - The endpoint hook in server mode too, so servers stop reading the owner's `Game.ini`. Harmonic's fork has one, together with a `METAGAME_ADDRESS` argument the deploy server passes; the two halves must ship together.
+  - One endpoint URL is built without a slash (`GET /account127.0.0.1:61000`, 2 times today, from the client): the metagame's address is pasted straight after `/account` (Harmonic's reading; his metagame answers it with account data, ours keeps the 404 because nothing visible breaks and the request carries no credentials). Fix the URL in the DLL.
+  - Game-server log files: capture each game server's output in a file (Harmonic's `GAMESERVER_LOG_DIR`). Today the DLL hands the engine a fixed command line and redirects its output, so the files would stay nearly empty; the DLL has to write them.
+  - HuntDiag: Harmonic's diagnostic log of hunt and bounty state inside the DLL (`UNDAUNTED_DIAG_LOG`; its addresses check out). Useful for the "locked bounty" question of 2.6.
+  - Wait for the game server's UDP port before sending players (Harmonic's `WaitForGamePort`). Left out for now: it holds the player's travel request open for the whole boot, the client's time limit for that request is unknown, and a 60-second deadline could kill a slow Ramsgate. Needs a measured boot time and the client's timeout first.
   - **Done when:** each fix is tested on the tutorial, Ramsgate and one hunt.
 
 - [ ] **4.7 Friend package v2** (S)
@@ -819,12 +841,17 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 3. **Elite Hunt Pass (`season09b_premium`) for everyone?** (2.14) ✅ **Decided: yes.** Grant it to every account, existing and new.
 4. **Daily login pack (`ent_daily_ssk01_plat`) for everyone?** It turns on daily login rewards. (2.14)
 5. **Hunt Pass season.** Stay on season09b, or research rebuilding 11b (XL). (2.15)
-6. **Store.** Items free, or priced in in-game currency. (3.7)
+6. **Store.** Items free, or priced in in-game currency. (3.7) *Update 2026-09-23: a free store is built and waits for this decision (`STORE=free`); before switching it on, count the accounts with more than one character, because a purchase goes to the character saved last.*
 7. **Our own reward values.** Bounty payouts, prices and other seasons' Hunt Pass rewards are lost. Anything we set is our design, not a restoration.
 8. **Repository.** Public, or private with friends invited. (1.13) ✅ **Public:** github.com/mixutin/dauntless-revived.
 9. **How friends get the 1.4.4 client.** (1.14) ✅ **Decided:** the owner shares the verified 1.4.4 build privately with friends through Google Drive (link shared only with them). *Update, 2026-09-21: the owner wants the friend launcher (1.16) to download the files from our own server instead, behind Tailscale and an account. Drive stays as a fallback.* The friend package checks the zip SHA-256 `556B9A648A5E5E7E11B6F8DD3D80FF8E88FCEB0D3448297AAF47CE7BF756BC6D` and the exe SHA-256 `D3D41E614908D2BEFD518B27046D9822D6130EF12BA3504BABBDB786BEF9CFF4` before anything runs.
-10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished.
+10. **Unfinished content.** Enable the Frost escalation (Mint) and the Frostfall test hunt, or leave them off? They may be unfinished. *Update 2026-09-23: the client's own Escalation table marks Frost disabled (and "do not translate"), and the Escalation saves refuse it.*
 11. **Where the server lives.** Keep hosting on this PC, or move to an always-on machine. (4.10) The game servers need Windows unless the Wine experiment (4.11) works. ✅ **Decided (1.15):** a rented Windows Server 2019 VPS in public mode, running since 2026-09-21/22.
+12. **Unlimited free premium bounty tokens in the store** (`STORE_REPEATABLE_TOKENS=1`)? It means unlimited free premium bounty drafts. (3.7)
+13. **When to switch Escalation to real** (`ESCALATION_MODE=real`). Every player drops from the fake maximum (level 25, 25 talent points) to level 0 and levels up for real. Announce it, and restart the game servers together with the metagame. (2.16)
+14. **Should an unfriend or a block also end a running Slayer Link?** Today it only cancels waiting invites; a running link lasts its 168 hours. (3.15)
+15. **Ship a DLL we build ourselves?** It would carry a new hash (launcher, kit, friend kit) and would bring in the DLL changes of Harmonic's fork. (4.4)
+16. **Before the Harmonic credits go public:** confirm that "Harmonicrain" is Harmonic's own GitHub account and not an organisation's. (Credits, `NOTICE.md`)
 
 ## Unknowns, and the experiment that settles each
 
@@ -849,7 +876,12 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | The entitlement list format | The capture from 0.4, then a test grant on the throwaway account. | 2.14 |
 | Which screen reads `/balance`; is `CURRENCY_NOTES` the Rams? | **Partly settled:** `CURRENCY_NOTES` is the Rams (the menu matched the database). (Experiment was: Return a distinctive number from `/balance` to the test account and look for it.) | 2.17 |
 | Where cell dust is stored | Dust one spare cell on a test account and compare the inventory before and after. | 2.17, 3.7 |
-| Does the game server or the backend compute escalation level and XP? | Capture the first escalation save. | 2.16 |
+| Does the game server or the backend compute escalation level and XP? | Capture the first escalation save. *Harmonic's reading: the game server does, and posts the whole season; our saves are built on that and the live test confirms it.* | 2.16 |
+| Do the Elite ranks' cosmetic entitlements (season09b premium 6, 9, 29, 50) arrive by themselves? | Reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`. If none comes, `PROGRESSION_CONFIRM_ENTITLEMENTS=1`. | 2.15 |
+| Does the client ever send a party accept twice? | Look for `(a repeated accept)` in the two-player test. | 1.9 |
+| Does the My Links tab call the Slayer Link routes, and how often? | Open it with two friends and watch for `/slayerlink` lines. | 3.15 |
+| Does a session stay logged in with `oauth/verify` naming the player's own account? | Play more than 30 minutes, ideally past the token's 24 hours. If players are logged out, `VERIFY_STUB_ACCOUNT=1`. | 1.8 |
+| Does the game server ever send two identical XP grants on purpose? | Watch for `repeats the grant of` in normal play. If it shows up outside network errors, `PROGRESSION_REPLAY_WINDOW_S=0`. | 2.9 |
 | Which features are switched on by default | Toggle them in `UserGame.ini` on a test setup. | 3.1 |
 | The MOTD response format | Take apart the login-news handler near `0x140b47d50` in the exe. | 3.6 |
 | Does the event schedule use the UI event id or the hunt-table event id? | Try both on a test setup. | 3.9 |
