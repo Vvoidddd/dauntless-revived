@@ -1,5 +1,7 @@
 import { RemoveTestDb } from "./setup";
 import "./authenv";
+// Every stanza these tests make the server send is checked: none outside a room from the receiver's own account
+import "./chatinvariant";
 import { after, afterEach, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ChatServer } from "../src/realtime/chat";

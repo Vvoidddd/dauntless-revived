@@ -6,7 +6,8 @@ import type { Tx } from "./savehistory";
 
 // Friends list and blocklist (roadmap 1.9, parties plan phase 3), stored in SQLite so a
 // request to an offline player survives restarts. The client reads them over the Epic-style
-// friends routes (routes/friends.ts); nobody shows as online without an XMPP presence server.
+// friends routes (routes/friends.ts). Nobody shows as online unless chat relays presence
+// (CHAT=1 and CHAT_PRESENCE=1, realtime/presence.ts).
 //
 // One friendships row per pair, ids sorted: status PENDING (requesterId asked) or ACCEPTED.
 // A block removes any friendship between the two and the guild and party invites either one sent the
@@ -34,6 +35,35 @@ let BlockHook: (Blocker: string, Blocked: string) => void = () => {};
 
 export function SetBlockHook(Hook: (Blocker: string, Blocked: string) => void){
     BlockHook = Hook;
+}
+
+// A friendship that began (a request was accepted) or ended (unfriended, or a block removed it). The chat
+// server listens with CHAT_PRESENCE=1 (realtime/presence.ts): friends' online status follows at once.
+// Called after the change is stored; a listener that throws is logged and changes nothing here.
+export type FriendshipEvent =
+    | { Kind: "accepted", Requester: string, Accepter: string, CreatedAt: number }
+    | { Kind: "ended", A: string, B: string, Why: "removed" | "blocked" };
+
+const FriendshipListeners = new Set<(Event: FriendshipEvent) => void>();
+
+// Returns the function that removes the listener again
+export function AddFriendshipListener(Listener: (Event: FriendshipEvent) => void): () => void {
+    FriendshipListeners.add(Listener);
+
+    return () => {
+        FriendshipListeners.delete(Listener);
+    };
+}
+
+function NotifyFriendship(Event: FriendshipEvent){
+    for(const Listener of [...FriendshipListeners]){
+        try{
+            Listener(Event);
+        }
+        catch(error){
+            logger.warn(error, `friends: a listener failed on a friendship that ${Event.Kind === "accepted" ? "began" : "ended"}`);
+        }
+    }
 }
 
 // Tests only: a controllable clock for the request window, and an empty window
@@ -173,6 +203,7 @@ export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResul
         return { ok: false, Status: 400, Error: "self" };
     }
 
+    let RequestedAt = 0;
     const Result = GetDb().transaction((tx): FriendResult => {
         if(!AccountExists(tx, Them)){
             return { ok: false, Status: 404, Error: "not_found" };
@@ -195,6 +226,7 @@ export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResul
             }
 
             tx.update(friendships).set({ status: "ACCEPTED", updatedAt: Now }).where(PairCondition(Me, Them)).run();
+            RequestedAt = Existing.createdAt;
             return { ok: true, Result: "accepted" };
         }
 
@@ -225,6 +257,10 @@ export function SendOrAcceptFriendRequest(Me: string, Them: string): FriendResul
 
     logger.info(`friends: request by=${Me} to=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}`);
 
+    if(Result.ok && Result.Result === "accepted"){
+        NotifyFriendship({ Kind: "accepted", Requester: Them, Accepter: Me, CreatedAt: RequestedAt });
+    }
+
     return Result;
 }
 
@@ -238,6 +274,10 @@ export function RemoveFriend(Me: string, Them: string): FriendResult {
 
     logger.info(`friends: remove by=${Me} other=${Them} -> ${Result.Result}${SlayerLinkNote(Cancelled)}`);
 
+    if(Removed.some((Row) => Row.status === "ACCEPTED")){
+        NotifyFriendship({ Kind: "ended", A: Me, B: Them, Why: "removed" });
+    }
+
     return Result;
 }
 
@@ -248,6 +288,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
 
     let GuildInvitesDropped = 0;
     let SlayerLinkInvitesCancelled = 0;
+    let WereFriends = false;
     const Result = GetDb().transaction((tx): FriendResult => {
         if(!AccountExists(tx, Them)){
             return { ok: false, Status: 404, Error: "not_found" };
@@ -264,7 +305,7 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
         }
 
         tx.insert(blocks).values({ blockerId: Me, blockedId: Them, createdAt: Date.now() }).run();
-        tx.delete(friendships).where(PairCondition(Me, Them)).run();
+        WereFriends = tx.delete(friendships).where(PairCondition(Me, Them)).returning({ status: friendships.status }).all().some((Row) => Row.status === "ACCEPTED");
         GuildInvitesDropped = tx.delete(guildinvites).where(or(
             and(eq(guildinvites.inviterId, Me), eq(guildinvites.inviteeId, Them)),
             and(eq(guildinvites.inviterId, Them), eq(guildinvites.inviteeId, Me))
@@ -279,6 +320,10 @@ export function BlockPlayer(Me: string, Them: string): FriendResult {
     }
 
     logger.info(`friends: block by=${Me} target=${Them} -> ${Result.ok ? Result.Result : `${Result.Status} ${Result.Error}`}${GuildInvitesDropped > 0 ? ` (${GuildInvitesDropped} guild invite(s) between them removed)` : ""}${SlayerLinkNote(SlayerLinkInvitesCancelled)}`);
+
+    if(Result.ok && Result.Result === "blocked" && WereFriends){
+        NotifyFriendship({ Kind: "ended", A: Me, B: Them, Why: "blocked" });
+    }
 
     return Result;
 }

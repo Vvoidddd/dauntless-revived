@@ -1,6 +1,8 @@
 import { RemoveTestDb } from "./setup";
 import "./authenv";
 import { CHAT_HTTP_API_PORT } from "./chatenv";
+// Every stanza these tests make the server send is checked: none outside a room from the receiver's own account
+import "./chatinvariant";
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";

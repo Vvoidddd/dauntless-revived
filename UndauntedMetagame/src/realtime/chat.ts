@@ -5,13 +5,15 @@ import type { Request } from "express";
 import { Element } from "ltx";
 import WebSocket, { RawData, WebSocketServer } from "ws";
 import { ValidateMetagameJWTAndGetPayload } from "../controllers/auth";
-import { BlockersAmong, IsBlockedEitherWay } from "../controllers/friends";
+import { AddFriendshipListener, BlockersAmong, IsBlockedEitherWay, ListFriends } from "../controllers/friends";
 import { IsGuildMember } from "../controllers/guild";
 import { FindUsernameForUserId, IsAccountIdShape } from "../controllers/login";
 import { GetPartyOf } from "../controllers/party";
+import { ChatPresence, ParseOnOff } from "../features";
 import { logger } from "../logger";
 import { ClientAddressOf, IsTrustedGatewayRequest } from "../middleware/RequestOrigin";
 import { BodyLength, JOIN_BURST, MESSAGE_BURST, MucService, NickCheckMode, RoomAccess, TakeMessageToken } from "./muc";
+import { ClientPresence, FriendPresence, PRESENCE_BURST, PresenceAccess } from "./presence";
 import {
     AttrOf, Bucket, ChildNamed, DEFAULT_DOMAIN, EscapeXml, HasMarkupDeclaration, IsHostName, LocalName, NewBucket, NS,
     ParseFrame, ParseJid, RedactFrame, TakeToken, TextOf
@@ -85,8 +87,20 @@ export type ChatOptions = {
     Clock?: () => number,
     AutoTick?: boolean,
     // Tests: a smaller cap on one connection's unsent output (bytes)
-    OutputLimit?: number
+    OutputLimit?: number,
+    // Friends' online status (realtime/presence.ts); by default CHAT_PRESENCE when the server is made
+    Presence?: boolean,
+    // Tests: other friends and block lookups for presence
+    Friends?: PresenceAccess
 };
+
+// Tests only: every stanza the server sends, with the account of the session it goes to. The chat tests
+// check that none outside a room comes from the receiving account (test/chatinvariant.ts).
+let OutputObserver: ((Uid: string | undefined, Stanza: string) => void) | undefined;
+
+export function ObserveChatOutputForTests(Observer?: (Uid: string | undefined, Stanza: string) => void){
+    OutputObserver = Observer;
+}
 
 type EndReason = "close" | "socket" | "ping-timeout" | "replaced" | "abuse" | "size" | "backlog" | "shutdown" | "timeout" | "refused";
 
@@ -115,6 +129,10 @@ export type ChatSession = {
     LastDropLog: number,
     Namespaces: Set<string>,
     Available: boolean,
+    // CHAT_PRESENCE=1: the last broadcast presence (relayed to friends), and held-back changes
+    LastPresence?: ClientPresence,
+    PresenceTokens: Bucket,
+    PresencePending: boolean,
     // Bare room JID -> the nickname held there
     Rooms: Map<string, string>,
     Joins: Bucket,
@@ -147,6 +165,9 @@ export class ChatServer {
     private readonly nickCheck: NickCheckMode;
     private readonly outputLimit: number;
     private readonly muc: MucService;
+    // Friends' online status, only with CHAT_PRESENCE=1
+    private readonly friendPresence?: FriendPresence;
+    private readonly stopFriendshipListener?: () => void;
     private readonly ticker?: NodeJS.Timeout;
     private nextId = 1;
     private nextPing = 1;
@@ -170,6 +191,20 @@ export class ChatServer {
             UsernameOf: (Uid) => FindUsernameForUserId(Uid),
             NickCheck: this.nickCheck
         });
+
+        if(Options.Presence ?? ChatPresence()){
+            this.friendPresence = new FriendPresence({
+                SessionsOf: (Uid) => this.byUid.get(Uid) ?? [],
+                Sessions: () => this.clients,
+                Send: (Session, Stanza) => this.send(Session as ChatSession, Stanza),
+                Clock: () => this.clock(),
+                LogOnce: (Key, WindowMs) => this.logOnce(Key, WindowMs)
+            }, Options.Friends ?? {
+                FriendsOf: (Uid) => ListFriends(Uid, false).map((Friend) => Friend.accountId),
+                IsBlockedEitherWay: (A, B) => IsBlockedEitherWay(A, B)
+            });
+            this.stopFriendshipListener = AddFriendshipListener((Event) => this.friendPresence?.Friendship(Event));
+        }
         this.http = createServer((_req, res) => { res.writeHead(404); res.end(); });
         this.http.on("clientError", (_error, socket) => socket.destroy());
         this.http.on("upgrade", (req, socket, head) => this.upgrade(req, socket, head));
@@ -199,6 +234,9 @@ export class ChatServer {
         });
         this.http.on("error", (error) => logger.error(`chat: listener error (${ErrorName(error)})`));
         logger.info(`chat: listening on ${host}:${this.port} (nick check ${this.nickCheck})`);
+        logger.info(this.friendPresence !== undefined
+            ? `chat: friends' online status on (CHAT_PRESENCE=1): each player's presence goes to their online friends, never back to the player`
+            : `chat: friends' online status off: no presence is sent outside rooms`);
     }
 
     // Shutdown: <close/> to every session, then whatever is still open is cut after 1 s
@@ -206,6 +244,8 @@ export class ChatServer {
         if(this.ticker !== undefined){
             clearInterval(this.ticker);
         }
+
+        this.stopFriendshipListener?.();
 
         const Open = [...this.clients];
 
@@ -268,6 +308,7 @@ export class ChatServer {
             this.muc.Sweep();
         }
 
+        this.friendPresence?.Tick();
         this.prune(Now);
     }
 
@@ -319,6 +360,8 @@ export class ChatServer {
             LastDropLog: 0,
             Namespaces: new Set(),
             Available: false,
+            PresenceTokens: NewBucket(PRESENCE_BURST, Now),
+            PresencePending: false,
             Rooms: new Map(),
             Joins: NewBucket(JOIN_BURST, Now),
             Messages: NewBucket(MESSAGE_BURST, Now)
@@ -367,6 +410,7 @@ export class ChatServer {
             logger.info(`chat: trace c=${Session.Id} out ${RedactFrame(Stanza)}`);
         }
 
+        OutputObserver?.(Session.Uid, Stanza);
         Session.Socket.send(Stanza);
     }
 
@@ -395,6 +439,11 @@ export class ChatServer {
 
             if(Reason === "replaced" || Reason === "abuse" || Reason === "size" || Reason === "backlog"){
                 this.throttledUids.set(Session.Uid, Now + UID_THROTTLE_MS);
+            }
+
+            // Its friends see it go offline (at shutdown every session ends anyway)
+            if(Reason !== "shutdown"){
+                this.friendPresence?.Unavailable(Session, Reason);
             }
         }
 
@@ -799,15 +848,18 @@ export class ChatServer {
         const ToText = AttrOf(Node, "to");
         const Type = AttrOf(Node, "type");
 
-        // A broadcast presence (no "to") is recorded and dropped: never echoed, never relayed to anyone.
-        // An unavailable one leaves every room.
+        // A broadcast presence (no "to") is recorded; it is never echoed to its sender or to another session
+        // of the same account. Only with CHAT_PRESENCE=1 it goes to the sender's online friends
+        // (realtime/presence.ts); without it, it is relayed to no one. An unavailable one leaves every room.
         if(ToText === undefined){
             if(Type === "unavailable"){
                 this.muc.LeaveAll(Session, "left");
+                this.friendPresence?.Unavailable(Session, "unavailable");
             }
             else if(Type === undefined){
                 Session.Available = true;
                 logger.debug(`chat: presence c=${Session.Id} status=${JSON.stringify(StatusTextOf(Node))}`);
+                this.friendPresence?.Broadcast(Session, Node);
             }
 
             return;
@@ -943,6 +995,10 @@ export function ReadChatConfig(Env: NodeJS.ProcessEnv = process.env): ChatConfig
 
     if(Env.CHAT !== undefined && Env.CHAT !== "0" && Env.CHAT !== "1"){
         Warnings.push(`CHAT=${Env.CHAT.slice(0, 16)} is not 0 or 1; chat stays off`);
+    }
+
+    if(!Enabled && ParseOnOff((Env.CHAT_PRESENCE ?? "").trim()) === true){
+        Warnings.push("CHAT_PRESENCE is on but chat is off (CHAT=1 is needed); nobody shows as online");
     }
 
     if(!/^\d{1,5}$/.test(PortText) || !Number.isInteger(Port) || Port < 1 || Port > 65535){

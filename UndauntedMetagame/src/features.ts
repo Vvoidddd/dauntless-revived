@@ -174,6 +174,19 @@ export const SlayerLinks = DefineSwitch({
     Show: ShowOnOff
 });
 
+// Friends' online status in chat (realtime/presence.ts; needs CHAT=1): the chat server relays each
+// player's own presence to their online friends and tells them when the player goes offline. Off by
+// default: with it off, chat sends no presence outside rooms at all. It waits for the two-player test
+// that the party's automatic kick stays asleep (docs/findings/chat.md, party safety). Read when the chat
+// server starts.
+export const ChatPresence = DefineSwitch({
+    Env: "CHAT_PRESENCE",
+    Label: "chatPresence",
+    Default: false,
+    Parse: ParseOnOff,
+    Show: ShowOnOff
+});
+
 // One line for the boot log, e.g. "features: bodyLogPerPath=no-cap"
 export function DescribeFeatures(){
     return `features: ${Switches.map((Switch) => `${Switch.Label}=${Switch.Show(ReadSwitch(Switch))}`).join(" ")}`;
