@@ -64,9 +64,8 @@ heidän peliään.
 - **Harmonic** ([hänen 1.4.4-haaransa](https://github.com/Harmonicrain/Undaunted)): Escalationin
   kausiluettelo ja tallennussäännöt, ilmainen kauppa, ensimmäinen toimiva Slayer Links,
   deploy-palvelimen tapa käynnistää kaatunut Ramsgate uudelleen, idea kavereiden paikalla olosta sekä
-  hänen haarastaan siirtämämme testitapaukset (katso yllä oleva taulukko). Muutoksen, joka lisäsi hänen
-  datatiedostonsa, tekijäksi on merkitty hän, ja jokainen muu hänen työtään sisältävä muutos nimeää
-  hänet toiseksi tekijäksi.
+  hänen haarastaan siirtämämme testitapaukset (katso yllä oleva taulukko). Jokainen hänen työtään
+  sisältävä muutos nimeää hänet toiseksi tekijäksi.
 
 Kaikki osallistujat ovat [osallistujasivulla](https://github.com/mixutin/dauntless-revived/graphs/contributors).
 Käynnistin näyttää samat tiedot **Tekijät**-sivullaan, ja sen mukana tulee tiedosto

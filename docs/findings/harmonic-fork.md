@@ -195,8 +195,8 @@ held bounties, and `/bounty/game-data` keeps an empty bounty list).
   Harmonicrain/Undaunted (895f7c7), Copyright (C) 2026 Harmonic, AGPL-3.0-only`, followed by how they
   were modified (or, for Slayer Links, rewritten and corrected) for Dauntless Revived. Code of ours
   built on his ideas names his fork in its comments.
-- The commit that adds his data files is authored by Harmonic. Every other commit that carries his work
-  names him as co-author and says "Ported from github.com/Harmonicrain/Undaunted 895f7c7."
+- Every commit that carries Harmonic's work names Harmonic as co-author and says "Ported from
+  github.com/Harmonicrain/Undaunted 895f7c7."
 - He is listed on [Credits and license]({{ legal_page.url | relative_url }}), in the README and on the
   launcher's Credits page (from launcher 0.1.6).
 

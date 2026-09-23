@@ -53,8 +53,7 @@ And **Phoenix Labs**, who made Dauntless. Nothing here would be worth preserving
 - **Harmonic** ([his 1.4.4 fork](https://github.com/Harmonicrain/Undaunted)): the Escalation season
   registry and save rules, the free store, the first working Slayer Links, the deploy server's restart
   of a dead Ramsgate, the idea of friends' online status, and the test cases we ported from his fork
-  (see the table above). The commit that added his data files carries his name as author, and every
-  other commit with his work names him as co-author.
+  (see the table above). Every commit that carries Harmonic's work names Harmonic as co-author.
 
 Everyone who has contributed is on the
 [contributors page](https://github.com/mixutin/dauntless-revived/graphs/contributors). The launcher

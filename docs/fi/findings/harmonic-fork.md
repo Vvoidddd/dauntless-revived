@@ -201,9 +201,8 @@ palkkiotehtävälistan tyhjänä).
   jälkeen kerrotaan, miten niitä muokattiin (tai Slayer Linksin kohdalla kirjoitettiin uudelleen ja
   korjattiin) Dauntless Revivedia varten. Hänen ideoidensa varaan rakennettu oma koodimme mainitsee
   hänen haaransa kommenteissaan.
-- Muutoksen, joka lisää hänen datatiedostonsa, tekijä on Harmonic. Jokainen muu hänen työtään sisältävä
-  muutos nimeää hänet toiseksi tekijäksi ja kertoo "Ported from github.com/Harmonicrain/Undaunted
-  895f7c7."
+- Jokainen hänen työtään sisältävä muutos nimeää hänet toiseksi tekijäksi ja kertoo "Ported from
+  github.com/Harmonicrain/Undaunted 895f7c7."
 - Hänet mainitaan sivulla [Kiitokset ja lisenssi]({{ legal_page.url | relative_url }}), README-tiedostossa
   ja käynnistimen Tekijät-sivulla (käynnistimen versiosta 0.1.6 alkaen).
 
