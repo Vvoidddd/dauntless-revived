@@ -10,7 +10,8 @@ export async function GetNotesForUser(userId: string){
 }
 
 // The currencies the account's active character holds as inventory stacks (catalog id CURRENCY_*), with
-// the character's id; an empty map for an account without a character or inventory
+// the character's id; an empty map for an account without a character or inventory. Balances from the
+// inventory are Harmonic's idea (github.com/Harmonicrain/Undaunted 895f7c7), read here without a wallet.
 export function GetHeldCurrencies(AccountId: string){
     return GetDb().transaction((tx) => {
         const Character = GetActiveCharacter(tx, AccountId);

@@ -9,7 +9,8 @@ import { BalanceFromInventory, StoreMode } from "../features";
 export const storeRouter = Router();
 
 // BALANCE_FROM_INVENTORY=1 (the default; roadmap 2.17): the currencies the account's active character
-// holds replace the sheet's fixed values (controllers/store.ts). Off: the fixed sheet, as before.
+// holds replace the sheet's fixed values (controllers/store.ts). Off: the fixed sheet, as before. The
+// idea is from Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7), without its wallet table.
 function ApplyHeldCurrencies(AccountId: unknown, Sheet: Record<string, unknown>){
     if(!BalanceFromInventory() || typeof AccountId !== "string"){
         return;
@@ -124,7 +125,8 @@ storeRouter.get("/balance", HasUndauntedMetagameAuth, async (req: any, res) => {
 // ---- The free store (roadmap 3.7, controllers/freestore.ts): only with STORE=free. ----
 // With STORE=off (the default) these routes step aside: the storefront gets the old 400 below and the
 // three purchase routes the catalogue-less 404 they always got. Every store route acts for the player
-// whose token it carries; a game server's key alone gets 403.
+// whose token it carries; a game server's key alone gets 403. The four routes are adapted from the
+// store routes of Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7, routes/store.ts).
 
 function StoreOn(req: any, res: any, next: any){
     next(StoreMode() === "free" ? undefined : "route");

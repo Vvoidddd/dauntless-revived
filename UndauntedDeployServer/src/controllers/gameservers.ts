@@ -138,6 +138,9 @@ function EnsurePersistentWorld(World: PersistentWorld, Why?: string, Level: "inf
     return Launch;
 }
 
+// The liveness check, the stored record of a restarted world and the error and exit listeners below
+// follow Harmonic's fork (github.com/Harmonicrain/Undaunted 895f7c7), rebuilt around one shared launch.
+//
 // On (the default) unless PERSISTENT_WORLD_LIVENESS=0: before Ramsgate or the Dojo is handed to a
 // player, its process must still be running, or it is started again first. Without the check a dead
 // Ramsgate went unnoticed until the watchdog's next round (up to 60 s), and every player sent there in
@@ -470,7 +473,8 @@ export async function Startup(){
 }
 
 // For server.ts. A failed start (a wrong GAMESERVER_BINARY_PATH, say) is one fatal line and a
-// non-zero exit code for when the process ends, instead of an unhandled rejection. The deploy server
+// non-zero exit code for when the process ends, instead of an unhandled rejection (the catch comes from
+// github.com/Harmonicrain/Undaunted 895f7c7). The deploy server
 // keeps answering: the next trip to Ramsgate tries to start it again.
 export function StartupAndReportFailure(){
     return Startup().catch((error) => {

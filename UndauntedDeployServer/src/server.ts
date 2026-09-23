@@ -15,6 +15,7 @@ app.listen(PORT, BIND_HOST, (err?: Error) => {
     process.exit(1);
   }
 
+  // A failed start is reported, not an unhandled rejection (from github.com/Harmonicrain/Undaunted 895f7c7)
   void StartupAndReportFailure();
 
   setInterval(RunWatchdog, 60 * 1000);

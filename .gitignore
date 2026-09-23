@@ -26,7 +26,8 @@
 *.sqlite
 *.sqlite-*
 
-# Local backups and tool leftovers
+# Local backups and tool leftovers (these and the *.sqlite patterns above come from
+# github.com/Harmonicrain/Undaunted 895f7c7)
 *.bak
 *.bak-*
 *.drizzle-generated

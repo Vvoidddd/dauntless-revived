@@ -582,7 +582,9 @@ function ApplyPreparedInventoryTransaction(tx: Tx, Prepared: PreparedInventoryTr
 // throws (InventoryForbiddenError, InventoryValidationError, InventoryConflictError,
 // InventoryInsufficientError; a SyntaxError for a stored inventory that is not JSON), which rolls back
 // the caller's whole transaction; InventoryErrorOf maps it to an InventoryError. The overspends it
-// clamped come back in `overspent` for the caller to log after its commit.
+// clamped come back in `overspent` for the caller to log after its commit. The pattern, a core that
+// runs inside the caller's transaction, is Harmonic's (github.com/Harmonicrain/Undaunted 895f7c7); the
+// rules are ours.
 export function ApplyInventoryTransactionInTx(tx: Tx, Request: InventoryTransactionRequest, Context: InventoryContext): AppliedInventoryTransaction {
     AssertCharacterOwnedInTx(tx, Request.UserId, Request.CharacterId);
 

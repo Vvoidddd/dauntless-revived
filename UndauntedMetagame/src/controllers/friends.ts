@@ -39,6 +39,8 @@ export function SetBlockHook(Hook: (Blocker: string, Blocked: string) => void){
 
 // A friendship that began (a request was accepted) or ended (unfriended, or a block removed it). The chat
 // server listens with CHAT_PRESENCE=1 (realtime/presence.ts): friends' online status follows at once.
+// These moments are the ones the presence service of Harmonic's fork reacted to
+// (github.com/Harmonicrain/Undaunted 895f7c7); none of its code is used.
 // Called after the change is stored; a listener that throws is logged and changes nothing here.
 export type FriendshipEvent =
     | { Kind: "accepted", Requester: string, Accepter: string, CreatedAt: number }
