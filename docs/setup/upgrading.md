@@ -56,7 +56,7 @@ start line that begins `features:`.
   | [Slayer Links](#harmonic-port-what-players-see) (the My Links tab): eight new routes | `SLAYER_LINKS=0` |
   | The game's regular session check (`oauth/verify`) names the player's own account instead of a placeholder. Every player's game calls it. | `VERIFY_STUB_ACCOUNT=1` |
   | `/balance` and `/reconcile` report the currencies the character holds (Rams, platinum) instead of 0 | `BALANCE_FROM_INVENTORY=0` |
-  | A game server's XP grant repeated byte for byte within 10 seconds is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | A game server's XP grant repeated byte for byte less than 5 seconds later is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
   | A party accept that arrives twice is answered with the party instead of 404 | none |
   | The deploy server starts a dead Ramsgate or Dojo again when a player travels there, instead of waiting for the watchdog (up to a minute) | `PERSISTENT_WORLD_LIVENESS=0` (in the deploy server's settings) |
 

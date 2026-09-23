@@ -881,7 +881,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Does the client ever send a party accept twice? | Look for `(a repeated accept)` in the two-player test. | 1.9 |
 | Does the My Links tab call the Slayer Link routes, and how often? | Open it with two friends and watch for `/slayerlink` lines. | 3.15 |
 | Does a session stay logged in with `oauth/verify` naming the player's own account? | Play more than 30 minutes, ideally past the token's 24 hours. If players are logged out, `VERIFY_STUB_ACCOUNT=1`. | 1.8 |
-| Does the game server ever send two identical XP grants on purpose? | Watch for `repeats the grant of` in normal play. If it shows up outside network errors, `PROGRESSION_REPLAY_WINDOW_S=0`. | 2.9 |
+| Does the game server ever send two identical XP grants on purpose less than 5 seconds apart? (It flushes its queued grants at most every 10 seconds, so it should not.) | Watch for `repeats the grant of` in normal play. If it shows up outside network errors, `PROGRESSION_REPLAY_WINDOW_S=0`. | 2.9 |
 | Which features are switched on by default | Toggle them in `UserGame.ini` on a test setup. | 3.1 |
 | The MOTD response format | Take apart the login-news handler near `0x140b47d50` in the exe. | 3.6 |
 | Does the event schedule use the UI event id or the hunt-table event id? | Try both on a test setup. | 3.9 |

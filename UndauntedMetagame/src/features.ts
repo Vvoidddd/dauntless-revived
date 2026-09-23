@@ -131,12 +131,14 @@ export const StoreRepeatableTokens = DefineSwitch({
 });
 
 // POST /progression/:uid (the game server's XP and objective grant): a body identical to the account's
-// last applied grant, within this many seconds of it, is a retry of a request whose answer was lost (the
-// game server retries up to 5 times). It gets the stored answer and adds nothing. 0 turns the check off.
+// last applied grant, less than this many seconds after it, is a retry of a request that failed (the game
+// server retries up to 5 times). It gets the stored answer and adds nothing. 0 turns the check off. Keep it
+// well under 10: the game server sends its queued grants at most once every 10 s (QueuedGrantTimeout), so
+// a window of 10 or more could take a real grant for a retry.
 export const ProgressionReplayWindow = DefineSwitch({
     Env: "PROGRESSION_REPLAY_WINDOW_S",
     Label: "replayWindow",
-    Default: 10,
+    Default: 5,
     Parse: ParseCount,
     Show: (Value: number) => Value === 0 ? "off" : `${Value}s`
 });

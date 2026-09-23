@@ -61,7 +61,7 @@ sen metagamen käynnistysrivistä, joka alkaa `features:`.
   | [Slayer Links](#harmonic-port-what-players-see) (My Links -välilehti): kahdeksan uutta reittiä | `SLAYER_LINKS=0` |
   | Pelin säännöllinen istunnon tarkistus (`oauth/verify`) nimeää pelaajan oman tilin paikkamerkin sijaan. Jokaisen pelaajan peli kutsuu sitä. | `VERIFY_STUB_ACCOUNT=1` |
   | `/balance` ja `/reconcile` kertovat valuutat, jotka hahmolla on (Ramsit, platina), nollan sijaan | `BALANCE_FROM_INVENTORY=0` |
-  | Pelipalvelimen XP-myöntöön, joka toistuu tavu tavulta 10 sekunnin sisällä, vastataan, mutta sitä ei lisätä uudelleen | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | Pelipalvelimen XP-myöntöön, joka toistuu tavu tavulta alle 5 sekunnin kuluttua, vastataan, mutta sitä ei lisätä uudelleen | `PROGRESSION_REPLAY_WINDOW_S=0` |
   | Kahdesti saapuvaan ryhmäkutsun hyväksyntään vastataan ryhmällä 404:n sijaan | ei kytkintä |
   | Deploy-palvelin käynnistää kaatuneen Ramsgaten tai Dojon uudelleen, kun pelaaja matkustaa sinne, eikä odota vahtikoiraa (jopa minuutti) | `PERSISTENT_WORLD_LIVENESS=0` (deploy-palvelimen asetuksissa) |
 

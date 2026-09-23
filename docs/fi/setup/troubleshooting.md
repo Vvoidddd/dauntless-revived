@@ -482,7 +482,7 @@ metagamen lokista, ellei toisin mainita.
 
 | Rivi | Merkitys |
 |:-----|:---------|
-| `Progression grant for <tili> repeats the grant of N s ago: answered its stored reply, nothing added` | Pelipalvelin lähetti saman myönnön uudelleen `PROGRESSION_REPLAY_WINDOW_S` sekunnin sisällä (uusinta). Tavallista heti verkkohäiriön jälkeen. Jos rivi näkyy usein tavallisessa pelaamisessa, aseta `PROGRESSION_REPLAY_WINDOW_S=0` ja ilmoita siitä. |
+| `Progression grant for <tili> repeats the grant of N s ago: answered its stored reply, nothing added` | Pelipalvelin lähetti saman myönnön uudelleen alle `PROGRESSION_REPLAY_WINDOW_S` sekunnin kuluttua (uusinta). Tavallista heti verkkohäiriön jälkeen. Jos rivi näkyy usein tavallisessa pelaamisessa, aseta `PROGRESSION_REPLAY_WINDOW_S=0` ja ilmoita siitä. |
 | `progression: objective went backwards: ...; stored as sent` | Tavoite saapui tallennettua pienempänä. Tallennettiin silti; kannattaa kirjata ylös, jos se toistuu. |
 | `Game server <what> for <tili> carries the token of <toinen tili>: accepted for <tili>, ...` | Pelipalvelin kirjoitti yhden pelaajan puolesta toisen pelaajan tunnisteella. Kirjoitus pidetään osoitteen tilille. Odotettavissa silloin tällöin usean pelaajan metsästyksissä; ilmoita, jos se toistuu saman parin kohdalla. |
 | `Balances of <tili> from the inventory of character <tunnus>: ...` | `/balance` tai `/reconcile` kertoi hahmon valuutat. |

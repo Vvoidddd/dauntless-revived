@@ -548,10 +548,15 @@ executable and our in-game tests. Labels: **B** read in the 1.4.4 executable, **
   items, currencies or the timed boosts (premium 16, 34, 42 and 47). Off by default, until the in-game
   test: reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`.
 - **Retries.** The game server retries a failed request up to 5 times (`HTTPRetryCount=5`, B). A grant
-  (`POST /progression/<account>`) whose body is byte for byte the account's last grant, within
-  `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets the
-  first grant's stored reply and adds nothing; `progression_events` gets an audit row. Any confirm,
-  reset or other grant in between makes the same body a new grant. An objective that arrives lower than
+  (`POST /progression/<account>`) whose body is byte for byte the account's last grant, less than
+  `PROGRESSION_REPLAY_WINDOW_S` seconds after it (default 5) and with no other track write in between,
+  gets the first grant's stored reply and adds nothing; `progression_events` gets an audit row. Any
+  confirm, reset or other grant in between makes the same body a new grant. The window stays well under
+  the game server's grant flush: `UProgressionComponent` sends its queued grants at most once per
+  `QueuedGrantTimeout`, which is 10 seconds (`DefaultGame.ini`; a one-shot timer armed at `0x14145a4a9`,
+  B), so two grants it meant are normally about 10 seconds apart and can be identical. A retry after a
+  connection error comes within seconds; a lost answer is retried only after `HTTPTimeoutSeconds=600`,
+  outside any window. A window of 10 or more would take the next flush for a retry and lose its XP. An objective that arrives lower than
   stored is logged ("objective went backwards") and stored as sent.
 - **The config.** `GET /progression/config` and the rank math read one loader: the bundled
   `vendor/progression_config.json`, or, with `PROGRESSION_CONFIG_DIR`, a folder of season files that

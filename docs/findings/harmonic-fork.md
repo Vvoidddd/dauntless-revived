@@ -129,7 +129,7 @@ image base `0x140000000`), **V** verified in game on our server, **C** code, **S
 | Rank math capped at 50 | **Keep ours** | The season09b pass has prestige ranks past 50; a cap would hand out the prestige currency again and again. |
 | Hunt Pass seasons from a folder on disk, `ACTIVE_HUNT_PASS` | **Merge** | One loader for the config route and the rank math, checked at startup; a bad file stops the start. `PROGRESSION_CONFIG_DIR` and `ACTIVE_HUNT_PASS` (default `season09b`). |
 | "Free Elite" mode | **Skip** | Every account already owns the Elite pass on our server. His mode made the server and the client disagree. |
-| Protection against replayed grants | **Merge the goal** | The retry risk is real (the game server retries up to 5 times, B). His rule could drop legitimate XP; ours answers a byte-identical grant repeated within 10 seconds with the first answer and adds nothing (`PROGRESSION_REPLAY_WINDOW_S`). An objective that goes backwards is only logged. |
+| Protection against replayed grants | **Merge the goal** | The retry risk is real (the game server retries up to 5 times, B). His rule could drop legitimate XP; ours answers a byte-identical grant repeated less than 5 seconds later with the first answer and adds nothing (`PROGRESSION_REPLAY_WINDOW_S`; under the game server's 10-second grant flush). An objective that goes backwards is only logged. |
 | A save with an equal version accepted | **Keep ours (409)** | The client retries cleanly after a 409 (V, roadmap 2.1). |
 | A log line for progression requests no route answers | **Adopt** | Harmless and useful. |
 | Extra confirm kinds (`free`, `normal`, `1`, `2`) | **Skip** | The 1.4.4 client sends only `public` and `premium`. |

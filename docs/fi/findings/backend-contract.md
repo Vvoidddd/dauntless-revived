@@ -592,10 +592,16 @@ pelissä, **S** vahva päätelmä.
   saavuta Elite-taso 6 metsästysten XP:llä ja katso, tuleeko `POST /entitlementv2`.
 - **Uusinnat.** Pelipalvelin yrittää epäonnistunutta pyyntöä uudelleen jopa 5 kertaa
   (`HTTPRetryCount=5`, B). Myöntö (`POST /progression/<tili>`), jonka runko on tavu tavulta sama kuin
-  tilin edellinen myöntö, `PROGRESSION_REPLAY_WINDOW_S` sekunnin sisällä (oletus 10) eikä välissä ole
-  muuta etenemisen kirjoitusta, saa ensimmäisen myönnön tallennetun vastauksen eikä lisää mitään;
-  tauluun `progression_events` kirjataan rivi. Mikä tahansa välissä tullut vahvistus, nollaus tai muu
-  myöntö tekee samasta rungosta uuden myönnön. Tavoite, joka saapuu tallennettua pienempänä,
+  tilin edellinen myöntö, alle `PROGRESSION_REPLAY_WINDOW_S` sekuntia sen jälkeen (oletus 5) eikä
+  välissä ole muuta etenemisen kirjoitusta, saa ensimmäisen myönnön tallennetun vastauksen eikä lisää
+  mitään; tauluun `progression_events` kirjataan rivi. Mikä tahansa välissä tullut vahvistus, nollaus
+  tai muu myöntö tekee samasta rungosta uuden myönnön. Ikkuna pysyy selvästi pelipalvelimen
+  myöntöjen lähetysvälin alla: `UProgressionComponent` lähettää jonoon kertyneet myöntönsä enintään
+  kerran `QueuedGrantTimeout`-ajassa, joka on 10 sekuntia (`DefaultGame.ini`; kertakäyttöinen ajastin
+  asetetaan kohdassa `0x14145a4a9`, B), joten kaksi tarkoituksellista myöntöä tulee yleensä noin 10
+  sekunnin välein ja voi olla samanlaisia. Yhteysvirheen jälkeinen uusinta tulee sekunneissa; kadonnut
+  vastaus uusitaan vasta `HTTPTimeoutSeconds=600` jälkeen, minkään ikkunan ulkopuolella. Vähintään 10
+  sekunnin ikkuna pitäisi seuraavaa lähetystä uusintana ja hukkaisi sen XP:n. Tavoite, joka saapuu tallennettua pienempänä,
   kirjataan lokiin ("objective went backwards") ja tallennetaan lähetettynä.
 - **Asetukset.** `GET /progression/config` ja tasolaskenta lukevat yhtä lataajaa: mukana tulevaa
   tiedostoa `vendor/progression_config.json` tai, asetuksella `PROGRESSION_CONFIG_DIR`, kansiota

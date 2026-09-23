@@ -164,8 +164,8 @@ describe("the retry guard of POST /progression/:uid (PROGRESSION_REPLAY_WINDOW_S
 
         const Audit = Events(UserId);
         assert.equal(Audit.length, 3, "every request is audited");
-        assert.match(Audit[1].note, /^retry of event \d+ within 10 s: its reply, nothing added/);
-        assert.ok(Warnings.some((Line) => /repeats the grant of .* s ago: answered its stored reply, nothing added \(PROGRESSION_REPLAY_WINDOW_S=10\)/.test(Line)));
+        assert.match(Audit[1].note, /^retry of event \d+ within 5 s: its reply, nothing added/);
+        assert.ok(Warnings.some((Line) => /repeats the grant of .* s ago: answered its stored reply, nothing added \(PROGRESSION_REPLAY_WINDOW_S=5\)/.test(Line)));
 
         // A different body is a new grant, and after it the first body counts again
         await Grant(UserId, { ...Body, objectives: [{ objective_id: "OBJ_RETRY", value: 2, completed_count: 2 }] });
@@ -183,6 +183,35 @@ describe("the retry guard of POST /progression/:uid (PROGRESSION_REPLAY_WINDOW_S
 
             assert.equal(Track(UserId, "MasteryTrack_Weapon_Axe").progress, 4);
         });
+    });
+
+    it("the default window is shorter than the game server's 10 s grant flush: the same body at the next flush adds its XP", async () => {
+        // UProgressionComponent sends its queued grants at most once per QueuedGrantTimeout (10 s,
+        // DefaultGame.ini), so two grants it meant can be 10 s apart and still identical. The guard reads
+        // the clock through Date.now; the audit rows (append-only) keep the real time.
+        const { UserId } = await MakePlayer();
+        const RealNow = Date.now;
+        const Later = async (Ms: number) => {
+            Date.now = () => RealNow() + Ms;
+            try{
+                await Grant(UserId, Body);
+            }
+            finally{
+                Date.now = RealNow;
+            }
+        };
+
+        // The stored time is taken when the first grant's handler ends, so the next flush, sent 10 s after
+        // the first, can reach us when that grant looks only 9.9 s old
+        await Grant(UserId, Body);
+        await Later(9900);
+        assert.equal(Track(UserId, "MasteryTrack_Weapon_Axe").progress, 4, "the next flush is a new grant");
+
+        await Later(4000);
+        assert.equal(Track(UserId, "MasteryTrack_Weapon_Axe").progress, 4, "a retry 4 s later is still caught");
+
+        await Later(5000);
+        assert.equal(Track(UserId, "MasteryTrack_Weapon_Axe").progress, 6, "the end of the window is outside it");
     });
 
     it("PROGRESSION_REPLAY_WINDOW_S=0 turns the guard off", async () => {

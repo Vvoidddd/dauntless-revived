@@ -232,7 +232,7 @@ describe("XP and claims (test/huntpass-progress.test.js)", () => {
     });
 
     // from Harmonicrain/Undaunted test/huntpass-progress.test.js:87, with the retry guard off: three identical
-    // grants in a row within 10 s, with nothing in between, would otherwise count as one grant and two retries
+    // grants in a row within 5 s, with nothing in between, would otherwise count as one grant and two retries
     it("progress is a delta, so repeated awards add up", async () => {
         await WithEnv({ PROGRESSION_REPLAY_WINDOW_S: "0" }, async () => {
             const { UserId } = await MakePlayer();

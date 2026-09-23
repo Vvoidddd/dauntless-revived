@@ -452,7 +452,7 @@ Metagame lines unless marked.
 
 | Line | Meaning |
 |:-----|:--------|
-| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again within `PROGRESSION_REPLAY_WINDOW_S` (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
+| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again less than `PROGRESSION_REPLAY_WINDOW_S` seconds later (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
 | `progression: objective went backwards: ...; stored as sent` | An objective arrived lower than stored. Stored anyway; worth a note if it repeats. |
 | `Game server <what> for <account> carries the token of <other account>: accepted for <account>, ...` | A game server wrote for one player with another player's token. The write is kept for the account in the URL. Expected now and then in hunts with several players; report it if it repeats for the same pair. |
 | `Balances of <account> from the inventory of character <id>: ...` | `/balance` or `/reconcile` reported held currencies. |

@@ -2666,7 +2666,7 @@ Metagame lines unless marked.
 
 | Line | Meaning |
 |:-----|:--------|
-| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again within `PROGRESSION_REPLAY_WINDOW_S` (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
+| `Progression grant for <account> repeats the grant of N s ago: answered its stored reply, nothing added` | The game server sent the same grant again less than `PROGRESSION_REPLAY_WINDOW_S` seconds later (a retry). Normal right after a network hiccup. If it shows up often in normal play, set `PROGRESSION_REPLAY_WINDOW_S=0` and report it. |
 | `progression: objective went backwards: ...; stored as sent` | An objective arrived lower than stored. Stored anyway; worth a note if it repeats. |
 | `Game server <what> for <account> carries the token of <other account>: accepted for <account>, ...` | A game server wrote for one player with another player's token. The write is kept for the account in the URL. Expected now and then in hunts with several players; report it if it repeats for the same pair. |
 | `Balances of <account> from the inventory of character <id>: ...` | `/balance` or `/reconcile` reported held currencies. |
@@ -3447,7 +3447,7 @@ start line that begins `features:`.
   | [Slayer Links](https://mixutin.github.io/dauntless-revived/setup/upgrading.html#harmonic-port-what-players-see) (the My Links tab): eight new routes | `SLAYER_LINKS=0` |
   | The game's regular session check (`oauth/verify`) names the player's own account instead of a placeholder. Every player's game calls it. | `VERIFY_STUB_ACCOUNT=1` |
   | `/balance` and `/reconcile` report the currencies the character holds (Rams, platinum) instead of 0 | `BALANCE_FROM_INVENTORY=0` |
-  | A game server's XP grant repeated byte for byte within 10 seconds is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
+  | A game server's XP grant repeated byte for byte less than 5 seconds later is answered, not added again | `PROGRESSION_REPLAY_WINDOW_S=0` |
   | A party accept that arrives twice is answered with the party instead of 404 | none |
   | The deploy server starts a dead Ramsgate or Dojo again when a player travels there, instead of waiting for the watchdog (up to a minute) | `PERSISTENT_WORLD_LIVENESS=0` (in the deploy server's settings) |
 
@@ -3929,7 +3929,7 @@ development are off.
 | `LOG_REQUESTS` | metagame | on | `0` | The request log is the main diagnostic; keep it. |
 | `SLAYER_LINKS` | metagame | on | `0` | Slayer Links. `0` puts back the 404 every `/slayerlink` route got before; the stored invites and links stay. |
 | `BALANCE_FROM_INVENTORY` | metagame | on | `0` | `/balance` and `/reconcile` report the currencies the character holds. `0` puts back the fixed sheet (Notes from the database, the rest 0). |
-| `PROGRESSION_REPLAY_WINDOW_S` | metagame | `10` (seconds) | `0` | A game server's grant repeated byte for byte within 10 seconds is answered, not added again. |
+| `PROGRESSION_REPLAY_WINDOW_S` | metagame | `5` (seconds) | `0` | A game server's grant repeated byte for byte less than 5 seconds later is answered, not added again. |
 | `PERSISTENT_WORLD_LIVENESS` | deploy server | on | `0` (only the watchdog restarts Ramsgate and the Dojo, as before) | A dead Ramsgate or Dojo is started again when a player travels there. |
 | `GATEWAY_ALLOWLIST` | gateway | on | `0` | Kill switch: with it off, nobody's game ports open. |
 | `ENABLE_DOJO` | deploy server | Dojo starts on first use | `1` starts it at boot, as upstream did | Saves one game process while nobody trains. |
@@ -3987,7 +3987,7 @@ also warns while there are players with no stored progression yet; see the
 After that come two lines for the settings added with the port of Harmonic's fork:
 
 ```text
-features: bodyLogPerPath=no-cap escalation=stub escalationStrict=off store=off storeRepeatableTokens=off replayWindow=10s confirmEntitlements=off balanceFromInventory=on slayerLinks=on chatPresence=off verifyStubAccount=off
+features: bodyLogPerPath=no-cap escalation=stub escalationStrict=off store=off storeRepeatableTokens=off replayWindow=5s confirmEntitlements=off balanceFromInventory=on slayerLinks=on chatPresence=off verifyStubAccount=off
 Progression config: bundled, 10 tracks; active Hunt Pass season09b
 ```
 
@@ -4064,7 +4064,7 @@ players from `GET /undaunted/api/ServerStatus` (see [HTTP API](https://mixutin.g
 | `PROGRESSION_CONFIRM` | on | `off` or anything else | `off` makes the rank-confirm route answer 404 again for real-mode accounts, as upstream did. A diagnostic switch; leave it unset. | Nobody by default |
 | `PROGRESSION_ALLOW_DELETE` | off | `1` or anything else | `1` lets game servers reset a progression track (the game sends that only from a debug command). Without it only an admin key can. With it on, any game-server call can wipe a player's track. | Nobody by default |
 | `ENTITLEMENTS_DEFAULT` | `season09b_premium,season_premium_any,season_free_any` when unset | comma-separated entitlement names; empty means none | Entitlements every real-mode account owns. `season09b_premium` is the Elite Hunt Pass. Each default is added to an account once, the first time its entitlements are read; removing a name later does not take it back, and a default an admin revoked stays revoked. | Nobody by default |
-| `PROGRESSION_REPLAY_WINDOW_S` | `10` | whole seconds; `0` turns it off | **Fork only.** The retry guard of `POST /progression/<account>`: a grant whose body is byte for byte the account's last grant, within this many seconds and with no other track write in between, gets the first grant's stored reply and adds nothing (the log says `repeats the grant of N s ago`; an audit row notes it). The game server retries a failed request up to 5 times. If the line shows up in normal play, not right after a network error, set `0`. | Nobody by default |
+| `PROGRESSION_REPLAY_WINDOW_S` | `5` | whole seconds; `0` turns it off | **Fork only.** The retry guard of `POST /progression/<account>`: a grant whose body is byte for byte the account's last grant, less than this many seconds after it and with no other track write in between, gets the first grant's stored reply and adds nothing (the log says `repeats the grant of N s ago`; an audit row notes it). The game server retries a failed request up to 5 times. Keep the value under 10: the game server sends its queued grants at most once every 10 seconds, and two of those can be identical. If the line shows up in normal play, not right after a network error, set `0`. | Nobody by default |
 | `PROGRESSION_CONFIRM_ENTITLEMENTS` | off | on/off | **Fork only.** On: a Hunt Pass or mastery confirm that raises a rank also grants that rank's **permanent** entitlements from the progression config (for season09b: premium ranks 6, 9, 29 and 50 and free rank 50), with the source `confirm:<track>:<rank>`. Never items, currencies or timed entitlements (those are only noted). Off, because whether the game server grants them itself is not known yet (the in-game test: reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`). The confirm reply is the same either way. | Nobody by default |
 | `PROGRESSION_CONFIG_DIR` | unset: the bundled `vendor/progression_config.json` | a folder path | **Fork only.** A folder of `.json` files, each a progression path (a Hunt Pass season or a mastery track), a list of paths, or a whole config. A path replaces the bundled one with the same `progression_id`, a new id is added. Checked at startup; a missing folder, a folder without `.json` files, invalid JSON, a path without `progression_id` or `requirements`, ranks out of order, or an id twice stop the metagame. Read once; a change needs a restart. The formats are on [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#hunt-pass-seasons). Never edit a season in place while players have progress in it. | Nobody by default |
 | `ACTIVE_HUNT_PASS` | `season09b` | a loaded track id | **Fork only.** The Hunt Pass an account gets when none is stored (`GET /huntpass/<account>`, and the rank math's default). An id that is not a loaded track stops the metagame at startup. | Nobody by default |
@@ -5142,7 +5142,7 @@ it, and everyone else gets upstream's fixed max ranks
 | `SLAYER_LINKS` | unset: on | `0` makes every `/slayerlink` route answer 404, as before. |
 | `VERIFY_STUB_ACCOUNT` | unset: off | `1` puts back the fixed placeholder `account_id` in `GET /account/api/oauth/verify`. |
 | `BALANCE_FROM_INVENTORY` | unset: on | `0` puts back the fixed currency sheet in `GET /balance` and `POST /reconcile`. |
-| `PROGRESSION_REPLAY_WINDOW_S` | unset: `10` | The retry guard of `POST /progression/:userId`; `0` turns it off. |
+| `PROGRESSION_REPLAY_WINDOW_S` | unset: `5` | The retry guard of `POST /progression/:userId`; `0` turns it off. |
 | `PROGRESSION_CONFIRM_ENTITLEMENTS` | unset: off | `1` makes a rank confirm also grant that rank's permanent config entitlements. |
 
 ## Metagame: game routes
@@ -5234,7 +5234,7 @@ routes answer 404. The marks are explained under [Access labels](https://mixutin
 |:-------|:-----|:-------|:-------------|
 | GET | `/progression/config` | token | The progression configuration (tracks and ranks), from the metagame's own copy of the game's config, or with `PROGRESSION_CONFIG_DIR` from that folder's season files (checked at startup; see [Game settings](https://mixutin.github.io/dauntless-revived/reference/game-settings.html#hunt-pass-seasons)). Unchanged bytes without the folder. |
 | GET | `/progression/:userId` | token, own | Every track, stored or at 0. Stub: fixed max ranks for the caller. |
-| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. **Retry guard:** a body byte for byte equal to the account's last grant, within `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets that grant's stored reply and adds nothing (an audit row notes it). An objective lower than the stored one is logged and stored as sent. A relayed player token of another account is logged, never refused. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
+| POST | `/progression/:userId` | token, game server | Stores a progression grant `{progress_tracks, objectives}` and answers the new totals. `PROGRESSION_GRANT_CAP` (5000) limits what one request adds to a track; more is cut and logged. **Retry guard:** a body byte for byte equal to the account's last grant, less than `PROGRESSION_REPLAY_WINDOW_S` seconds after it (default 5) and with no other track write in between, gets that grant's stored reply and adds nothing (an audit row notes it). An objective lower than the stored one is logged and stored as sent. A relayed player token of another account is logged, never refused. Stub: always 400 on purpose (anything else makes the client repeat its mastery pop-up forever). |
 | GET | `/progression/:userId/:progressionId` | real only, token, own | One track; 404 if none is stored. |
 | POST | `/progression/:userId/:progressionId/:amount` | real only, token, game server | Adds `amount` to one track, up to `PROGRESSION_GRANT_CAP`. |
 | POST | `/progression/:userId/:progressionId/:rank/confirm/:kind` | real only, token, game server | Confirms a free (`public`) or premium rank. It grants nothing: the game server pays rank rewards through `/inventory` itself. With `PROGRESSION_CONFIRM_ENTITLEMENTS=1`, a confirm that raises the rank also grants the newly confirmed ranks' permanent config entitlements (never items, currencies or timed ones); the reply is the same. 404 with `PROGRESSION_CONFIRM=off`. |
@@ -10148,10 +10148,15 @@ executable and our in-game tests. Labels: **B** read in the 1.4.4 executable, **
   items, currencies or the timed boosts (premium 16, 34, 42 and 47). Off by default, until the in-game
   test: reach Elite rank 6 by hunt XP and watch for `POST /entitlementv2`.
 - **Retries.** The game server retries a failed request up to 5 times (`HTTPRetryCount=5`, B). A grant
-  (`POST /progression/<account>`) whose body is byte for byte the account's last grant, within
-  `PROGRESSION_REPLAY_WINDOW_S` seconds (default 10) and with no other track write in between, gets the
-  first grant's stored reply and adds nothing; `progression_events` gets an audit row. Any confirm,
-  reset or other grant in between makes the same body a new grant. An objective that arrives lower than
+  (`POST /progression/<account>`) whose body is byte for byte the account's last grant, less than
+  `PROGRESSION_REPLAY_WINDOW_S` seconds after it (default 5) and with no other track write in between,
+  gets the first grant's stored reply and adds nothing; `progression_events` gets an audit row. Any
+  confirm, reset or other grant in between makes the same body a new grant. The window stays well under
+  the game server's grant flush: `UProgressionComponent` sends its queued grants at most once per
+  `QueuedGrantTimeout`, which is 10 seconds (`DefaultGame.ini`; a one-shot timer armed at `0x14145a4a9`,
+  B), so two grants it meant are normally about 10 seconds apart and can be identical. A retry after a
+  connection error comes within seconds; a lost answer is retried only after `HTTPTimeoutSeconds=600`,
+  outside any window. A window of 10 or more would take the next flush for a retry and lose its XP. An objective that arrives lower than
   stored is logged ("objective went backwards") and stored as sent.
 - **The config.** `GET /progression/config` and the rank math read one loader: the bundled
   `vendor/progression_config.json`, or, with `PROGRESSION_CONFIG_DIR`, a folder of season files that
@@ -14175,7 +14180,7 @@ image base `0x140000000`), **V** verified in game on our server, **C** code, **S
 | Rank math capped at 50 | **Keep ours** | The season09b pass has prestige ranks past 50; a cap would hand out the prestige currency again and again. |
 | Hunt Pass seasons from a folder on disk, `ACTIVE_HUNT_PASS` | **Merge** | One loader for the config route and the rank math, checked at startup; a bad file stops the start. `PROGRESSION_CONFIG_DIR` and `ACTIVE_HUNT_PASS` (default `season09b`). |
 | "Free Elite" mode | **Skip** | Every account already owns the Elite pass on our server. His mode made the server and the client disagree. |
-| Protection against replayed grants | **Merge the goal** | The retry risk is real (the game server retries up to 5 times, B). His rule could drop legitimate XP; ours answers a byte-identical grant repeated within 10 seconds with the first answer and adds nothing (`PROGRESSION_REPLAY_WINDOW_S`). An objective that goes backwards is only logged. |
+| Protection against replayed grants | **Merge the goal** | The retry risk is real (the game server retries up to 5 times, B). His rule could drop legitimate XP; ours answers a byte-identical grant repeated less than 5 seconds later with the first answer and adds nothing (`PROGRESSION_REPLAY_WINDOW_S`; under the game server's 10-second grant flush). An objective that goes backwards is only logged. |
 | A save with an equal version accepted | **Keep ours (409)** | The client retries cleanly after a 409 (V, roadmap 2.1). |
 | A log line for progression requests no route answers | **Adopt** | Harmless and useful. |
 | Extra confirm kinds (`free`, `normal`, `1`, `2`) | **Skip** | The 1.4.4 client sends only `public` and `premium`. |
@@ -15176,7 +15181,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
 | Does the client ever send a party accept twice? | Look for `(a repeated accept)` in the two-player test. | 1.9 |
 | Does the My Links tab call the Slayer Link routes, and how often? | Open it with two friends and watch for `/slayerlink` lines. | 3.15 |
 | Does a session stay logged in with `oauth/verify` naming the player's own account? | Play more than 30 minutes, ideally past the token's 24 hours. If players are logged out, `VERIFY_STUB_ACCOUNT=1`. | 1.8 |
-| Does the game server ever send two identical XP grants on purpose? | Watch for `repeats the grant of` in normal play. If it shows up outside network errors, `PROGRESSION_REPLAY_WINDOW_S=0`. | 2.9 |
+| Does the game server ever send two identical XP grants on purpose less than 5 seconds apart? (It flushes its queued grants at most every 10 seconds, so it should not.) | Watch for `repeats the grant of` in normal play. If it shows up outside network errors, `PROGRESSION_REPLAY_WINDOW_S=0`. | 2.9 |
 | Which features are switched on by default | Toggle them in `UserGame.ini` on a test setup. | 3.1 |
 | The MOTD response format | Take apart the login-news handler near `0x140b47d50` in the exe. | 3.6 |
 | Does the event schedule use the UI event id or the hunt-table event id? | Try both on a test setup. | 3.9 |

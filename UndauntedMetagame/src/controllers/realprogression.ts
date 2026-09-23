@@ -241,15 +241,19 @@ const RETRY_NOTE = "retry of event";
 // The writes of an account's tracks, in progression_events
 const TRACK_WRITE_ROUTES = ["POST /progression/:uid", "POST /progression/:uid/:track/:amount", "POST /progression/:uid/:track/:rank/confirm/:kind", "DELETE /progression/:uid/:track", "admin SeedProgression"];
 
-// The retry guard of POST /progression/:uid (PROGRESSION_REPLAY_WINDOW_S, 10 s by default, 0 = off). The
+// The retry guard of POST /progression/:uid (PROGRESSION_REPLAY_WINDOW_S, 5 s by default, 0 = off). The
 // game server retries a request whose answer it did not get (HTTPRetryCount 5), and a retried grant would
 // add its XP twice. A grant is taken for such a retry when the account's last track write (a grant, a
-// confirm, a reset) was a grant with the same body (the same JSON), applied within the window, or a retry
-// of one: it gets that grant's stored reply and adds nothing. A confirm or any other grant in between means
-// the game server had the answer, so the same body after it is a new grant. The idea is Harmonic's
-// (github.com/Harmonicrain/Undaunted 895f7c7); his skipped track amounts whose objectives had not moved,
-// which could drop real XP. Two identical grants within 10 s, with nothing in between, that were both meant
-// would still lose the second (logged: "repeats the grant of").
+// confirm, a reset) was a grant with the same body (the same JSON), applied less than the window ago, or a
+// retry of one: it gets that grant's stored reply and adds nothing. A confirm or any other grant in between
+// means the game server had the answer, so the same body after it is a new grant. The idea is Harmonic's
+// (github.com/Harmonicrain/Undaunted 895f7c7); that fork skipped track amounts whose objectives had not
+// moved, which could drop real XP. The window stays clearly under the game server's grant flush:
+// UProgressionComponent sends its queued grants at most once per QueuedGrantTimeout, 10 s (DefaultGame.ini;
+// one-shot timer armed at 0x14145a4a9), so two grants it meant are normally 10 s or more apart, while a
+// retry after a connection error comes within a few seconds (a lost answer takes HTTPTimeoutSeconds, 600 s,
+// and is never inside any window). Two identical grants closer than the window, with nothing in between,
+// that were both meant would still lose the second (logged: "repeats the grant of").
 function FindRetriedGrant(tx: Tx, AccountId: string, Route: string, Body: unknown){
     const Window = ProgressionReplayWindow();
 
@@ -277,7 +281,7 @@ function FindRetriedGrant(tx: Tx, AccountId: string, Route: string, Body: unknow
 
     const Age = Date.now() - Date.parse(Original.time);
 
-    if(!(Age >= 0 && Age <= Window * 1000)){
+    if(!(Age >= 0 && Age < Window * 1000)){
         return undefined;
     }
 
