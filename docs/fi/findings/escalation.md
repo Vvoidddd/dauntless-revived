@@ -133,7 +133,7 @@ Jokainen tallennus tarkistetaan yhtenä tietokantatapahtumana. **Kovia sääntö
 | **Versiojärjestys:** tallennettu versio tallennetulla sisällöllä on uusinta, ja se saa tallennetun tilan takaisin kirjoittamatta mitään; tallennettu versio eri sisällöllä tai vanhempi versio hylätään | 200 (uusinta), 409 |
 | Mikään ei laske: alempi taso tai vähemmän XP:tä samalla tasolla | 409 |
 | Kerätty palkinto pysyy kerättynä | 409 |
-| **Tynkävahti:** pelaajan ensimmäinen tallennus ei saa olla tasolla 25 ja vähintään 99 999 XP:tä. Sellaiset arvot pelipalvelimella on, jos se latasi vanhan tyngän, eivätkä ne saa koskaan muuttua pelaajan oikeaksi etenemiseksi. | 409 |
+| **Tynkävahti:** tallennus ei saa olla tasolla 25 ja vähintään 99 999 XP:tä, ellei tallennettu kausi ole jo tasolla 25: ei pelaajan ensimmäinen tallennus eikä hyppy alemmalta tallennetulta tasolta. Sellaiset arvot pelipalvelimella on, jos se latasi vanhan tyngän, eivätkä ne saa koskaan muuttua pelaajan oikeaksi etenemiseksi. Sellainen pelipalvelin kasvattaa versiotaan, vaikka sen tallennukset saavat tynkätilassa vastauksen 404, joten tilan palattua arvoon `real` sen versio voi olla tallennettua uudempi; vahti hylkää sen myös tallennetun kauden päälle. Vain valmiiksi tasolle 25 tallennettu pelaaja kerää noin paljon XP:tä. | 409 |
 
 Kykyjen asteet saavat laskea: kykyjen nollaus on tavallinen pelin toiminto, joten tallennetut kyvyt
 korvataan sillä, mitä tallennus luettelee.
@@ -172,7 +172,8 @@ varoitus. Sitä ei koskaan hylätä, koska hylkäys voisi hukata tallennuksen ka
 | `POST` | 404, kuten aina: mitään ei tallenneta. | Tallennetaan yllä olevien sääntöjen mukaan. |
 
 Pelaajan tallennetut kaudet pysyvät tauluissaan, kun tila palaa arvoon `stub`, ja tulevat takaisin, kun
-tila on taas `real`.
+tila on taas `real`. Käynnistä pelipalvelimet uudelleen yhdessä metagamen kanssa jokaisella
+vaihdolla, kumpaankin suuntaan (alla kohta 3).
 
 ## Käyttöönotto {#switching-it-on}
 
@@ -182,8 +183,11 @@ tila on taas `real`.
 1. Ota varmuuskopio (palvelinpaketti ottaa sellaisen jokaisella käynnistyksellä).
 2. Aseta metagamen asetuksiin `ESCALATION_MODE=real`.
 3. Käynnistä pelipalvelimet uudelleen yhdessä metagamen kanssa, kun kukaan ei pelaa, jotta mikään
-   pelipalvelin ei pidä enää tyngän arvoja eikä kirjoita niitä takaisin. (Tynkävahti hylkää sellaisen
-   tallennuksen joka tapauksessa.)
+   pelipalvelin ei pidä enää tyngän arvoja eikä kirjoita niitä takaisin. Tynkävahti hylkää sellaisen
+   tallennuksen joka tapauksessa, myös tallennetun kauden päälle, mutta silloin pelaajan
+   Escalation-eteneminen torjutaan samalla koko istunnon ajan, kunnes pelipalvelin lataa kauden
+   uudelleen. Sama uudelleenkäynnistys tarvitaan, kun tila palaa arvoon `stub` tai kun tili poistuu
+   asetuksesta `PROGRESSION_REAL_ACCOUNTS` ja palaa myöhemmin.
 4. Pelitesti (tiekartan kohta 2.16): pelaa Escalation-kierros, kirjaudu uudelleen ja käytä kykypiste.
    Taso nousee ja säilyy uudelleenkirjautumisen yli, pisteitä näkyy oikea määrä, eikä lokissa ole
    vastausta 409 eikä riviä "breaks a soft rule".
@@ -200,11 +204,12 @@ ja luettelotiedosto sivulla [Pelin asetukset]({{ game_page.url | relative_url }}
 
 ## Testit {#tests}
 
-`UndauntedMetagame/test/escalation.test.ts` sisältää 26 tapausta: Harmonicin 17 (kausiluettelo,
+`UndauntedMetagame/test/escalation.test.ts` sisältää 27 tapausta: Harmonicin 17 (kausiluettelo,
 luvut, versiosäännöt, kovat ja pehmeät säännöt, tynkävahti) meidän vastauksiimme sovitettuina (toisen
 tilin luku on 403, uusinta on kirjattu 200, toisen tilin välitetty tunniste kirjataan ja hyväksytään,
-pehmeät säännöt vastaavat 409 vain, kun `ESCALATION_STRICT=1`), jokaisen pehmeän säännön
-varoitusversio, tynkätila kaikille, tynkätilan tilit kun `ESCALATION_MODE=real`, pelaajan oma
+pehmeät säännöt vastaavat 409 vain, kun `ESCALATION_STRICT=1`, tiukka XP-tapaus nousee tasolle 25
+ennen kuin sen XP kasvaa), jokaisen pehmeän säännön varoitusversio, tynkävahti tallennetun kauden
+päälle, tynkätila kaikille, tynkätilan tilit kun `ESCALATION_MODE=real`, pelaajan oma
 tallennus (403, mitään ei tallenneta), tuntematon tili sekä tapahtumarivi.
 
 ## Vielä auki {#open}

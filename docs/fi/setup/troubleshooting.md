@@ -493,7 +493,7 @@ metagamen lokista, ellei toisin mainita.
 |:-----|:---------|
 | `Escalation <kausi> for <tili>: vN level L xp X, ...` | Tallennus tallennettiin. |
 | `Escalation <kausi> vN for <tili> replayed` | Sama tallennus saapui uudelleen; mikään ei muuttunut. |
-| `Refusing escalation save of <kausi> for <tili> (<tila>): <syy>` | Tallennus rikkoi kovaa sääntöä. `first save carries the old stub values` tarkoittaa, että pelipalvelimella oli yhä vanha tekaistu maksimi: käynnistä pelipalvelimet uudelleen. Satunnainen `stale snapshot` on harmiton. |
+| `Refusing escalation save of <kausi> for <tili> (<tila>): <syy>` | Tallennus rikkoi kovaa sääntöä. `first save carries the old stub values` tai `save over level N carries the old stub values` tarkoittaa, että pelipalvelimella oli yhä vanha tekaistu maksimi: käynnistä pelipalvelimet uudelleen. Satunnainen `stale snapshot` on harmiton. |
 | `Escalation save of <kausi> for <tili> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Tallennettiin, mutta sääntömallimme voi olla väärä. Pidä `ESCALATION_STRICT` pois päältä ja ilmoita rivistä. |
 
 **Kauppa** (vain asetuksella `STORE=free`)

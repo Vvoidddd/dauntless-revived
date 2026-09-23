@@ -144,7 +144,7 @@ vahva päätelmä, **G** arvaus tai oma suunnitteluratkaisu.
 
 | Hänen työnsä | Päätös | Miksi |
 |:-------------|:-------|:------|
-| Kausiluettelo, tallennussäännöt, versiosäännöt ja reitit | **Otettu, sovitettuna** | Meillä oli vain tynkä. Hänen tasotaulukkonsa vastaa omaa tulkintaamme, ja kykypisteiden hintasääntö vastaa ohjelmatiedostoa (B `0x1414ae2a0`, `0x1414c0600`). Muutoksemme: jokainen tallennus kirjataan nykyiseen etenemislokiin (ei toista tapahtumataulua), toisen tilin välitetty tunniste kirjataan eikä sitä hylätä, tynkävahti hylkää kaikki ensimmäiset tallennukset tasolla 25 ja vähintään 99 999 XP:llä (hänen tarkisti tasan 99 999), ja mallinnuksesta riippuvat säännöt vain varoittavat, kunnes `ESCALATION_STRICT=1`. Oletuksena pois: käyttöönotto pudottaa pelaajat tekaistusta maksimista tasolle 0. |
+| Kausiluettelo, tallennussäännöt, versiosäännöt ja reitit | **Otettu, sovitettuna** | Meillä oli vain tynkä. Hänen tasotaulukkonsa vastaa omaa tulkintaamme, ja kykypisteiden hintasääntö vastaa ohjelmatiedostoa (B `0x1414ae2a0`, `0x1414c0600`). Muutoksemme: jokainen tallennus kirjataan nykyiseen etenemislokiin (ei toista tapahtumataulua), toisen tilin välitetty tunniste kirjataan eikä sitä hylätä, tynkävahti hylkää jokaisen tallennuksen tasolla 25 ja vähintään 99 999 XP:llä, ellei tallennettu kausi ole jo tasolla 25 (hänen tarkisti ensimmäisen tallennuksen, jossa oli tasan 99 999), ja mallinnuksesta riippuvat säännöt vain varoittavat, kunnes `ESCALATION_STRICT=1`. Oletuksena pois: käyttöönotto pudottaa pelaajat tekaistusta maksimista tasolle 0. |
 
 ## Palkkiotehtävät ja odotusajat {#bounties}
 

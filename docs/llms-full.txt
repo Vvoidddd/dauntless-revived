@@ -1995,7 +1995,7 @@ shows the value it uses. Every setting is on [Configuration](https://mixutin.git
 
 | Feature | Line | Before you switch it on | How to check it |
 |:--------|:-----|:------------------------|:----------------|
-| Real Escalation saves | `ESCALATION_MODE=real` | Tell your players: everyone drops from the fake maximum (level 25) to level 0. Restart the **whole stack** (on a kit server `Stack.ps1 restart`), so no game server still holds the old values. | Play an Escalation run, log in again, spend a talent point: the level stays, and the log has no `Refusing escalation save` and no `breaks a soft rule` line ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html#switching-it-on)). |
+| Real Escalation saves | `ESCALATION_MODE=real` | Tell your players: everyone drops from the fake maximum (level 25) to level 0. Restart the **whole stack** (on a kit server `Stack.ps1 restart`), so no game server still holds the old values; do the same when you switch it back to `stub`. | Play an Escalation run, log in again, spend a talent point: the level stays, and the log has no `Refusing escalation save` and no `breaks a soft rule` line ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html#switching-it-on)). |
 | Strict Escalation rules | `ESCALATION_STRICT=1` | Only after real Escalation has run with no `breaks a soft rule` line. | Same as above. |
 | The free store | `STORE=free` | Decide whether the store stays free (roadmap 3.7). Count the accounts with more than one character (below): a purchase goes to the character saved last. | Open every store tab, buy one item of each kind, log in again, finish a hunt ([The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html#open)). |
 | Unlimited premium bounty tokens | `STORE_REPEATABLE_TOKENS=1` (with `STORE=free`) | Your decision: it means unlimited free premium bounty drafts. | The bundle shows in the store. |
@@ -2677,7 +2677,7 @@ Metagame lines unless marked.
 |:-----|:--------|
 | `Escalation <season> for <account>: vN level L xp X, ...` | A save was stored. |
 | `Escalation <season> vN for <account> replayed` | The same save arrived again; nothing changed. |
-| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
+| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` or `save over level N carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
 | `Escalation save of <season> for <account> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Stored, but our model of the rules may be wrong. Keep `ESCALATION_STRICT` off and report the line. |
 
 **The store** (only with `STORE=free`)
@@ -5244,7 +5244,7 @@ routes answer 404. The marks are explained under [Access labels](https://mixutin
 | GET | `/huntpass/:userId` | token, own | The selected Hunt Pass: the stored one, else `ACTIVE_HUNT_PASS` (default `season09b`). |
 | POST | `/huntpass/:userId` | real only, token, game server | Stores the Hunt Pass selection. |
 | GET | `/escalation/:season/:userId` | token; own with `ESCALATION_MODE=real` | `ESCALATION_MODE=stub` (default), and accounts in stub progression mode: the fixed reply `{code: null, message: "OK", payload: {escalation_level: 99999, next_level_xp: 99999, talents_progress: [], unlock_progress: [], update_version: 1}}` to anyone, nothing stored. `real`: the stored season in the same envelope, or level 0 with version 0 when nothing is stored (a read creates no row); 404 `{code: "404", ...}` for a season not in the registry ([Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html)). |
-| POST | `/escalation/:season/:userId` | only with `ESCALATION_MODE=real`; real only, token, game server | Saves the whole season `{escalation_level, next_level_xp, talents_progress: [{rank, talent_id}], unlock_progress: [{collected, reward_id}], update_version}` and answers the stored state. 400 for a malformed save, 404 for an unknown account or season, 409 for a disabled season (Frost), an older version, the same version with other content, lower progress, an un-collected reward or a first save carrying the old stub values; the same version with the same content is answered with the stored state (a retry). `ESCALATION_STRICT=1` also refuses (409) what breaks a soft rule. Every save, answered or refused, is a `progression_events` row. With `stub` the route falls through to the empty 404. |
+| POST | `/escalation/:season/:userId` | only with `ESCALATION_MODE=real`; real only, token, game server | Saves the whole season `{escalation_level, next_level_xp, talents_progress: [{rank, talent_id}], unlock_progress: [{collected, reward_id}], update_version}` and answers the stored state. 400 for a malformed save, 404 for an unknown account or season, 409 for a disabled season (Frost), an older version, the same version with other content, lower progress, an un-collected reward or a save carrying the old stub values (level 25 with 99,999 XP or more, unless the stored season is already at 25); the same version with the same content is answered with the stored state (a retry). `ESCALATION_STRICT=1` also refuses (409) what breaks a soft rule. Every save, answered or refused, is a `progression_events` row. With `stub` the route falls through to the empty 404. |
 | GET | `/entitlementsv2` | token | The entitlements of the token's account (a game server must forward the player's token). Real: a flat `{entitlements: [...]}` without expired ones. Stub: an empty list. |
 | POST | `/entitlementv2/:userId` | token, game server | Grants `{entitlement, duration}` (hours; 0 or none = permanent) and answers the account's full list. 404 for an unknown account. Stub: an empty reply. |
 | DELETE | `/entitlement/:userId/:entitlement` | real only, token, game server | Revokes an entitlement. |
@@ -13994,7 +13994,7 @@ Every save is checked in one database transaction. **Hard rules** are always enf
 | **Version order:** the stored version with the stored content is a retry and gets the stored state back, with nothing written; the stored version with other content, or an older version, is refused | 200 (retry), 409 |
 | Nothing goes down: a lower level, or less XP at the same level | 409 |
 | A collected reward stays collected | 409 |
-| **The stub guard:** a player's first save may not be level 25 with 99,999 XP or more. That is what a game server holds when it loaded the old stub, and it must never become a player's real progress. | 409 |
+| **The stub guard:** a save may not be level 25 with 99,999 XP or more unless the stored season is already at level 25: not a player's first save, and not a jump from a lower stored level. That is what a game server holds when it loaded the old stub, and it must never become a player's real progress. Such a game server keeps counting its version while its saves get 404 in stub mode, so after a switch back to `real` its version can be newer than the stored one; the guard refuses it over a stored season too. Only a player already stored at level 25 builds up that much XP. | 409 |
 
 Talent ranks may go down: a talent reset is a normal game action, so the stored talents are replaced
 by what the save lists.
@@ -14031,7 +14031,8 @@ their own seasons; a game server reads any.
 | `POST` | 404, as always: nothing is saved. | Saved under the rules above. |
 
 A player's stored seasons stay in their tables when the mode goes back to `stub`, and come back when it
-is `real` again.
+is `real` again. Restart the game servers together with the metagame at every switch, in either
+direction (step 3 below).
 
 ## Switching it on
 
@@ -14041,7 +14042,10 @@ is `real` again.
 1. Take a backup (the kit takes one at every start).
 2. Set `ESCALATION_MODE=real` in the metagame's settings.
 3. Restart the game servers together with the metagame, when nobody is playing, so that no game server
-   still holds the stub's values and writes them back. (The stub guard refuses such a save anyway.)
+   still holds the stub's values and writes them back. The stub guard refuses such a save anyway, also
+   over a stored season, but then that player's Escalation progress in the session is refused with it
+   until the game server loads the season again. The same restart is needed when the mode goes back to
+   `stub`, or an account leaves `PROGRESSION_REAL_ACCOUNTS`, and later returns.
 4. The in-game test (roadmap 2.16): play an Escalation run, relog, spend a talent point. The level
    rises and survives the relog, the right number of points shows, and the log has no 409 and no
    "breaks a soft rule" line.
@@ -14057,11 +14061,11 @@ registry file on [Game settings](https://mixutin.github.io/dauntless-revived/ref
 
 ## Tests
 
-`UndauntedMetagame/test/escalation.test.ts` holds 26 cases: Harmonic's 17 (the registry, reads, the
+`UndauntedMetagame/test/escalation.test.ts` holds 27 cases: Harmonic's 17 (the registry, reads, the
 version rules, the hard and soft rules, the stub guard), adapted to our answers (a foreign read is 403,
 a replay is an audited 200, a relayed token of another account is logged and accepted, the soft rules
-answer 409 only with `ESCALATION_STRICT=1`), a warn-only twin of each soft-rule case, stub mode for
-everyone, stub-mode accounts with `ESCALATION_MODE=real`, a player's own save (403, nothing stored),
+answer 409 only with `ESCALATION_STRICT=1`, the strict XP case reaches level 25 before its XP grows), a
+warn-only twin of each soft-rule case, the stub guard over a stored season, stub mode for everyone, stub-mode accounts with `ESCALATION_MODE=real`, a player's own save (403, nothing stored),
 an unknown account, and the audit row.
 
 ## Still open
@@ -14191,7 +14195,7 @@ image base `0x140000000`), **V** verified in game on our server, **C** code, **S
 
 | His work | Decision | Why |
 |:---------|:---------|:----|
-| The season registry, the save rules, the version rules and the routes | **Adopt, adapted** | We had only a stub. His level table matches our own reading, and the talent-cost rule matches the executable (B `0x1414ae2a0`, `0x1414c0600`). Our changes: every save is audited in the existing progression log (no second events table), a relayed token of another account is logged, not refused, the stub guard refuses any first save at level 25 with 99,999 XP or more (his checked exactly 99,999), and the rules that depend on modelling only warn until `ESCALATION_STRICT=1`. Off by default: switching it on drops players from the fake maximum to level 0. |
+| The season registry, the save rules, the version rules and the routes | **Adopt, adapted** | We had only a stub. His level table matches our own reading, and the talent-cost rule matches the executable (B `0x1414ae2a0`, `0x1414c0600`). Our changes: every save is audited in the existing progression log (no second events table), a relayed token of another account is logged, not refused, the stub guard refuses any save at level 25 with 99,999 XP or more unless the stored season is already at 25 (his checked a first save with exactly 99,999), and the rules that depend on modelling only warn until `ESCALATION_STRICT=1`. Off by default: switching it on drops players from the fake maximum to level 0. |
 
 ## Bounties and cooldowns
 
@@ -14855,7 +14859,7 @@ Before starting M2, 0.1 must be running and 0.4 must be done.
   - **Needs:** 2.10, 2.11, 2.14.
   - **Done when:** finishing a hunt moves the pass bar, Claim gives the rank reward exactly once, and both survive logging in again.
 
-- [ ] **2.16 Escalation** (M) — ***Built 2026-09-23, off by default** (`ESCALATION_MODE=real`), from Harmonic's 1.4.4 fork: the season registry he exported from the client (5 seasons, Frost disabled; 25 levels, 18 talents in 6 tiers, 6 rewards each), `POST /escalation/<season>/<account>` from game servers only, and his save rules with all 17 of his tests. Hard rules always apply (known ids and ranges, the version order, nothing lowered or un-collected, and no first save carrying the old stub's level 25 with 99,999 XP); the rules that depend on our modelling (the XP within a level, points spent, tier gates, reward levels) only warn until `ESCALATION_STRICT=1`. Every save is a row in `progression_events`. Tables in migration `0014_escalation`. Not tried in game. Details: [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html).*
+- [ ] **2.16 Escalation** (M) — ***Built 2026-09-23, off by default** (`ESCALATION_MODE=real`), from Harmonic's 1.4.4 fork: the season registry he exported from the client (5 seasons, Frost disabled; 25 levels, 18 talents in 6 tiers, 6 rewards each), `POST /escalation/<season>/<account>` from game servers only, and his save rules with all 17 of his tests. Hard rules always apply (known ids and ranges, the version order, nothing lowered or un-collected, and no save carrying the old stub's level 25 with 99,999 XP unless the stored season is already at 25); the rules that depend on our modelling (the XP within a level, points spent, tier gates, reward levels) only warn until `ESCALATION_STRICT=1`. Every save is a row in `progression_events`. Tables in migration `0014_escalation`. Not tried in game. Details: [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html).*
   - **What:**
     - For each account and each of `ESC_SEASON_1`..`5`, store the level, the XP to the next level, talents, unlocks and a version number.
     - GET reads from the database, starting at level 0 instead of 99,999.

@@ -130,7 +130,7 @@ Every save is checked in one database transaction. **Hard rules** are always enf
 | **Version order:** the stored version with the stored content is a retry and gets the stored state back, with nothing written; the stored version with other content, or an older version, is refused | 200 (retry), 409 |
 | Nothing goes down: a lower level, or less XP at the same level | 409 |
 | A collected reward stays collected | 409 |
-| **The stub guard:** a player's first save may not be level 25 with 99,999 XP or more. That is what a game server holds when it loaded the old stub, and it must never become a player's real progress. | 409 |
+| **The stub guard:** a save may not be level 25 with 99,999 XP or more unless the stored season is already at level 25: not a player's first save, and not a jump from a lower stored level. That is what a game server holds when it loaded the old stub, and it must never become a player's real progress. Such a game server keeps counting its version while its saves get 404 in stub mode, so after a switch back to `real` its version can be newer than the stored one; the guard refuses it over a stored season too. Only a player already stored at level 25 builds up that much XP. | 409 |
 
 Talent ranks may go down: a talent reset is a normal game action, so the stored talents are replaced
 by what the save lists.
@@ -167,7 +167,8 @@ their own seasons; a game server reads any.
 | `POST` | 404, as always: nothing is saved. | Saved under the rules above. |
 
 A player's stored seasons stay in their tables when the mode goes back to `stub`, and come back when it
-is `real` again.
+is `real` again. Restart the game servers together with the metagame at every switch, in either
+direction (step 3 below).
 
 ## Switching it on {#switching-it-on}
 
@@ -177,7 +178,10 @@ is `real` again.
 1. Take a backup (the kit takes one at every start).
 2. Set `ESCALATION_MODE=real` in the metagame's settings.
 3. Restart the game servers together with the metagame, when nobody is playing, so that no game server
-   still holds the stub's values and writes them back. (The stub guard refuses such a save anyway.)
+   still holds the stub's values and writes them back. The stub guard refuses such a save anyway, also
+   over a stored season, but then that player's Escalation progress in the session is refused with it
+   until the game server loads the season again. The same restart is needed when the mode goes back to
+   `stub`, or an account leaves `PROGRESSION_REAL_ACCOUNTS`, and later returns.
 4. The in-game test (roadmap 2.16): play an Escalation run, relog, spend a talent point. The level
    rises and survives the relog, the right number of points shows, and the log has no 409 and no
    "breaks a soft rule" line.
@@ -193,11 +197,11 @@ registry file on [Game settings]({{ game_page.url | relative_url }}#escalation-s
 
 ## Tests {#tests}
 
-`UndauntedMetagame/test/escalation.test.ts` holds 26 cases: Harmonic's 17 (the registry, reads, the
+`UndauntedMetagame/test/escalation.test.ts` holds 27 cases: Harmonic's 17 (the registry, reads, the
 version rules, the hard and soft rules, the stub guard), adapted to our answers (a foreign read is 403,
 a replay is an audited 200, a relayed token of another account is logged and accepted, the soft rules
-answer 409 only with `ESCALATION_STRICT=1`), a warn-only twin of each soft-rule case, stub mode for
-everyone, stub-mode accounts with `ESCALATION_MODE=real`, a player's own save (403, nothing stored),
+answer 409 only with `ESCALATION_STRICT=1`, the strict XP case reaches level 25 before its XP grows), a
+warn-only twin of each soft-rule case, the stub guard over a stored season, stub mode for everyone, stub-mode accounts with `ESCALATION_MODE=real`, a player's own save (403, nothing stored),
 an unknown account, and the audit row.
 
 ## Still open {#open}

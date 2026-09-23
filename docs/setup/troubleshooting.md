@@ -463,7 +463,7 @@ Metagame lines unless marked.
 |:-----|:--------|
 | `Escalation <season> for <account>: vN level L xp X, ...` | A save was stored. |
 | `Escalation <season> vN for <account> replayed` | The same save arrived again; nothing changed. |
-| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
+| `Refusing escalation save of <season> for <account> (<status>): <reason>` | A save broke a hard rule. `first save carries the old stub values` or `save over level N carries the old stub values` means a game server still held the old fake maximum: restart the game servers. A `stale snapshot` now and then is harmless. |
 | `Escalation save of <season> for <account> breaks a soft rule, stored anyway (ESCALATION_STRICT=0): ...` | Stored, but our model of the rules may be wrong. Keep `ESCALATION_STRICT` off and report the line. |
 
 **The store** (only with `STORE=free`)

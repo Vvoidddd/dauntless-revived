@@ -317,10 +317,17 @@ export function SaveEscalation(AccountId: string, SeasonId: string, Body: unknow
                 return Refuse(409, `snapshot would lower progress from level ${Existing.level} with ${Existing.xp} XP to level ${Snapshot.escalation_level} with ${Snapshot.next_level_xp} XP`);
             }
         }
-        else if(Snapshot.escalation_level === MaxEscalationLevel(Season) && Snapshot.next_level_xp >= STUB_XP){
-            // What a world server holds when it loaded the old stub (level 99999 clamped to the
-            // last level, 99999 XP, perhaps more XP since): never a player's first real save.
-            return Refuse(409, `first save carries the old stub values (level ${Snapshot.escalation_level} with ${Snapshot.next_level_xp} XP); the world server must load the season again`);
+
+        // What a world server holds when it loaded the old stub (level 99999 clamped to the last level,
+        // 99999 XP, perhaps more XP since). Never a player's first real save, and never a real jump from
+        // a stored level below the last one: the game gives a season XP by the hunt, not 99999 at once.
+        // Only a player already stored at the last level can reach that much XP (it builds up there).
+        // Without this, a world server still holding the stub, whose version counter kept counting while
+        // its saves got 404, could overwrite a stored season, and the rule that nothing is lowered would
+        // then keep the stub values for good.
+        if(Snapshot.escalation_level === MaxEscalationLevel(Season) && Snapshot.next_level_xp >= STUB_XP
+            && (Existing == undefined || Existing.level < MaxEscalationLevel(Season))){
+            return Refuse(409, `${Existing == undefined ? "first save" : `save over level ${Existing.level}`} carries the old stub values (level ${Snapshot.escalation_level} with ${Snapshot.next_level_xp} XP); the world server must load the season again`);
         }
 
         const AlreadyCollected = tx.select().from(escalationunlocks)

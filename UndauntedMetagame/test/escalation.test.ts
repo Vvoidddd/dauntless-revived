@@ -233,7 +233,9 @@ describe("saves (ESCALATION_MODE=real)", () => {
         assert.deepEqual(State.unlock_progress, Unlocks);
     });
 
-    // from Harmonicrain/Undaunted test/escalation.test.js:174 (ESCALATION_STRICT=1)
+    // from Harmonicrain/Undaunted test/escalation.test.js:174 (ESCALATION_STRICT=1), adapted: the cap is
+    // reached first, since one save that jumps from a lower level to the cap with 99999 XP or more is the
+    // stub guard's case
     it("strict: XP follows native level arithmetic, below the next cost and unbounded only at the cap", async () => {
         await Strict(async () => {
             const A = await MakePlayer();
@@ -242,8 +244,9 @@ describe("saves (ESCALATION_MODE=real)", () => {
             assert.equal((await Write(A, Snap({ escalation_level: 0, next_level_xp: 499 }))).status, 200);
             assert.equal((await Write(A, Snap({ escalation_level: 26, update_version: 2 }))).status, 400);
             assert.equal((await Write(A, Snap({ escalation_level: -1, update_version: 2 }))).status, 400);
-            assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 123456, update_version: 2 }))).status, 200);
-            assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 2 ** 31, update_version: 3 }))).status, 400, "int32 limit");
+            assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 10, update_version: 2 }))).status, 200);
+            assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 123456, update_version: 3 }))).status, 200);
+            assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 2 ** 31, update_version: 4 }))).status, 400, "int32 limit");
         });
     });
 
@@ -367,6 +370,21 @@ describe("saves (ESCALATION_MODE=real)", () => {
         const B = await MakePlayer();
         assert.equal((await Write(B, Snap({ escalation_level: 25, next_level_xp: 10 }))).status, 200);
         assert.equal((await Write(B, Snap({ escalation_level: 25, next_level_xp: 150000, update_version: 2 }))).status, 200);
+    });
+
+    // A world server that loaded the stub during a stub period kept counting versions while its saves got
+    // 404, so after a switch back to real its version can be above the stored one
+    it("a world server still holding the old stub values cannot overwrite a stored season either", async () => {
+        const A = await MakePlayer();
+
+        assert.equal((await Write(A, Snap({ escalation_level: 2, next_level_xp: 100, update_version: 1 }))).status, 200);
+        assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 99999, update_version: 4 }))).status, 409, "a newer version with the stub values");
+        assert.equal((await Write(A, Snap({ escalation_level: 25, next_level_xp: 120000, update_version: 4 }))).status, 409, "or more XP since");
+        assert.match(Events(A.UserId).at(-1).note, /save over level 2 carries the old stub values/);
+        assert.deepEqual((await Read(A)).json.payload, { escalation_level: 2, next_level_xp: 100, talents_progress: [], unlock_progress: [], update_version: 1 });
+
+        assert.equal((await Write(A, Snap({ escalation_level: 2, next_level_xp: 150, update_version: 5 }))).status, 200, "the player's real save afterwards");
+        assert.deepEqual((await Read(A)).json.payload, { escalation_level: 2, next_level_xp: 150, talents_progress: [], unlock_progress: [], update_version: 5 });
     });
 
     // from Harmonicrain/Undaunted test/escalation.test.js:249

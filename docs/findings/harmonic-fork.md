@@ -140,7 +140,7 @@ image base `0x140000000`), **V** verified in game on our server, **C** code, **S
 
 | His work | Decision | Why |
 |:---------|:---------|:----|
-| The season registry, the save rules, the version rules and the routes | **Adopt, adapted** | We had only a stub. His level table matches our own reading, and the talent-cost rule matches the executable (B `0x1414ae2a0`, `0x1414c0600`). Our changes: every save is audited in the existing progression log (no second events table), a relayed token of another account is logged, not refused, the stub guard refuses any first save at level 25 with 99,999 XP or more (his checked exactly 99,999), and the rules that depend on modelling only warn until `ESCALATION_STRICT=1`. Off by default: switching it on drops players from the fake maximum to level 0. |
+| The season registry, the save rules, the version rules and the routes | **Adopt, adapted** | We had only a stub. His level table matches our own reading, and the talent-cost rule matches the executable (B `0x1414ae2a0`, `0x1414c0600`). Our changes: every save is audited in the existing progression log (no second events table), a relayed token of another account is logged, not refused, the stub guard refuses any save at level 25 with 99,999 XP or more unless the stored season is already at 25 (his checked a first save with exactly 99,999), and the rules that depend on modelling only warn until `ESCALATION_STRICT=1`. Off by default: switching it on drops players from the fake maximum to level 0. |
 
 ## Bounties and cooldowns {#bounties}
 
