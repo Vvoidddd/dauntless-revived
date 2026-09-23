@@ -1,5 +1,5 @@
 import { app } from "./app";
-import { Startup } from "./controllers/gameservers";
+import { IsPersistentWorldLivenessOn, StartupAndReportFailure } from "./controllers/gameservers";
 import { RunWatchdog } from "./controllers/watchdog";
 import { logger } from "./logger";
 
@@ -15,10 +15,11 @@ app.listen(PORT, BIND_HOST, (err?: Error) => {
     process.exit(1);
   }
 
-  Startup();
+  void StartupAndReportFailure();
 
   setInterval(RunWatchdog, 60 * 1000);
 
   logger.info(`Dauntless Revived deploy server on port ${PORT}`);
+  logger.info(`Ramsgate and Dojo liveness check before handing them out: ${IsPersistentWorldLivenessOn() ? "on" : "off (PERSISTENT_WORLD_LIVENESS=0)"}`);
   logger.info(`Clear Skies, Slayer.`);
 });

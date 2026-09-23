@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process"
+import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { setTimeout } from "node:timers/promises";
 
 import crypto from "node:crypto";
@@ -35,8 +35,14 @@ type ExpectedPlayer = {
 export let Gameservers: Gameserver[] = [];
 let FreePorts: number[] = [];
 
-let RamsgateServer : Gameserver;
-let TrainingDojoServer : Gameserver;
+let RamsgateServer : Gameserver | undefined;
+let TrainingDojoServer : Gameserver | undefined;
+
+// How game processes are started and checked. Tests swap in stand-ins (UseProcessFunctionsForTests);
+// nothing else changes them.
+type SpawnFunction = (Command: string, Args: string[], Options: SpawnOptions) => ChildProcess;
+let SpawnProcess: SpawnFunction = spawn;
+let ProcessIsAlive: (ProcessId: number) => boolean = (ProcessId) => IsProcessAlive(ProcessId);
 
 const PORT_RANGE_BEGIN = Number(process.env.PORT_RANGE_BEGIN!);
 const PORT_RANGE_END = Number(process.env.PORT_RANGE_END!);
@@ -62,22 +68,82 @@ function TransformExpectedPlayerArgs(ExpectedPlayers: ExpectedPlayer[]){
     return ToReturn;
 }
 
+// Called by the watchdog for a server whose process has exited. Ramsgate and the Dojo are started
+// again (through the same shared launch as a player's request, so the two never start two processes
+// on one port); a hunt's port goes back to the pool.
 export async function CleanupServer(ServerToShutdown: Gameserver){
     Gameservers = Gameservers.filter(Server => Server !== ServerToShutdown);
 
     if(ServerToShutdown.isRamsgate){
-        logger.warn("RAMSGATE HAS FALLEN! Restarting!");
-
-        await StartServer(RAMSGATE_MAP_PATH, undefined, undefined, undefined, true, false);
+        await EnsurePersistentWorld("ramsgate", "RAMSGATE HAS FALLEN! Restarting!");
     }
     else if(ServerToShutdown.isTrainingDojo){
-        logger.warn("Training Dojo Crashed! Restarting!");
-
-        await StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true);
+        await EnsurePersistentWorld("dojo", "Training Dojo Crashed! Restarting!");
     }
     else{
         FreePorts.push(ServerToShutdown.port);
     }
+}
+
+// Ramsgate and the Training Dojo: one process each, on a fixed port
+type PersistentWorld = "ramsgate" | "dojo";
+
+// The launch of a persistent world that is under way. The watchdog, CITY and SHARED requests and the
+// Dojo's first start all wait for this one launch instead of starting their own.
+const PersistentWorldLaunches = new Map<PersistentWorld, Promise<Gameserver>>();
+
+function CurrentPersistentWorld(World: PersistentWorld){
+    return World === "ramsgate" ? RamsgateServer : TrainingDojoServer;
+}
+
+// The record of a restarted world is stored here, so the next check looks at the new process.
+// (Upstream's watchdog restart kept the old record, whose process had exited.)
+function EnsurePersistentWorld(World: PersistentWorld, Why?: string, Level: "info" | "warn" = "warn"): Promise<Gameserver> {
+    const Launching = PersistentWorldLaunches.get(World);
+
+    if(Launching !== undefined){
+        return Launching;
+    }
+
+    const Current = CurrentPersistentWorld(World);
+
+    if(Current !== undefined && ProcessIsAlive(Current.processId)){
+        return Promise.resolve(Current);
+    }
+
+    if(Current !== undefined){
+        Gameservers = Gameservers.filter(Server => Server !== Current);
+    }
+
+    if(Why !== undefined){
+        logger[Level](Why);
+    }
+
+    const IsRamsgate = World === "ramsgate";
+    const Launch = StartServer(IsRamsgate ? RAMSGATE_MAP_PATH : TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, IsRamsgate, !IsRamsgate)
+        .then((Started) => {
+            if(IsRamsgate){
+                RamsgateServer = Started;
+            }
+            else{
+                TrainingDojoServer = Started;
+            }
+
+            return Started;
+        })
+        .finally(() => { PersistentWorldLaunches.delete(World); });
+
+    PersistentWorldLaunches.set(World, Launch);
+
+    return Launch;
+}
+
+// On (the default) unless PERSISTENT_WORLD_LIVENESS=0: before Ramsgate or the Dojo is handed to a
+// player, its process must still be running, or it is started again first. Without the check a dead
+// Ramsgate went unnoticed until the watchdog's next round (up to 60 s), and every player sent there in
+// the meantime travelled to a port nothing listened on. 0 leaves restarts to the watchdog, as before.
+export function IsPersistentWorldLivenessOn(){
+    return process.env.PERSISTENT_WORLD_LIVENESS !== "0";
 }
 
 let ServerLaunchQueue: Promise<void> = Promise.resolve();
@@ -107,22 +173,60 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
         throw new Error("No free ports left!");
     }
 
-    const Child = spawn(GAMESERVER_BINARY_PATH, [
-        METAGAME_API_KEY,
-        Port.toString(),
-        Map,
-        Behemoth != undefined ? Behemoth : "NO_BEHEMOTH",
-        MatchmakerHuntId != undefined ? MatchmakerHuntId : "NO_MM_HUNTID",
-        ExpectedPlayers != undefined ? TransformExpectedPlayerArgs(ExpectedPlayers) : "NO_EXPECTED_PLAYERS",
-        MY_IP + ":" + Port.toString(),
-        ...STANDARD_GAMESERVER_ARGS
-    ], {
-        // Keep the long-running Ramsgate and Dojo diagnostic windows visible,
-        // but do not flash a new command window for every temporary hunt.
-        windowsHide: !IsRamsgate && !IsTrainingDojo
+    const IsHunt = !IsRamsgate && !IsTrainingDojo;
+    let Child: ChildProcess;
+
+    try{
+        Child = SpawnProcess(GAMESERVER_BINARY_PATH, [
+            METAGAME_API_KEY,
+            Port.toString(),
+            Map,
+            Behemoth != undefined ? Behemoth : "NO_BEHEMOTH",
+            MatchmakerHuntId != undefined ? MatchmakerHuntId : "NO_MM_HUNTID",
+            ExpectedPlayers != undefined ? TransformExpectedPlayerArgs(ExpectedPlayers) : "NO_EXPECTED_PLAYERS",
+            MY_IP + ":" + Port.toString(),
+            ...STANDARD_GAMESERVER_ARGS
+        ], {
+            // Keep the long-running Ramsgate and Dojo diagnostic windows visible,
+            // but do not flash a new command window for every temporary hunt.
+            windowsHide: IsHunt
+        });
+    }
+    catch(error){
+        if(IsHunt){
+            FreePorts.push(Port);
+        }
+
+        logger.error(`Could not start a game server on port ${Port}: ${(error as Error)?.message}`);
+        throw new Error(`Could not start a game server on port ${Port}`);
+    }
+
+    // A process that cannot be started (a wrong GAMESERVER_BINARY_PATH, a missing file) reports it
+    // as an "error" event. Without a listener that event took the whole deploy server down.
+    Child.on("error", (error) => logger.error(`Game server on port ${Port} failed: ${error.message} (GAMESERVER_BINARY_PATH is ${GAMESERVER_BINARY_PATH})`));
+    Child.on("exit", (Code, Signal) => {
+        const Line = `Game server on port ${Port} (pid ${Child.pid}) exited ${Signal != null ? `on ${Signal}` : `with code ${Code}`}`;
+
+        if(Code === 0){
+            logger.info(Line);
+        }
+        else{
+            logger.warn(Line);
+        }
     });
 
     Child.unref();
+
+    // No process id: the start failed and the "error" event follows. Nothing runs on the port, so a
+    // hunt's port goes back to the pool and the caller (the matchmaking call) gets an error, which the
+    // metagame reports to the player as FAILED instead of an address nothing listens on.
+    if(Child.pid === undefined){
+        if(IsHunt){
+            FreePorts.push(Port);
+        }
+
+        throw new Error(`Could not start a game server on port ${Port}`);
+    }
 
     const NewGameserver: Gameserver = {
         id: Id,
@@ -133,7 +237,7 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
         expectedPlayers: ExpectedPlayers,
         isRamsgate: IsRamsgate,
         isTrainingDojo: IsTrainingDojo,
-        processId: Child.pid!,
+        processId: Child.pid,
         startTime: new Date()
     };
 
@@ -142,10 +246,16 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
     return NewGameserver;
 }
 
-export function GetRamsgateConnectionDetails(){
+export async function GetRamsgateConnectionDetails(){
+    let Server = RamsgateServer;
+
+    if(Server === undefined || IsPersistentWorldLivenessOn()){
+        Server = await EnsurePersistentWorld("ramsgate", Server === undefined ? "Ramsgate is not running: starting it" : "Ramsgate is not running any more: starting it again before sending anyone there");
+    }
+
     return {
         host: MY_IP,
-        port: RamsgateServer.port
+        port: Server.port
     };
 }
 
@@ -153,21 +263,19 @@ export function GetRamsgateConnectionDetails(){
 // rather than at boot. It is a full game process that most sessions never
 // visit, and on a single home PC that memory matters. Concurrent first
 // requests share one launch instead of racing to start two.
-let TrainingDojoStarting: Promise<Gameserver> | undefined;
-
 export async function GetTrainingDojoConnectionDetails(){
-    if (TrainingDojoServer == undefined) {
-        if (TrainingDojoStarting == undefined) {
-            logger.info("Starting the Training Dojo on demand");
-            TrainingDojoStarting = StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true)
-                .finally(() => { TrainingDojoStarting = undefined; });
-        }
-        TrainingDojoServer = await TrainingDojoStarting;
+    let Server = TrainingDojoServer;
+
+    if(Server === undefined){
+        Server = await EnsurePersistentWorld("dojo", "Starting the Training Dojo on demand", "info");
+    }
+    else if(IsPersistentWorldLivenessOn()){
+        Server = await EnsurePersistentWorld("dojo", "The Training Dojo is not running any more: starting it again before sending anyone there");
     }
 
     return {
         host: MY_IP,
-        port: TrainingDojoServer.port
+        port: Server.port
     };
 }
 
@@ -345,16 +453,52 @@ export function DescribeGameservers(Servers: Gameserver[] = Gameservers, IsAlive
     });
 }
 
+// Both persistent worlds start through the shared launch, so a player's request that arrives while
+// they are still starting waits for them instead of starting a second process
 export async function Startup(){
     for(let i = PORT_RANGE_BEGIN; i <= PORT_RANGE_END - 2; i++){
         FreePorts.push(i);
     }
 
-    RamsgateServer = await StartServer(RAMSGATE_MAP_PATH, undefined, undefined, undefined, true, false);
+    await EnsurePersistentWorld("ramsgate");
 
     // Upstream always started the Dojo here. Opt back in with ENABLE_DOJO=1 on
     // a machine with RAM to spare; otherwise it starts on first use.
     if (process.env.ENABLE_DOJO === "1") {
-        TrainingDojoServer = await StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true);
+        await EnsurePersistentWorld("dojo");
     }
+}
+
+// For server.ts. A failed start (a wrong GAMESERVER_BINARY_PATH, say) is one fatal line and a
+// non-zero exit code for when the process ends, instead of an unhandled rejection. The deploy server
+// keeps answering: the next trip to Ramsgate tries to start it again.
+export function StartupAndReportFailure(){
+    return Startup().catch((error) => {
+        logger.fatal(`Starting the game servers failed: ${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 1;
+    });
+}
+
+// The watchdog's check, with the same stand-in as everything else here in tests
+export function IsGameserverAlive(Server: Gameserver){
+    return ProcessIsAlive(Server.processId);
+}
+
+// ---- Tests only ----
+
+export function UseProcessFunctionsForTests(Functions: { Spawn?: SpawnFunction, IsAlive?: (ProcessId: number) => boolean }){
+    SpawnProcess = Functions.Spawn ?? spawn;
+    ProcessIsAlive = Functions.IsAlive ?? ((ProcessId) => IsProcessAlive(ProcessId));
+}
+
+export function ResetGameserversForTests(){
+    Gameservers = [];
+    FreePorts = [];
+    RamsgateServer = undefined;
+    TrainingDojoServer = undefined;
+    PersistentWorldLaunches.clear();
+}
+
+export function GameserverStateForTests(){
+    return { FreePorts: [...FreePorts], Ramsgate: RamsgateServer, Dojo: TrainingDojoServer };
 }

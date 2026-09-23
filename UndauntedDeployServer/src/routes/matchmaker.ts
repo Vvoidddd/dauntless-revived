@@ -33,7 +33,19 @@ matchmakingRouter.post("/handle-matchmaking-for-player", express.json(), async (
         return;
     }
 
-    const MatchmakingResult = await HandleMatchmakingRequest(GameMode, GameArgs, HuntId, ExpectedPlayers);
+    let MatchmakingResult;
+
+    try{
+        MatchmakingResult = await HandleMatchmakingRequest(GameMode, GameArgs, HuntId, ExpectedPlayers);
+    }
+    catch(error){
+        // No free port, or a game server that could not be started: the metagame answers the player FAILED
+        logger.error(`Matchmaking for ${GameMode} ${HuntId ?? ""} failed: ${error instanceof Error ? error.message : String(error)}`);
+
+        res.status(500);
+        res.json({ error: "no_game_server" });
+        return;
+    }
 
     res.status(200);
     res.json(MatchmakingResult);
