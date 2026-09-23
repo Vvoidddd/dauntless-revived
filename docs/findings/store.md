@@ -152,10 +152,13 @@ every account has exactly one.
 ## The purchase, step by step {#redeem}
 
 1. **The token.** `GET /token/platinum/<sku>` checks that the offer exists, is free and grants only
-   allowed things, then stores a row in `storepurchases`: the SHA-256 of a random 64-hex token (the
-   token itself is never stored), the account, the active character, the SKU, a hash of the offer as it
-   is now, and an expiry 10 minutes later. Unredeemed tokens past their expiry are deleted whenever a
-   token is issued and at every start.
+   allowed things, that the player does not already own everything it grants (409; the bounty-token
+   bundle is never owned) and that the account has had fewer than 60 tokens in the last 10 minutes
+   (409), then stores a row in `storepurchases`: the SHA-256 of a random 64-hex token (the token itself
+   is never stored), the account, the active character, the SKU, a hash of the offer as it is now, and
+   an expiry 10 minutes later. The account's own unredeemed tokens past their expiry are deleted when it
+   gets a new one; the whole table is swept at every start and then at most once an hour (expired
+   tokens never redeemed, and receipts redeemed more than 30 days ago).
 2. **The confirm.** `POST /notification/platinum?token=<token>` runs in one database transaction:
    - another account's token or an unknown one: 403; a token whose character moved: 403; an expired
      token: 410; an offer that changed since the token, or is no longer sold: 409;
@@ -166,7 +169,9 @@ every account has exactly one.
      and one `inventorylog` row per item. Something the character already holds is not granted again;
    - the entitlements go through the same code as the game server's grants, with the source
      `store:<sku>`;
-   - the token row is marked redeemed. If anything fails, nothing of it is kept.
+   - the token row is marked redeemed. If anything fails, nothing of it is kept. The row is the receipt
+     a retried confirm is answered from; it is deleted 30 days after the redeem, while the grant stays
+     in `inventorylog` (kept forever) and `entitlements`.
 3. **Ownership.** An offer reads `remaining: 0` once every item is held and every entitlement is
    active. A revoked or expired entitlement can therefore be bought again, and the Elite pass reads as
    owned through the default entitlements.

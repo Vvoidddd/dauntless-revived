@@ -435,6 +435,7 @@ Metagame lines unless marked.
 | `The progression config could not be loaded: <reason>` (fatal) | A season file or `ACTIVE_HUNT_PASS` is wrong; the metagame stops before it opens the database. Fix the file named in the reason, or remove the setting. |
 | `<NAME>="<value>" is not a valid value; using the default (<default>)` | A switch has a value it does not understand; the default is used. |
 | `Removed N expired store purchase token(s) that were never redeemed` | Housekeeping of the store's tokens. |
+| `Removed N store purchase receipt(s) redeemed more than 30 days ago` | Housekeeping of the store's receipts; the grants stay in the item log and the entitlements. |
 | `Ramsgate and Dojo liveness check before handing them out: on` (deploy log) | `PERSISTENT_WORLD_LIVENESS` is on. |
 | `Starting the game servers failed: <message>` (deploy log, fatal) | Ramsgate could not be started at boot (often a wrong `GAMESERVER_BINARY_PATH`). The deploy server keeps running and tries again at the next trip to Ramsgate; its exit code is 1 when it ends. |
 
@@ -473,7 +474,7 @@ Metagame lines unless marked.
 | `Store purchase token for <sku> issued to <account> (character <id>)` | Buy was pressed. |
 | `Store purchase <sku> for <account> (character <id>): N item(s), M entitlement(s)` | The purchase went through. |
 | `Store purchase <sku> of <account> was already redeemed; nothing granted again` | A retried confirm. Harmless. |
-| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character). |
+| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character, `You already own everything this offer grants`, `Too many purchases`: 60 tokens in 10 minutes). |
 | `Store SKUs requested for unknown tag <tag>: an empty list` | The game asked for a store page we have no offers for. |
 
 **Slayer Links**

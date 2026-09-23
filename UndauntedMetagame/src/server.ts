@@ -47,13 +47,10 @@ try {
 
 GetDb(); // This runs migrations TODO make this more explicit
 
-// Store purchase tokens that expired without being redeemed (they are also removed whenever a token is issued)
+// Store purchase tokens that expired without being redeemed, and old receipts (also at most once an hour
+// when a token is issued; the lines are logged there)
 try {
-  const Pruned = PruneExpiredStorePurchases();
-
-  if (Pruned > 0) {
-    logger.info(`Removed ${Pruned} expired store purchase token(s) that were never redeemed`);
-  }
+  PruneExpiredStorePurchases();
 } catch (error) {
   logger.warn(error, "Could not remove the expired store purchase tokens");
 }

@@ -160,11 +160,14 @@ palvelimellamme melkein jokaisella tilillä on tasan yksi.
 ## Osto vaihe vaiheelta {#redeem}
 
 1. **Tunniste.** `GET /token/platinum/<tarjous>` tarkistaa, että tarjous on olemassa, ilmainen ja
-   antaa vain sallittuja asioita, ja tallentaa sitten rivin tauluun `storepurchases`: satunnaisen
-   64-heksamerkkisen tunnisteen SHA-256-tiivisteen (itse tunnistetta ei tallenneta koskaan), tilin,
-   aktiivisen hahmon, tarjouksen tunnuksen, tiivisteen tarjouksesta sellaisena kuin se nyt on, ja
-   vanhenemisajan 10 minuutin päähän. Lunastamattomat, vanhentuneet tunnisteet poistetaan aina, kun
-   uusi tunniste annetaan, ja jokaisella käynnistyksellä.
+   antaa vain sallittuja asioita, ettei pelaajalla ole jo kaikkea, mitä se antaa (409; palkkiotunnisteiden
+   nippu ei ole koskaan omistettu), ja että tili on saanut alle 60 tunnistetta viimeisten 10 minuutin
+   aikana (409), ja tallentaa sitten rivin tauluun `storepurchases`: satunnaisen 64-heksamerkkisen
+   tunnisteen SHA-256-tiivisteen (itse tunnistetta ei tallenneta koskaan), tilin, aktiivisen hahmon,
+   tarjouksen tunnuksen, tiivisteen tarjouksesta sellaisena kuin se nyt on, ja vanhenemisajan 10
+   minuutin päähän. Tilin omat lunastamattomat, vanhentuneet tunnisteet poistetaan, kun se saa uuden;
+   koko taulu siivotaan jokaisella käynnistyksellä ja sen jälkeen enintään kerran tunnissa (vanhentuneet,
+   lunastamattomat tunnisteet sekä yli 30 päivää sitten lunastettujen kuitit).
 2. **Vahvistus.** `POST /notification/platinum?token=<tunniste>` tehdään yhtenä tietokantatapahtumana:
    - toisen tilin tai tuntematon tunniste: 403; tunniste, jonka hahmo on siirtynyt: 403; vanhentunut
      tunniste: 410; tarjous, joka on muuttunut tunnisteen jälkeen tai jota ei enää myydä: 409;
@@ -174,7 +177,9 @@ palvelimellamme melkein jokaisella tilillä on tasan yksi.
      kirjanpidossa ja yksi `inventorylog`-rivi tavaraa kohden. Mitä hahmolla jo on, sitä ei anneta
      uudelleen;
    - oikeudet kulkevat saman koodin kautta kuin pelipalvelimen omat myönnöt, lähteenä `store:<tarjous>`;
-   - tunnisteen rivi merkitään lunastetuksi. Jos jokin epäonnistuu, mitään siitä ei jää voimaan.
+   - tunnisteen rivi merkitään lunastetuksi. Jos jokin epäonnistuu, mitään siitä ei jää voimaan. Rivi on
+     kuitti, jolla uusittuun vahvistukseen vastataan; se poistetaan 30 päivää lunastuksen jälkeen, ja
+     annettu säilyy tauluissa `inventorylog` (säilytetään aina) ja `entitlements`.
 3. **Omistus.** Tarjous näyttää `remaining: 0`, kun jokainen tavara on hahmolla ja jokainen oikeus on
    voimassa. Peruttu tai vanhentunut oikeus voidaan siis ostaa uudelleen, ja Elite-passi näkyy
    omistettuna oletusoikeuksien kautta.

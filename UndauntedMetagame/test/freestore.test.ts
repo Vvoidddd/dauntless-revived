@@ -3,11 +3,11 @@ import "./authenv";
 import { WithEnv } from "./appenv";
 import { after, before, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Call, StartApp, StopApp } from "./appclient";
 import { GetDb } from "../src/db";
 import { characters, inventory, storepurchases, users } from "../src/db/schema";
-import { CreateStorePurchase, GetStoreOffer, GrantKind, ListStoreOffers, RedeemStorePurchase } from "../src/controllers/freestore";
+import { CreateStorePurchase, GetStoreOffer, GrantKind, ListStoreOffers, MAX_TOKENS_PER_WINDOW, PruneExpiredStorePurchases, RECEIPT_DAYS, RedeemStorePurchase, SetStoreTokenLimitForTests } from "../src/controllers/freestore";
 import { HasActiveEntitlement, ListEntitlements, RevokeEntitlementInTx } from "../src/controllers/entitlements";
 import { CreateCharacterForUid, UpdateCharacterForUid } from "../src/controllers/character";
 import StoreCatalog from "../src/vendor/store_catalog.json";
@@ -53,6 +53,22 @@ const Token = (UserId: string, Sku = SKU) => CreateStorePurchase(UserId, "platin
 const Redeem = (UserId: string, PurchaseToken: string) => RedeemStorePurchase(UserId, "platinum", PurchaseToken);
 const Buy = (UserId: string, Sku: string) => Redeem(UserId, Token(UserId, Sku));
 
+// Every storefront offer that is not owned yet when its turn comes (a bundle bought earlier may own a
+// single item's offer), past the per-account token limit
+function BuyEveryOffer(UserId: string, Offers: Offer[]){
+    SetStoreTokenLimitForTests(10000);
+    try{
+        for(const Found of Offers){
+            if(GetStoreOffer(UserId, Found.id).remaining === 1){
+                Buy(UserId, Found.id);
+            }
+        }
+    }
+    finally{
+        SetStoreTokenLimitForTests();
+    }
+}
+
 function ReadInventory(CharacterId: string){
     const Row = GetDb().select().from(inventory).where(eq(inventory.characterId, CharacterId)).get();
 
@@ -63,14 +79,17 @@ const EntitlementNames = (UserId: string) => ListEntitlements(UserId).map((Entit
 const NoDefaults = <T>(Body: () => T | Promise<T>) => WithEnv({ ENTITLEMENTS_DEFAULT: "" }, Body);
 
 describe("purchases (Harmonic's free-store cases)", () => {
-    // from Harmonicrain/Undaunted test/free-store.test.js:29
+    // from Harmonicrain/Undaunted test/free-store.test.js:29, adapted: the second token is issued before the
+    // first is redeemed, since a token for an offer already owned is refused
     it("a free grant persists, reads as owned, and retries or new tokens do not duplicate it", async () => {
         const A = await MakePlayer();
         const First = Token(A.UserId);
+        const Second = Token(A.UserId);
 
         Redeem(A.UserId, First);
         Redeem(A.UserId, First);
-        Redeem(A.UserId, Token(A.UserId));
+        Redeem(A.UserId, Second);
+        assert.throws(() => Token(A.UserId), { Status: 409 }, "no new token for what the player owns");
 
         assert.equal(StackQuantity(A.CharacterId, ITEM), 1);
         assert.equal(ListStoreOffers(A.UserId, "webstore").find((Offer) => Offer.id === SKU)!.remaining, 0);
@@ -197,11 +216,14 @@ describe("purchases (Harmonic's free-store cases)", () => {
 });
 
 describe("offers and entitlements (Harmonic's entitlement cases)", () => {
-    // from Harmonicrain/Undaunted test/entitlements.test.js:42
+    // from Harmonicrain/Undaunted test/entitlements.test.js:42 (no default entitlements: the default Elite
+    // pass reads as owned, and no token is issued for an offer already owned)
     it("an offer outside the webstore tag is found rather than reported unknown", async () => {
-        const A = await MakePlayer();
+        await NoDefaults(async () => {
+            const A = await MakePlayer();
 
-        assert.match(Token(A.UserId, "season09b_premium"), /^[a-f0-9]{64}$/);
+            assert.match(Token(A.UserId, "season09b_premium"), /^[a-f0-9]{64}$/);
+        });
     });
 
     // from Harmonicrain/Undaunted test/entitlements.test.js:53
@@ -266,14 +288,17 @@ describe("offers and entitlements (Harmonic's entitlement cases)", () => {
         });
     });
 
-    // from Harmonicrain/Undaunted test/entitlements.test.js:145
+    // from Harmonicrain/Undaunted test/entitlements.test.js:145, adapted: both tokens are issued first, since a
+    // token for an entitlement already held is refused
     it("a second purchase of the same entitlement does not duplicate it", async () => {
         await NoDefaults(async () => {
             const A = await MakePlayer();
-            Buy(A.UserId, "season09b_premium");
-            Buy(A.UserId, "season09b_premium");
+            const First = Token(A.UserId, "season09b_premium"), Second = Token(A.UserId, "season09b_premium");
+            Redeem(A.UserId, First);
+            Redeem(A.UserId, Second);
 
             assert.deepEqual(EntitlementNames(A.UserId), ["season09b_premium"]);
+            assert.throws(() => Token(A.UserId, "season09b_premium"), { Status: 409 });
         });
     });
 
@@ -323,25 +348,27 @@ describe("offers and entitlements (Harmonic's entitlement cases)", () => {
         assert.ok(ReadInventory(A.CharacterId).stacked.length > 0, "items were granted");
     });
 
-    // from Harmonicrain/Undaunted test/entitlements.test.js:186
+    // from Harmonicrain/Undaunted test/entitlements.test.js:186, adapted: both tokens are issued first, since a
+    // token for an offer already owned is refused
     it("an already-owned cosmetic is not granted a second copy", async () => {
         const A = await MakePlayer();
-        Buy(A.UserId, "bundle_armour_iron");
-        Buy(A.UserId, "bundle_armour_iron");
+        const First = Token(A.UserId, "bundle_armour_iron"), Second = Token(A.UserId, "bundle_armour_iron");
+        Redeem(A.UserId, First);
+        Redeem(A.UserId, Second);
+        assert.throws(() => Token(A.UserId, "bundle_armour_iron"), { Status: 409 });
 
         for(const Stack of ReadInventory(A.CharacterId).stacked){
             assert.equal(Stack.quantity, 1, `${Stack.catalogId} should be held once, cosmetics are unlocks`);
         }
     });
 
-    // from Harmonicrain/Undaunted test/entitlements.test.js:204 (with the bounty-token bundle on sale)
+    // from Harmonicrain/Undaunted test/entitlements.test.js:204 (with the bounty-token bundle on sale; an
+    // offer an earlier bundle already owns is not bought again)
     it("every storefront offer can be bought and redeemed", async () => {
         await WithEnv({ STORE_REPEATABLE_TOKENS: "1" }, async () => {
             const A = await MakePlayer();
 
-            for(const Offer of Catalog.webstore){
-                Buy(A.UserId, Offer.id);
-            }
+            BuyEveryOffer(A.UserId, Catalog.webstore);
 
             const Held = ReadInventory(A.CharacterId);
             const Ids = new Set([...Held.stacked.map((Stack) => Stack.catalogId), ...Held.instanced.map((Instance) => Instance.catalogId)]);
@@ -418,9 +445,7 @@ describe("offers and entitlements (Harmonic's entitlement cases)", () => {
     it("store grants land stacked or instanced exactly as the catalogue flag says", async () => {
         const A = await MakePlayer();
 
-        for(const Offer of Catalog.webstore.filter((Found) => Found.id !== "bundle_currency_bounty_small")){
-            Buy(A.UserId, Offer.id);
-        }
+        BuyEveryOffer(A.UserId, Catalog.webstore.filter((Found) => Found.id !== "bundle_currency_bounty_small"));
 
         const Held = ReadInventory(A.CharacterId);
         const Stacked = new Set(Held.stacked.map((Stack) => Stack.catalogId));
@@ -438,6 +463,56 @@ describe("offers and entitlements (Harmonic's entitlement cases)", () => {
 
         // An instanced grant carries an id of its own, 32 hex characters, and a version of 0
         assert.ok(Held.instanced.every((Instance) => /^[0-9a-f]{32}$/.test(Instance.instanceId) && Instance.updateVersion === 0));
+    });
+});
+
+describe("limits", () => {
+    it("no token for an offer the player already owns (409, over HTTP too); the bounty-token bundle is never owned", async () => {
+        const A = await MakePlayer();
+        Buy(A.UserId, SKU);
+
+        assert.throws(() => Token(A.UserId), { Status: 409 });
+        const Refused = await Call("GET", `/token/platinum/${SKU}`, { as: A.UserId });
+        assert.deepEqual([Refused.status, Refused.json], [409, { code: "409", message: "You already own everything this offer grants" }]);
+        assert.equal(Count("storepurchases", "accountId = ?", A.UserId), 1, "only the first token was stored");
+
+        await WithEnv({ STORE_REPEATABLE_TOKENS: "1" }, async () => {
+            Buy(A.UserId, "bundle_currency_bounty_small");
+            assert.match(Token(A.UserId, "bundle_currency_bounty_small"), /^[a-f0-9]{64}$/);
+        });
+    });
+
+    it(`at most ${MAX_TOKENS_PER_WINDOW} tokens per account in 10 minutes`, async () => {
+        const A = await MakePlayer(), B = await MakePlayer();
+
+        for(let Issued = 0; Issued < MAX_TOKENS_PER_WINDOW; Issued++){
+            Token(A.UserId);
+        }
+
+        assert.throws(() => Token(A.UserId), { Status: 409 });
+        assert.equal(Count("storepurchases", "accountId = ?", A.UserId), MAX_TOKENS_PER_WINDOW);
+        assert.match(Token(B.UserId), /^[a-f0-9]{64}$/, "per account");
+
+        GetDb().update(storepurchases).set({ createdDate: new Date(Date.now() - 10 * 60 * 1000).toISOString() }).where(eq(storepurchases.accountId, A.UserId)).run();
+        assert.match(Token(A.UserId), /^[a-f0-9]{64}$/, "the window has moved on");
+    });
+
+    it(`the sweep removes tokens never redeemed and receipts older than ${RECEIPT_DAYS} days; a recent receipt stays`, async () => {
+        const A = await MakePlayer(), B = await MakePlayer();
+        const Old = Token(A.UserId);
+        Redeem(A.UserId, Old);
+        Buy(A.UserId, "single_armour_monk_chest");
+        Token(B.UserId);
+
+        GetDb().update(storepurchases).set({ redeemedDate: new Date(Date.now() - (RECEIPT_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString() }).where(and(eq(storepurchases.accountId, A.UserId), eq(storepurchases.skuId, SKU))).run();
+        GetDb().update(storepurchases).set({ expiresDate: "2000-01-01T00:00:00.000Z" }).where(eq(storepurchases.accountId, B.UserId)).run();
+
+        const Removed = PruneExpiredStorePurchases();
+        assert.ok(Removed.Expired >= 1 && Removed.Receipts >= 1, JSON.stringify(Removed));
+        assert.deepEqual(GetDb().select().from(storepurchases).where(eq(storepurchases.accountId, A.UserId)).all().map((Row) => Row.skuId), ["single_armour_monk_chest"]);
+        assert.equal(Count("storepurchases", "accountId = ?", B.UserId), 0);
+        assert.equal(StackQuantity(A.CharacterId, ITEM), 1, "the grant stays");
+        assert.equal(Count("inventorylog", "characterId = ? and source = ?", A.CharacterId, `store:${SKU}`), 1, "and so does its log");
     });
 });
 

@@ -2649,6 +2649,7 @@ Metagame lines unless marked.
 | `The progression config could not be loaded: <reason>` (fatal) | A season file or `ACTIVE_HUNT_PASS` is wrong; the metagame stops before it opens the database. Fix the file named in the reason, or remove the setting. |
 | `<NAME>="<value>" is not a valid value; using the default (<default>)` | A switch has a value it does not understand; the default is used. |
 | `Removed N expired store purchase token(s) that were never redeemed` | Housekeeping of the store's tokens. |
+| `Removed N store purchase receipt(s) redeemed more than 30 days ago` | Housekeeping of the store's receipts; the grants stay in the item log and the entitlements. |
 | `Ramsgate and Dojo liveness check before handing them out: on` (deploy log) | `PERSISTENT_WORLD_LIVENESS` is on. |
 | `Starting the game servers failed: <message>` (deploy log, fatal) | Ramsgate could not be started at boot (often a wrong `GAMESERVER_BINARY_PATH`). The deploy server keeps running and tries again at the next trip to Ramsgate; its exit code is 1 when it ends. |
 
@@ -2687,7 +2688,7 @@ Metagame lines unless marked.
 | `Store purchase token for <sku> issued to <account> (character <id>)` | Buy was pressed. |
 | `Store purchase <sku> for <account> (character <id>): N item(s), M entitlement(s)` | The purchase went through. |
 | `Store purchase <sku> of <account> was already redeemed; nothing granted again` | A retried confirm. Harmless. |
-| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character). |
+| `Store <what> refused (<status>): <message>` | A refused request, with the reason (an expired token, an offer that changed, an account without a character, `You already own everything this offer grants`, `Too many purchases`: 60 tokens in 10 minutes). |
 | `Store SKUs requested for unknown tag <tag>: an empty list` | The game asked for a store page we have no offers for. |
 
 **Slayer Links**
@@ -5218,7 +5219,7 @@ game-server key alone 403. Refusals are `{"code": "<status>", "message": ...}`.
 |:-------|:-----|:-------|:-------------|
 | GET | `/product/skus/public?requiredTags=<tag>` | player | The offers of one tag, as a bare array, each with `remaining` (0 when every item it grants is held by the active character and every entitlement it grants is active). The store screen asks for `webstore` (200 offers; the Elite pass is under `season09b_pass`). An unknown tag is `[]` and a warning; no tag is 400. |
 | GET | `/product/sku/:skuId` | player | One offer, from any tag; 404 for an unknown one (or the bounty-token bundle while `STORE_REPEATABLE_TOKENS` is off). |
-| GET | `/token/:currency/:skuId` | player | `{purchaseToken}`: 64 hex characters, valid 10 minutes, bound to the account's active character and to the offer as it is now (a row in `storepurchases`, which stores only the token's SHA-256). `currency` must be `platinum` (400); only free offers of allowed items are sold (409); 404 for an unknown offer; 409 when the account has no character. |
+| GET | `/token/:currency/:skuId` | player | `{purchaseToken}`: 64 hex characters, valid 10 minutes, bound to the account's active character and to the offer as it is now (a row in `storepurchases`, which stores only the token's SHA-256). `currency` must be `platinum` (400); only free offers of allowed items are sold (409); 404 for an unknown offer; 409 when the account has no character, already owns everything the offer grants, or has had 60 tokens in the last 10 minutes. |
 | POST | `/notification/:currency?token=<token>` | player | Redeems the token and answers 204 with no body. In one transaction: the items through the inventory core (caller `store`, source `store:<sku>`, transaction id `store:<token hash>`; items the character already holds are skipped), the entitlements through the entitlement grant (source `store:<sku>`), then the token is marked redeemed. 403 for another account's or an unknown token, or one whose character is no longer the account's; 410 when it expired; 409 when the offer changed or is no longer sold; 400 for a malformed token or another currency. A token redeemed before answers 204 again and grants nothing. |
 
 The purchase token is removed from every log line (the request log never logs the query string, the
@@ -6212,7 +6213,7 @@ Added with migrations `0014_escalation` and `0015_store_purchases`. Dates are IS
 | `escalationprogression` | Only with `ESCALATION_MODE=real`: per account and season, the Escalation level, the XP towards the next level, the last saved `updateVersion`, a hash of the saved content (to recognise a retry) and when it was saved. No row means level 0, version 0. [Escalation](https://mixutin.github.io/dauntless-revived/findings/escalation.html). |
 | `escalationtalents` | Per account, season and talent: the rank. Replaced as a whole by each save (a talent reset lowers ranks). |
 | `escalationunlocks` | Per account, season and reward: when it was collected. A collected reward is never removed. |
-| `storepurchases` | Only with `STORE=free`: one row per purchase token. The SHA-256 of the token (the token itself is never stored), the account, the character the purchase goes to, the SKU, a hash of the offer when the token was issued, the created and expiry dates (10 minutes) and the redeemed date. Unredeemed rows past their expiry are deleted at every start and whenever a token is issued; redeemed rows are kept as receipts. The items and entitlements a purchase grants are in `inventories` and `entitlements`, logged in `inventorylog` (caller `store`) and `inventorytransactions`. [The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html). |
+| `storepurchases` | Only with `STORE=free`: one row per purchase token. The SHA-256 of the token (the token itself is never stored), the account, the character the purchase goes to, the SKU, a hash of the offer when the token was issued, the created and expiry dates (10 minutes) and the redeemed date. Unredeemed rows past their expiry are deleted at every start, at most once an hour after that, and for the account whenever it gets a token; redeemed rows are kept as receipts for 30 days. The limit of 60 tokens per account in 10 minutes is counted from this table. The items and entitlements a purchase grants are in `inventories` and `entitlements`, logged in `inventorylog` (caller `store`) and `inventorytransactions`. [The in-game store](https://mixutin.github.io/dauntless-revived/findings/store.html). |
 
 ### Friends
 
@@ -13813,10 +13814,13 @@ every account has exactly one.
 ## The purchase, step by step
 
 1. **The token.** `GET /token/platinum/<sku>` checks that the offer exists, is free and grants only
-   allowed things, then stores a row in `storepurchases`: the SHA-256 of a random 64-hex token (the
-   token itself is never stored), the account, the active character, the SKU, a hash of the offer as it
-   is now, and an expiry 10 minutes later. Unredeemed tokens past their expiry are deleted whenever a
-   token is issued and at every start.
+   allowed things, that the player does not already own everything it grants (409; the bounty-token
+   bundle is never owned) and that the account has had fewer than 60 tokens in the last 10 minutes
+   (409), then stores a row in `storepurchases`: the SHA-256 of a random 64-hex token (the token itself
+   is never stored), the account, the active character, the SKU, a hash of the offer as it is now, and
+   an expiry 10 minutes later. The account's own unredeemed tokens past their expiry are deleted when it
+   gets a new one; the whole table is swept at every start and then at most once an hour (expired
+   tokens never redeemed, and receipts redeemed more than 30 days ago).
 2. **The confirm.** `POST /notification/platinum?token=<token>` runs in one database transaction:
    - another account's token or an unknown one: 403; a token whose character moved: 403; an expired
      token: 410; an offer that changed since the token, or is no longer sold: 409;
@@ -13827,7 +13831,9 @@ every account has exactly one.
      and one `inventorylog` row per item. Something the character already holds is not granted again;
    - the entitlements go through the same code as the game server's grants, with the source
      `store:<sku>`;
-   - the token row is marked redeemed. If anything fails, nothing of it is kept.
+   - the token row is marked redeemed. If anything fails, nothing of it is kept. The row is the receipt
+     a retried confirm is answered from; it is deleted 30 days after the redeem, while the grant stays
+     in `inventorylog` (kept forever) and `entitlements`.
 3. **Ownership.** An offer reads `remaining: 0` once every item is held and every entitlement is
    active. A revoked or expired entitlement can therefore be bought again, and the Elite pass reads as
    owned through the default entitlements.

@@ -1,7 +1,7 @@
 // Ported from Harmonicrain/Undaunted (895f7c7), Copyright (C) 2026 Harmonic, AGPL-3.0-only; modified for Dauntless Revived.
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, isNull, lt } from "drizzle-orm";
+import { and, count, eq, gt, isNotNull, isNull, lt } from "drizzle-orm";
 import { GetDb } from "../db";
 import { characters, inventory, storepurchases } from "../db/schema";
 import { logger } from "../logger";
@@ -41,6 +41,25 @@ type StoreGrant = { name: string, duration?: number };
 export type StoreOffer = { id: string, tags: string[], platinumPrice: number, items: StoreItem[] | null, entitlements: StoreGrant[] | null, remaining: number, [Field: string]: unknown };
 
 const PURCHASE_TOKEN_MINUTES = 10;
+
+// Purchase tokens one account may be issued in a sliding window (counted from its storepurchases rows,
+// through the account index), whatever became of them: room for a player buying one cosmetic after
+// another, not for a script
+export const MAX_TOKENS_PER_WINDOW = 60;
+export const TOKEN_WINDOW_MS = 10 * 60 * 1000;
+// A redeemed row is the receipt a retried redeem is answered from. The grant itself stays in inventorylog
+// (kept forever) and entitlements, so the receipt goes after this many days.
+export const RECEIPT_DAYS = 30;
+// The sweep over the whole table (expired tokens never redeemed, old receipts): at boot, then at most once
+// this often, when a token is issued
+const SWEEP_EVERY_MS = 60 * 60 * 1000;
+let LastSweep = 0;
+let TokenLimit = MAX_TOKENS_PER_WINDOW;
+
+// Tests only: another token limit (undefined: the real one)
+export function SetStoreTokenLimitForTests(Limit?: number){
+    TokenLimit = Limit ?? MAX_TOKENS_PER_WINDOW;
+}
 
 const Catalog = catalog as unknown as Record<string, unknown>;
 
@@ -194,16 +213,32 @@ export function GetStoreOffer(AccountId: string, SkuId: string): StoreOffer {
     return GetDb().transaction((tx) => WithRemaining(tx, AccountId, HeldCatalogIds(tx, GetActiveCharacter(tx, AccountId)?.characterId), Offer));
 }
 
-// Unredeemed tokens past their expiry (at boot and whenever a token is issued)
+// The whole table: tokens past their expiry that were never redeemed, and receipts redeemed more than
+// RECEIPT_DAYS ago (at boot, then at most once an hour from CreateStorePurchase)
 export function PruneExpiredStorePurchases(){
-    const Removed = GetDb().delete(storepurchases)
-        .where(and(isNull(storepurchases.redeemedDate), lt(storepurchases.expiresDate, new Date().toISOString()))).returning().all();
+    const Now = Date.now();
 
-    return Removed.length;
+    LastSweep = Now;
+
+    const Expired = GetDb().delete(storepurchases)
+        .where(and(isNull(storepurchases.redeemedDate), lt(storepurchases.expiresDate, new Date(Now).toISOString()))).returning().all().length;
+    const Receipts = GetDb().delete(storepurchases)
+        .where(and(isNotNull(storepurchases.redeemedDate), lt(storepurchases.redeemedDate, new Date(Now - RECEIPT_DAYS * 24 * 60 * 60 * 1000).toISOString()))).returning().all().length;
+
+    if(Expired > 0){
+        logger.info(`Removed ${Expired} expired store purchase token(s) that were never redeemed`);
+    }
+
+    if(Receipts > 0){
+        logger.info(`Removed ${Receipts} store purchase receipt(s) redeemed more than ${RECEIPT_DAYS} days ago`);
+    }
+
+    return {Expired, Receipts};
 }
 
 // GET /token/<currency>/<sku>: a 64-hex purchase token, bound to the account's active character and to
-// the offer as it is now; valid for 10 minutes
+// the offer as it is now; valid for 10 minutes. Refused (409) for an offer the account already owns (the
+// repeatable bundle is never owned) and past MAX_TOKENS_PER_WINDOW tokens in TOKEN_WINDOW_MS.
 export function CreateStorePurchase(AccountId: string, Currency: string, SkuId: string){
     CheckCurrency(Currency);
 
@@ -214,18 +249,36 @@ export function CreateStorePurchase(AccountId: string, Currency: string, SkuId: 
     }
 
     CheckOffer(Offer);
-    PruneExpiredStorePurchases();
+
+    if(Date.now() - LastSweep >= SWEEP_EVERY_MS){
+        PruneExpiredStorePurchases();
+    }
 
     const Token = randomBytes(32).toString("hex");
 
     const CharacterId = GetDb().transaction((tx) => {
+        const Now = new Date();
+
+        // This account's own expired tokens, through the account index
+        tx.delete(storepurchases)
+            .where(and(eq(storepurchases.accountId, AccountId), isNull(storepurchases.redeemedDate), lt(storepurchases.expiresDate, Now.toISOString()))).run();
+
         const Character = GetActiveCharacter(tx, AccountId);
 
         if(Character == undefined){
             throw new StoreError(409, "The account has no character to deliver the purchase to");
         }
 
-        const Now = new Date();
+        if(WithRemaining(tx, AccountId, HeldCatalogIds(tx, Character.characterId), Offer).remaining === 0){
+            throw new StoreError(409, "You already own everything this offer grants");
+        }
+
+        const Recent = tx.select({ Issued: count() }).from(storepurchases)
+            .where(and(eq(storepurchases.accountId, AccountId), gt(storepurchases.createdDate, new Date(Now.getTime() - TOKEN_WINDOW_MS).toISOString()))).get()?.Issued ?? 0;
+
+        if(Recent >= TokenLimit){
+            throw new StoreError(409, `Too many purchases: at most ${TokenLimit} in ${TOKEN_WINDOW_MS / 60000} minutes`);
+        }
 
         tx.insert(storepurchases).values({
             tokenHash: Hash(Token),

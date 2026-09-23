@@ -22,6 +22,12 @@ export async function StartApp(){
         const Started = app.listen(0, "127.0.0.1", (Error?: Error) => Error ? Reject(Error) : Resolve(Started));
     });
 
+    // The server never closes an idle connection itself. Client and server share this process, so a test
+    // that keeps the event loop busy for seconds (buying the whole catalogue) could let the server's
+    // keep-alive timer close a pooled connection just as the next request reuses it (ECONNRESET). The
+    // fetch client still retires idle connections on its own.
+    Listening.keepAliveTimeout = 0;
+
     Base = `http://127.0.0.1:${(Listening.address() as AddressInfo).port}`;
 }
 

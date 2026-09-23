@@ -465,6 +465,7 @@ metagamen lokista, ellei toisin mainita.
 | `The progression config could not be loaded: <syy>` (fatal) | Kausitiedosto tai `ACTIVE_HUNT_PASS` on väärin; metagame pysähtyy ennen kuin se avaa tietokannan. Korjaa syyssä nimetty tiedosto tai poista asetus. |
 | `<NIMI>="<arvo>" is not a valid value; using the default (<oletus>)` | Kytkimellä on arvo, jota se ei ymmärrä; käytetään oletusta. |
 | `Removed N expired store purchase token(s) that were never redeemed` | Kaupan tunnisteiden siivousta. |
+| `Removed N store purchase receipt(s) redeemed more than 30 days ago` | Kaupan kuittien siivousta; annetut tavarat ja oikeudet säilyvät tavaralokissa ja oikeuksissa. |
 | `Ramsgate and Dojo liveness check before handing them out: on` (deploy-loki) | `PERSISTENT_WORLD_LIVENESS` on päällä. |
 | `Starting the game servers failed: <viesti>` (deploy-loki, fatal) | Ramsgatea ei saatu käyntiin palvelimen käynnistyessä (usein väärä `GAMESERVER_BINARY_PATH`). Deploy-palvelin jatkaa toimintaansa ja yrittää uudelleen seuraavalla Ramsgaten-matkalla; sen paluukoodi on 1, kun se päättyy. |
 
@@ -503,7 +504,7 @@ metagamen lokista, ellei toisin mainita.
 | `Store purchase token for <tarjous> issued to <tili> (character <tunnus>)` | Osta-painiketta painettiin. |
 | `Store purchase <tarjous> for <tili> (character <tunnus>): N item(s), M entitlement(s)` | Osto meni läpi. |
 | `Store purchase <tarjous> of <tili> was already redeemed; nothing granted again` | Toistettu vahvistus. Harmiton. |
-| `Store <what> refused (<tila>): <viesti>` | Torjuttu pyyntö syineen (vanhentunut tunniste, muuttunut tarjous, tili ilman hahmoa). |
+| `Store <what> refused (<tila>): <viesti>` | Torjuttu pyyntö syineen (vanhentunut tunniste, muuttunut tarjous, tili ilman hahmoa, `You already own everything this offer grants`, `Too many purchases`: 60 tunnistetta 10 minuutissa). |
 | `Store SKUs requested for unknown tag <tunniste>: an empty list` | Peli pyysi kaupan sivua, jolle meillä ei ole tarjouksia. |
 
 **Slayer Links**
