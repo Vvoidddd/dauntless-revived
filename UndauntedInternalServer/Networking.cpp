@@ -1,6 +1,9 @@
 #include "networking.h"
 
 #include <iostream>
+#include "ChannelLookup.h"
+#include <fstream>
+#include <filesystem>
 
 using namespace SDK;
 
@@ -67,17 +70,25 @@ namespace Networking {
         return Actors;
     }
 
-    static UActorChannel* GetActorChannelForConnectionAndActor(UNetConnection* Connection, AActor* Actor) {
-        for (UChannel* Channel : Connection->OpenChannels) {
-            if (Channel->Class == UActorChannel::StaticClass() && ((UActorChannel*)Channel)->Actor == Actor) {
-                return ((UActorChannel*)Channel);
-            }
-        }
+    // Indices, not cached channel pointers: replication can remove/reorder channels in this tick.
+    using ChannelIndex = std::unordered_map<AActor*, int32>;
 
-        return nullptr;
+    static AActor* ChannelActor(UChannel* Channel) {
+        return Channel && Channel->Class == UActorChannel::StaticClass()
+            ? static_cast<UActorChannel*>(Channel)->Actor : nullptr;
     }
 
-    void Listen(UEngine* Engine, int Port) {
+    static ChannelIndex IndexActorChannels(UNetConnection* Connection) {
+        return IndexChannels<AActor>(Connection->OpenChannels.Num(),
+            [Connection](int i) { return Connection->OpenChannels[i]; }, ChannelActor);
+    }
+
+    static UActorChannel* GetActorChannelForConnectionAndActor(UNetConnection* Connection, AActor* Actor, const ChannelIndex& Index) {
+        return static_cast<UActorChannel*>(FindChannel(Actor, Index, Connection->OpenChannels.Num(),
+            [Connection](int i) { return Connection->OpenChannels[i]; }, ChannelActor));
+    }
+
+    bool Listen(UEngine* Engine, int Port) {
         BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
 
         FName GameNetDriver = UKismetStringLibrary::Conv_StringToName(L"GameNetDriver");
@@ -111,11 +122,22 @@ namespace Networking {
 
         FString empy = FString();
 
-        std::cout << "Listen Status: " << (*(reinterpret_cast<bool(**)(UNetDriver*, void*, FURL*, bool, FString*)>(*(__int64*)NetDriver + 0x280)))(NetDriver, (void*)UWorld::GetWorld()->NetworkNotify, &url, false, &empy) << std::endl;
+        const bool Listening = (*(reinterpret_cast<bool(**)(UNetDriver*, void*, FURL*, bool, FString*)>(*(__int64*)NetDriver + 0x280)))(NetDriver, (void*)UWorld::GetWorld()->NetworkNotify, &url, false, &empy);
+        std::cout << "Listen Status: " << Listening << std::endl;
 
         reinterpret_cast<void(*)(UNetDriver*, UWorld*)>(BaseAddress + 0x3491890)(NetDriver, UWorld::GetWorld());
 
         UWorld::GetWorld()->NetDriver = NetDriver;
+        // A unique per-launch marker lets deployment wait for the actual listening world.
+        // Never include credentials or player identities in this file.
+        wchar_t ReadyPath[32768] = {};
+        const DWORD Length = GetEnvironmentVariableW(L"DR_SERVER_READY_FILE", ReadyPath, 32768);
+        if (Listening && Length > 0 && Length < 32768) {
+            std::ofstream Ready{std::filesystem::path(ReadyPath)};
+            Ready << GetCurrentProcessId() << ":" << Port;
+        }
+
+        return Listening;
     }
 
     void TickNetworking() {
@@ -133,12 +155,22 @@ namespace Networking {
 
         ++ * (uint32_t*)((uintptr_t)NetDriver + 0x2AC);
 
+        bool HasReadyConnection = false;
+        for (UNetConnection* Connection : NetDriver->ClientConnections) {
+            if (Connection && Connection->OwningActor && *(uint32_t*)((uintptr_t)Connection + 0x134) == 3) {
+                HasReadyConnection = true;
+                break;
+            }
+        }
+        if (!HasReadyConnection) return;
+
         std::vector<AActor*> Actors = BuildConsiderList(UWorld::GetWorld(), NetDriver);
 
         for (UNetConnection* Connection : NetDriver->ClientConnections) {
-            if (!Connection->OwningActor || *(uint32_t*)((uintptr_t)Connection + 0x134) != 3)
+            if (!Connection || !Connection->OwningActor || *(uint32_t*)((uintptr_t)Connection + 0x134) != 3)
                 continue;
 
+            const ChannelIndex Channels = IndexActorChannels(Connection);
             for (AActor* Actor : Actors) {
                 if (Actor->Class->CastFlags & EClassCastFlags::PlayerController) {
                     if (Actor != Connection->OwningActor) {
@@ -153,7 +185,7 @@ namespace Networking {
 
                 //
 
-                UActorChannel* ActorChannel = GetActorChannelForConnectionAndActor(Connection, Actor);
+                UActorChannel* ActorChannel = GetActorChannelForConnectionAndActor(Connection, Actor, Channels);
 
                 if (!ActorChannel) {
                     ActorChannel = reinterpret_cast<UActorChannel * (*)(UNetConnection*, FName*, unsigned int, int)>(BaseAddress + 0x3449E10)(Connection, &name, 1 << 1, -1);
